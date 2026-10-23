@@ -326,8 +326,8 @@ Fable's scope review (2026-10-23) is folded in.
 - **Offline:** only the Shop view is cached; no other page or API answer is ever served stale.
 - **Security, not in scope:** a CSP violation reporting endpoint, and Cloudflare settings (WAF,
   bot rules) beyond Access.
-- **No container registry** or automatic image updates; rebuilding after a code change is one
-  command.
+- **No automatic image updates:** CI publishes a tested image for every merge (Phase 46); the
+  server moves to one when the owner changes its pinned version.
 - **Accepted audit item:** `braces` under ESLint only, re-dated in README "Dependencies".
 - **Drug interactions** are out of scope: NIH retired its interaction API in 2024.
 

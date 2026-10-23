@@ -207,12 +207,24 @@ applies to them.
 
 ## 7. First start
 
+The app comes ready-made: every change merged to `main` is tested and then published as an image
+tagged `sha-<commit>`. Your server runs one of those, pinned by a one-line `.env` beside the
+compose file (only that line goes there; settings stay in `familyos.env`). Pick the newest commit
+on `main`:
+
 ```bash
-cd /opt/familyos && docker compose -f docker-compose.prod.yml up -d --build
+cd /opt/familyos
+git checkout <commit>
+echo "FAMILYOS_VERSION=sha-$(git rev-parse HEAD)" > .env
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-This builds the image, starts the database, runs the database migrations once, starts the app,
-and then the tunnel once the app is healthy. Check it:
+The first time only, if the pull is refused: the images' packages on GitHub start out private.
+Set each one (`familyos` and `familyos-migrate`) to public in its Package settings.
+
+This starts the database, runs the database migrations once, starts the app, and then the tunnel
+once the app is healthy. Check it:
 
 ```bash
 docker compose -f docker-compose.prod.yml ps
@@ -492,14 +504,20 @@ line, switch it off.
 
 ## 15. Updating and rolling back
 
-**Update:**
+**Update:** move the checkout and the pinned version to the new commit together, then pull:
 
 ```bash
-cd /opt/familyos && git pull && docker compose -f docker-compose.prod.yml up -d --build
+cd /opt/familyos
+git fetch && git checkout <new commit>
+echo "FAMILYOS_VERSION=sha-$(git rev-parse HEAD)" > .env
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-It rebuilds the image, runs any new migrations first, then replaces the app. Read the pull
-request or docs/BUILD.md for the phase first: some updates ask for a step of their own.
+It runs any new migrations first, then replaces the app. Read the pull request or docs/BUILD.md
+for the phase first: some updates ask for a step of their own. A mistyped version fails the pull
+with an error and changes nothing. To check an image really came from this repository's CI
+before running it, see README "Start, update, roll back".
 
 **Changed a setting** in `familyos.env`? Recreate the app so it reads the file again (a plain
 restart doesn't):
@@ -508,7 +526,7 @@ restart doesn't):
 docker compose -f docker-compose.prod.yml up -d --force-recreate app
 ```
 
-**Roll back:** check out the previous commit and run the same `up -d --build`. A migration the
+**Roll back:** the same steps with the previous commit. A migration the
 older code doesn't know stays applied (the restore drill checks that still works). To go back
 further, restore a backup (section 13).
 
@@ -529,8 +547,8 @@ docker compose -f docker-compose.prod.yml exec db psql -U familyos
 # ALTER USER familyos PASSWORD '<new password>';
 ```
 
-**Sentry (optional error reports):** its address is built into the browser code, so set
-`NEXT_PUBLIC_SENTRY_DSN` in the shell when building, and rebuild to change it. What it may receive
+**Sentry (optional error reports):** set `SENTRY_DSN` in `familyos.env` and recreate the app
+(as for any setting). Nothing about it is built into the image. What it may receive
 is locked down in code (README "Error monitoring"); also switch on **Prevent Storing of IP
 Addresses** in the Sentry project.
 
