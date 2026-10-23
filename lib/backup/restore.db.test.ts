@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, test } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { buildBackup } from "./build";
-import { applyRestore, previewRestore, SERVER_TIME_ZONE } from "./restore";
+import { applyRestore, previewRestore } from "./restore";
+import { processZone } from "@/lib/household-zone";
 import { BACKUP_FORMAT, BACKUP_SCHEMA_VERSION, type Backup } from "./schema";
 
 /**
@@ -21,7 +22,7 @@ function fixture(): Backup {
     notes: null, notesAdultsOnly: false, contactCadenceDays: null, lastContactedAt: null, createdAt: T, ...o,
   });
   return {
-    format: BACKUP_FORMAT, schemaVersion: BACKUP_SCHEMA_VERSION, exportedAt: T, exportedTimeZone: SERVER_TIME_ZONE(),
+    format: BACKUP_FORMAT, schemaVersion: BACKUP_SCHEMA_VERSION, exportedAt: T, exportedTimeZone: processZone(),
     databaseMigration: null,
     household: { name: "Fixture Family", timezone: "America/New_York", latitude: 40.71, longitude: -74.01, familyGoalStickers: 200, familyGoalTitle: "Pizza night", appName: "FixtureOS",
       disabledApps: ["store", "cars"],
@@ -188,10 +189,10 @@ async function linkedPerson(householdId: string, email: string, personEmail: str
 }
 
 /** Preview then apply, the way the page does. */
-async function restore(householdId: string, viewerId: string, file: Backup, allowTimeZoneMismatch = false) {
+async function restore(householdId: string, viewerId: string, file: Backup) {
   const preview = await previewRestore(householdId, file);
   if (!preview.ok) return preview;
-  return applyRestore(householdId, viewerId, file, { allowTimeZoneMismatch, expectedPlanDigest: preview.preview.planDigest });
+  return applyRestore(householdId, viewerId, file, { expectedPlanDigest: preview.preview.planDigest });
 }
 
 describe.skipIf(!RUN)("restore (database)", () => {
@@ -234,7 +235,6 @@ describe.skipIf(!RUN)("restore (database)", () => {
     });
 
     const before = JSON.stringify(await counts(ctx.h2));
-    expect((await restore(ctx.h2, ctx.a2, { ...ctx.B1, exportedTimeZone: "Pacific/Kiritimati" })).ok).toBe(false);
     const broken = structuredClone(ctx.B1);
     broken.fuelLogs[0].vehicleId = "nope";
     expect((await restore(ctx.h2, ctx.a2, broken)).ok).toBe(false);
@@ -246,7 +246,7 @@ describe.skipIf(!RUN)("restore (database)", () => {
     const preview = await previewRestore(ctx.h2, ctx.B1);
     if (!preview.ok) throw new Error("preview failed");
     const late = await linkedPerson(ctx.h2, `late-${tag}@example.com`, null, "ADULT", "Late");
-    const stale = await applyRestore(ctx.h2, ctx.a2, ctx.B1, { allowTimeZoneMismatch: false, expectedPlanDigest: preview.preview.planDigest });
+    const stale = await applyRestore(ctx.h2, ctx.a2, ctx.B1, { expectedPlanDigest: preview.preview.planDigest });
     expect(stale.ok).toBe(false);
     await prisma.person.delete({ where: { id: late.id } });
 
@@ -272,7 +272,7 @@ describe.skipIf(!RUN)("restore (database)", () => {
     // Idempotent, and the automatic snapshot restores (new ids never collide).
     expect((await restore(ctx.h2, ctx.a2, ctx.B1)).ok).toBe(true);
     expect(normalize(await buildBackup(ctx.h2), new Set([ctx.kept]))).toEqual(normalize(ctx.B1));
-    expect((await restore(ctx.h2, ctx.a2, r2.previousBackup, true)).ok).toBe(true);
+    expect((await restore(ctx.h2, ctx.a2, r2.previousBackup)).ok).toBe(true);
     expect((await buildBackup(ctx.h2)).vehicles.map((v) => v.name)).toContain("Junk car");
   });
 

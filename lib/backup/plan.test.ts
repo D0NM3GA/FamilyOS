@@ -11,7 +11,8 @@ import {
   pantryCounts,
   planPeople,
   remapBackup,
-  timeZoneMismatch,
+  dayZoneNote,
+  restoredDayZones,
   type LinkedPerson,
 } from "./plan";
 import { BACKUP_FORMAT, BACKUP_SCHEMA_VERSION, type Backup } from "./schema";
@@ -322,10 +323,17 @@ describe("planPeople", () => {
   });
 });
 
-describe("timeZoneMismatch", () => {
-  test("null when equal, a warning when not", () => {
-    expect(timeZoneMismatch(fullBackup(), "America/New_York")).toBeNull();
-    expect(timeZoneMismatch(fullBackup(), "UTC")).toMatch(/Dates would shift/);
+describe("restoredDayZones (Phase 49)", () => {
+  test("from the file's zone to the restored household's, with a fallback for a missing one", () => {
+    const b = fullBackup();
+    expect(restoredDayZones({ ...b, household: { ...b.household, timezone: "Europe/London" } }, "UTC")).toEqual({ from: "America/New_York", to: "Europe/London" });
+    expect(restoredDayZones({ ...b, household: { ...b.household, timezone: null } }, "UTC")).toEqual({ from: "America/New_York", to: "UTC" });
+    expect(restoredDayZones({ ...b, exportedTimeZone: "Not/AZone" }, "UTC").from).toBe("UTC");
+  });
+
+  test("the preview says so only when the days will move", () => {
+    expect(dayZoneNote({ from: "America/New_York", to: "America/New_York" })).toBeNull();
+    expect(dayZoneNote({ from: "America/New_York", to: "Europe/London" })).toMatch(/moved to Europe\/London time, each keeping its date and clock time/);
   });
 });
 

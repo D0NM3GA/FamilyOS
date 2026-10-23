@@ -56,7 +56,8 @@ type Row<K extends keyof Backup> = Backup[K] extends (infer R)[] ? R : Backup[K]
 type Scope = "householdId";
 
 const checks = {
-  household: true satisfies Covered<HouseholdModel, Backup["household"], "id" | "createdAt" | "updatedAt">,
+  // Phase 49: dayZone is the file's exportedTimeZone; a restore moves the days and sets it.
+  household: true satisfies Covered<HouseholdModel, Backup["household"], "id" | "createdAt" | "updatedAt" | "dayZone">,
   // Security / sign-in / M365-owned columns never leave; see schema.ts's header.
   person: true satisfies Covered<
     PersonModel,
