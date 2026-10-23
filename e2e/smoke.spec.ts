@@ -326,7 +326,8 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
 
   // The same sign-in on a device in another zone (half a day from home, so it's surely different).
   const away = home === "Asia/Tokyo" ? "America/Los_Angeles" : "Asia/Tokyo";
-  const trip = await browser.newContext({ storageState: await dad.storageState(), timezoneId: away });
+  // No motion, like the accessibility pass above: axe would otherwise catch cards mid fade-in.
+  const trip = await browser.newContext({ storageState: await dad.storageState(), timezoneId: away, reducedMotion: "reduce" });
   try {
     const travel = await trip.newPage();
     const tripProblems = watchForProblems(travel);
