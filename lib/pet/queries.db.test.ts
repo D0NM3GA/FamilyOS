@@ -44,8 +44,8 @@ describe.skipIf(!RUN)("the pet (database)", () => {
     });
   }
 
-  /** A chore instance finished by someone, on its own due day. */
-  async function doneChore(assignedToId: string | null, completedById: string) {
+  /** A chore instance finished by someone, on its own due day (now, unless told when). */
+  async function doneChore(assignedToId: string | null, completedById: string, completedAt = new Date()) {
     day += 1;
     return prisma.taskInstance.create({
       data: {
@@ -53,7 +53,7 @@ describe.skipIf(!RUN)("the pet (database)", () => {
         dueDate: new Date(Date.UTC(2026, 0, day)),
         assignedToId,
         status: "DONE",
-        completedAt: new Date(),
+        completedAt,
         completedById,
       },
     });
@@ -190,6 +190,32 @@ describe.skipIf(!RUN)("the pet (database)", () => {
     for (let i = 0; i < GIFTS_PER_DAY + 2; i++) await doneChore(who.ivy.id, who.ivy.id);
     expect((await getMyPet(who.ivy)).presents).toHaveLength(GIFTS_PER_DAY);
     expect(await prisma.petGift.count({ where: { personId: who.ivy.id, itemId: null } })).toBe(2);
+  });
+
+  test("each look only reads chores since the last one", async () => {
+    await freshPet(who.ivy.id);
+    await getMyPet(who.ivy);
+    const { giftsCheckedAt } = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
+    expect(giftsCheckedAt).not.toBeNull();
+    // Pretend the last look was an hour ago, then add a chore from before it and one just before.
+    const lastLook = new Date(Date.now() - 60 * MINUTE);
+    await prisma.pet.update({ where: { personId: who.ivy.id }, data: { giftsCheckedAt: lastLook, bornAt: new Date(Date.now() - 3 * 60 * MINUTE) } });
+    const old = await doneChore(who.ivy.id, who.ivy.id, new Date(lastLook.getTime() - 30 * MINUTE));
+    const late = await doneChore(who.ivy.id, who.ivy.id, new Date(lastLook.getTime() - 2 * MINUTE));
+    await getMyPet(who.ivy);
+    expect(await prisma.petGift.count({ where: { instanceId: old.id } })).toBe(0);
+    expect(await prisma.petGift.count({ where: { instanceId: late.id } })).toBe(1);
+  });
+
+  test("a long backlog of chores is read in batches, none skipped", async () => {
+    await freshPet(who.ivy.id);
+    await prisma.pet.update({ where: { personId: who.ivy.id }, data: { bornAt: new Date(Date.now() - 24 * 60 * MINUTE) } });
+    const start = Date.now() - 20 * 60 * MINUTE;
+    for (let i = 0; i < 105; i++) await doneChore(who.ivy.id, who.ivy.id, new Date(start + i * MINUTE));
+    await getMyPet(who.ivy);
+    expect(await prisma.petGift.count({ where: { personId: who.ivy.id } })).toBe(100);
+    await getMyPet(who.ivy);
+    expect(await prisma.petGift.count({ where: { personId: who.ivy.id } })).toBe(105);
   });
 
   test("chores done before the pet hatched bring nothing", async () => {

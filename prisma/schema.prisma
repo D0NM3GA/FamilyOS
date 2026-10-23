@@ -2280,6 +2280,10 @@ model Pet {
   state          Json
   bornAt         DateTime  @default(now())
   lastAdvancedAt DateTime
+  /// Phase 47: chores finished up to here have been looked at for presents, so each look only
+  /// reads newer ones. Null (a new pet, or after a restore) means from `bornAt`. Rebuilt by
+  /// looking, so it isn't in backups.
+  giftsCheckedAt DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

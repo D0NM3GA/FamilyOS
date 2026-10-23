@@ -70,6 +70,10 @@ async function grantUnlocks(tx: Tx, profile: Profile, state: PetState): Promise<
   });
 }
 
+/** How many chores one look reads at most, and how far before the last look it starts. */
+const GIFT_SCAN_LIMIT = 100;
+const GIFT_LOOKBACK_MS = 10 * MINUTE_MS;
+
 const dayFormats = new Map<string, Intl.DateTimeFormat>();
 
 /** A date's day in a time zone, as "2026-10-23". */
@@ -89,20 +93,31 @@ function dayIn(date: Date, timeZone: string): string {
  * an "Anyone" chore. Each chore is looked at once (unique instanceId), present or not, so
  * undoing and redoing it brings nothing more, and undoing it takes nothing back.
  */
-async function grantChoreGifts(tx: Tx, profile: Profile, pet: { seed: string; bornAt: Date }, timeZone: string) {
+async function grantChoreGifts(
+  tx: Tx,
+  profile: Profile,
+  pet: { seed: string; bornAt: Date; giftsCheckedAt: Date | null },
+  timeZone: string,
+  now: Date,
+): Promise<Date> {
+  // Only chores finished since the last look (a little before it, for a chore whose save was
+  // still finishing then; `petGift: null` keeps those from counting twice), never before birth.
+  const since = pet.giftsCheckedAt ? new Date(Math.max(pet.bornAt.getTime(), pet.giftsCheckedAt.getTime() - GIFT_LOOKBACK_MS)) : pet.bornAt;
   const chores = await tx.taskInstance.findMany({
     where: {
       status: "DONE",
-      completedAt: { gte: pet.bornAt },
+      completedAt: { gte: since },
       petGift: { is: null },
       definition: { householdId: profile.householdId, domain: "CHORE" },
       OR: [{ assignedToId: profile.id }, { assignedToId: null, completedById: profile.id }],
     },
     select: { id: true, completedAt: true },
     orderBy: { completedAt: "asc" },
-    take: 100,
+    take: GIFT_SCAN_LIMIT,
   });
-  if (chores.length === 0) return;
+  // A full batch may have more behind it: checked only as far as the last one read.
+  const checkedThrough = chores.length === GIFT_SCAN_LIMIT ? (chores.at(-1)?.completedAt ?? now) : now;
+  if (chores.length === 0) return checkedThrough;
 
   const withDays = chores.map((chore) => ({ id: chore.id, day: dayIn(chore.completedAt ?? new Date(), timeZone) }));
   const days = [...new Set(withDays.map((chore) => chore.day))];
@@ -120,6 +135,7 @@ async function grantChoreGifts(tx: Tx, profile: Profile, pet: { seed: string; bo
     }),
     skipDuplicates: true,
   });
+  return checkedThrough;
 }
 
 /** Thrown inside a transaction to roll it back and still answer with `result`. */
@@ -194,7 +210,8 @@ async function catchUp(tx: Tx, profile: Profile, settings: CareSettings, now: Da
     saved = count === 1;
     if (saved) {
       await grantUnlocks(tx, profile, state);
-      await grantChoreGifts(tx, profile, row, context.timeZone);
+      const giftsCheckedAt = await grantChoreGifts(tx, profile, row, context.timeZone, now);
+      await tx.pet.update({ where: { id: row.id }, data: { giftsCheckedAt } });
     }
   }
 

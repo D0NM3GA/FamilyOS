@@ -674,7 +674,9 @@ dashes, one exclamation mark at most, nothing about chores or the reward word.
 before anything is granted (a conditional update, or an insert that skips duplicates; items are
 one of each per person), so two taps at once give one. A round or present that changes nothing
 is rolled back and doesn't use up its hour. Care hours come from the household row the layout
-already read, before any transaction starts. Actions answer odd input instead of throwing, and
+already read, before any transaction starts. The present check keeps a bookmark (`Pet.giftsCheckedAt`) and
+only reads chores finished since its last look, in batches of 100 that never skip one, so it
+stays as quick for an old pet as a new one. Actions answer odd input instead of throwing, and
 the pet's own seed (which decides sickness and presents) stays on the server. On the screen,
 actions don't trigger a second page load, the room doesn't redraw as the eyes follow the
 pointer, the minute refresh survives a hidden tab and pauses during a game, and timers stop
