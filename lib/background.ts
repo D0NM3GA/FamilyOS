@@ -31,6 +31,9 @@ export function startBackgroundJobs(): void {
     if (running) return;
     running = true;
     try {
+      // Phase 49: first, so every job runs on the household's clock.
+      const { syncServerZone } = await import("@/lib/household-zone");
+      await syncServerZone();
       const { runMoneyJobs } = await import("@/lib/finance/jobs");
       await runMoneyJobs();
       // Phase 40.1c: expired sign-in challenges and setup tokens.

@@ -3,7 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { btnDanger } from "@/components/styles";
 import { ConfirmAction } from "@/components/submit";
-import { disconnectTeams, removeDevice, resetPhoneAlertKeys, saveTeamsLink, sendTestAlert, setChannel, type AlertFormState } from "./actions";
+import { allowTeamsPublishing, disconnectTeams, publishTeamsApp, removeDevice, resetPhoneAlertKeys, sendTestAlert, setChannel, type AlertFormState } from "./actions";
 
 const btn = "inline-flex min-h-11 items-center rounded-md px-3 py-1.5 text-sm font-medium ring-1 ring-input hover:bg-muted disabled:opacity-50 sm:min-h-9";
 
@@ -73,33 +73,41 @@ export function PersonChannel({
   );
 }
 
-export function TeamsLinkForm({ replacing }: { replacing: boolean }) {
-  const [state, action, pending] = useActionState<AlertFormState, FormData>(saveTeamsLink, {});
+/**
+ * Phase 50: "Add to Teams" (or "Update in Teams") publishes the family's Teams app; when Microsoft
+ * says the admin can't yet, the permission button shows beside it (its own form: it leaves for
+ * Microsoft's sign-in and comes back here).
+ */
+export function TeamsAppButtons({ label, askFirst }: { label: string; askFirst: boolean }) {
+  const [state, action, pending] = useActionState<AlertFormState, FormData>(() => publishTeamsApp(), {});
+  const showGrant = askFirst || state.needsGrant;
   return (
-    <form action={action} className="space-y-2">
-      <label className="block text-sm font-medium" htmlFor="teams-url">
-        {replacing ? "Replace the family's Teams link" : "The family's Teams workflow link"}
-      </label>
-      <div className="flex gap-2">
-        {/* type=password: it's a bearer secret, so it shouldn't sit on screen or in autofill. */}
-        <input
-          id="teams-url"
-          name="url"
-          type="password"
-          autoComplete="new-password"
-          spellCheck={false}
-          required
-          placeholder="https://…logic.azure.com/workflows/…"
-          className="min-h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm sm:min-h-9"
-        />
-        <button
-          type="submit"
-          disabled={pending}
-          className="inline-flex min-h-11 items-center rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-50 sm:min-h-9"
-        >
-          Save
-        </button>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {showGrant && <AllowPublishingButton />}
+        <form action={action}>
+          <button
+            type="submit"
+            disabled={pending}
+            className="inline-flex min-h-11 items-center rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-50 sm:min-h-9"
+          >
+            {pending ? "Publishing…" : label}
+          </button>
+        </form>
       </div>
+      <Messages state={state} />
+    </div>
+  );
+}
+
+/** Leaves for Microsoft's sign-in to grant AppCatalog.ReadWrite.All, and comes back to Alerts. */
+function AllowPublishingButton() {
+  const [state, action, pending] = useActionState<AlertFormState, FormData>(() => allowTeamsPublishing(), {});
+  return (
+    <form action={action}>
+      <button type="submit" disabled={pending} className={btn}>
+        Allow publishing (Microsoft)
+      </button>
       <Messages state={state} />
     </form>
   );
@@ -111,7 +119,7 @@ export function DisconnectTeamsButton() {
   return (
     <div>
       <ConfirmAction
-        question="Disconnect Teams for everyone? Nobody gets Teams alerts until an admin pastes a workflow link again."
+        question="Disconnect Teams for everyone? Nobody gets Teams alerts until an admin adds the family's Teams app again."
         yes="Disconnect"
         pending={pending}
         onConfirm={() =>

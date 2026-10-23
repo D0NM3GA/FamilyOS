@@ -1,60 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkTeamsWebhookUrl, plainCardText, sendTeams, teamsPayload } from "./teams";
+import { plainCardText, teamsActivity } from "./teams";
 import { alertMailbox, emailPayload, sendEmail } from "./email";
 import { getAppGraphToken, resetAppTokenCache } from "@/lib/graph/app-token";
 import { isPrivateOutgoingRequest } from "@/lib/observability/options";
 
-const LOGIC =
-  "https://prod-00.example.logic.azure.com:443/workflows/abc123/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=SECRET";
-const PP =
-  "https://default1234abcd.12.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/abc/triggers/manual/paths/invoke?api-version=1&sp=x&sv=1.0&sig=SECRET";
-
-describe("checkTeamsWebhookUrl", () => {
-  it("accepts both Workflows URL shapes and drops the explicit :443", () => {
-    const a = checkTeamsWebhookUrl(LOGIC);
-    expect(a).toMatchObject({ ok: true, host: "prod-00.example.logic.azure.com" });
-    expect(a.ok && a.url.includes(":443")).toBe(false);
-    expect(checkTeamsWebhookUrl(PP)).toMatchObject({ ok: true });
-  });
-
-  it.each([
-    ["http (not https)", LOGIC.replace("https:", "http:")],
-    ["another host", LOGIC.replace("logic.azure.com", "evil.com")],
-    ["a lookalike host", LOGIC.replace("prod-00.example.logic.azure.com", "evillogic.azure.com.attacker.net")],
-    ["the bare suffix", "https://logic.azure.com/workflows/x/triggers/manual/paths/invoke?sig=1"],
-    ["userinfo", LOGIC.replace("https://", "https://me:pw@")],
-    ["another port", LOGIC.replace(":443", ":8443")],
-    ["no sig", LOGIC.replace("&sig=SECRET", "")],
-    ["not a trigger path", LOGIC.replace("/triggers/manual/paths/invoke", "/runs")],
-    ["garbage", "not a url"],
-  ])("rejects %s", (_label, url) => {
-    expect(checkTeamsWebhookUrl(url).ok).toBe(false);
-  });
-});
-
-describe("sendTeams", () => {
-  it("posts the recipient plus an Adaptive Card attachment, and never follows redirects", async () => {
-    const fetchFn = vi.fn(async () => new Response(null, { status: 202 }));
-    await sendTeams(LOGIC, "mom@example.com", "Ivy bought DJ in the car", "https://x/points#orders", fetchFn as unknown as typeof fetch);
-    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toContain("sig=SECRET");
-    expect(init.redirect).toBe("error");
-    const body = JSON.parse(init.body as string);
-    expect(body).toEqual(teamsPayload("mom@example.com", "Ivy bought DJ in the car", "https://x/points#orders"));
-    // What the family flow reads: triggerBody()?['recipient'] and attachments[0].content.
-    expect(body.recipient).toBe("mom@example.com");
-    expect(body.attachments[0]).toMatchObject({ contentType: "application/vnd.microsoft.card.adaptive", contentUrl: null });
-    expect(body.attachments[0].content.type).toBe("AdaptiveCard");
-  });
-
-  it("throws fixed text that never contains the secret", async () => {
-    const down = vi.fn(async () => {
-      throw new TypeError(`fetch failed: ${LOGIC}`);
-    });
-    await expect(sendTeams(LOGIC, "a@b.co", "t", "l", down as unknown as typeof fetch)).rejects.toThrow("Couldn't reach Teams.");
-    const gone = vi.fn(async () => new Response(null, { status: 404 }));
-    const err = await sendTeams(LOGIC, "a@b.co", "t", "l", gone as unknown as typeof fetch).catch((e: Error) => e);
-    expect(String(err)).not.toContain("SECRET");
+describe("teamsActivity (Phase 50)", () => {
+  it("is one Adaptive Card message, its link as text", () => {
+    const a = teamsActivity("Ivy bought DJ in the car", "https://x/points#orders");
+    expect(a.type).toBe("message");
+    expect(a.attachments).toHaveLength(1);
+    expect(a.attachments[0]).toMatchObject({ contentType: "application/vnd.microsoft.card.adaptive" });
+    expect(a.attachments[0].content.type).toBe("AdaptiveCard");
+    expect(JSON.stringify(a)).toContain("[Open the store](https://x/points#orders)");
+    // Nothing about who it's for: the chat decides that.
+    expect(JSON.stringify(a)).not.toMatch(/recipient|@example/);
   });
 });
 
@@ -68,7 +27,7 @@ describe("plainCardText", () => {
 
   it("leaves ordinary titles alone and is used for the card title", () => {
     expect(plainCardText("Dining went over budget (again)")).toBe("Dining went over budget (again)");
-    const card = teamsPayload("a@b.c", "[x](https://evil.example)", "https://x/");
+    const card = teamsActivity("[x](https://evil.example)", "https://x/");
     expect(JSON.stringify(card.attachments[0].content.body[1])).not.toContain("](");
   });
 });
@@ -157,10 +116,13 @@ describe("getAppGraphToken", () => {
   });
 });
 
-describe("Sentry never records a Teams link", () => {
-  it("treats Workflows hosts as private outgoing requests", () => {
-    expect(isPrivateOutgoingRequest(LOGIC)).toBe(true);
-    expect(isPrivateOutgoingRequest(PP)).toBe(true);
+describe("Sentry never records a Teams chat or person", () => {
+  it("treats Bot Connector and the Teams app's Graph calls as private outgoing requests", () => {
+    expect(isPrivateOutgoingRequest("https://smba.trafficmanager.net/teams/v3/conversations/19%3Aabc%40thread.v2/activities")).toBe(true);
+    expect(isPrivateOutgoingRequest("https://graph.microsoft.com/v1.0/users/0000-1111/teamwork/installedApps")).toBe(true);
+    expect(isPrivateOutgoingRequest("https://graph.microsoft.com/v1.0/chats/19%3Aabc%40thread.v2/installedApps")).toBe(true);
+    expect(isPrivateOutgoingRequest("https://graph.microsoft.com/v1.0/me/chats?$top=50")).toBe(true);
+    expect(isPrivateOutgoingRequest("https://graph.microsoft.com/v1.0/appCatalogs/teamsApps")).toBe(true);
     expect(isPrivateOutgoingRequest("https://api.weather.gov/points/1,2")).toBe(true);
     expect(isPrivateOutgoingRequest("https://graph.microsoft.com/v1.0/me")).toBe(false);
   });

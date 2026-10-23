@@ -1,13 +1,23 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * The calendar day `date` falls on in `timeZone` (the process zone when omitted), as a day count
+ * that subtracts cleanly. Phase 49: on the server the process zone is the household's; a client
+ * component passes the household's zone (useHouseholdZone) so it shows the same day.
+ */
+function dayNumber(date: Date, timeZone?: string): number {
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+    .format(date)
+    .split("-")
+    .map(Number);
+  return Date.UTC(y, m - 1, d) / DAY_MS;
+}
+
 /** "Today" / "3 days ago" / "in 5 days" / "Never" (for nulls) — coarse, human-facing. */
-export function formatRelative(date: Date | null): string {
+export function formatRelative(date: Date | null, timeZone?: string): string {
   if (!date) return "Never";
 
-  const today = new Date();
-  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const targetMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.round((targetMidnight.getTime() - todayMidnight.getTime()) / DAY_MS);
+  const diffDays = dayNumber(date, timeZone) - dayNumber(new Date(), timeZone);
 
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Tomorrow";
@@ -15,11 +25,12 @@ export function formatRelative(date: Date | null): string {
   if (diffDays > 1 && diffDays <= 30) return `In ${diffDays} days`;
   if (diffDays < -1 && diffDays >= -30) return `${Math.abs(diffDays)} days ago`;
 
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString(undefined, { timeZone, month: "short", day: "numeric", year: "numeric" });
 }
 
-export function formatDateTime(date: Date): string {
+export function formatDateTime(date: Date, timeZone?: string): string {
   return date.toLocaleString(undefined, {
+    timeZone,
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -68,12 +79,12 @@ export function parseLocalDate(value: string): Date | null {
   return date;
 }
 
-/** Local date -> "YYYY-MM-DD", for a date <input>'s value/max. Server-side only. */
-export function toISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+/**
+ * A date -> "YYYY-MM-DD" in `timeZone` (the process zone, the household's, when omitted), for a
+ * date <input>'s value or max. A client component passes the household's zone.
+ */
+export function toISODate(d: Date, timeZone?: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
 /**

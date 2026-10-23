@@ -5,6 +5,8 @@ import { useActionState, useId, useState } from "react";
 import { btn, btnPrimary, chip, field, fieldLabel } from "@/components/styles";
 import type { TaskFormState } from "./actions";
 import { RewardWord } from "@/components/family-look";
+import { useHouseholdZone } from "@/components/household-zone";
+import { toISODate } from "@/lib/format";
 
 const FREQUENCIES = [
   { value: "ONCE", label: "Once" },
@@ -46,13 +48,6 @@ type Defaults = {
   weatherSensitive?: boolean;
 };
 
-function toDateInputValue(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 export function TaskDefinitionForm({
   action,
   defaults,
@@ -66,6 +61,7 @@ export function TaskDefinitionForm({
   submitLabel: string;
   cancelHref: string;
 }) {
+  const zone = useHouseholdZone();
   const [state, formAction, pending] = useActionState<TaskFormState, FormData>(action, {});
   const [frequency, setFrequency] = useState(defaults?.frequencyType ?? "DAILY");
   const [strategy, setStrategy] = useState(defaults?.assignmentStrategy ?? "FIXED");
@@ -151,7 +147,7 @@ export function TaskDefinitionForm({
         label="Starting"
         name="startDate"
         type="date"
-        defaultValue={toDateInputValue(defaults?.startDate ?? new Date())}
+        defaultValue={toISODate(defaults?.startDate ?? new Date(), zone)}
         required
       />
 

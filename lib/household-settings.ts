@@ -13,7 +13,7 @@ import type { RewardWords } from "@/lib/reward-words";
 export const getHouseholdRow = cache(async (householdId: string) =>
   prisma.household.findUnique({
     where: { id: householdId },
-    select: { id: true, name: true, timezone: true, latitude: true, longitude: true, disabledApps: true, ...LOOK_SELECT },
+    select: { id: true, name: true, timezone: true, dayZone: true, latitude: true, longitude: true, disabledApps: true, ...LOOK_SELECT },
   }),
 );
 
@@ -21,8 +21,8 @@ export const getHouseholdRow = cache(async (householdId: string) =>
 export const getHouseholdSettings = cache(async (householdId: string) => {
   const row = await getHouseholdRow(householdId);
   if (!row) throw new Error(`Household ${householdId} not found.`);
-  const { id, name, appName, timezone, latitude, longitude } = row;
-  return { id, name, appName, timezone, latitude, longitude };
+  const { id, name, appName, timezone, dayZone, latitude, longitude } = row;
+  return { id, name, appName, timezone, dayZone, latitude, longitude };
 });
 
 /**
@@ -56,9 +56,9 @@ export async function getRewardWords(householdId?: string): Promise<RewardWords>
 /**
  * Resolves a timezone string to its canonical IANA form (e.g. "america/new_york" or "EST5EDT"
  * both normalize to "America/New_York" via `Intl`'s own alias table), or null if `Intl`
- * doesn't recognize it at all. Always store the canonical form, not whatever the user typed
- * — otherwise a case/alias difference would make warnIfTimezoneMismatch below compare two
- * strings that name the same zone and warn forever.
+ * doesn't recognize it at all. Always store the canonical form, not whatever the user typed:
+ * the server's clock is set to it (lib/household-zone.ts), and a non-canonical name there would
+ * quietly become UTC.
  */
 export function canonicalizeTimeZone(timezone: string): string | null {
   try {
@@ -73,58 +73,20 @@ export function isValidTimeZone(timezone: string): boolean {
   return canonicalizeTimeZone(timezone) !== null;
 }
 
-/** Every IANA zone name this Node runtime knows about, for the settings form's picker. */
-export function listTimeZones(): string[] {
+/**
+ * Every IANA zone name this Node runtime knows about, for the settings form's picker, with UTC
+ * (Intl's list leaves it out, though a device or server can be in it) and the household's own
+ * when it's missing: a zone the picker lacks would read as "Not set" and be cleared on saving.
+ */
+export function listTimeZones(current: string | null = null): string[] {
+  let zones: string[] = [];
   if (typeof Intl.supportedValuesOf === "function") {
     try {
-      return Intl.supportedValuesOf("timeZone");
+      zones = Intl.supportedValuesOf("timeZone");
     } catch {
-      // fall through to the empty list below
+      // the empty list below
     }
   }
-  return [];
-}
-
-/** The server process's own zone: what "today" and due dates follow until the household's is threaded through. */
-export function serverTimeZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
-
-/**
- * Phase 45.2: the server's zone when it isn't the household's, so Settings → Household can say
- * so in words (until now only warnIfTimezoneMismatch's log line did). Null when they agree or
- * the household has none.
- */
-export function timeZoneMismatch(householdTimezone: string | null): string | null {
-  if (!householdTimezone) return null;
-  const server = serverTimeZone();
-  return server === householdTimezone ? null : server;
-}
-
-// Warn at most once per server process, not once per request — this isn't a per-household
-// concern worth spamming the log for every page load.
-let warnedTimezoneMismatch = false;
-
-/**
- * "Today" throughout this app (lib/tasks/schedule.ts's `atMidnight`, lib/format.ts, the
- * Home/board queries) is still computed from the server process's own local clock, not from
- * `Household.timezone` — that thread-through is real, multi-call-site work deferred out of
- * this phase (see docs/BUILD.md). Until it lands, the deploy's `TZ` env var is what actually
- * has to match this setting for due-dates/"today" to be correct. This just makes a mismatch
- * loud instead of a silent wrong answer once someone sets a timezone that isn't where the
- * server happens to run.
- */
-export function warnIfTimezoneMismatch(householdTimezone: string | null): void {
-  if (!householdTimezone || warnedTimezoneMismatch) return;
-
-  const serverTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  if (serverTimezone === householdTimezone) return;
-
-  warnedTimezoneMismatch = true;
-  console.warn(
-    `[household-settings] Server process timezone ("${serverTimezone}") does not match the ` +
-      `configured household timezone ("${householdTimezone}"). "Today" and all due-date ` +
-      `calculations still follow the server's clock, not this setting, until the deploy's ` +
-      `TZ env var is set to "${householdTimezone}". See docs/PLAN.md.`,
-  );
+  const extra = ["UTC", current].filter((z): z is string => Boolean(z) && !zones.includes(z!));
+  return [...new Set([...extra, ...zones])];
 }

@@ -30,33 +30,11 @@ export type ExpandOptions = { from: Date; to: Date; fallbackZone: string; maxEve
 type Component = InstanceType<typeof ICAL.Component>;
 type Time = InstanceType<typeof ICAL.Time>;
 
+// Phase 49: shared with lib/household-zone.ts; re-exported for the calendar and school queries.
+export { wallClockToInstant } from "@/lib/zone-clock";
+import { wallClockToInstant } from "@/lib/zone-clock";
+
 const MAX_TEXT = 200;
-
-/** Offset of `timeZone` from UTC at `instant`, in ms. */
-function zoneOffset(timeZone: string, instant: number): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-  }).formatToParts(new Date(instant));
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
-  return Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second")) - instant;
-}
-
-/** A wall-clock time in `timeZone` → the instant it names (DST-correct: re-checked once). */
-export function wallClockToInstant(y: number, mo: number, d: number, h: number, mi: number, s: number, timeZone: string): Date {
-  const guess = Date.UTC(y, mo - 1, d, h, mi, s);
-  const first = zoneOffset(timeZone, guess);
-  let instant = guess - first;
-  const second = zoneOffset(timeZone, instant);
-  if (second !== first) instant = guess - second;
-  return new Date(instant);
-}
 
 function isValidZone(tz: string | null | undefined): tz is string {
   if (!tz) return false;

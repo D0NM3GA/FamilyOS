@@ -18,7 +18,11 @@ import { scheduleOrderScan } from "@/lib/finance/order-mail/scan";
 import { logJarEvent, merchantLabel } from "@/lib/finance/history";
 import { matchOrder, RETAILER_NAME } from "@/lib/finance/order-mail/orders";
 import { fingerprint } from "@/lib/crypto";
-import { parseTeamsChatLink, sendJarChatTest } from "@/lib/finance/alerts";
+import { sendJarChatTest } from "@/lib/finance/alerts";
+import { chooseJarChat } from "@/lib/teams/jar-chat";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { captureError } from "@/lib/observability";
 import { decimalToCents } from "@/lib/money";
 import { MAX_MANUAL_BILLS, anchorForEdit, parseManualBillForm } from "@/lib/finance/manual-bills";
 import * as holdings from "@/lib/finance/holdings";
@@ -728,27 +732,56 @@ export async function unlinkOrder(jarId: string, orderId: string) {
 
 // ---- Phase 30: one Teams chat for the jar's alerts ---------------------------------------
 
-/** Points the jar's money alerts at one Teams group chat (or back to each person). Any member. */
+/**
+ * Phase 50: points the jar's money alerts at one of the member's own Teams group chats, picked
+ * from their list (lib/teams/jar-chat.ts checks it against that list again), and says hello there.
+ * Any member, on their own Microsoft sign-in.
+ */
 export async function setJarChat(jarId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const { jar, viewer } = await requireJar(jarId);
-  const raw = String(formData.get("chat") ?? "").trim().slice(0, 2000);
-  if (!raw) {
-    const { count } = await prisma.moneyJar.updateMany({ where: { id: jar.id, teamsChatId: { not: null } }, data: { teamsChatId: null, teamsChatError: null } });
-    if (count > 0) await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "CHAT_SET", data: { on: false } });
-    revalidatePath(`${jarPath(jar.id)}/settings`);
-    return { ok: "Alerts go to each person again." };
-  }
-  const parsed = parseTeamsChatLink(raw);
-  if (!parsed.ok) return { error: parsed.error };
-  await prisma.moneyJar.update({ where: { id: jar.id }, data: { teamsChatId: parsed.chatId, teamsChatError: null } });
+  const chatId = z.string().min(1).max(300).safeParse(formData.get("chat"));
+  if (!chatId.success) return { error: "Choose a chat." };
+  const chosen = await chooseJarChat(jar, chatId.data);
+  if (!chosen.ok) return { error: chosen.error };
   await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "CHAT_SET", data: { on: true } });
+  const hello = await sendJarChatTest(jar.id);
   revalidatePath(`${jarPath(jar.id)}/settings`);
-  return { ok: "Saved. Send a test to check it reaches the chat." };
+  redirect(`${jarPath(jar.id)}/settings?chat=${hello ? "saved" : "hello"}`);
+}
+
+/** Back to each person's own Teams. Any member. */
+export async function stopJarChat(jarId: string): Promise<FormState> {
+  const { jar, viewer } = await requireJar(jarId);
+  const { count } = await prisma.moneyJar.updateMany({ where: { id: jar.id, teamsChatId: { not: null } }, data: { teamsChatId: null, teamsChatName: null, teamsChatError: null } });
+  if (count > 0) await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "CHAT_SET", data: { on: false } });
+  revalidatePath(`${jarPath(jar.id)}/settings`);
+  return { ok: "Alerts go to each person again." };
+}
+
+/**
+ * Incremental consent for listing your own group chats (Chat.ReadBasic), asked for on this button
+ * only, like the calendar's write access: Better Auth's link flow re-links the signed-in person's
+ * own Microsoft account. Back on the jar's settings with the list open.
+ */
+export async function allowChatList(jarId: string): Promise<FormState> {
+  const { jar } = await requireJar(jarId);
+  let url: string;
+  try {
+    const result = await auth.api.linkSocialAccount({
+      body: { provider: "microsoft", scopes: ["Chat.ReadBasic"], callbackURL: `${jarPath(jar.id)}/settings?pick=1`, errorCallbackURL: `${jarPath(jar.id)}/settings?grant=failed` },
+      headers: await headers(),
+    });
+    url = result.url;
+  } catch (err) {
+    captureError(err);
+    return { error: "Couldn't start the Microsoft sign-in. Try again." };
+  }
+  redirect(url);
 }
 
 export async function testJarChat(jarId: string): Promise<FormState> {
-  const { jar, viewer } = await requireJar(jarId);
-  const error = await sendJarChatTest(jar.id, viewer.id);
+  const { jar } = await requireJar(jarId);
+  const error = await sendJarChatTest(jar.id);
   revalidatePath(`${jarPath(jar.id)}/settings`);
   return error ? { ok: error } : { ok: "Sent. Teams took it; check the chat." };
 }

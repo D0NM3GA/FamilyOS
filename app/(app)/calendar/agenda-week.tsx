@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { formatMonthDay } from "@/lib/format";
+import { AwayTime } from "@/components/away-time";
 import { emptyDayLine, isLate, timeLabel, type AgendaDay, type AgendaItem, type AgendaKind } from "@/lib/calendar/agenda";
 
 /**
@@ -78,10 +79,23 @@ function DayCard({ day }: { day: AgendaDay }) {
   );
 }
 
+/** A household day and clock time as an instant: the server keeps the household's time (Phase 49). */
+function atClock(day: string, minutes: number): Date {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d, Math.floor(minutes / 60), minutes % 60);
+}
+
 function ItemRow({ item, late }: { item: AgendaItem; late: boolean }) {
   const look = KIND_LOOK[item.kind];
   const meta: React.ReactNode[] = [];
-  if (item.minutes != null) meta.push(<span className="font-bold text-foreground">{timeLabel(item.minutes)}</span>);
+  if (item.minutes != null) {
+    meta.push(
+      <span className="font-bold text-foreground">
+        {timeLabel(item.minutes)}
+        <AwayTime at={atClock(item.day, item.minutes)} />
+      </span>,
+    );
+  }
   if (item.who) meta.push(item.who);
   if (item.note) meta.push(item.note);
   if (item.status === "done") meta.push("done ✓");

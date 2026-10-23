@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useHouseholdZone } from "@/components/household-zone";
+import { toISODate } from "@/lib/format";
 
-function asOf(at: number): string {
+/** When the saved list is from, on the household's clock (Phase 49). */
+function asOf(at: number, timeZone: string | undefined): string {
   const when = new Date(at);
-  const time = when.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  return when.toDateString() === new Date().toDateString()
+  const time = when.toLocaleTimeString([], { timeZone, hour: "numeric", minute: "2-digit" });
+  return toISODate(when, timeZone) === toISODate(new Date(), timeZone)
     ? time
-    : `${when.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}, ${time}`;
+    : `${when.toLocaleDateString([], { timeZone, weekday: "short", month: "short", day: "numeric" })}, ${time}`;
 }
 
 /** Asks the app's service worker whether this page came from the copy it saved (public/sw.js). */
@@ -31,6 +34,7 @@ function askWorker(): Promise<boolean> {
  * asks it after hydration.
  */
 export function SavedNote({ renderedAt }: { renderedAt: number }) {
+  const zone = useHouseholdZone();
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     let live = true;
@@ -42,7 +46,7 @@ export function SavedNote({ renderedAt }: { renderedAt: number }) {
   if (!saved) return null;
   return (
     <p role="status" className="rounded-xl bg-sun/30 px-3 py-2 text-sm font-semibold">
-      The list as of {asOf(renderedAt)}, saved on this device. Check-offs sync when there&apos;s signal.
+      The list as of {asOf(renderedAt, zone)}, saved on this device. Check-offs sync when there&apos;s signal.
     </p>
   );
 }
