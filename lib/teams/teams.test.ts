@@ -5,7 +5,7 @@ import { resetAppTokenCache } from "@/lib/graph/app-token";
 import { renderOutlineIcon } from "@/lib/app-icon";
 import { PRODUCT_NAME } from "@/lib/app-name";
 import { buildManifest, nextVersion, packageHash, packageZip } from "./manifest";
-import { ensurePersonalChat, listGroupChats, publishPackage, sendToChat, TeamsError } from "./microsoft";
+import { ensureInChat, ensurePersonalChat, listGroupChats, publishPackage, sendToChat, TeamsError } from "./microsoft";
 import { zipFiles } from "./zip";
 
 /** Phase 50: the family's Teams app (docs/PLAN.md, Phase 50). No live Microsoft call here. */
@@ -108,7 +108,10 @@ describe("Microsoft calls", () => {
 
   it.each([
     [403, { error: { code: "BotDisabledByAdmin" } }, "notAllowed"],
+    [403, { error: { code: "ConversationBlockedByUser" } }, "notAllowed"],
     [403, { error: { code: "BotNotInConversationRoster" } }, "gone"],
+    [403, { error: { code: "ForbiddenOperationException" } }, "gone"],
+    [403, { error: { code: "Unauthorized" } }, "failed"],
     [404, { error: { code: "ConversationNotFound" } }, "gone"],
     [500, {}, "failed"],
   ])("turns a %s %j into %s, in fixed words", async (status, body, kind) => {
@@ -189,6 +192,38 @@ describe("Microsoft calls", () => {
     const h = fake(() => json({ error: { code: "Forbidden" } }, 403));
     const err = await publishPackage("delegated", Buffer.from("zip"), { teamsAppId: null, manifestId: inputs.manifestId }, h.fetchFn).catch((e: unknown) => e);
     expect((err as TeamsError).kind).toBe("needsAdmin");
+  });
+
+  it("finds an app already in the catalog by its fixed id, and publishes a new version of it", async () => {
+    const f = fake((url, init) => {
+      if (url.endsWith("/appCatalogs/teamsApps") && init.method === "POST") return json({ error: { code: "Conflict" } }, 409);
+      if (url.includes("$filter=")) return json({ value: [{ id: "catalog-7" }] });
+      return json({}, 201);
+    });
+    expect(await publishPackage("delegated", Buffer.from("zip"), { teamsAppId: null, manifestId: inputs.manifestId }, f.fetchFn)).toBe("catalog-7");
+    expect(decodeURIComponent(f.calls[1].url)).toContain(`externalId eq '${inputs.manifestId}'`);
+    expect(f.calls[2].url).toBe("https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/catalog-7/appDefinitions");
+  });
+
+  it("publishes as new once when the app was removed from the catalog, and never loops", async () => {
+    const f = fake((url, init) => {
+      if (url.endsWith("/appDefinitions")) return json({}, 404);
+      if (url.endsWith("/appCatalogs/teamsApps") && init.method === "POST") return json({ error: {} }, 409);
+      return json({ value: [{ id: "catalog-7" }] });
+    });
+    const err = await publishPackage("delegated", Buffer.from("zip"), { teamsAppId: "catalog-7", manifestId: inputs.manifestId }, f.fetchFn).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TeamsError);
+    expect(f.calls.filter((c) => c.url.endsWith("/appDefinitions"))).toHaveLength(2);
+  });
+
+  it("adds the app to a chat only when it isn't there", async () => {
+    const there = fake(() => json({ value: [{ id: "x" }] }));
+    await ensureInChat("19:a@thread.v2", "catalog-1", { fetchFn: there.fetchFn });
+    expect(there.calls.map((c) => c.method)).toEqual(["GET"]);
+    const missing = fake((_url, init) => (init.method === "POST" ? json({}, 201) : json({ value: [] })));
+    await ensureInChat("19:a@thread.v2", "catalog-1", { fetchFn: missing.fetchFn });
+    expect(missing.calls.map((c) => c.method)).toEqual(["GET", "POST"]);
+    expect(missing.calls[1].url).toBe("https://graph.microsoft.com/v1.0/chats/19%3Aa%40thread.v2/installedApps");
   });
 });
 

@@ -778,6 +778,9 @@ family's existing app registration, an **Add to Teams** button, and the Workflow
 - **Review findings (Fable):** the scope review confirmed the pattern against Microsoft's docs and
   added `isNotificationOnly`, the outline icon rule, the object id instead of the email, the error
   handling and the pick-is-the-guard rule.
+- **Departure from the scope:** Settings → Alerts shows a status line (in Teams, by whom, when,
+  and whether the name or icon changed since) rather than a step-by-step checklist; whether the
+  Azure Bot answers shows on the first **Send a test**.
 - **Removed:** the Workflows link, its URL checks and the Sentry rule for its hosts. Bot Connector
   and the app's Graph install and chat calls are private to Sentry instead.
 

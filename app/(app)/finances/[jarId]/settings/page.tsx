@@ -128,6 +128,7 @@ export default async function JarSettingsPage({
         </p>
         {!teamsLink?.teamsAppId && <p className="mt-1 text-sm font-semibold">Teams isn&apos;t set up for the family yet, so this has nothing to send through.</p>}
         {shown.chat === "hello" && <p className="mt-1 text-sm font-semibold">Saved, and a hello went to the chat.</p>}
+        {shown.chat === "saved" && <p className="mt-1 text-sm font-semibold">Saved, but the hello didn&apos;t go (see below). Send a test once it&apos;s fixed.</p>}
         {shown.grant === "failed" && <p className="mt-1 text-sm font-semibold text-tomato">Microsoft didn&apos;t give the permission. Try again, or ask an admin to approve it.</p>}
         {jarRow.teamsChatId && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">

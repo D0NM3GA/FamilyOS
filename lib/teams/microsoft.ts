@@ -135,7 +135,12 @@ export async function sendToChat(chatId: string, activity: object, deps: Deps = 
   if (res.status === 403 && code === "BotDisabledByAdmin") {
     throw new TeamsError("notAllowed", "Teams has the family's Teams app turned off (Teams admin center).");
   }
-  if (res.status === 404 || (res.status === 403 && /NotInConversationRoster|ConversationBlocked/i.test(code))) {
+  // Blocked by the person: Microsoft says stop posting until they unblock it, so no reinstall.
+  if (res.status === 403 && /ConversationBlocked/i.test(code)) {
+    throw new TeamsError("notAllowed", "This person blocked the family's Teams app in Teams. They can unblock it there.");
+  }
+  // Not in the chat, or not installed for that person anymore: install again and retry once.
+  if (res.status === 404 || (res.status === 403 && /NotInConversationRoster|ForbiddenOperation/i.test(code))) {
     throw new TeamsError("gone", "The family's Teams app isn't in that chat anymore.");
   }
   if (res.status === 401 || res.status === 403) {
@@ -165,7 +170,13 @@ async function delegated(token: string, url: string, call: Call, fetchFn: typeof
  * there. Needs AppCatalog.ReadWrite.All, granted to someone who is a Teams or Global administrator.
  * Returns the catalog's id for the app.
  */
-export async function publishPackage(token: string, zip: Buffer, existing: { teamsAppId: string | null; manifestId: string }, fetchFn: typeof fetch = fetch): Promise<string> {
+export async function publishPackage(
+  token: string,
+  zip: Buffer,
+  existing: { teamsAppId: string | null; manifestId: string },
+  fetchFn: typeof fetch = fetch,
+  retried = false,
+): Promise<string> {
   const upload = (url: string) => delegated(token, url, { method: "POST", body: new Uint8Array(zip), contentType: "application/zip" }, fetchFn);
   const refused = (status: number) =>
     status === 401 || status === 403
@@ -189,7 +200,8 @@ export async function publishPackage(token: string, zip: Buffer, existing: { tea
     if (res.ok) return teamsAppId;
   }
   const res = await upload(`${GRAPH}/appCatalogs/teamsApps/${encodeURIComponent(teamsAppId)}/appDefinitions`);
-  if (res.status === 404) return publishPackage(token, zip, { teamsAppId: null, manifestId: existing.manifestId }, fetchFn);
+  // The app was removed from the catalog since: publish it as new, once.
+  if (res.status === 404 && !retried) return publishPackage(token, zip, { teamsAppId: null, manifestId: existing.manifestId }, fetchFn, true);
   if (!res.ok) throw refused(res.status);
   return teamsAppId;
 }

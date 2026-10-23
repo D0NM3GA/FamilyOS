@@ -1560,11 +1560,10 @@ model AlertPrefs {
   @@map("alert_prefs")
 }
 
-/// Phase 21.5: the family's one Teams Workflows link. The flow posts as the Flow bot to
-/// whichever person each alert names, so nobody else has to build anything. The URL is a
-/// bearer secret (its `sig` parameter): encrypted (AAD alerts:teams:household:<id>),
-/// never sent to the browser. Only the signed-in Microsoft account of an admin may change
-/// it, and who did is kept. Not backed up; restore keeps the Household row, so it survives.
+/// Phase 21.5: the family's Teams setup. Phase 50: the family's own Teams app (a notification-only
+/// bot, lib/teams) instead of a Workflows link, so nothing here is secret. Only the signed-in
+/// Microsoft account of an admin may publish or disconnect it, and who did is kept. Not backed
+/// up; restore keeps the Household row, so it survives.
 model HouseholdAlerts {
   householdId       String    @id
   household         Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
