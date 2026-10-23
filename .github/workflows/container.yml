@@ -1,9 +1,11 @@
 # Phase 43: the production image (Dockerfile, docker-compose.prod.yml), built and tested on a
 # fresh database by scripts/container-test.sh: the run image is checked (nothing secret, no
-# development tools, not root) and the browser tests run against it. A cold image build takes
-# minutes, so this runs on main and on pull requests that change what goes into the image, not
-# on every one; the CI workflow's browser tests still run everywhere. (Path-filtered, so it can't
-# be a required check: pull requests that don't touch these paths would wait for it forever.)
+# development tools, not root) and the browser tests run against it.
+#
+# It's a required check, so it reports on every pull request, but a cold image build takes
+# minutes: the first step looks at what the pull request changes, and only a change to what goes
+# into the image (the list in `Which files changed`) builds and tests it. Anything else passes in
+# seconds; the CI workflow's browser tests still run everywhere. On main it always runs in full.
 #
 # Same supply-chain rules as ci.yml: actions pinned to full commit SHAs, no token kept, read-only.
 # No docker/* actions: `docker compose` is already on the runner. Each run makes its own keys.
@@ -13,27 +15,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - docker-compose.prod.yml
-      - docker-compose.ci.yml
-      - scripts/container-test.sh
-      - scripts/break-glass*.sh
-      - deploy/**
-      - proxy.ts
-      - lib/security/**
-      - scripts/standalone-assets.mjs
-      - scripts/copy-zxing-wasm.mjs
-      - e2e/**
-      - tsconfig.json
-      - next.config.ts
-      - package.json
-      - package-lock.json
-      - .node-version
-      - .npmrc
-      - prisma/**
-      - .github/workflows/container.yml
 
 permissions:
   contents: read
@@ -56,29 +37,58 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # A pull request checks out as a merge commit: its first parent is the base branch, so
+          # one more commit is enough to see what the pull request changes.
+          fetch-depth: 2
+      - name: Which files changed
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # What goes into the image, or into the tests run against it.
+          image='^(Dockerfile|\.dockerignore|docker-compose\.(prod|ci)\.yml|scripts/container-test\.sh|scripts/break-glass[^/]*\.sh|deploy/|proxy\.ts|lib/security/|scripts/standalone-assets\.mjs|scripts/copy-zxing-wasm\.mjs|e2e/|tsconfig\.json|next\.config\.ts|package(-lock)?\.json|\.node-version|\.npmrc|prisma/|\.github/workflows/container\.yml)'
+          changed="$(git diff --name-only HEAD^1 HEAD)"
+          if printf '%s\n' "$changed" | grep -Eq "$image"; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "Builds the image: this pull request changes $(printf '%s\n' "$changed" | grep -E "$image" | tr '\n' ' ')"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "Nothing that goes into the image changed: passing without building it."
+          fi
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.changes.outputs.build == 'true'
         with:
           node-version-file: .node-version
           cache: npm
       # Playwright and its browser run on the runner; the app runs in the image.
       - run: npm ci
+        if: steps.changes.outputs.build == 'true'
       - name: Playwright version
+        if: steps.changes.outputs.build == 'true'
         id: playwright
         run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.changes.outputs.build == 'true'
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - run: npx playwright install --with-deps --no-shell chromium
+        if: steps.changes.outputs.build == 'true'
       - name: Build the image and run the browser tests against it
+        if: steps.changes.outputs.build == 'true'
         env:
           CONTAINER_LOG: container-app.log
         run: scripts/container-test.sh
       # Phase 42.7: the Cloudflare Access check and the break-glass entrance, on the same image.
       - name: Rehearse the break-glass entrance
+        if: steps.changes.outputs.build == 'true'
         run: scripts/break-glass-test.sh
       - name: Keep the report and the app's log when something failed
-        if: failure()
+        if: failure() && steps.changes.outputs.build == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: container-report

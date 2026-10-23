@@ -222,9 +222,11 @@ Dependencies); checkout keeps no token, and the jobs can only read the repositor
   read the secret (forks and Dependabot can't), so only add it while you're the only one pushing.
 - **Actions settings** (Settings → Actions → General): "Require actions to be pinned to a full-length
   commit SHA", and allow only actions from GitHub (these workflows use only `actions/*`).
-- **CI is advisory on a private repository on GitHub Free:** branch protection and rulesets
-  aren't available there, so nothing stops a merge with a red check. Look at the checks before
-  merging; on a public repository (or a paid plan), require the CI jobs on `main`.
+- **Required checks and auto-merge** (Settings → General and Settings → Rules): a ruleset on
+  the default branch requires a pull request (no approvals needed for a single maintainer), blocks
+  force pushes and deletion, and requires the three CI jobs and *Production image and browser
+  tests*. With **Allow auto-merge** on, a pull request merges itself once they're green. (On a
+  private repository, GitHub Free has neither: there, look at the checks before merging.)
 
 ## Dependencies
 
@@ -513,8 +515,9 @@ touches the real database. Rehearse break-glass at the same time.
 `scripts/container-test.sh` builds the image, starts it on a fresh database with throwaway
 settings (the app on `http://localhost:3100`, no tunnel), checks the run image (nothing secret,
 no development tools, not root), runs the browser tests against it, then backs up what they made
-and restores it with the drill. CI runs it on `main` and
-on pull requests that change what goes into the image (`.github/workflows/container.yml`).
+and restores it with the drill. CI runs it on `main` and on pull requests that change what goes
+into the image; on any other pull request the check passes in seconds without building, so it can
+be a required check (`.github/workflows/container.yml`).
 
 ## Testing on phones (camera barcode scanning)
 
