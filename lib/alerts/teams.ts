@@ -14,7 +14,7 @@ export const STORE_CARD: TeamsCard = { heading: "⭐ Store", linkText: "Open the
  * family chat. A zero-width space between "]" and "(" keeps the text and drops the link.
  */
 export function plainCardText(text: string): string {
-  return text.replace(/\]\s*\(/g, "]​(");
+  return text.replace(/\]\s*\(/g, "]\u200B(");
 }
 
 /** The message activity Bot Connector posts: one Adaptive Card, its link as text (no buttons to answer). */
