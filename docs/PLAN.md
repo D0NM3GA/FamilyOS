@@ -175,8 +175,8 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | — | LMS connector (Canvas or Google Classroom) | waiting |
 | 48 | Slim the migrate image to Prisma's CLI | merged |
 | 49 | The household's timezone in every date calculation | merged |
-| 50 | Teams without Power Automate | next |
-| 51 | Find the school calendar from the school's web address | later |
+| 50 | Teams without Power Automate: the app's own Teams bot, a jar chat picked from a list | merged |
+| 51 | Find the school calendar from the school's web address | next |
 | 52 | Statement imports that work out their own columns | later |
 | 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | later |
 
@@ -202,12 +202,13 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 ## Current state
 
 Everything through Phase 46, Phase 48 (the migrate image cut from 2.26 GB to about 690 MB) and
-Phase 49 (the household's timezone everywhere) is merged to `main` (2026-10-23). The project
-moved to this public repository the same day (one clean commit; the earlier history is archived
-privately). `main` takes changes only through pull requests: a ruleset requires the three CI
-jobs and the container check, and a pull request merges itself once they pass. Every merge to
-`main` publishes the tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`,
-public, tagged `sha-<commit>`, with signed provenance).
+Phase 49 (the household's timezone everywhere) and Phase 50 (Teams through the family's own
+Teams app, no Power Automate) are merged to `main` (2026-10-23). The project moved to this
+public repository the same day (one clean commit; the earlier history is archived privately).
+`main` takes changes only through pull requests: a ruleset requires the three CI jobs and the
+container check, and a pull request merges itself once they pass. Every merge to `main`
+publishes the tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`, public,
+tagged `sha-<commit>`, with signed provenance).
 
 **Tabled until the owner says it's time (2026-10-23):** going live (the server, Cloudflare
 Tunnel and Access, the pinned version, backups and break-glass, following
@@ -216,11 +217,9 @@ The database still holds test data only.
 
 **Next, the remaining engineering work, in this order** (each its own phase and pull request;
 the owner's questions are asked at each scope):
-1. **Phase 50 — Teams without Power Automate:** a "Connect Teams" button through Graph, and
-   picking a jar's Teams chat from a list.
-2. **Phase 51 — Find the school calendar** from the school's web address.
-3. **Phase 52 — Statement imports that work out their own columns.**
-4. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
+1. **Phase 51 — Find the school calendar** from the school's web address.
+2. **Phase 52 — Statement imports that work out their own columns.**
+3. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
    alert mailbox set and tested in Settings, a link to Entra's role assignments.
 
 The decisions waiting on the owner are under "Open items".
@@ -529,6 +528,126 @@ have. Fable's scope review (2026-10-23) is folded in.
 3. **Away from home, show both:** the original time in the household's zone and the time where
    the viewer is, so medication and routines stay regular (49.5).
 
+## Phase 50 — scope (Teams without Power Automate, 2026-10-23)
+
+Teams alerts go through a Power Automate Workflows link that one admin builds by hand (a template,
+a trigger set to "Anyone", an expression for the recipient, a second branch and a condition for
+jar chats; README "Teams"), and a jar's Teams chat is a pasted link. The link is a password
+anyone holding it can use to message anyone in the tenant as the Flow bot. The aim: connect Teams
+from Settings with Microsoft's own pieces, pick a jar's chat from a list, and drop the Workflows
+link.
+
+**What Microsoft allows (researched 2026-10-23, Microsoft Learn):**
+- **An app can't post chat messages as itself.** Graph's send-message calls take delegated
+  permissions only (app-only is for importing history). Posting as a family member would make
+  alerts come "from Dad" and can't reach Dad himself.
+- **Activity feed notifications** (`TeamsActivity.Send`) are app-only, but they can only link to
+  a Teams address, not the app's, and Microsoft shows them on phones only for apps on its allow
+  list. Most of the family reads alerts on a phone.
+- **A Teams bot** can message a person or a group chat it's installed in, with the Adaptive Cards
+  the app already builds. That's what the Flow bot is. A single-tenant Azure Bot can use the
+  family's existing app registration (new multi-tenant bots ended July 2025). The app can
+  install itself for each person through Graph (`TeamsAppInstallation.ReadWriteSelfForUser.All`)
+  and in a chat (`…SelfForChat.All`), read that person's bot chat from the install, and send
+  through the Bot Connector service. Nothing has to reach the app from outside, so Cloudflare
+  Access stays as it is.
+
+**The approach (recommended): the app's own Teams bot.** Fable's scope review (2026-10-23)
+checked it against Microsoft's docs: installing through Graph, reading the person's chat id from
+the install and posting with the global service address, without ever receiving anything, is
+Microsoft's own documented pattern; a single-tenant token works; the free tier covers Teams.
+
+### 50.1 — The family's Teams app
+
+- The app builds its Teams app package itself: a manifest with a notification-only bot
+  (`isNotificationOnly`, so there's no compose box), personal and group chat scopes, and
+  `webApplicationInfo` (`id` the app registration, `resource` `api://botid-{appId}`; without it
+  Graph won't list the installs). Name, developer name and descriptions come from the family's
+  settings (Make it yours), never a fixed product name; its URLs from `BETTER_AUTH_URL`. Icons: the
+  192×192 color icon from `lib/app-icon.tsx`, and a new 32×32 outline, white on transparent only
+  (Teams rejects anything else). Nothing in it leaves the family's tenant.
+- `HouseholdAlerts` keeps the manifest's fixed id, the catalog's app id, and the published
+  version and a hash of what it was built from. A changed name or icon publishes a new version
+  (`/appDefinitions`). The catalog takes a moment to show a new app, so the first install retries.
+- Settings → Alerts → **Teams** shows what's done and what's next, as a short checklist: the
+  Azure Bot answers (a test token and a dry call), the app is in the catalog, each grown-up has
+  it, and a test message arrived.
+
+### 50.2 — Messages to each grown-up
+
+- `lib/alerts/teams.ts` sends through Bot Connector (`/v3/conversations/{chatId}/activities`)
+  with a token for `https://api.botframework.com/.default` from the existing app registration
+  (`lib/graph/app-token.ts`). The cards stay as they are (`teamsPayload` without `recipient`).
+- A grown-up signed in with Microsoft gets the app installed for them on first need, addressed by
+  their Entra object id (the Microsoft `Account.accountId`, never the email), and their bot
+  chat's id is read from the install and kept (`AlertPrefs`, with the install id). Handled
+  explicitly: `BotDisabledByAdmin` (a plain "Teams isn't allowed for you here"), not in the chat
+  or chat gone (reinstall, read the chat again, send once more; this also covers a quiet chat
+  Teams has let lapse), 429 (wait for Retry-After), 401 (a fresh token).
+- Same rules as today: only people with a Microsoft sign-in, recipients from
+  `lib/alerts/targets.ts`, failures on Settings → Alerts, one bad recipient never stops the rest.
+  The bot sends only: a message typed to it isn't answered (there's no inbound address).
+
+### 50.3 — A jar's group chat, picked from a list
+
+- Jar Settings → **Teams chat** lists the group chats the signed-in member is in (delegated
+  `Chat.ReadBasic`, asked for on this button only; `/me/chats?$filter=chatType eq 'group'` with
+  members, paged), by topic and members' names, with anyone outside the family's organization
+  marked (posts reach them too). Picking one installs the bot there and sends a hello. The pasted
+  link and its parsing go.
+- The app may install itself in any chat in the tenant (`…SelfForChat.All`), so the pick is the
+  guard: only a jar member, and the server accepts only a chat id from that member's own fresh
+  listing at save time, of type group. Without a chat-reading permission the bot never sees the
+  chat's messages (it would only hear an @mention, and it doesn't listen); the guide says so.
+- A one-to-one chat can't be picked, as today. Posts no longer need a member's address.
+
+### 50.4 — Retire the Workflows link
+
+- `HouseholdAlerts`' encrypted link and its host (the table stays for 50.1's columns), its checks
+  (`checkTeamsWebhookUrl`, `*.logic.azure.com`, `sig`, the AAD label), the Sentry rule that
+  treats those hosts as private (`lib/observability/options.ts`), the link form
+  (`settings/alerts/controls.tsx`), their tests, and the README's Power Automate steps go.
+  `lastSentTeams` now means Teams accepted the message (Bot Connector's 201). Backups don't change
+  (alert settings were never in them).
+
+### 50.5 — Setup an admin does once
+
+- In the Azure portal: create an **Azure Bot** (free tier), single-tenant, "use existing app
+  registration" (the family's), and turn on the **Microsoft Teams** channel. The messaging
+  address can be left empty or be the app's: Teams' install notices then stop at Cloudflare
+  Access and show as delivery failures in the Azure Bot resource, which is expected.
+- In Entra: grant `TeamsAppInstallation.ReadWriteSelfForUser.All` and
+  `TeamsAppInstallation.ReadWriteSelfForChat.All` (application), and `Chat.ReadBasic`
+  (delegated).
+- In Teams admin center: allow custom apps for the family (an app permission policy), then add
+  the app to the catalog (see question 3).
+- `docs/guides/admin.md` and the README get these steps; the
+  family guide says where Teams alerts come from now.
+
+### Tests
+
+- Unit: the manifest (family name and icon, no fixed name, required fields and lengths,
+  `isNotificationOnly`, the outline icon only white and transparent), a new version when the name
+  or icon changes, the Bot Connector payload, error wording, install and chat-id handling with
+  Graph mocked (the roster 403 reinstall, 429, 401). Database: recipients, a missing install, one
+  failure among several, a jar chat pick (only an id from the member's own listing; an external
+  member shown). The guard tests keep the Workflows hosts out. No live Microsoft call in CI.
+
+### Not in this phase
+
+- Answering from Teams (approve an order with a button): the bot would need an address Teams can
+  call, through Cloudflare Access; a later phase if wanted.
+- Activity feed notifications, and alerts to kids (no Microsoft sign-in).
+
+### The owner's answers (2026-10-23)
+
+1. **The app's own Teams bot**, not activity notifications or Power Automate.
+2. **Create a free-tier Azure Bot** in the family's tenant (an Azure subscription, no cost at
+   this size), on the family's existing app registration.
+3. **An Add to Teams button** for an admin who is a Teams or Global administrator, publishing
+   through Graph, and again when the name or icon changes.
+4. **Remove the Workflows link now:** nothing is live yet.
+
 ## Open items
 
 ### Waiting on a decision
@@ -545,8 +664,6 @@ have. Fable's scope review (2026-10-23) is folded in.
 
 - **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
   with it. Removing it before going live is planned (the owner's call to keep it for now).
-- **Teams alerts need a Power Automate flow**; a "Connect Teams" button through Graph, and
-  picking a jar's Teams chat from a list, are Phase 50.
 - **Other setup friction:** finding the school calendar from the school's web address (Phase
   51), statement imports that work out their own columns (Phase 52), and VIN entry or scanning,
   smoother bank-feed setup, the alert mailbox set and tested in Settings, and a link to Entra's

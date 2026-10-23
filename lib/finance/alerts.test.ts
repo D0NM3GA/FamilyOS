@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { alertLabel, billAlert, billIsAlertWorthy, MONEY_CARD, overBudgetAlert, parseTeamsChatLink, syncAlert } from "./alerts";
+import { alertLabel, billAlert, billIsAlertWorthy, MONEY_CARD, overBudgetAlert, syncAlert } from "./alerts";
 import { isHiddenFrom, isUnrevealed } from "./gifts";
 import type { Recurring } from "./recurring";
-import { teamsPayload } from "@/lib/alerts/teams";
+import { teamsActivity } from "@/lib/alerts/teams";
 
 const jar = { id: "j1", name: "Family" };
 const bill = (over: Partial<Recurring> = {}): Recurring => ({
@@ -70,10 +70,10 @@ describe("money alert text", () => {
   });
 
   it("the Teams card says Money, not the Store", () => {
-    const body = JSON.stringify(teamsPayload("a@b.co", "t", "https://x/finances", MONEY_CARD));
+    const body = JSON.stringify(teamsActivity("t", "https://x/finances", MONEY_CARD));
     expect(body).toContain("💰 Money");
     expect(body).not.toContain("⭐ Store");
-    expect(JSON.stringify(teamsPayload("a@b.co", "t", "l"))).toContain("⭐ Store");
+    expect(JSON.stringify(teamsActivity("t", "l"))).toContain("⭐ Store");
   });
 });
 
@@ -86,26 +86,5 @@ describe("surprise visibility", () => {
     expect(isHiddenFrom({ giftHiddenFrom: [], giftRevealOn: null }, "mom", "2026-12-24")).toBe(false);
     expect(isUnrevealed(row, "2026-12-24")).toBe(true);
     expect(isUnrevealed(row, "2026-12-25")).toBe(false);
-  });
-});
-
-describe("Phase 30: a jar's Teams chat", () => {
-  const ID = "19:4f1c2b3a9d8e7f6a5b4c3d2e1f0a9b8c@thread.v2";
-  it("takes the chat id, a chat link or a message link", () => {
-    expect(parseTeamsChatLink(ID)).toEqual({ ok: true, chatId: ID });
-    expect(parseTeamsChatLink(` https://teams.microsoft.com/l/chat/${encodeURIComponent(ID)}/conversations?context=%7B%7D `)).toEqual({ ok: true, chatId: ID });
-    expect(parseTeamsChatLink(`https://teams.microsoft.com/l/message/${encodeURIComponent(ID)}/1712345678901?tenantId=t&groupId=g`)).toEqual({ ok: true, chatId: ID });
-  });
-  it("refuses one-to-one chats and anything else", () => {
-    const oneToOne = parseTeamsChatLink(`https://teams.microsoft.com/l/chat/${encodeURIComponent("19:aaa_bbb@unq.gbl.spaces")}/0`);
-    expect(oneToOne.ok).toBe(false);
-    expect(!oneToOne.ok && oneToOne.error).toMatch(/one-to-one/);
-    for (const bad of ["", "hello", "19:abc@thread.v2", "https://evil.example/l/chat/%E0%A4%A/", "19:abc<script>@thread.v2", `${ID}x`]) {
-      expect(parseTeamsChatLink(bad).ok).toBe(false);
-    }
-  });
-  it("puts the chat id in the flow's payload only when there is one", () => {
-    expect(teamsPayload("a@b.co", "t", "l", MONEY_CARD, ID)).toMatchObject({ recipient: "a@b.co", chatId: ID });
-    expect(teamsPayload("a@b.co", "t", "l", MONEY_CARD)).not.toHaveProperty("chatId");
   });
 });

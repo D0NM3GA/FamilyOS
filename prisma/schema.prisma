@@ -1539,9 +1539,14 @@ model AlertPrefs {
   emailEnabled   Boolean   @default(false)
   lastErrorTeams String?
   lastErrorEmail String?
-  /// "Handed to Teams": the Workflows trigger accepted it (202). Delivery to the chat
-  /// happens inside the flow afterwards; failures there show in the flow's run history.
+  /// Phase 50: Teams accepted the message (Bot Connector's 201) into this person's chat with the
+  /// family's Teams app.
   lastSentTeams  DateTime?
+  /// Phase 50: the family's Teams app installed for this person (Graph's installation id) and
+  /// its chat with them, read from the install and kept for sending. Cleared and read again
+  /// when Teams says the chat is gone.
+  teamsInstallId String?
+  teamsChatId    String?
   lastSentEmail  DateTime?
   /// Phase 21.6: phone push has no on/off switch — a person's registered devices are the
   /// switch. These are the last outcome across their devices.
@@ -1555,18 +1560,22 @@ model AlertPrefs {
   @@map("alert_prefs")
 }
 
-/// Phase 21.5: the family's one Teams Workflows link. The flow posts as the Flow bot to
-/// whichever person each alert names, so nobody else has to build anything. The URL is a
-/// bearer secret (its `sig` parameter): encrypted (AAD alerts:teams:household:<id>),
-/// never sent to the browser. Only the signed-in Microsoft account of an admin may change
-/// it, and who did is kept. Not backed up; restore keeps the Household row, so it survives.
+/// Phase 21.5: the family's Teams setup. Phase 50: the family's own Teams app (a notification-only
+/// bot, lib/teams) instead of a Workflows link, so nothing here is secret. Only the signed-in
+/// Microsoft account of an admin may publish or disconnect it, and who did is kept. Not backed
+/// up; restore keeps the Household row, so it survives.
 model HouseholdAlerts {
   householdId       String    @id
   household         Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  teamsWebhookEnc   Bytes?
-  teamsWebhookIv    Bytes?
-  teamsWebhookTag   Bytes?
-  teamsWebhookHost  String?
+  /// Phase 50: the family's own Teams app (lib/teams). `teamsManifestId` is the package's fixed
+  /// id (made once); `teamsAppId` the id Teams' app catalog gave it when it was published;
+  /// `teamsAppVersion` and `teamsAppHash` what was published last (a changed name or icon
+  /// publishes a new version). Null `teamsAppId`: Teams isn't connected yet.
+  teamsManifestId   String?
+  teamsAppId        String?
+  teamsAppVersion   String?
+  teamsAppHash      String?
+  teamsPublishedAt  DateTime?
   updatedByPersonId String?
   updatedBy         Person?   @relation("HouseholdAlertsUpdatedBy", fields: [updatedByPersonId], references: [id], onDelete: SetNull)
   updatedAt         DateTime  @updatedAt
@@ -1635,9 +1644,11 @@ model MoneyJar {
   holdings     FinHolding[]
 
   /// Phase 30: one Teams group chat (a 19:…@thread.v2 conversation id) that gets this jar's
-  /// money alerts once, instead of a message to each member. Not a secret; not in backups
-  /// (paste it again after a money restore). The last send's failure, as fixed text.
+  /// money alerts once, instead of a message to each member. Not a secret; not in backups (pick
+  /// it again after a money restore). The last send's failure, as fixed text. Phase 50: picked
+  /// from a member's own list of group chats, with its topic kept to show which one it is.
   teamsChatId    String?
+  teamsChatName  String?
   teamsChatError String?
 
   @@map("money_jar")

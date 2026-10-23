@@ -286,6 +286,12 @@ Inside a jar:
 A jar's Settings connects the bank feed, imports statements and sets your own **Alerts for me**
 (bills due, a broken bank feed, over budget, running low). Alerts never include amounts.
 
+**One Teams chat for the jar**: instead of a message to each of you, a jar can send its alerts
+once to a Teams group chat. In the jar's Settings, **Choose a Teams chat** lists your own group
+chats; pick one with everyone in the jar. The family's Teams app joins the chat to post there; it
+can't read what anyone writes. Someone from outside the family's Microsoft 365 is marked, since
+they'd see the alerts too.
+
 **🗄️ Keep a copy** on the Money page downloads your own jars (it asks you to sign in again first).
 
 <!-- screenshot: a jar's Activity -->
@@ -314,6 +320,10 @@ sign-in.
 
 **My phones** lists your phones; **Remove** stops one. If you blocked notifications by mistake,
 allow them in the phone's settings and reload the page.
+
+**In Teams** (grown-ups who sign in with Microsoft): alerts an admin switched on for you arrive as
+messages from the family's Teams app, named like the app, under **Chat** in Teams. It only sends;
+there's nothing to reply to.
 
 Kids get notes in the bell (orders, "Not this time"), not on their phone.
 

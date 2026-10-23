@@ -44,7 +44,7 @@ export default async function SettingsPage() {
     adult ? prisma.pushSubscription.count({ where: { personId: profile.id } }) : 0,
     adult && profile.authUserId ? prisma.passkey.count({ where: { userId: profile.authUserId } }) : 0,
     adult ? prisma.person.count({ where: { id: profile.id, pinHash: { not: null } } }).then((n) => n > 0) : false,
-    admin ? prisma.householdAlerts.findUnique({ where: { householdId: profile.householdId }, select: { teamsWebhookHost: true } }) : none,
+    admin ? prisma.householdAlerts.findUnique({ where: { householdId: profile.householdId }, select: { teamsAppId: true } }) : none,
     // Who actually gets Teams or email: a channel is only "on" once an admin has switched it on.
     admin
       ? prisma.alertPrefs.findMany({
@@ -83,7 +83,7 @@ export default async function SettingsPage() {
     invitesWaiting: invites.filter((i) => !i.recovery && i.usable).length,
     look: look ? { appName: look.appName, rewardMany: look.reward.many, mascot: look.mascot.on ? look.mascot.name : null } : { appName: "", rewardMany: "", mascot: null },
     appsHidden: household ? cleanDisabledApps(household.disabledApps).length : 0,
-    alertsTeams: Boolean(alerts?.teamsWebhookHost) && alertChannels.some((p) => p.teamsEnabled),
+    alertsTeams: Boolean(alerts?.teamsAppId) && alertChannels.some((p) => p.teamsEnabled),
     alertsEmail: Boolean(alertMailbox()) && alertChannels.some((p) => p.emailEnabled),
     outlookOn: adult && calendarOn && microsoftEnabled(),
     outlookSync: outlookSync ? { error: Boolean(outlookSync.lastError) } : null,

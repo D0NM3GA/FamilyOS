@@ -1,14 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireAdult } from "@/lib/authz";
 import { isSessionOwner } from "@/lib/active-profile";
-import { encryptSecret } from "@/lib/crypto";
-import { checkTeamsWebhookUrl, householdTeamsAad } from "@/lib/alerts/teams";
+import { auth } from "@/lib/auth";
+import { captureError } from "@/lib/observability";
+import { getGraphToken, GraphAuthError } from "@/lib/graph/client";
+import { buildFamilyPackage, familyTeamsAppId, recordPublished } from "@/lib/teams/family-app";
+import { publishPackage, TeamsError } from "@/lib/teams/microsoft";
 import { alertMailbox } from "@/lib/alerts/email";
-import { ConfigError, householdTeamsUrl, recipientEmail, sendTest, teamsRecipient, type Channel } from "@/lib/alerts/dispatch";
+import { recipientEmail, sendTest, teamsRecipient, type Channel } from "@/lib/alerts/dispatch";
 import { findAlertTarget } from "@/lib/alerts/targets";
 import { isAllowedPushEndpoint, isValidUaPublicKey } from "@/lib/alerts/webpush";
 import { deviceOwner, forgetDevice, registerDevice, removeAdminDevice, removeOwnDevice } from "@/lib/alerts/devices";
@@ -16,12 +21,11 @@ import { getVapidState, replaceStoredVapid } from "@/lib/alerts/vapid";
 
 /**
  * Phase 21.5: the family's alert settings. Any admin may switch alerts for any admin in the
- * household (so a parent who never opens Settings still gets them). The family Teams link
- * is a shared secret, so changing it also needs the admin's own Microsoft sign-in — not a
- * profile reached by PIN-switching — and records who did it. The link only ever goes
- * client → server, gets validated and encrypted, and is never sent back.
+ * household (so a parent who never opens Settings still gets them). Phase 50: Teams is the
+ * family's own Teams app; publishing it to the tenant (and disconnecting) needs the admin's own
+ * Microsoft sign-in — not a profile reached by PIN-switching — and records who did it.
  */
-export type AlertFormState = { error?: string; ok?: string };
+export type AlertFormState = { error?: string; ok?: string; needsGrant?: boolean };
 
 function done() {
   revalidatePath("/settings/alerts");
@@ -31,48 +35,64 @@ function done() {
 async function requireLinkOwner() {
   const profile = await requireAdmin();
   if (!(await isSessionOwner(profile))) {
-    return { profile, error: "Use the app on your own sign-in to change the family's Teams link." };
+    return { profile, error: "Use the app on your own sign-in to change Teams for the family." };
   }
   return { profile, error: null };
 }
 
-export async function saveTeamsLink(_prev: AlertFormState, formData: FormData): Promise<AlertFormState> {
+/**
+ * Phase 50: "Add to Teams" (and "Update in Teams"): builds the family's Teams app from today's
+ * settings and publishes it to the tenant's app catalog with the admin's own token
+ * (AppCatalog.ReadWrite.All, granted on the button below, and a Teams or Global administrator).
+ */
+export async function publishTeamsApp(): Promise<AlertFormState> {
   const { profile, error } = await requireLinkOwner();
   if (error) return { error };
-  const check = checkTeamsWebhookUrl(String(formData.get("url") ?? "").slice(0, 2000));
-  if (!check.ok) return { error: check.reason };
-  const enc = encryptSecret(check.url, householdTeamsAad(profile.householdId));
-  const data = {
-    teamsWebhookEnc: new Uint8Array(enc.encryptedValue),
-    teamsWebhookIv: new Uint8Array(enc.iv),
-    teamsWebhookTag: new Uint8Array(enc.authTag),
-    teamsWebhookHost: check.host,
-    updatedByPersonId: profile.id,
-  };
-  await prisma.$transaction([
-    prisma.householdAlerts.upsert({
-      where: { householdId: profile.householdId },
-      create: { householdId: profile.householdId, ...data },
-      update: data,
-    }),
-    // A new link is a fresh start for everyone's Teams status.
-    prisma.alertPrefs.updateMany({ where: { person: { householdId: profile.householdId } }, data: { lastErrorTeams: null } }),
-  ]);
+  try {
+    const built = await buildFamilyPackage(profile.householdId);
+    const token = await getGraphToken();
+    const teamsAppId = await publishPackage(token, built.zip, { teamsAppId: built.teamsAppId, manifestId: built.manifestId });
+    await recordPublished(profile.householdId, built, teamsAppId, profile.id);
+  } catch (err) {
+    if (err instanceof GraphAuthError) return { error: "This needs you signed in here with Microsoft." };
+    if (err instanceof TeamsError) return { error: err.message, needsGrant: err.kind === "needsAdmin" };
+    captureError(err);
+    return { error: "Couldn't publish the family's Teams app. Try again." };
+  }
   done();
-  return { ok: "The family's Teams link is saved. Try “Send a test” for someone below." };
+  return { ok: "The family's Teams app is in Teams. Send a test to someone below." };
 }
 
-/** Keeps everyone's on/off choices, so pasting a new link later picks up where it left off. */
+/**
+ * Incremental consent for publishing (AppCatalog.ReadWrite.All), asked for on this button only,
+ * like the calendar's write access: Better Auth's link flow re-links the signed-in admin's own
+ * Microsoft account.
+ */
+export async function allowTeamsPublishing(): Promise<AlertFormState> {
+  const { error } = await requireLinkOwner();
+  if (error) return { error };
+  let url: string;
+  try {
+    const result = await auth.api.linkSocialAccount({
+      body: { provider: "microsoft", scopes: ["AppCatalog.ReadWrite.All"], callbackURL: "/settings/alerts?grant=teams", errorCallbackURL: "/settings/alerts?grant=failed" },
+      headers: await headers(),
+    });
+    url = result.url;
+  } catch (err) {
+    captureError(err);
+    return { error: "Couldn't start the Microsoft sign-in. Try again." };
+  }
+  redirect(url);
+}
+
+/** Keeps everyone's on/off choices and the app in Teams; nothing is sent until it's added again. */
 export async function disconnectTeams(): Promise<AlertFormState> {
   const { profile, error } = await requireLinkOwner();
   if (error) return { error };
   await prisma.$transaction([
-    prisma.householdAlerts.updateMany({
-      where: { householdId: profile.householdId },
-      data: { teamsWebhookEnc: null, teamsWebhookIv: null, teamsWebhookTag: null, teamsWebhookHost: null, updatedByPersonId: profile.id },
-    }),
-    // Old Teams errors would read like live problems under a disconnected link.
-    prisma.alertPrefs.updateMany({ where: { person: { householdId: profile.householdId } }, data: { lastErrorTeams: null } }),
+    prisma.householdAlerts.updateMany({ where: { householdId: profile.householdId }, data: { teamsAppId: null, updatedByPersonId: profile.id } }),
+    // Old Teams errors and chats would read like live ones.
+    prisma.alertPrefs.updateMany({ where: { person: { householdId: profile.householdId } }, data: { lastErrorTeams: null, teamsInstallId: null, teamsChatId: null } }),
   ]);
   done();
   return { ok: "Teams is disconnected for the family." };
@@ -94,15 +114,7 @@ export async function setChannel(personId: string, ch: Channel, enabled: boolean
     if (!recipientEmail(target)) return { error: `There's no email address for ${target.firstName}.` };
   }
   if (input.data.enabled && input.data.ch === "teams") {
-    // Must actually decrypt, not just exist: switching on against a broken link would
-    // "succeed" and then nothing would ever arrive.
-    let url: string | null;
-    try {
-      url = await householdTeamsUrl(profile.householdId);
-    } catch (err) {
-      return { error: err instanceof ConfigError ? err.message : "Something went wrong. Try again." };
-    }
-    if (!url) return { error: "Connect the family's Teams link first." };
+    if (!(await familyTeamsAppId(profile.householdId))) return { error: "Add the family's Teams app to Teams first." };
     if (!teamsRecipient(target)) {
       return { error: `${target.firstName} needs to sign in here with Microsoft once before Teams can reach them.` };
     }
@@ -130,7 +142,7 @@ export async function sendTestAlert(personId: string, ch: Channel): Promise<Aler
   done();
   if (error) return { error };
   if (input.data.ch === "teams") {
-    return { ok: `Teams accepted it. ${target.firstName} should see it in a moment; if not, check the workflow's run history.` };
+    return { ok: `Teams accepted it. ${target.firstName} should see it in their chat with the family's Teams app in a moment.` };
   }
   return input.data.ch === "push" ? { ok: `Sent to ${target.firstName}'s phone.` } : { ok: `Sent to ${target.firstName}'s inbox.` };
 }

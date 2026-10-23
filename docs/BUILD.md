@@ -750,6 +750,40 @@ defaults), and about 140 date calculations became right without being touched.
 - **Guards:** Vitest runs in `America/New_York`; `lib/household-zone-guard.test.ts` refuses a
   formatter or date made at module load (a vehicle's "newest model year" was one).
 
+## Phase 50 — Teams without Power Automate
+
+Teams alerts went through a Power Automate Workflows link one admin built by hand, and a jar's chat
+was a pasted link. The owner's calls: the app's own Teams bot, a free-tier Azure Bot on the
+family's existing app registration, an **Add to Teams** button, and the Workflows link removed.
+
+- **Why a bot (researched):** Graph won't let an app post chat messages as itself (delegated only);
+  activity feed notifications only link inside Teams, and phones show them only for apps on
+  Microsoft's allow list. A notification-only bot is what the Flow bot was.
+- **The package** (`lib/teams/manifest.ts`) is built from the family's settings: their app name,
+  their color icon and a white-on-transparent outline (Teams refuses any other outline), at this
+  install's own address. It's published only into the family's tenant, so it carries the
+  family's name, like an alert email's subject. `webApplicationInfo` names the app registration;
+  without it Graph won't list the app's installs. A changed name or icon publishes a new version.
+  The zip is a small writer of our own (`lib/teams/zip.ts`), no new dependency.
+- **Sending** (`lib/teams/family-app.ts`, `lib/teams/microsoft.ts`): the app installs itself for a
+  grown-up (app-only, addressed by their Entra object id, never an email), reads its chat with
+  them from the install and keeps it, and posts through Bot Connector's global address with a
+  token from the same app registration. Nothing has to reach the app from outside, so Cloudflare
+  Access is unchanged. When Teams says the chat is gone, it installs and reads it again and tries
+  once more; a 401 gets a fresh token, a 429 one wait.
+- **A jar's chat** is picked from the member's own group chats (delegated `Chat.ReadBasic`, asked
+  for on that button). Because the app may add itself to any chat in the tenant, the server only
+  takes a chat id from that member's list, read again when saving, and marks people from outside
+  the tenant. The bot can't read the chat.
+- **Review findings (Fable):** the scope review confirmed the pattern against Microsoft's docs and
+  added `isNotificationOnly`, the outline icon rule, the object id instead of the email, the error
+  handling and the pick-is-the-guard rule.
+- **Departure from the scope:** Settings → Alerts shows a status line (in Teams, by whom, when,
+  and whether the name or icon changed since) rather than a step-by-step checklist; whether the
+  Azure Bot answers shows on the first **Send a test**.
+- **Removed:** the Workflows link, its URL checks and the Sentry rule for its hosts. Bot Connector
+  and the app's Graph install and chat calls are private to Sentry instead.
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with

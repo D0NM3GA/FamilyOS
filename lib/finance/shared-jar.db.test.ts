@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { encryptSecret, fingerprint } from "@/lib/crypto";
-import { householdTeamsAad } from "@/lib/alerts/teams";
+import { fingerprint } from "@/lib/crypto";
 import { todayCivil } from "./budget";
 
 /**
@@ -59,9 +58,11 @@ describe.skipIf(!RUN)("shared jars (database)", { timeout: 60_000 }, () => {
     Object.assign(ids, { h: h.id, dad: dad.id, mom: mom.id, grandma: grandma.id, jar: jar.id, other: other.id, gJar: gJar.id, feed: feed.id });
   });
 
+  const env = { ...process.env };
   afterAll(async () => {
     await prisma.household.deleteMany({ where: { id: ids.h } });
     await prisma.user.deleteMany({ where: { id: { in: users } } });
+    process.env = { ...env };
   });
 
   const as = async (personId: string) => {
@@ -151,22 +152,15 @@ describe.skipIf(!RUN)("shared jars (database)", { timeout: 60_000 }, () => {
       await feedRow(`net${i}`, dayFrom(d), -1599, "NETFLIX");
       await feedRow(`box${i}`, dayFrom(d), -4500, "TOY BOX CLUB", { giftById: ids.dad, giftHiddenFrom: [ids.mom], giftRevealOn: asDate(dayFrom(60)) });
     }
-    const enc = encryptSecret("https://prod-00.example.logic.azure.com/workflows/x", householdTeamsAad(ids.h));
-    await prisma.householdAlerts.create({
-      data: {
-        householdId: ids.h,
-        teamsWebhookEnc: new Uint8Array(enc.encryptedValue),
-        teamsWebhookIv: new Uint8Array(enc.iv),
-        teamsWebhookTag: new Uint8Array(enc.authTag),
-        teamsWebhookHost: "prod-00.example.logic.azure.com",
-        updatedByPersonId: ids.dad,
-      },
-    });
+    // Phase 50: the family's Teams app, published (it needs Microsoft sign-in configured).
+    Object.assign(process.env, { MICROSOFT_CLIENT_ID: "app-id", MICROSOFT_TENANT_ID: "tenant-id", MICROSOFT_CLIENT_SECRET: "secret" });
+    await prisma.householdAlerts.create({ data: { householdId: ids.h, teamsManifestId: `manifest-${ids.h}`, teamsAppId: "catalog-app", updatedByPersonId: ids.dad } });
     await prisma.moneyJar.update({ where: { id: ids.jar }, data: { teamsChatId: CHAT } });
 
     const deliver = vi.fn(async () => {});
     const posted: string[] = [];
-    const postChat = vi.fn(async (_url: string, chatId: string, _r: string, title: string) => {
+    const postChat = vi.fn(async (appId: string, chatId: string, title: string) => {
+      expect(appId).toBe("catalog-app");
       expect(chatId).toBe(CHAT);
       posted.push(title);
     });

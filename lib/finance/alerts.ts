@@ -4,8 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { captureError } from "@/lib/observability";
 import { getAppName } from "@/lib/household-settings";
 import { householdWithAppOn } from "@/lib/app-switches";
-import { deliverNotifications, householdTeamsUrl, storeLink } from "@/lib/alerts/dispatch";
-import { sendTeams, type TeamsCard } from "@/lib/alerts/teams";
+import { deliverNotifications, storeLink } from "@/lib/alerts/dispatch";
+import { teamsActivity, type TeamsCard } from "@/lib/alerts/teams";
+import { familyTeamsAppId } from "@/lib/teams/family-app";
+import { ensureInChat, sendToChat, TeamsError } from "@/lib/teams/microsoft";
 import { eligibleMemberWhere } from "./access";
 import { budgetMonth, monthRange, todayCivil } from "./budget";
 import { daysBetween, findRecurring, isRegularBill, paidCheck, RECURRING_WINDOW_DAYS, type Recurring } from "./recurring";
@@ -153,8 +155,22 @@ export function lowBalanceAlert(jar: { id: string; name: string }, f: Forecast, 
 
 type Deliver = typeof deliverNotifications;
 
-export type PostChat = (teamsUrl: string, chatId: string, recipient: string, title: string, link: string) => Promise<void>;
-const defaultPostChat: PostChat = (url, chatId, recipient, title, link) => sendTeams(url, recipient, title, link, fetch, MONEY_CARD, chatId);
+export type PostChat = (teamsAppId: string, chatId: string, title: string, link: string) => Promise<void>;
+
+/**
+ * Phase 50: posts in the jar's group chat through the family's Teams app. When Teams says the app
+ * isn't in the chat anymore (someone removed it), it's added back and the post tried once more.
+ */
+const defaultPostChat: PostChat = async (teamsAppId, chatId, title, link) => {
+  const activity = teamsActivity(title, link, MONEY_CARD);
+  try {
+    await sendToChat(chatId, activity);
+  } catch (err) {
+    if (!(err instanceof TeamsError) || err.kind !== "gone") throw err;
+    await ensureInChat(chatId, teamsAppId);
+    await sendToChat(chatId, activity);
+  }
+};
 
 /**
  * Works out and sends every jar's alerts. Never throws; returns how many were sent. Not for
@@ -295,15 +311,15 @@ async function evaluateJar(
     return alerts;
   };
 
-  // Phase 30: the shared chat, when the jar has one and the family's Teams link is set.
-  let teamsUrl: string | null = null;
+  // Phase 30: the shared chat, when the jar has one and the family's Teams app is published.
+  let teamsAppId: string | null = null;
   if (jar.teamsChatId) {
-    teamsUrl = await householdTeamsUrl(jar.householdId).catch(() => null);
-    // Without the family link the chat can't be reached: everyone gets their own Teams as before.
-    if (!teamsUrl) await prisma.moneyJar.update({ where: { id: jar.id }, data: { teamsChatError: "The family's Teams link isn't set up or can't be read (Settings → Alerts)." } });
+    teamsAppId = await familyTeamsAppId(jar.householdId);
+    // Without the family's Teams app the chat can't be reached: everyone gets their own Teams as before.
+    if (!teamsAppId) await prisma.moneyJar.update({ where: { id: jar.id }, data: { teamsChatError: "The family's Teams app isn't set up (Settings → Alerts)." } });
   }
   const shared =
-    jar.teamsChatId && teamsUrl
+    jar.teamsChatId && teamsAppId
       ? alertsFrom(
           rows.filter((r) => !isUnrevealed(r, today)),
           {
@@ -328,18 +344,17 @@ async function evaluateJar(
   if (quiet.length) await deliver({ id: { in: quiet } }, { channels: "push-only", card: MONEY_CARD });
 
   let posted = 0;
-  if (shared.length && jar.teamsChatId && teamsUrl) {
-    const recipient = members.map((m) => m.person.authUser?.email).find(Boolean) ?? "";
+  if (shared.length && jar.teamsChatId && teamsAppId) {
     let error: string | null = null;
     let tried = 0;
     for (const a of shared) {
       if (!(await claimChat(jar.id, a.key))) continue;
       tried++;
       try {
-        await postChat(teamsUrl, jar.teamsChatId, recipient, a.title, storeLink(a.href));
+        await postChat(teamsAppId, jar.teamsChatId, a.title, storeLink(a.href));
         posted++;
       } catch (err) {
-        // sendTeams throws fixed text only. Let the claim go so the next run tries again: a
+        // The Teams calls throw fixed text only. Let the claim go so the next run tries again: a
         // late alert in the chat beats none (everyone's own copy already went push-only).
         error = err instanceof Error ? err.message : "Couldn't reach Teams.";
         await prisma.jarChatAlertSent.deleteMany({ where: { jarId: jar.id, key: a.key } });
@@ -361,37 +376,15 @@ async function claimChat(jarId: string, key: string): Promise<boolean> {
   }
 }
 
-/**
- * The Teams group chat id from what a person pastes: the chat's id itself, or a Teams link to
- * the chat or to a message in it (teams.microsoft.com/l/chat/<id>/… or /l/message/<id>/…).
- * Group and meeting chats only (19:…@thread.v2): a one-to-one chat can't take Flow bot posts.
- */
-export function parseTeamsChatLink(raw: string): { ok: true; chatId: string } | { ok: false; error: string } {
-  const text = raw.trim();
-  let candidate = text;
-  const m = /\/l\/(?:chat|message)\/([^/?#]+)/i.exec(text);
-  if (m) {
-    try {
-      candidate = decodeURIComponent(m[1]);
-    } catch {
-      return { ok: false, error: "That link couldn't be read. Copy it again from the chat." };
-    }
-  }
-  if (/@unq\.gbl\.spaces$/i.test(candidate)) return { ok: false, error: "That's a one-to-one chat. Pick a group chat with everyone in this jar." };
-  if (!/^19:[A-Za-z0-9_-]{6,200}@thread\.v2$/.test(candidate)) return { ok: false, error: "That doesn't look like a Teams group chat link. In Teams, open the chat, then copy a link to it or to a message in it." };
-  return { ok: true, chatId: candidate };
-}
-
 /** "Send a test" to the jar's chat. Returns fixed text on failure, null when Teams took it. */
-export async function sendJarChatTest(jarId: string, viewerId: string, post: PostChat = defaultPostChat): Promise<string | null> {
+export async function sendJarChatTest(jarId: string, post: PostChat = defaultPostChat): Promise<string | null> {
   const jar = await prisma.moneyJar.findUnique({ where: { id: jarId }, select: { name: true, householdId: true, teamsChatId: true } });
-  if (!jar?.teamsChatId) return "Paste the chat's link first.";
-  const teamsUrl = await householdTeamsUrl(jar.householdId).catch(() => null);
-  if (!teamsUrl) return "Teams isn't set up for the family yet (Settings → Alerts).";
-  const me = await prisma.person.findUnique({ where: { id: viewerId }, select: { authUser: { select: { email: true } } } });
+  if (!jar?.teamsChatId) return "Choose the chat first.";
+  const teamsAppId = await familyTeamsAppId(jar.householdId);
+  if (!teamsAppId) return "Teams isn't set up for the family yet (Settings → Alerts).";
   const appName = await getAppName(jar.householdId);
   try {
-    await post(teamsUrl, jar.teamsChatId, me?.authUser?.email ?? "", `Test from ${appName}: money alerts for ${jar.name} will show up here. 💰`, storeLink(`/finances/${jarId}`));
+    await post(teamsAppId, jar.teamsChatId, `Test from ${appName}: money alerts for ${jar.name} will show up here. 💰`, storeLink(`/finances/${jarId}`));
     await prisma.moneyJar.update({ where: { id: jarId }, data: { teamsChatError: null } });
     return null;
   } catch (err) {

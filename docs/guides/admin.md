@@ -107,7 +107,7 @@ image.
 | `BETTER_AUTH_URL` | The address from step 2, `https://familyos.example.com` | Permanent (passkeys) |
 | `DATABASE_URL` | `postgresql://familyos:<db password>@db:5432/familyos?schema=public` | The same password as the `db_password` file. Letters and digits only, or percent-encode `@ : / % #` |
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` | Signs sign-ins and cookies. Make it once and keep it |
-| `INTEGRATION_ENCRYPTION_KEY` | `openssl rand -base64 32` (a different one) | Encrypts stored connections (bank feed, Teams link, phone-alert keys) and seals money jars in backups. Make it once and keep it |
+| `INTEGRATION_ENCRYPTION_KEY` | `openssl rand -base64 32` (a different one) | Encrypts stored connections (bank feed, phone-alert keys) and seals money jars in backups. Make it once and keep it |
 | `TRUSTED_PROXIES` | `172.30.43.10` | The tunnel's fixed address in `docker-compose.prod.yml`; leave it unless you change the subnet |
 | `TZ` | Optional: a time zone, e.g. `America/New_York` | Only used until the household has a time zone (setup takes it from the device you set up on). After that the app keeps the household's own |
 | `CONTACT_EMAIL` | An address for whoever runs the server | Push services, the US Weather Service, Open Food Facts and Let's Encrypt ask for one. Without it, phone alerts use the app's `https://` address instead |
@@ -362,11 +362,14 @@ notifications** on their own phone.
   first (the [family guide](family.md#notifications-on-your-phone) has the steps). If
   `INTEGRATION_ENCRYPTION_KEY` ever changes, the page offers an admin new keys, and every phone
   turns alerts on again. Any admin can remove a lost phone from that admin's row.
-- **Teams:** one person builds one Teams Workflows flow ("Post to a chat when a webhook request is
-  received", Flow bot), sets **Who can trigger the flow?** to **Anyone**, and points the
-  recipient at `triggerBody()?['recipient']`; then pastes the link under **Teams for the family**
-  and presses **Send a test**. Each person must have signed in with Microsoft once. Exact steps,
-  the optional group chat for money jars and troubleshooting: README "Alerts".
+- **Teams:** the family's own Teams app, a notification-only bot named after the family's app,
+  messages each admin in their own Teams chat with it. An admin who is also a Teams administrator
+  sets it up once: an **Azure Bot** (free tier, single-tenant, on the family's app registration,
+  with the Teams channel on), four permissions on the app registration with admin consent, custom
+  apps allowed in Teams admin center, then **Allow publishing** and **Add to Teams** under
+  **Teams for the family**, and **Send a test**. Each person must have signed in with Microsoft
+  once. A money jar can pick one of a member's own group chats instead. Exact steps and
+  troubleshooting: README "Teams".
 - **Email:** a shared mailbox and Exchange **RBAC for Applications** limiting the app to that one
   mailbox (never the Graph `Mail.Send` application permission). Then `ALERT_MAILBOX` in
   `familyos.env` (restart, section 15) and **Send a test**. Exact steps: README "Email".

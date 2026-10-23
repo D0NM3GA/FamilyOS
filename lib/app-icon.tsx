@@ -106,3 +106,22 @@ export async function renderAppIcon(look: FamilyLook, size: number): Promise<Ima
     { width: size, height: size },
   );
 }
+
+/**
+ * Phase 50: the Teams app's outline icon, white on transparent only (Teams refuses any other
+ * color): the app name's first letter, or a plain white ring when the name doesn't start with one.
+ */
+export async function renderOutlineIcon(look: FamilyLook, size = 32): Promise<ImageResponse> {
+  const letter = iconLetter(look.appName);
+  const box = { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" } as const;
+  return new ImageResponse(
+    letter ? (
+      <div style={{ ...box, color: "#ffffff", fontSize: Math.round(size * 0.8), lineHeight: 1 }}>{letter}</div>
+    ) : (
+      <div style={box}>
+        <div style={{ width: size * 0.7, height: size * 0.7, borderRadius: size, border: `${Math.max(2, Math.round(size / 10))}px solid #ffffff` }} />
+      </div>
+    ),
+    { width: size, height: size },
+  );
+}
