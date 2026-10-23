@@ -10,6 +10,8 @@
 # update would, starts the app and waits for it to be healthy, compares row counts with the
 # .counts file beside the dump, checks `migrate deploy` accepts a database carrying a migration
 # it doesn't know (what a rollback leaves), then removes everything it made.
+# Phase 46: it runs the images the server runs (FAMILYOS_VERSION, pulled if they're missing);
+# scripts/container-test.sh runs it on the images it just built (FAMILYOS_VERSION=local).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -51,7 +53,7 @@ echo "drill: restoring $(basename "$dump") into a throwaway database"
   || fail "pg_restore couldn't restore it"
 
 echo "drill: migrating and starting the app"
-"${compose[@]}" up -d --build --wait migrate app > /dev/null || fail "the app didn't come up healthy on the restored data"
+"${compose[@]}" up -d --wait migrate app > /dev/null || fail "the app didn't come up healthy on the restored data"
 
 if [ -s "$counts" ]; then
   restored="$("${compose[@]}" exec -T db psql -U familyos -d familyos -At -F ' ' -c "$(cat scripts/drill-tables.sql)")"

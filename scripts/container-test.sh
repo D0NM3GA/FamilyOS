@@ -14,7 +14,9 @@ if (exec 3<>/dev/tcp/127.0.0.1/3100) 2>/dev/null; then
 fi
 
 work="$(mktemp -d)"
-compose=(docker compose -p familyos-test -f docker-compose.prod.yml -f docker-compose.ci.yml)
+# Phase 46: built here under a local tag, never a published one (docker-compose.build.yml).
+export FAMILYOS_VERSION="${FAMILYOS_VERSION:-local}"
+compose=(docker compose -p familyos-test -f docker-compose.prod.yml -f docker-compose.build.yml -f docker-compose.ci.yml)
 cleanup() {
   "${compose[@]}" logs app > "${CONTAINER_LOG:-/dev/null}" 2>&1 || true
   "${compose[@]}" down -v --remove-orphans > /dev/null 2>&1 || true
@@ -42,9 +44,12 @@ ENV
 export FAMILYOS_ENV_FILE="$work/familyos.env" FAMILYOS_SECRETS_DIR="$work/secrets" FAMILYOS_BREAK_GLASS_DIR="$work/break-glass"
 
 "${compose[@]}" down -v --remove-orphans > /dev/null 2>&1 || true
-"${compose[@]}" up -d --build --wait db migrate app
+# Phase 46: built with decoy Sentry settings in the environment. The image is published, so
+# nothing from the machine that builds it may end up inside; the checks below look for these.
+NEXT_PUBLIC_SENTRY_DSN=https://decoy@o0.ingest.example/1 SENTRY_DSN=https://decoy@o0.ingest.example/2 \
+  "${compose[@]}" up -d --build --wait db migrate app
 
-# The run image: nothing secret, no development tools, not root.
+# The run image: nothing secret, nothing from the build machine, no development tools, not root.
 image="$("${compose[@]}" images -q app | head -n1)"
 docker run --rm --entrypoint sh "$image" -c '
   set -e
@@ -52,6 +57,8 @@ docker run --rm --entrypoint sh "$image" -c '
   for f in .env .env.production familyos.env; do test ! -e "$f" || { echo "$f is in the image"; exit 1; }; done
   for p in prisma typescript vitest tsx @playwright; do test ! -e "node_modules/$p" || { echo "$p is in the image"; exit 1; }; done
   ls node_modules/argon2/prebuilds/linux-* > /dev/null
+  ! env | grep -q "^NEXT_PUBLIC_" || { echo "a NEXT_PUBLIC_ value is in the image"; exit 1; }
+  ! grep -rqE "decoy@o0|@o[0-9]+\.ingest\." .next server.js 2>/dev/null || { echo "a Sentry address is built into the image"; exit 1; }
   echo "run image: ok"
 '
 

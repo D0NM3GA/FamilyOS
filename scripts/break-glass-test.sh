@@ -13,7 +13,8 @@ cd "$(dirname "$0")/.."
 
 work="$(mktemp -d)"
 export COMPOSE_PROJECT=familyos-bgtest
-compose=(docker compose -p "$COMPOSE_PROJECT" -f docker-compose.prod.yml -f docker-compose.ci.yml)
+export FAMILYOS_VERSION="${FAMILYOS_VERSION:-local}"
+compose=(docker compose -p "$COMPOSE_PROJECT" -f docker-compose.prod.yml -f docker-compose.build.yml -f docker-compose.ci.yml)
 cleanup() {
   "${compose[@]}" --profile breakglass down -v --remove-orphans > /dev/null 2>&1 || true
   # The certificate and state file belong to root by now (as on the server).
