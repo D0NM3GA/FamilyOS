@@ -159,7 +159,8 @@ jobs:
           push familyos-ci:local "$app" app_digest
           push familyos-ci-migrate:local "$app-migrate" migrate_digest
       # Where each image came from (this workflow, this commit), signed and kept in the registry
-      # beside it: `gh attestation verify oci://… --owner <owner>` (README "Start, update, roll back").
+      # beside it: `gh attestation verify oci://<image>@<digest> --owner <owner>` (README "Start,
+      # update, roll back").
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ steps.push.outputs.app }}
