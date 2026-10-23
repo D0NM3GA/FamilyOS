@@ -149,8 +149,7 @@ describe.skipIf(!RUN)("the pet (database)", () => {
 
   test("you can only move your own things", async () => {
     await freshPet(who.max.id);
-    await getMyPet(who.max);
-    const maxBall = await prisma.petItem.findFirstOrThrow({ where: { personId: who.max.id, itemId: "ball" } });
+    const maxBall = await prisma.petItem.create({ data: { householdId: h.id, personId: who.max.id, itemId: "ball" } });
     expect(await placeMyItem(who.ivy, maxBall.id, "out")).toBe(false);
     expect(await placeMyItem(who.max, maxBall.id, "out")).toBe(true);
     expect(await placeMyItem(who.max, maxBall.id, "wall")).toBe(false);
@@ -192,9 +191,19 @@ describe.skipIf(!RUN)("the pet (database)", () => {
     expect(await prisma.petGift.count({ where: { personId: who.ivy.id, itemId: null } })).toBe(2);
   });
 
+  test("a second look in the same minute saves nothing", async () => {
+    await freshPet(who.ivy.id);
+    const now = new Date(Date.now() + MINUTE);
+    await getMyPet(who.ivy, now);
+    const first = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
+    await getMyPet(who.ivy, new Date(now.getTime() + 1000));
+    const second = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
+    expect(second.updatedAt).toEqual(first.updatedAt);
+  });
+
   test("each look only reads chores since the last one", async () => {
     await freshPet(who.ivy.id);
-    await getMyPet(who.ivy);
+    await getMyPet(who.ivy, new Date(Date.now() + MINUTE));
     const { giftsCheckedAt } = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
     expect(giftsCheckedAt).not.toBeNull();
     // Pretend the last look was an hour ago, then add a chore from before it and one just before.

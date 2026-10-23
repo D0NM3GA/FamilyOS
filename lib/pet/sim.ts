@@ -1,4 +1,4 @@
-import { careMinutesBetween, epochMinute, type CareHours } from "./care-hours";
+import { careMinutes, epochMinute, type CareHours } from "./care-hours";
 import { rngFor, type Rng } from "./random";
 import {
   ADULT_LIFESPAN_MINUTES,
@@ -234,7 +234,7 @@ export function advance(
     next = { ...next, quietUntil: Math.max(next.quietUntil, fromMinute) };
   }
 
-  for (const minute of careMinutesBetween(fromMinute, toMinute, context.careHours, context.timeZone)) {
+  for (const minute of careMinutes(fromMinute, toMinute, context.careHours, context.timeZone)) {
     next = tick(next, minute, context.seed, events);
     if (!isAlive(next)) break;
   }

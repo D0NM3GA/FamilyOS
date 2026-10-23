@@ -206,7 +206,10 @@ async function catchUp(tx: Tx, profile: Profile, settings: CareSettings, now: Da
   if (persist) {
     // Look for new chores first, so the save that claims this catch-up also moves the bookmark.
     const { chores, checkedThrough } = await findNewChores(tx, profile, row, now);
-    const { count } = await tx.pet.updateMany({
+    // Same minute and nothing new: catching up changed nothing, so there's nothing to save. (A
+    // refresh, or the page re-render right after an action, would otherwise write every time.)
+    const idle = chores.length === 0 && epochMinute(now.getTime()) === epochMinute(row.lastAdvancedAt.getTime());
+    const { count } = idle ? { count: 0 } : await tx.pet.updateMany({
       where: { id: row.id, lastAdvancedAt: row.lastAdvancedAt },
       data: { state: toJson(state), lastAdvancedAt: now, giftsCheckedAt: checkedThrough },
     });
@@ -418,10 +421,14 @@ export async function renameMyPet(profile: Profile, name: string): Promise<boole
   return count === 1;
 }
 
+/** The memory book, newest first. Capped so a very long book can't make a very slow page. */
+const MEMORIES_SHOWN = 200;
+
 export async function getMyMemories(personId: string) {
   return prisma.petMemorial.findMany({
     where: { personId },
     orderBy: { goneAt: "desc" },
+    take: MEMORIES_SHOWN,
     select: { id: true, name: true, species: true, stage: true, form: true, cause: true, ageMinutes: true, favoriteToy: true, goneAt: true },
   });
 }

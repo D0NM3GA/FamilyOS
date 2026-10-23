@@ -158,3 +158,14 @@ describe("pickForm", () => {
     expect(pickForm("baby", stats({ careMistakes: 9 }))).toBe(0);
   });
 });
+
+describe("a long time away", () => {
+  it("stops catching up once the pet is gone, however long the gap", () => {
+    const pet = { ...newEgg("blob", startMinute), stage: "baby" as const, hunger: 0, starvingMinutes: STARVE_LIMIT_MINUTES - 1, lastAwakeMinute: startMinute };
+    const started = performance.now();
+    const { state } = advance(pet, at(0), at(5 * 365 * 24 * 60), ctx());
+    expect(state.cause).toBe("hunger");
+    // Five years of minutes would take seconds to list; stopping early takes a moment.
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+});

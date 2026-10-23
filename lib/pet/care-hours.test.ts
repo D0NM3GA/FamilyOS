@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { careMinutesBetween, careWindowsText, DEFAULT_CARE_HOURS, isCareMinute, isWholeHourWindow, localTime, MINUTE_MS } from "./care-hours";
+import { careMinutes, careWindowsText, DEFAULT_CARE_HOURS, isCareMinute, isWholeHourWindow, localTime, MINUTE_MS } from "./care-hours";
 
 const minuteOf = (ms: number) => ms / MINUTE_MS;
+const careMinutesBetween = (...args: Parameters<typeof careMinutes>) => [...careMinutes(...args)];
 const DAY = 24 * 60;
 
 describe("care hours", () => {

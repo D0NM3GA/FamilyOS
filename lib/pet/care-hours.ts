@@ -62,26 +62,20 @@ export function isCareMinute(minute: number, careHours: CareHours, timeZone: str
 }
 
 /**
- * The care minutes in [fromMinute, toMinute). Windows start and end on whole local hours (all
- * the settings screen offers), so one answer holds until the next local hour. Checking once
- * per local hour, not per minute, keeps a month away from the app cheap to catch up on, and
- * counting to the local hour (not the UTC one) keeps half-hour time zones right.
+ * The care minutes in [fromMinute, toMinute), one at a time, so a long catch-up can stop as soon
+ * as it's done (a pet that's gone) without listing months of minutes first. Windows start and end
+ * on whole local hours (all the settings screen offers), so one answer holds until the next local
+ * hour: checking once per local hour, not per minute, keeps a month away cheap, and counting to
+ * the local hour (not the UTC one) keeps half-hour time zones right.
  */
-export function careMinutesBetween(
-  fromMinute: number,
-  toMinute: number,
-  careHours: CareHours,
-  timeZone: string,
-): number[] {
-  const minutes: number[] = [];
+export function* careMinutes(fromMinute: number, toMinute: number, careHours: CareHours, timeZone: string): Generator<number> {
   let minute = fromMinute;
   while (minute < toMinute) {
     const local = localTime(minute, timeZone);
     const runEnd = Math.min(toMinute, minute + 60 - (local.minuteOfDay % 60));
-    if (awakeAt(local, careHours)) for (let m = minute; m < runEnd; m++) minutes.push(m);
+    if (awakeAt(local, careHours)) for (let m = minute; m < runEnd; m++) yield m;
     minute = runEnd;
   }
-  return minutes;
 }
 
 export function isWholeHourWindow(window: CareWindow): boolean {
