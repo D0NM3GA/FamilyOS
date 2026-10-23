@@ -9,10 +9,15 @@ type DataCollection = NonNullable<InitOptions["dataCollection"]>;
 type StreamedSpanJSON = Parameters<NonNullable<InitOptions["beforeSendSpan"]>>[0];
 
 /**
- * The only DSN source. Unset (tests, CI, a fresh clone) means Sentry is fully off — the SDK
- * is initialized with `enabled: false` and sends nothing.
+ * The server's Sentry DSN, read at run time from the settings file. Phase 46: never built in
+ * (a `NEXT_PUBLIC_` value would be inlined into the published image, server code included);
+ * the browser gets it from the page (`data-sentry-dsn` on `<html>`, app/layout.tsx). Unset
+ * (tests, CI, a fresh clone) means Sentry is fully off: the SDK is initialized with
+ * `enabled: false` and sends nothing.
  */
-export const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || undefined;
+export function serverSentryDsn(): string | undefined {
+  return process.env.SENTRY_DSN || undefined;
+}
 
 /**
  * Every data category spelled out. @sentry/nextjs 11 flipped the defaults: an unset
@@ -40,10 +45,10 @@ export const DATA_COLLECTION: DataCollection = {
  * Options shared by the server, edge and browser SDKs (each runtime's init file adds its
  * own integrations). No Session Replay and no User Feedback, by the owner's decision.
  */
-export function sharedSentryOptions() {
+export function sharedSentryOptions(dsn: string | undefined) {
   return {
-    dsn: SENTRY_DSN,
-    enabled: Boolean(SENTRY_DSN),
+    dsn,
+    enabled: Boolean(dsn),
     // Otherwise every event's server_name carries the machine's hostname. (Applied to
     // browser and edge events too, where it's harmless.)
     serverName: PRODUCT_NAME.toLowerCase(),
