@@ -17,8 +17,6 @@ import { captureError } from "@/lib/observability";
 /** `notice` is a non-error heads-up on success (e.g. a fill-up saved without moving the odometer). */
 export type VehicleFormState = { error?: string; notice?: string };
 
-const CURRENT_YEAR = new Date().getFullYear();
-
 /**
  * Every mileage column is a Postgres INTEGER; without a cap, a pasted 10-digit number makes
  * Prisma throw inside the action — an error-boundary panel instead of a form error, which
@@ -45,7 +43,8 @@ const vehicleSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
   make: z.string().trim().optional(),
   model: z.string().trim().optional(),
-  year: z.coerce.number().int().min(1900).max(CURRENT_YEAR + 1).optional(),
+  // Next year's models are on sale already. Checked when saved, not when the server started.
+  year: z.coerce.number().int().min(1900).refine((y) => y <= new Date().getFullYear() + 1, "That year hasn't come yet").optional(),
   currentMileage: z.coerce.number().int().min(0, "Mileage can't be negative").max(MAX_MILEAGE, "Enter a valid mileage"),
 });
 
