@@ -652,6 +652,20 @@ typing coordinates isn't acceptable. Home location comes from the device or a ZI
 bundled, server-only Census ZCTA table), rounded to two decimals. VAPID keys are generated and
 stored encrypted when not in `.env`. A walkthrough at `/settings/get-started` and a checklist.
 
+## Phase 47 — The pet
+
+A digital pet for the kids, separate from points and the Store: classic care over time (hunger,
+fun, sickness, discipline, life stages, death from neglect) that only runs in family-set care
+hours, in a room the kid decorates, with toys, petting and five short mini-games. A pure, seeded
+simulation catches the pet up whenever it's opened. Finishing a chore quietly brings the pet a
+present (additive only, capped daily), kept secret from the chores side by a test. Pets are in
+household backups (format 8).
+
+Departures from the plan: the pet's state is one checked JSON column rather than typed columns;
+a turned-off Pet app goes to the usual "turned off" page; clearing a memory-book page isn't built
+(each book is only its owner's); changing care hours applies to the time since a pet was last
+opened.
+
 ## Grown-up apps closed to kids (security fix)
 
 Hiding grown-up apps from kids' navigation was cosmetic. The owner's call: closed on the server.

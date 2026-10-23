@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/authz";
 import { setAppOn, type SetAppResult } from "@/lib/app-switches";
 import { markSetupReviewed } from "../get-started/review";
+import { prisma } from "@/lib/prisma";
+import { careHoursFromForm } from "@/lib/pet/stored";
 
 /**
  * Phase 36: one switch on Settings → Apps. Admins only. The app id and on/off arrive from the
@@ -19,4 +21,16 @@ export async function setAppSwitch(appId: string, on: boolean): Promise<SetAppRe
     revalidatePath("/", "layout");
   }
   return result;
+}
+
+export type CareHoursState = { saved?: boolean };
+
+/** Phase 47: when the family's pets are awake (admins only). Read leniently: lib/pet/stored.ts. */
+export async function setPetCareHours(_prev: CareHoursState, formData: FormData): Promise<CareHoursState> {
+  const admin = await requireAdmin();
+  const careHours = careHoursFromForm((name) => formData.get(name));
+  await prisma.household.update({ where: { id: admin.householdId }, data: { petCareHours: careHours } });
+  revalidatePath("/settings/apps");
+  revalidatePath("/pet");
+  return { saved: true };
 }

@@ -7,6 +7,8 @@ import { isAppOn } from "@/lib/apps";
 import { PageHeader } from "@/components/page-header";
 import { backLink } from "@/components/styles";
 import { AppSwitchList } from "./app-switch-list";
+import { getCareHours } from "@/lib/pet/queries";
+import { PetCareHours } from "./pet-care-hours";
 
 export const metadata = { title: "Apps" };
 
@@ -21,10 +23,11 @@ export default async function AppsSettingsPage() {
   if (!isAdmin(profile)) {
     return <p className="p-4 text-muted-foreground sm:p-6">Only admins can turn apps on and off.</p>;
   }
-  const [disabled, outlookConnected] = await Promise.all([
+  const [disabled, outlookConnected, { careHours }] = await Promise.all([
     getDisabledApps(profile.householdId),
     // Only worth mentioning Outlook when the family calendar there is connected.
     prisma.calendarSync.count({ where: { householdId: profile.householdId } }).then((n) => n > 0),
+    getCareHours(profile.householdId),
   ]);
   // With Calendar off the Outlook sync is paused, so nothing comes off Outlook either.
   const outlook = outlookConnected && isAppOn(disabled, "calendar");
@@ -42,6 +45,7 @@ export default async function AppsSettingsPage() {
       </p>
       <p className="mt-2 text-sm text-muted-foreground">Home, People, Data and Settings are always on, so they aren&apos;t listed.</p>
       <AppSwitchList disabled={disabled} outlook={outlook} />
+      {isAppOn(disabled, "pet") && <PetCareHours careHours={careHours} />}
     </div>
   );
 }

@@ -167,6 +167,7 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 42 | Security: CSP with nonces, database rate limits, Access check, restore drill, break-glass | merged |
 | 45 | Settings hub, guided setup, home location without coordinates | merged |
 | 46 | Publish the tested image; the server pulls it instead of building | being built |
+| 47 | The pet: a digital pet with a room, toys, petting and mini-games, and a hidden bonus for chores | built |
 | 44 | Polish: accessibility checks on every page, Shop list without signal | merged |
 | — | Kids' allowance | waiting |
 | — | Remove the dev sign-in | later |
@@ -297,6 +298,240 @@ Fable's scope review (2026-10-23) is folded in.
 - Automatic deploys to the server (a watcher that pulls new images): the owner updates by hand.
 - CodeQL code scanning: a repository setting (Settings → Code security), no code needed.
 - Images for other CPU types: CI builds for x86-64, as the server runs; a Mac builds its own.
+
+## Phase 47 — scope (the pet, 2026-10-23)
+
+**The owner's calls (2026-10-23):** a digital pet for the kids, just for fun. It keeps the
+heart of a Tamagotchi (care over time: hunger, happiness, poop, sickness, discipline, life
+stages, care mistakes that shape the adult, and death from neglect), with **artistic
+liberty** past that: a room the pet lives in and the kid decorates, toys it plays with, petting,
+and real mini-games instead of left-or-right. The animations are simple but alive, better than
+an LCD. It is **completely separate from points, stickers and the Store**: it never reads or
+writes `PointsLedger`, and nothing in it costs anything in the real world. **Finishing a chore
+quietly brings the pet a gift**, an extra that is never a cost, never taken back, and never
+announced. That's an easter egg the kids discover on their own: the Chores app never mentions
+the pet, and the pet never mentions chores. The clock runs only during **care hours**, so a
+school day can't kill a pet. When a pet dies, a **memory book** keeps it and a new egg is ready
+right away (owner's picks).
+
+Five parts, in this order, each its own commit series; one pull request. A Fable scope review
+goes here before building. The play part (47.3) is the biggest; if it runs long, the last two
+mini-games move to a Phase 47 rather than holding up the rest.
+
+### 47.1 — The simulation (pure, no database)
+
+- **`lib/pet/sim.ts`**: `advance(state, from, to, careHours, timeZone)` returns the new state
+  and what happened along the way (pooped, got sick, called for attention, grew, died). It's a
+  pure function of its inputs: random events come from a seeded generator (pet id + tick
+  number), so advancing the same span always gives the same answer, however it's split up.
+  The server advances the pet lazily whenever it's viewed or cared for. No cron, no timers.
+- **Meters:** hunger, fun and energy (0–100, shown as 4 hearts or a bar with words), discipline,
+  weight, and a hidden **bond** that grows with every kind of care and play and never goes down.
+  Hunger and fun drop during care hours. Energy drops with play and refills with naps. Meals fill
+  hunger, snacks fill fun but add weight, and too many snacks make the pet sick. Bond unlocks
+  tricks and changes how the pet greets its kid.
+- **Poop and mess:** poop appears on the clock, and a messy room (uncleaned poop, toys
+  everywhere) raises the odds of getting sick. **Sickness** is shown as a sad, green-faced pet
+  with a thermometer. Medicine cures it, sometimes needing two doses. Sickness left too long
+  causes death.
+- **Attention calls:** when a meter empties or the pet is sick, it calls. Answering within the
+  window (15 care-minutes) is care. Missing it is a **care mistake**. Some calls are fake
+  (fussing while full and happy), and a gentle "No" raises discipline. Ignoring a fake call is
+  a discipline mistake.
+- **Stages:** egg (hatches in about 5 minutes; tapping it makes it wobble), baby (about 1
+  care-hour), child (about 1 care-day), teen (about 3 care-days), then adult. The grown-up form
+  is picked from care mistakes, discipline and bond. Each species has two child, three teen and
+  four adult forms, from scruffy to splendid.
+- **Death:** too many hours with empty meters, sickness left untreated past its limit, or old
+  age (adult lifespan of about 10–20 care-days, longer with good care; owner's question 1).
+- **Care hours:** one setting per household, with weekday and weekend windows in the household
+  timezone. Defaults are 7–8am and 3–8pm on weekdays and 8am–8pm on weekends (owner's question
+  2). Outside them, the pet is asleep: its meters freeze, and visiting shows it asleep with a
+  night light on.
+- **What the pet does on its own** (`lib/pet/behavior.ts`, pure): a small weighted chooser
+  picks the next idle behavior from its state and the room: wander, sit, look at the kid, nap
+  in its bed when tired, play with a toy left out, sniff a decoration, stare out the window,
+  dance when happy, sulk when bored. Seeded and tested like the sim, so "it went and napped in
+  its bed" comes from its state, not a coin flip in the UI.
+- **Personality:** set at hatch from the seed: a favorite toy, a favorite food, a favorite
+  petting spot, and one quirk (sleepy, bouncy, shy or show-off) that weights its behaviors.
+  Kids discover these by playing, and nothing on screen lists them up front. They show up in
+  the stats page once noticed (the first time the favorite is used).
+
+### 47.2 — Data, the room and the pet
+
+- **Models:** `Pet` (person, species, name, stage, form, personality, state as typed columns,
+  `lastAdvancedAt`, `seed`, `bornAt`), `PetItem` (things the pet owns: kind (food, toy, decor,
+  wearable, charm), item id, used or not, and where it's placed in the room),
+  `PetGift` (one row per gift: `instanceId` **unique**, `personId`, `grantedAt`, `itemId`),
+  `PetPlay` (the last time each mini-game paid out, for its cooldown) and `PetMemorial` (name,
+  species, final form, age, cause in kid-gentle words, dates). One live `Pet` per person.
+  Losing a pet writes its memorial and deletes the live row in one transaction. Items stay with
+  the kid, so the next pet moves into the same decorated room. All rows belong to the household
+  and are covered by the backup (optional fields, so old backups still restore), with
+  `lib/backup/coverage.test.ts` updated.
+- **Server actions** (`app/(app)/pet/actions.ts`): `hatch`, `feed`, `clean`, `medicine`,
+  `sayNo`, `pet` (one petting session), `playWithToy`, `finishGame`, `placeItem`, `wear`,
+  `useItem`, `rename`. Each one loads the active profile's own pet (never one picked by an id
+  from the client), advances it to now, applies the action and saves under an optimistic
+  `lastAdvancedAt` guard, so two tabs can't double-feed. Input goes through zod. Form buttons
+  use `SubmitButton`. Games and petting call actions directly.
+- **The room:** a side-on room drawn in SVG, with a floor, a back wall, a window and slots for
+  furniture. It has a bed, a food bowl, a toy box and a rug from the start.
+  - **The window shows the real day:** sky color from the household clock (morning, day, dusk,
+    night), and today's weather from `getDailyForecast` (`lib/weather.ts`, already cached) as
+    rain, snow, clouds or sun, when home is set. It falls back to a clear sky when it isn't. The
+    pet reacts: it watches the rain, and its ears perk up at snow. This is the one place the
+    pet uses the rest of the app's data, and it's display only.
+  - **Seasons:** the window and a small wall decoration change with the month (leaves, snow,
+    flowers, sun). They're picked by date, with no holiday-specific content.
+  - **Decorating:** a "Decorate" mode shows the room's slots (wall, floor left, floor right,
+    shelf, window sill). Tap a slot, then pick a decoration the pet owns to put there, or move
+    one. It works by tap, not drag, so it's easy on phones and with a keyboard. Decorations
+    change the room, and some change behavior: a cushion becomes a second nap spot, a plant
+    makes it calmer, and a lamp keeps it company at night.
+  - **Mess shows:** poop and toys left out stay where they are until cleaned or put away.
+- **Animation, simple but alive:** the pet is an SVG built from parts (body, eyes, mouth, ears
+  or wings, accessory), so expressions are cheap: blink, look toward the pointer or last tap,
+  squash and stretch when it hops, wiggle when petted, droop when hungry, zzz when asleep, and
+  hearts or sparkles when happy. Movement uses the Web Animations API and CSS transitions, with
+  `requestAnimationFrame` only inside a running mini-game. A shared `PetSprite` component takes
+  the species, form, mood, pose and accessory. Every animation has a
+  `prefers-reduced-motion` version (a pose change, no movement), and nothing flashes.
+- **Art:** in-house SVG and CSS only. There are no image files, no fonts from outside, no game
+  engine and no new packages. Three species to start (a round blob, a little bird and a
+  long-eared critter), each picked at hatch time.
+  **Swappable later** (the owner's call, 2026-10-23): pixel-art sprite sheets made with an AI
+  tool (PixelLab) may replace the drawn shapes once there's a subscription. So `PetSprite` and
+  the room's item renderer take the same inputs (species, form, mood, pose, item id) a
+  sprite-sheet version would, and nothing outside them knows how a pet is drawn. Any generated
+  art would be made at build time and committed, never called from the running app, and only
+  after checking that its terms allow it in an MIT repository.
+- **The screen** (`/pet`): the room fills the top. Below it is a bar of big buttons: Feed,
+  Play, Clean, Medicine, Lights, and a "more" menu for Decorate, Wardrobe, Stats and
+  Memories. The status line says the pet's mood in words ("Pip is hungry and a bit bored")
+  as well as showing the meters. axe checks run in both themes.
+- **Where it lives:** a new app, `pet` ("Pet", 🥚, not adult-only), last in the everyday group,
+  and in `SWITCHABLE_APPS` so a family can turn it off in Settings → Apps. Kids always get one
+  when the app is on. Grown-ups can opt in from the pet screen.
+- **The memory book** (`/pet/memories`): each pet the person has had, drawn in its final form,
+  with its age, favorite toy and a gentle line ("Pip lived 12 days and grew into a Splendid
+  Sprout"). It has no delete button for kids. An admin can clear one, with `ConfirmSubmit`.
+- **Notifications:** none in this phase. While a call is open, the pet shows the call on its
+  own screen and as a small dot on its app tile.
+
+### 47.3 — Play: petting, toys and mini-games
+
+- **Petting:** stroke the pet with a finger or the mouse. It leans into it, closes its eyes,
+  and hearts float up. Its favorite spot (head, cheeks, belly or back) gives a big reaction,
+  and finding it is part of the fun. Too much petting in a row and it wriggles away, giggling,
+  to stop it being a fun-meter button. Keyboard and screen-reader users get a "Pet" button with
+  the same result. Petting adds fun and bond, capped per care-hour.
+- **Toys** (from the toy box, or left out in the room): tap a toy to play with it together.
+  - **Ball:** flick it and the pet chases it, sometimes bringing it back.
+  - **Plush:** the pet cuddles it and naps better.
+  - **Bubble wand:** blow bubbles and the pet jumps to pop them.
+  - **Drum:** tap a rhythm and the pet bounces along.
+  - **Kite** (on windy or sunny days from the window weather): the pet runs back and forth.
+  A toy left out gets played with on its own later (47.1's behaviors), and its favorite toy
+  gets an extra-happy reaction. More toys come from chore gifts (47.4) and from growing up
+  (each stage brings one).
+- **Mini-games** (`components/pet/games/`), each about 30–60 seconds, made for small hands and
+  pointer, touch or keyboard. Each has a pure rules module (`lib/pet/games/*.ts`: spawning,
+  collisions, scoring, from a seed) tested on its own, and a thin view. All are in this phase
+  unless 47.3 runs long (see the intro):
+  1. **Snack Catch:** treats fall, and the kid slides the pet's bowl to catch them, dodging the
+     odd broccoli (which the pet pulls a face at). It fills hunger without adding weight.
+  2. **Bubble Bath:** bubbles cover the pet, and popping them (with a rubber duck bonus)
+     cleans it and makes it happy. It's the fun way to bathe, next to the plain Clean button.
+  3. **Hide and Seek:** the pet hides behind the kid's own furniture and decorations, and the
+     kid taps where they think it is, with the tail peeking out as a hint. A more decorated
+     room means more hiding spots.
+  4. **Copy Dance:** the pet does a short dance (a sequence of 4 moves, growing each round),
+     and the kid repeats it with arrow buttons. It trains discipline.
+  5. **Fetch Far:** a timing bar: throw when the marker is in the sweet spot, and the pet runs
+     out and back across the yard. Better scores mean longer runs.
+- **Game results:** a game sends its score to `finishGame`, which caps the effect (at most one
+  full meter step per game) and allows one payout per game per care-hour (`PetPlay`), so
+  posting a fake score gets nothing extra. Playing again past the cooldown is still allowed,
+  just for fun, and the pet still cheers. Kids can't lose anything by playing badly: a low score
+  still gives a little fun.
+- **Energy:** play costs energy. A tired pet yawns and asks for a nap rather than play,
+  which keeps play from replacing care.
+
+### 47.4 — The secret (chore gifts)
+
+- **Pull, not push:** `completeInstance` and the rest of the Chores code are **not changed**.
+  When the pet is advanced, `lib/pet/gifts.ts` looks for this person's chores finished since
+  the pet's `bornAt` (`TaskInstance` with `status: DONE` that this person did: the same
+  recipient rule the stickers use) that have no `PetGift` row yet. It grants them in one
+  transaction, with the unique `instanceId` stopping doubles. A chore undone before the pet is
+  next opened brings nothing. One undone after its gift was granted leaves the gift (no
+  takebacks), and redoing it can't earn a second one.
+- **Limits:** at most 3 gifts a day (owner's question 3). Chores past the cap that day just don't
+  bring one, and nothing carries over. Only chores done after the first pet hatched count, so
+  the first pet doesn't arrive with a pile of presents.
+- **What a gift is:** drawn from a weighted gift table, with some gifts found only this way.
+  It can be a feast (fills hunger and fun with no weight gain), a new toy, a hat or outfit, a
+  decoration for the room, a **lucky charm** (stops the next sickness), or rarely a **sparkle
+  treat** (counts toward a more splendid next form). Everything a gift does, ordinary care can
+  also do, so gifts make things easier and give extras to collect. They never cost anything or
+  replace normal care.
+- **Showing it:** a present box at the door the next time the pet is opened, which the pet
+  unwraps with the kid. Each one has a hint line from a pool that starts very vague ("A present
+  appeared! Where did it come from?") and gets warmer with each gift that kid has received
+  ("…it smells like a freshly made bed", then "…someone's been helping around the house!"). It
+  never says the word "chore" or the reward word.
+- **Kept secret everywhere:** no pet mention in Chores, Home's chore cards, Points, the Store,
+  notifications or the mascot's lines. The family guide describes the pet but not the gifts. The
+  admin guide covers them under a "Spoiler: for grown-ups" heading. A test reads the Chores and
+  Points page sources and fails on any pet reference.
+
+### 47.5 — Docs
+
+- `docs/guides/family.md` (the pet, its room, toys and games, with no spoiler) and
+  `docs/guides/admin.md` (care hours, turning it off, clearing a memory, and the spoilered
+  gift rules).
+- `docs/BUILD.md`, plus this plan.
+
+### Checks
+
+- Unit (the bulk): `advance` is deterministic and gives the same result split or whole; it
+  freezes outside care hours and across a DST change; meters, energy, bond (never drops), poop,
+  sickness, fake calls, care-mistake counting, and every stage change and form pick; each death
+  cause and nothing else; behavior choices from state and room; personality from the seed; each
+  mini-game's rules (spawns, collisions, scoring, same seed same game); the game payout cap and
+  cooldown; the petting cap; the gift hint ladder; the daily gift cap; the gift table never
+  yields an item that costs anything; and the secrecy test.
+- Database: one live pet per person; actions only touch the active profile's own pet; the
+  optimistic guard; items survive a pet's death into the next pet's room; gifts granted once
+  per chore instance; undo after a gift keeps the gift and redo grants none; a kid can't
+  receive a gift for a chore someone else did; death writes the memorial atomically;
+  `PointsLedger` is unchanged by every pet action (row count before and after); and the backup
+  round trip.
+- Browser: `/pet` and `/pet/memories` join the every-page list (axe, both themes, reduced
+  motion); a turned-off Pet app is gone from the launcher and goes to the "turned off" page. No Weather Service
+  calls in tests (the existing stub).
+- `privacy:check`, lint, types, `deps:check` (no new packages).
+
+### Not in this phase
+
+- Phone alerts when the pet calls. This needs a per-kid switch and quiet hours, so it's its own
+  follow-up.
+- Visiting a sibling's pet, pets playing together, a yard or second room, more species, and
+  sounds (there are none in this phase, so nothing surprises a quiet house).
+
+### Built (2026-10-23)
+
+Built as planned, with the deviations listed under Phase 47 in docs/BUILD.md. The defaults
+below are what shipped; the owner can still change them.
+
+### The owner's questions
+
+1. Adult lifespan: about 10–20 care-days (longer with good care) is the plan. Should it be
+   shorter, longer, or never die of old age?
+2. Default care hours: 7–8am and 3–8pm on weekdays, 8am–8pm on weekends?
+3. Up to 3 chore gifts a day?
 
 ## Open items
 
