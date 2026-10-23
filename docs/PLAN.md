@@ -175,8 +175,8 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | — | LMS connector (Canvas or Google Classroom) | waiting |
 | 48 | Slim the migrate image to Prisma's CLI | merged |
 | 49 | The household's timezone in every date calculation | merged |
-| 50 | Teams without Power Automate: the app's own Teams bot, a jar chat picked from a list | next |
-| 51 | Find the school calendar from the school's web address | later |
+| 50 | Teams without Power Automate: the app's own Teams bot, a jar chat picked from a list | merged |
+| 51 | Find the school calendar from the school's web address | next |
 | 52 | Statement imports that work out their own columns | later |
 | 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | later |
 
@@ -202,12 +202,13 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 ## Current state
 
 Everything through Phase 46, Phase 48 (the migrate image cut from 2.26 GB to about 690 MB) and
-Phase 49 (the household's timezone everywhere) is merged to `main` (2026-10-23). The project
-moved to this public repository the same day (one clean commit; the earlier history is archived
-privately). `main` takes changes only through pull requests: a ruleset requires the three CI
-jobs and the container check, and a pull request merges itself once they pass. Every merge to
-`main` publishes the tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`,
-public, tagged `sha-<commit>`, with signed provenance).
+Phase 49 (the household's timezone everywhere) and Phase 50 (Teams through the family's own
+Teams app, no Power Automate) are merged to `main` (2026-10-23). The project moved to this
+public repository the same day (one clean commit; the earlier history is archived privately).
+`main` takes changes only through pull requests: a ruleset requires the three CI jobs and the
+container check, and a pull request merges itself once they pass. Every merge to `main`
+publishes the tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`, public,
+tagged `sha-<commit>`, with signed provenance).
 
 **Tabled until the owner says it's time (2026-10-23):** going live (the server, Cloudflare
 Tunnel and Access, the pinned version, backups and break-glass, following
@@ -216,11 +217,9 @@ The database still holds test data only.
 
 **Next, the remaining engineering work, in this order** (each its own phase and pull request;
 the owner's questions are asked at each scope):
-1. **Phase 50 — Teams without Power Automate:** a "Connect Teams" button through Graph, and
-   picking a jar's Teams chat from a list.
-2. **Phase 51 — Find the school calendar** from the school's web address.
-3. **Phase 52 — Statement imports that work out their own columns.**
-4. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
+1. **Phase 51 — Find the school calendar** from the school's web address.
+2. **Phase 52 — Statement imports that work out their own columns.**
+3. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
    alert mailbox set and tested in Settings, a link to Entra's role assignments.
 
 The decisions waiting on the owner are under "Open items".
@@ -665,8 +664,6 @@ Microsoft's own documented pattern; a single-tenant token works; the free tier c
 
 - **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
   with it. Removing it before going live is planned (the owner's call to keep it for now).
-- **Teams alerts need a Power Automate flow**; a "Connect Teams" button through Graph, and
-  picking a jar's Teams chat from a list, are Phase 50.
 - **Other setup friction:** finding the school calendar from the school's web address (Phase
   51), statement imports that work out their own columns (Phase 52), and VIN entry or scanning,
   smoother bank-feed setup, the alert mailbox set and tested in Settings, and a link to Entra's

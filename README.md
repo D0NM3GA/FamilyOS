@@ -18,7 +18,7 @@ pass (see docs/BUILD.md).
 
 ## Status
 
-Everything through **Phase 46**, and Phases 48 and 49, is merged to `main` (2026-10-23): the
+Everything through **Phase 46**, and Phases 48 to 50, is merged to `main` (2026-10-23): the
 money jars (Phases 25–34), the security, dependency and nav passes, the **full review of
 2026-10-09**, the **privacy pass (2026-10-12)** that renamed the app FamilyOS and took every
 real personal detail out of the code and docs, the customization phases (35–37), and the polish
@@ -27,12 +27,13 @@ first-visitor setup, invites, any OIDC provider, Microsoft optional and checked 
 **CI with browser tests (41)**; **security before going live (42)**; a **production container
 (43)** behind a Cloudflare Tunnel; **accessibility and the Shop list without signal (44)**; a
 **Settings hub with a guided setup (45)**; and **published, signed images (46)** that the server
-pulls by a pinned version, with a migrate image cut down to Prisma's CLI (48); and the
-**household's timezone everywhere (49)**, with both times shown away from home. Since 2026-10-23
-the project lives in this public repository, started from one clean commit (the earlier history
-is archived privately); `main` takes changes only through pull requests whose required checks
-pass, and they merge themselves. The phase-by-phase log is docs/BUILD.md; what's next and what's
-waiting on the owner is docs/PLAN.md ("Current state" and "Open items").
+pulls by a pinned version, with a migrate image cut down to Prisma's CLI (48); the **household's
+timezone everywhere (49)**, with both times shown away from home; and **Teams through the
+family's own Teams app (50)**, no Power Automate. Since 2026-10-23 the project lives in this
+public repository, started from one clean commit (the earlier history is archived privately);
+`main` takes changes only through pull requests whose required checks pass, and they merge
+themselves. The phase-by-phase log is docs/BUILD.md; what's next and what's waiting on the owner
+is docs/PLAN.md ("Current state" and "Open items").
 
 | Area | What's there |
 |---|---|
@@ -43,7 +44,7 @@ waiting on the owner is docs/PLAN.md ("Current state" and "Open items").
 | **Apps on and off (Phase 36)** | Admins turn off apps the family doesn't use (Settings → Apps): gone for everyone from the rail, launcher, Home, search, the calendar week and Bunson, their background work paused, nothing deleted |
 | **Views & Bunson (Phase 19.5)** | Per-person "Big buttons" or "Full app" view (big Home and Chores for "my stuff"), Bunson volume (Chatty / Just cheers / Off), Bunson moments on greetings, empty pages and oops pages |
 | **Sticker Store (Phase 20)** | Kids spend stickers (points) on rewards grown-ups stock in shelves; per-reward weekly limits and "needs an OK"; order tracker, Delivered/Refund; family sticker sheet; admins get an in-app bell (both parents need the Admin app role in Entra); backup v4 |
-| **Alerts (Phase 21, 21.5)** | Store-order alerts in Teams through one family Workflows link (the Flow bot messages each admin; set up once) and by email (shared mailbox, Exchange RBAC for Applications); any admin switches them on for each admin; phone push straight to each admin's phone (Phase 21.6) |
+| **Alerts (Phase 21, 21.5)** | Store-order alerts in Teams through the family's own Teams app (a notification-only bot that messages each admin; set up once, Phase 50) and by email (shared mailbox, Exchange RBAC for Applications); any admin switches them on for each admin; phone push straight to each admin's phone (Phase 21.6) |
 | **Roles & admin** | Admin/Adult role (from Entra app roles for Microsoft people, set in the app for everyone else), admin-only household member management |
 | **People Hub** | Contact/member records, interaction logging (backdated, editable), important dates (editable), "haven't talked in a while" with one-tap 📞/💬 on Home, Around the house (a member's stickers, list items, school), delete for plain contacts |
 | **Chores** | Generic recurring-task engine (recurrence + rotation + stickers), Today/Overdue/Upcoming board; grown-ups' Skip/Missed; overdue reaches back a week, older misses cleared in one tap; tick off on Home too |
@@ -630,69 +631,52 @@ notifications** on their own phone.
 
 ### Teams (once, for the whole family)
 
-One person builds one small workflow. After that, FamilyOS sends each alert to that one
-link with the recipient's Microsoft sign-in address, and the **Flow bot** messages that
-person in their own Teams chat. Nobody else has to set anything up. On **Settings → Alerts
-for store orders**, any admin can switch Teams (and email) on for each admin.
+Phase 50: Teams alerts come from **the family's own Teams app**, a notification-only bot named
+after the family's app (Settings → Make it yours). It messages each admin in their own chat with
+it, and a money jar's group chat if the jar picks one. It only sends: it can't read anyone's
+chats, and nothing is typed back to it. Nobody else has to set anything up. The app installs
+itself for each grown-up the first time it has something to send them.
 
-1. In Teams, open **Workflows** and pick the webhook template (currently **Post to a chat
-   when a webhook request is received**; Microsoft renames these now and then). Choose
-   **Flow bot** and a chat with yourself for now, then finish. Copy the link it shows.
-2. Open the workflow for editing (**Workflows → Manage → Edit**, which opens the Power
-   Automate designer). In the trigger **When a Teams webhook request is received**, set
-   **Who can trigger the flow?** to **Anyone**. FamilyOS doesn't sign in to call it (the
-   link's `sig` is the password); new flows default to "Any user in my tenant", which makes
-   FamilyOS report "Teams rejected the family link".
-3. Inside **Apply to each**, open **Post card in a chat or channel** and set:
-   - **Post as**: Flow bot
-   - **Post in**: Chat with Flow bot
-   - **Recipient**: switch to the expression (fx) tab and enter `triggerBody()?['recipient']`
-   - **Adaptive Card**: don't touch it. The template already passes along the card FamilyOS
-     sends.
+Setup, once, by an admin who is also a **Teams administrator** (or Global administrator):
 
-   (The loop and step names vary by template version, e.g. "Send each adaptive card". You're
-   looking for the step that posts a card; only **Post in** and **Recipient** change.)
-   Save.
-4. In FamilyOS, sign in with your own Microsoft account, paste the link under **Teams for
-   the family**, and press **Send a test** for yourself.
+1. **An Azure Bot** (Azure portal → Create a resource → **Azure Bot**; it needs an Azure
+   subscription in the family's tenant, and the **Free** pricing tier covers Teams messages):
+   - **Type of app:** Single Tenant. **Creation type:** Use existing app registration, with the
+     family's app registration's client ID (`MICROSOFT_CLIENT_ID`) and tenant ID.
+   - Then **Channels → Microsoft Teams** → Apply.
+   - **Messaging endpoint:** leave it empty or set it to the app's address. Nothing is received
+     there; Teams' install notices stop at Cloudflare Access and show as delivery failures in the
+     bot's resource, which is expected.
+2. **Permissions** on the app registration (Entra → App registrations → the app → API
+   permissions), then **Grant admin consent**:
+   - Application: `TeamsAppInstallation.ReadWriteSelfForUser.All` (install itself for a person)
+     and `TeamsAppInstallation.ReadWriteSelfForChat.All` (add itself to a jar's chat).
+   - Delegated: `Chat.ReadBasic` (a jar member lists their own group chats to pick one) and
+     `AppCatalog.ReadWrite.All` (publish the family's Teams app from Settings).
+3. **Teams admin center → Teams apps → Manage apps / Org-wide settings**: allow custom apps, and
+   make sure the family's app permission policy doesn't block them.
+4. In the app, **Settings → Alerts → Teams for the family**: **Allow publishing (Microsoft)**, then
+   **Add to Teams**. Then **Send a test** for yourself. When the family's name or icon changes,
+   the same place offers **Update in Teams**.
 
-**Money alerts in a group chat (Phase 30, optional).** A jar can send its alerts once to a
-Teams group chat (jar Settings → **One Teams chat for this jar**). FamilyOS then adds a
-`chatId` to what it sends, and the flow needs a second way to post:
-
-1. In the flow, inside the loop, add a **Condition** before **Post card in a chat or
-   channel**: expression `empty(coalesce(triggerBody()?['chatId'], ''))` **is equal to**
-   `false`.
-2. In **True**, add **Post card in a chat or channel**: **Post as** Flow bot, **Post in**
-   Group chat, **Group chat**: *Enter custom value* → expression `triggerBody()?['chatId']`,
-   and the same **Adaptive Card** as the existing step.
-3. Move the existing Post card step into **False**. Save.
-
-Whoever owns the flow must be in the group chat, or Teams refuses the post. If you added the
-optional hardening Condition below, keep it around both branches (chat posts still carry a
-family member's address). One-to-one chats
-can't take Flow bot posts, so FamilyOS only accepts group chat links. The chat is not in
-backups: set it again after a restore.
-
-Optional hardening: add a **Condition** before Post card so it only posts when
-`endsWith(triggerBody()?['recipient'], '@example.com')` (your own domain). Anyone holding the link
-could otherwise message anyone in your tenant as the Flow bot.
+**Money alerts in a group chat (Phase 30, optional).** A jar can send its alerts once to a Teams
+group chat: jar Settings → **One Teams chat for this jar** → **Choose a Teams chat** lists your own
+group chats (the first time, **Allow listing my Teams chats**). Pick one with everyone in the jar
+(no kids); the family's Teams app joins it and says hello. Anyone from outside the family's
+Microsoft 365 is marked, since alerts would reach them too. A one-to-one chat can't be picked. The
+chat is not in backups: choose it again after a restore.
 
 Troubleshooting:
-- "Teams accepted it" means the workflow received the request. If the message doesn't
-  show up, open the workflow's **Run history**, pick the failed run, and look at the **Post
-  card in a chat or channel** step.
-- Each person must have signed in to FamilyOS with Microsoft once, so FamilyOS knows their
-  Teams address. Guest and personal Microsoft accounts can't receive Flow bot messages.
-- The Workflows app must be allowed in the Teams admin center.
-- "Teams rejected the family link": the workflow is off or deleted, or step 2's trigger
-  setting isn't **Anyone**.
-
-The link contains its own password (`sig=`), so FamilyOS stores it encrypted, never shows it
-again, and never logs it. Only an admin signed in with their own Microsoft account (not a
-profile picked with a PIN) can replace or disconnect it, and the page shows who set it. Old
-Office 365 "incoming webhook" connectors were retired in April 2026, so only Workflows
-links are accepted.
+- "Teams accepted it" means Teams took the message into that person's chat with the family's
+  Teams app; it appears under **Chat** in Teams.
+- Each person must have signed in to the app with Microsoft once, so it knows who they are in
+  Teams. Guest and personal Microsoft accounts can't get the family's Teams app.
+- "Teams doesn't allow the family's Teams app for this person": an app permission policy in Teams
+  admin center blocks it for them.
+- "Teams didn't accept the app's sign-in": the Azure Bot doesn't use this app registration, or its
+  Teams channel is off.
+- "Publishing the family's Teams app needs a Teams administrator or Global administrator": sign in
+  here as one of those (with **Allow publishing** granted) and try again.
 
 ### Phone notifications (each grown-up, on their own phone)
 
@@ -955,7 +939,7 @@ Each member picks their own in the jar's Settings → **Alerts for me**: a bill 
 or Privacy.com not syncing for a day, a category over budget (off unless turned on; once per
 category a month, even if the budget is raised and passed again; a saving-up category counts
 its carry), and checking that may run low before payday (Phase 32). They go to the person's Teams chat
-through the family's Teams link (see Alerts), to their phone if it's set up, and to the
+through the family's Teams app (see Teams), to their phone if it's set up, and to the
 bell. They never include amounts. They're sent by the background jobs (`BACKGROUND_JOBS`),
 which also sync each jar every 6 hours, so the server has to keep running (the home
 container does).
