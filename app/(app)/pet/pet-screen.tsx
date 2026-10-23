@@ -2,26 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
-import { nextBehavior, type Behavior, type RoomView, type Weather } from "@/lib/pet/behavior";
-import { fitsPlace, itemDef, ITEMS, ROOM_SLOTS, type Place, type RoomSlot } from "@/lib/pet/items";
+import { useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
+import { nextBehavior, type Behavior, type BehaviorInput, type RoomView, type Weather } from "@/lib/pet/behavior";
+import { itemDef, ROOM_SLOTS, type Place, type RoomSlot } from "@/lib/pet/items";
 import type { Personality, PetSpot, Toy } from "@/lib/pet/personality";
 import { rngFor } from "@/lib/pet/random";
 import type { Season, Sky } from "@/lib/pet/room";
-import { hearts, type CallKind, type Species, type Stage } from "@/lib/pet/state";
-import { PET_NAME_MAX } from "@/lib/pet/words";
+import type { CallKind, Species, Stage } from "@/lib/pet/state";
 import {
   CLEAN_LINES,
   CURED_LINES,
   FAVORITE_MEAL_LINES,
   FAVORITE_SPOT_LINES,
   FAVORITE_TOY_LINES,
-  fill,
   MEAL_LINES,
   MEDICINE_LINES,
   OUTCOME_LINES,
   PET_LINES,
-  pickLine,
   SAY_NO_LINES,
   serveFood,
   SNACK_LINES,
@@ -31,11 +28,15 @@ import {
 } from "@/lib/pet/voice";
 import { GAME_DEFS, GAMES, type GameId } from "@/lib/pet/games/catalog";
 import { GameStage } from "./games/game-stage";
-import { btn, btnPrimary, card, field, fieldLabel, sectionTitle } from "@/components/styles";
-import { SubmitButton } from "@/components/submit";
-import { careForPet, openPresent, petPet, placeItem, playWithToy, renamePet, type CareReply, type HatchState } from "./actions";
-import { PetRoom, ROOM_W, SLOT_ANCHORS } from "./pet-room";
-import { PetSprite, type Mood, type Pose } from "./pet-sprite";
+import { btn, btnPrimary, card, sectionTitle } from "@/components/styles";
+import { careForPet, openPresent, petPet, playWithToy, type CareReply } from "./actions";
+import { BigButton, ToyIcon } from "./pet-controls";
+import { BED_X, durationOf, moodFor, poseFor, spotOfDecor, TOY_SPOTS, WINDOW_X } from "./pet-motion";
+import { PetRoom } from "./pet-room";
+import { PetSprite, type Mood } from "./pet-sprite";
+import { RoomPanel } from "./room-panel";
+import { StatsPanel } from "./stats-panel";
+import { useReactions } from "./use-reactions";
 
 /**
  * Phase 47: the pet screen. The room with the pet living in it, and big buttons below. The pet
@@ -73,85 +74,6 @@ export type ScreenItem = { id: string; itemId: string; place: Place };
 
 type Panel = "feed" | "play" | "decorate" | "stats" | null;
 
-/** Where things stand on the floor, as a percentage across the room. */
-const BED_X = 86;
-const WINDOW_X = 50;
-const TOY_SPOTS = [40, 56, 30, 70, 47];
-const pct = (x: number) => (x / ROOM_W) * 100;
-
-/** Where to stand to see a decoration: beside it on the floor, or under it if it's up high. */
-function spotOfDecor(decor: Partial<Record<RoomSlot, string>>, id: string): number {
-  const slot = (Object.keys(decor) as RoomSlot[]).find((s) => decor[s] === id);
-  if (!slot) return 45;
-  const anchor = SLOT_ANCHORS[slot];
-  return Math.min(80, Math.max(15, pct(anchor.x) + (slot.startsWith("floor") ? 10 : 0)));
-}
-
-function poseFor(behavior: Behavior): Pose {
-  switch (behavior.kind) {
-    case "wobble":
-      return "wobble";
-    case "hop":
-    case "play-toy":
-    case "call":
-      return "hop";
-    case "dance":
-      return "dance";
-    case "sulk":
-      return "droop";
-    case "lie-down":
-    case "sleep":
-      return "lie";
-    default:
-      return "idle";
-  }
-}
-
-function moodFor(behavior: Behavior, pet: ScreenPet): Mood {
-  if (behavior.kind === "sleep" || behavior.kind === "yawn") return "asleep";
-  if (pet.sick) return "sick";
-  if (behavior.kind === "dance" || behavior.kind === "play-toy") return "excited";
-  if (behavior.kind === "sulk") return "sad";
-  if (behavior.kind === "call") return pet.call === "fake" ? "excited" : "sad";
-  if (hearts(pet.hunger) <= 1 || hearts(pet.fun) <= 1) return "sad";
-  return hearts(pet.fun) >= 3 ? "happy" : "content";
-}
-
-/** How long each behavior lasts before the pet picks another, in milliseconds. */
-function durationOf(behavior: Behavior): number {
-  switch (behavior.kind) {
-    case "wander":
-      return 3500;
-    case "dance":
-    case "play-toy":
-      return 4000;
-    case "window":
-    case "sit":
-      return 5000;
-    default:
-      return 3000;
-  }
-}
-
-function Meter({ label, value, icon }: { label: string; value: number; icon: string }) {
-  const filled = hearts(value);
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-20 text-sm font-bold">{label}</span>
-      <span aria-hidden="true" className="text-lg tracking-tight">
-        {Array.from({ length: 4 }, (_, i) => (
-          <span key={i} className={i < filled ? "" : "opacity-20 grayscale"}>
-            {icon}
-          </span>
-        ))}
-      </span>
-      <span className="sr-only">
-        {filled} of 4
-      </span>
-    </div>
-  );
-}
-
 export function PetScreen({
   pet,
   items,
@@ -173,19 +95,10 @@ export function PetScreen({
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<Panel>(null);
   const [game, setGame] = useState<GameId | null>(null);
-  const [reaction, setReaction] = useState<string | null>(null);
-  const [flash, setFlash] = useState<{ mood: Mood; pose: Pose } | null>(null);
-  const [hearts, setHearts] = useState<number[]>([]);
+  const { line: reaction, flash, floaters, say, show: showReaction, pose: flashPose, burst } = useReactions(pet);
   const [look, setLook] = useState({ x: 0, y: 0 });
   const [x, setX] = useState(45);
   const tick = useRef(0);
-  // The pet's lines (lib/pet/voice.ts): never the same one twice in a row.
-  const lastLine = useRef<string | null>(null);
-  function say(pool: readonly string[], extra: Partial<LineContext> = {}): string {
-    const line = pickLine(pool, Math.random, lastLine.current);
-    lastLine.current = line;
-    return fill(line, { name: pet.name, species: pet.species, ...extra });
-  }
 
   function unwrap(presentId: string) {
     startTransition(async () => {
@@ -196,7 +109,7 @@ export function PetScreen({
       } else if (opened.reason === "asleep") {
         showReaction(`Shh, ${pet.name} is asleep. Open it together when it wakes up.`);
       }
-      router.refresh();
+      // No router.refresh(): the action's revalidatePath already sends the fresh page back.
     });
   }
 
@@ -215,14 +128,21 @@ export function PetScreen({
     [toysOut, decor, weather],
   );
 
-  const input = { stage: pet.stage, sick: pet.sick, fun: pet.fun, energy: pet.energy, napping: pet.napping, calling: pet.call !== null };
+  const input: BehaviorInput = { stage: pet.stage, sick: pet.sick, fun: pet.fun, energy: pet.energy, napping: pet.napping, calling: pet.call !== null };
   const [behavior, setBehavior] = useState<Behavior>(() => nextBehavior(input, pet.personality, room, pet.awake, rngFor(pet.seed, "behave", 0)));
-
-  // Pick what to do next whenever the last thing finishes, from the pet as it is now.
+  // What the next pick reads: the pet and room as they are now, not when the last pick was made.
+  const latest = useRef({ input, room, decor, toysOut, awake: pet.awake });
   useEffect(() => {
+    latest.current = { input, room, decor, toysOut, awake: pet.awake };
+  });
+
+  // Pick what to do next whenever the last thing finishes (not while a game is open).
+  useEffect(() => {
+    if (game) return;
     const timer = window.setTimeout(() => {
       tick.current += 1;
-      const next = nextBehavior(input, pet.personality, room, pet.awake, rngFor(pet.seed, "behave", tick.current, Date.now()));
+      const { input, room, decor, toysOut, awake } = latest.current;
+      const next = nextBehavior(input, pet.personality, room, awake, rngFor(pet.seed, "behave", tick.current, Date.now()));
       setBehavior(next);
       // Don't wander off while someone is stroking it.
       if (stroke.current) return;
@@ -237,30 +157,24 @@ export function PetScreen({
       }
     }, durationOf(behavior));
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run when the behavior ends, not on every render
-  }, [behavior]);
+  }, [behavior, game, pet.personality, pet.seed]);
 
-  // Keep the pet current: hatch the egg on time, and catch up every minute while open.
+  // Keep the pet current while the screen is open: hatch the egg on time, catch up every minute,
+  // and catch up straight away on coming back to the tab. Paused during a game, so a round isn't
+  // interrupted by a page reload.
   useEffect(() => {
-    const ms = pet.hatchesIn != null ? Math.max(5, pet.hatchesIn * 60) * 1000 : 60_000;
-    const timer = window.setTimeout(() => {
+    if (game) return;
+    const refresh = () => {
       if (document.visibilityState === "visible") router.refresh();
-    }, ms);
-    return () => window.clearTimeout(timer);
-  }, [pet, router]);
-
-  const showReaction = useCallback((text: string, mood?: Mood, pose?: Pose) => {
-    setReaction(text);
-    if (mood) setFlash({ mood, pose: pose ?? "hop" });
-    window.setTimeout(() => setFlash(null), 1800);
-    window.setTimeout(() => setReaction((current) => (current === text ? null : current)), 3000);
-  }, []);
-
-  function burst(count: number) {
-    const ids = Array.from({ length: count }, (_, i) => Date.now() + i);
-    setHearts((current) => [...current, ...ids]);
-    window.setTimeout(() => setHearts((current) => current.filter((id) => !ids.includes(id))), 1300);
-  }
+    };
+    const ms = pet.hatchesIn != null ? Math.max(5, pet.hatchesIn * 60) * 1000 : 60_000;
+    const timer = window.setInterval(refresh, ms);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [game, pet.hatchesIn, router]);
 
   type Success = { lines: readonly string[]; favoriteLines?: readonly string[]; extra?: Partial<LineContext>; mood: Mood; hearts?: number };
 
@@ -285,7 +199,6 @@ export function PetScreen({
       } else if (reply.outcome !== "no-pet" && reply.outcome !== "gone") {
         showReaction(say(OUTCOME_LINES[reply.outcome]), reply.outcome === "too-many-snacks" ? "sick" : undefined, "wiggle");
       }
-      router.refresh();
     });
   }
 
@@ -332,21 +245,29 @@ export function PetScreen({
   function onPetUp() {
     if (stroke.current && stroke.current.travelled < 10) {
       // A tap: it notices you.
-      setFlash({ mood: pet.stage === "egg" ? "content" : "happy", pose: pet.stage === "egg" ? "wobble" : "wiggle" });
-      window.setTimeout(() => setFlash(null), 1200);
+      flashPose(pet.stage === "egg" ? "content" : "happy", pet.stage === "egg" ? "wobble" : "wiggle");
     }
     stroke.current = null;
   }
 
+  // The eyes follow the pointer, but only in a few steps: a new look at most once a frame, and
+  // only when it would move the pupils, so a moving mouse doesn't redraw the screen nonstop.
+  const lookFrame = useRef(0);
   function onRoomMove(event: PointerEvent<HTMLDivElement>) {
     const box = event.currentTarget.getBoundingClientRect();
-    const petX = box.left + (x / 100) * box.width;
-    const petY = box.top + 0.72 * box.height;
-    const dx = event.clientX - petX;
-    const dy = event.clientY - petY;
-    const length = Math.max(1, Math.hypot(dx, dy));
-    setLook({ x: dx / length, y: dy / length });
+    const { clientX, clientY } = event;
+    if (lookFrame.current) return;
+    lookFrame.current = requestAnimationFrame(() => {
+      lookFrame.current = 0;
+      const dx = clientX - (box.left + (x / 100) * box.width);
+      const dy = clientY - (box.top + 0.72 * box.height);
+      const length = Math.max(1, Math.hypot(dx, dy));
+      const step = (value: number) => Math.round((value / length) * 4) / 4;
+      const next = { x: step(dx), y: step(dy) };
+      setLook((current) => (current.x === next.x && current.y === next.y ? current : next));
+    });
   }
+  useEffect(() => () => cancelAnimationFrame(lookFrame.current), []);
 
   if (game) {
     return (
@@ -354,7 +275,11 @@ export function PetScreen({
         game={game}
         pet={{ name: pet.name, species: pet.species, stage: pet.stage, form: pet.form }}
         decor={Object.values(decor)}
-        onClose={() => setGame(null)}
+        onClose={() => {
+          setGame(null);
+          // Back where they left off: on the Play button.
+          requestAnimationFrame(() => document.getElementById("pet-play-button")?.focus());
+        }}
       />
     );
   }
@@ -415,7 +340,7 @@ export function PetScreen({
           {behavior.kind === "call" && !flash && (
             <span className="absolute -top-2 right-2 rounded-full border-2 border-ink bg-sun px-2 text-lg font-black text-ink">!</span>
           )}
-          {hearts.map((id, i) => (
+          {floaters.map((id, i) => (
             <span key={id} aria-hidden="true" className="pet-float-up absolute top-0 text-2xl" style={{ left: `${20 + ((i * 23) % 60)}%`, animationDelay: `${i * 90}ms` }}>
               💗
             </span>
@@ -423,13 +348,13 @@ export function PetScreen({
         </div>
 
         {reaction && (
-          <p className="absolute left-1/2 top-[4%] max-w-[80%] -translate-x-1/2 rounded-2xl border-2 border-ink bg-card px-3 py-1 text-center text-sm font-bold shadow-[0_2px_0_#1f2933]">
+          <p role="status" className="absolute left-1/2 top-[4%] max-w-[80%] -translate-x-1/2 rounded-2xl border-2 border-ink bg-card px-3 py-1 text-center text-sm font-bold shadow-[0_2px_0_#1f2933]">
             {reaction}
           </p>
         )}
       </div>
 
-      <p className="text-center text-lg font-bold" aria-live="polite">
+      <p className="text-center text-lg font-bold">
         {pet.mood}
         {!pet.awake && <span className="block text-sm font-normal text-muted-foreground">Awake {careHours} today.</span>}
         {presents.length > 0 && pet.awake && pet.stage !== "egg" && (
@@ -442,7 +367,7 @@ export function PetScreen({
 
       <div className="mx-auto grid max-w-3xl grid-cols-3 gap-2 sm:grid-cols-6">
         <BigButton emoji="🍙" label="Feed" disabled={!canCare} pressed={panel === "feed"} onClick={() => setPanel(panel === "feed" ? null : "feed")} />
-        <BigButton emoji="🎾" label="Play" disabled={!canCare} pressed={panel === "play"} onClick={() => setPanel(panel === "play" ? null : "play")} />
+        <BigButton id="pet-play-button" emoji="🎾" label="Play" disabled={!canCare} pressed={panel === "play"} onClick={() => setPanel(panel === "play" ? null : "play")} />
         <BigButton emoji="🧽" label="Clean" disabled={!canCare} onClick={() => run(() => careForPet("clean"), { lines: CLEAN_LINES, mood: "happy" })} />
         <BigButton emoji="💊" label="Medicine" disabled={!canCare} onClick={() => run(() => careForPet("medicine"), { lines: MEDICINE_LINES, mood: "content" })} />
         <BigButton emoji="✋" label="Say no" disabled={!canCare} onClick={() => run(() => careForPet("no"), { lines: SAY_NO_LINES, mood: "content" })} />
@@ -498,7 +423,7 @@ export function PetScreen({
         </div>
       )}
 
-      {panel === "decorate" && <RoomPanel items={items} decor={decor} />}
+      {panel === "decorate" && <RoomPanel items={items} />}
 
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2">
         <button type="button" className={btn} aria-pressed={panel === "stats"} onClick={() => setPanel(panel === "stats" ? null : "stats")}>
@@ -510,145 +435,6 @@ export function PetScreen({
       </div>
 
       {panel === "stats" && <StatsPanel pet={pet} />}
-    </div>
-  );
-}
-
-function BigButton({ emoji, label, onClick, disabled, pressed }: { emoji: string; label: string; onClick: () => void; disabled?: boolean; pressed?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={pressed}
-      className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-ink bg-card text-sm font-extrabold shadow-[0_3px_0_#1f2933] transition active:translate-y-0.5 active:shadow-none disabled:opacity-40 aria-pressed:bg-sun aria-pressed:text-ink dark:border-white/20"
-    >
-      <span aria-hidden="true" className="text-3xl">
-        {emoji}
-      </span>
-      {label}
-    </button>
-  );
-}
-
-const TOY_EMOJI: Record<string, string> = { ball: "⚽", plush: "🧸", bubbles: "🫧", drum: "🥁", kite: "🪁" };
-
-function ToyIcon({ id, wiggle = false }: { id: string; wiggle?: boolean }) {
-  return (
-    <span aria-hidden="true" className={wiggle ? "inline-block animate-[pet-wiggle_0.4s_ease-in-out_infinite]" : "inline-block"}>
-      {TOY_EMOJI[id] ?? "🎁"}
-    </span>
-  );
-}
-
-const SLOT_NAMES: Record<RoomSlot, string> = {
-  wall: "On the wall",
-  shelf: "On the shelf",
-  sill: "On the windowsill",
-  "floor-left": "Floor, by the bowl",
-  "floor-right": "Floor, by the bed",
-};
-
-function RoomPanel({ items, decor }: { items: ScreenItem[]; decor: Partial<Record<RoomSlot, string>> }) {
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
-  const move = (itemRowId: string, place: string) =>
-    startTransition(async () => {
-      await placeItem(itemRowId, place);
-      router.refresh();
-    });
-  const decorItems = items.filter((item) => itemDef(item.itemId)?.kind === "decor");
-  const toys = items.filter((item) => itemDef(item.itemId)?.kind === "toy");
-  const hats = items.filter((item) => itemDef(item.itemId)?.kind === "hat");
-
-  return (
-    <div className={`${card} mx-auto max-w-3xl space-y-4`} aria-busy={pending || undefined}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {ROOM_SLOTS.map((slot) => {
-          const here = items.find((item) => item.place === slot);
-          const fits = decorItems.filter((item) => fitsPlace(item.itemId, slot));
-          return (
-            <div key={slot} className="grid gap-1">
-              <label htmlFor={`pet-slot-${slot}`} className={fieldLabel}>
-                {SLOT_NAMES[slot]}
-              </label>
-              <select
-                id={`pet-slot-${slot}`}
-                className={field}
-                value={here?.id ?? ""}
-                disabled={pending || fits.length === 0}
-                onChange={(event) => (event.target.value ? move(event.target.value, slot) : here && move(here.id, "box"))}
-              >
-                <option value="">{fits.length === 0 ? "Nothing fits here yet" : "Empty"}</option>
-                {fits.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {itemDef(item.itemId)?.name}
-                    {item.place && item.place !== slot ? ` (move from ${SLOT_NAMES[item.place as RoomSlot]?.toLowerCase() ?? "elsewhere"})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          );
-        })}
-      </div>
-      {decor && decorItems.length === 0 && <p className="text-sm text-muted-foreground">New things for the room turn up as your pet grows.</p>}
-      {toys.length > 0 && (
-        <div>
-          <p className={sectionTitle}>Toys on the floor</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {toys.map((toy) => (
-              <button key={toy.id} type="button" className={btn} aria-pressed={toy.place === "out"} disabled={pending} onClick={() => move(toy.id, toy.place === "out" ? "box" : "out")}>
-                <ToyIcon id={toy.itemId} /> {itemDef(toy.itemId)?.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {hats.length > 0 && (
-        <div>
-          <p className={sectionTitle}>Dress up</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {hats.map((hat) => (
-              <button key={hat.id} type="button" className={btn} aria-pressed={hat.place === "worn"} disabled={pending} onClick={() => move(hat.id, hat.place === "worn" ? "box" : "worn")}>
-                {itemDef(hat.itemId)?.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <p className="text-xs text-muted-foreground">
-        {items.length} of {ITEMS.length} things found so far.
-      </p>
-    </div>
-  );
-}
-
-function StatsPanel({ pet }: { pet: ScreenPet }) {
-  const [state, rename] = useActionState<HatchState, FormData>(renamePet, {});
-  return (
-    <div className={`${card} mx-auto grid max-w-3xl gap-4 sm:grid-cols-2`}>
-      <div className="space-y-2">
-        <p className="text-lg font-extrabold">
-          {pet.name} <span className="font-bold text-muted-foreground">the {pet.formName}</span>
-        </p>
-        <Meter label="Tummy" value={pet.hunger} icon="🍙" />
-        <Meter label="Fun" value={pet.fun} icon="💗" />
-        <Meter label="Energy" value={pet.energy} icon="⚡" />
-        <p className="text-sm">
-          <span className="font-bold">Manners:</span> {Math.round(pet.discipline)}%
-        </p>
-        <p className="text-sm">
-          <span className="font-bold">Age:</span> {pet.ageDays} {pet.ageDays === 1 ? "day" : "days"} · <span className="font-bold">Weight:</span> {Math.round(pet.weight)} g
-        </p>
-      </div>
-      <form action={rename} className="grid content-start gap-2">
-        <label className="grid gap-1">
-          <span className={fieldLabel}>Rename</span>
-          <input name="name" defaultValue={pet.name} maxLength={PET_NAME_MAX} className={field} autoComplete="off" />
-        </label>
-        {state.error && <p className="text-sm font-bold text-destructive">{state.error}</p>}
-        <SubmitButton className={btn}>Save name</SubmitButton>
-      </form>
     </div>
   );
 }

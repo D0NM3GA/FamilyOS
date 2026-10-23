@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { bathScore, BUBBLE_BATH_MS, bubbleSchedule, isShowing, pop } from "@/lib/pet/games/bubble-bath";
 import type { Species, Stage } from "@/lib/pet/state";
 import { PetSprite } from "../pet-sprite";
@@ -33,8 +33,24 @@ export function BubbleBathGame({
     setPopped(latest.current);
   }
 
+  // Keyboard play: Space or Enter pops the bubble that's been up longest. The bubbles themselves
+  // come and go, so they aren't tab stops; the bath is.
+  function onKey(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== " " && event.key !== "Enter") return;
+    event.preventDefault();
+    const oldest = bubbles.find((bubble) => isShowing(bubble, t, latest.current));
+    if (oldest) popOne(oldest.id);
+  }
+
   return (
-    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gradient-to-b from-sky/20 to-sky/40">
+    <div
+      role="application"
+      aria-label="Bubble Bath. Press Space to pop a bubble."
+      tabIndex={0}
+      data-game-focus
+      onKeyDown={onKey}
+      className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gradient-to-b from-sky/20 to-sky/40 outline-none focus-visible:ring-4 focus-visible:ring-ring"
+    >
       <p className="absolute left-3 top-2 z-10 text-lg font-extrabold" aria-live="polite">
         🫧 {bathScore(bubbles, popped)}
       </p>
@@ -48,6 +64,7 @@ export function BubbleBathGame({
           <button
             key={bubble.id}
             type="button"
+            tabIndex={-1}
             onClick={() => popOne(bubble.id)}
             aria-label={bubble.duck ? "Rubber duck" : "Bubble"}
             className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white/80 bg-white/30 text-2xl shadow-inner transition-transform hover:scale-110"

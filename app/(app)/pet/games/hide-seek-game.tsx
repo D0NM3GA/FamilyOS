@@ -5,6 +5,7 @@ import { guess, hidingPlaces, ROUNDS, START, TRIES } from "@/lib/pet/games/hide-
 import { fill, HIDE_SEEK_FOUND, HIDE_SEEK_MISS, pickLine } from "@/lib/pet/voice";
 import type { Species, Stage } from "@/lib/pet/state";
 import { PetSprite } from "../pet-sprite";
+import { useLater } from "./use-later";
 
 const SPOT_LOOKS: Record<string, { emoji: string; name: string }> = {
   bed: { emoji: "🛏️", name: "the bed" },
@@ -34,6 +35,7 @@ export function HideSeekGame({
   const places = useMemo(() => hidingPlaces(seed, spots), [seed, spots]);
   const [state, setState] = useState(START);
   const [shown, setShown] = useState<{ spot: string; found: boolean; line: string } | null>(null);
+  const later = useLater();
   const say = (pool: readonly string[]) => fill(pickLine(pool, Math.random), { name, species: pet.species });
   const [hint, setHint] = useState(false);
 
@@ -51,17 +53,17 @@ export function HideSeekGame({
     if (!roundOver) {
       setState(result.state);
       setShown({ spot, found: false, line: say(HIDE_SEEK_MISS) });
-      window.setTimeout(() => setShown(null), 700);
+      later(700, () => setShown(null));
       return;
     }
     const there = SPOT_LOOKS[places[state.round]]?.name ?? "there";
     setShown({ spot: places[state.round], found: result.found, line: result.found ? say(HIDE_SEEK_FOUND) : `${name} was behind ${there}!` });
-    window.setTimeout(() => {
+    later(1400, () => {
       setShown(null);
       setHint(false);
       setState(result.state);
       if (result.state.done) onDone(result.state.found);
-    }, 1400);
+    });
   }
 
   const here = places[state.round];

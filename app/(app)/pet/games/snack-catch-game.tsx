@@ -47,6 +47,7 @@ export function SnackCatchGame({ seed, onDone }: { seed: string; onDone: (score:
       role="application"
       aria-label="Snack Catch. Use the left and right arrow keys to move the bowl."
       tabIndex={0}
+      data-game-focus
       onKeyDown={onKey}
       onPointerMove={onMove}
       onPointerDown={onMove}

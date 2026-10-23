@@ -4,6 +4,7 @@ import { getHouseholdSettings } from "@/lib/household-settings";
 import { careHoursToday } from "@/lib/pet/care-hours";
 import { getCareHours, getMyPet, type PetRecord } from "@/lib/pet/queries";
 import { seasonOf, skyAt, weatherFrom } from "@/lib/pet/room";
+import { hashString } from "@/lib/pet/random";
 import { STAGE_MINUTES } from "@/lib/pet/state";
 import { formName, moodLine } from "@/lib/pet/words";
 import { pageTitle } from "@/components/styles";
@@ -34,7 +35,8 @@ function toScreen(pet: PetRecord): ScreenPet {
     awake: pet.awake,
     ageDays: Math.floor(state.ageMinutes / (6 * 60)),
     mood: moodLine({ name: pet.name, species: state.species, personality: pet.personality, seed: pet.seed }, state, pet.awake, napping, pet.minute),
-    seed: pet.seed,
+    // Not the pet's own seed: that one decides sickness and presents, so it stays on the server.
+    seed: hashString(`${pet.seed}:view`).toString(36),
     personality: pet.personality,
     minute: pet.minute,
     hatchesIn: state.stage === "egg" ? STAGE_MINUTES.egg - state.stageMinutes : null,

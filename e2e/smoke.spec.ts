@@ -198,6 +198,29 @@ test("every page is accessible, light at desktop width and dark at phone width",
   problems.expectNone();
 });
 
+// Phase 47: the pet room, which the every-page pass above only sees as the egg picker. Picking
+// an egg puts the room, the care buttons and its panels on screen; axe checks each. (Hatching
+// takes five minutes of wall time, so the hatched pet itself stays a manual check.)
+test("an egg goes into the pet room, and the room and its panels are accessible", async () => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  try {
+    await page.goto("/pet");
+    await page.getByLabel("Name it").fill("Pip");
+    await page.getByRole("button", { name: "This one!" }).click();
+    await expect(page.getByRole("img", { name: /^Pip the Egg$/ })).toBeVisible();
+    await expectAccessible(page, "the pet room with an egg");
+    await page.getByRole("button", { name: "Room" }).click();
+    await expect(page.getByLabel("On the wall")).toBeVisible();
+    await expectAccessible(page, "the pet room's decorating panel");
+    await page.getByRole("button", { name: "About Pip" }).click();
+    await expect(page.getByLabel("Rename")).toBeVisible();
+    await expectAccessible(page, "the pet's about panel");
+  } finally {
+    await page.emulateMedia({ reducedMotion: null });
+  }
+  problems.expectNone();
+});
+
 // Phase 42: the barcode decoder is WebAssembly; the script policy must let it compile (no camera
 // needed: compiling the same file the scanner loads is what the policy governs).
 test("the barcode decoder still loads under the script policy", async () => {

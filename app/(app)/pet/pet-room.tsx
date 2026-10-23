@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Weather } from "@/lib/pet/behavior";
 import type { RoomSlot } from "@/lib/pet/items";
 import type { Season, Sky } from "@/lib/pet/room";
@@ -201,7 +202,8 @@ function Window({ sky, weather, season }: { sky: Sky; weather: Weather; season: 
   );
 }
 
-export function PetRoom({
+/** Memoized: the room only changes with its own props, not when the pet moves or looks around. */
+export const PetRoom = memo(function PetRoom({
   sky,
   weather,
   season,
@@ -276,4 +278,4 @@ export function PetRoom({
       )}
     </svg>
   );
-}
+});

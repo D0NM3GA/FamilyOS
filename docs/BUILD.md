@@ -670,6 +670,18 @@ a row, written for a 7-year-old to read alone. Eggs come from Egg Island and pet
 `lib/pet/voice.test.ts` keeps the style: every placeholder filled, 90 characters at most, no
 dashes, one exclamation mark at most, nothing about chores or the reward word.
 
+**Hardening after review.** A payout, a present and an item are each claimed in the database
+before anything is granted (a conditional update, or an insert that skips duplicates; items are
+one of each per person), so two taps at once give one. A round or present that changes nothing
+is rolled back and doesn't use up its hour. Care hours come from the household row the layout
+already read, before any transaction starts. Actions answer odd input instead of throwing, and
+the pet's own seed (which decides sickness and presents) stays on the server. On the screen,
+actions don't trigger a second page load, the room doesn't redraw as the eyes follow the
+pointer, the minute refresh survives a hidden tab and pauses during a game, and timers stop
+when a screen or game closes. Games take focus when they start and give it back to Play;
+Bubble Bath plays with Space, Copy Dance says each move, and care results are announced. A
+browser test checks the egg room and its panels with axe.
+
 Departures from the plan: the pet's state is one checked JSON column rather than typed columns;
 a turned-off Pet app goes to the usual "turned off" page; clearing a memory-book page isn't built
 (each book is only its owner's); changing care hours applies to the time since a pet was last

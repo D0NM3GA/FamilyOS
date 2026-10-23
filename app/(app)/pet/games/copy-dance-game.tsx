@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { copyMove, danceMoves, MAX_ROUNDS, MOVES, roundMoves, START, type Move } from "@/lib/pet/games/copy-dance";
 import type { Species, Stage } from "@/lib/pet/state";
 import { PetSprite } from "../pet-sprite";
+import { useLater } from "./use-later";
+
+const MOVE_WORDS: Record<Move, string> = { left: "Left", right: "Right", up: "Up", down: "Down" };
 
 const ARROWS: Record<Move, string> = { left: "⬅️", right: "➡️", up: "⬆️", down: "⬇️" };
 const SHIFT: Record<Move, string> = { left: "-translate-x-1/4", right: "translate-x-1/4", up: "-translate-y-1/4", down: "translate-y-[10%] scale-y-90" };
@@ -27,6 +30,7 @@ export function CopyDanceGame({
   const [showing, setShowing] = useState<number | null>(0);
   const [pose, setPose] = useState<Move | null>(null);
   const [message, setMessage] = useState(`Watch ${name}…`);
+  const later = useLater();
 
   useEffect(() => {
     if (showing === null) return;
@@ -34,6 +38,8 @@ export function CopyDanceGame({
     const timer = window.setTimeout(() => {
       if (showing < round.length) {
         setPose(round[showing]);
+        // Said as well as shown, so the moves can be followed without seeing them.
+        setMessage(`${MOVE_WORDS[round[showing]]}!`);
         setShowing(showing + 1);
       } else {
         setPose(null);
@@ -50,28 +56,30 @@ export function CopyDanceGame({
       const { state: next, result } = copyMove(state, moves, move);
       setState(next);
       setPose(move);
-      window.setTimeout(() => setPose(null), 250);
+      later(250, () => setPose(null));
       if (result === "round") {
         setMessage(`Round ${next.round + 1}. Watch closely…`);
-        window.setTimeout(() => setShowing(0), 600);
+        later(600, () => setShowing(0));
       } else if (result === "miss" || result === "won") {
         setMessage(result === "won" ? `A perfect dance! ${name} takes a bow.` : `Wrong move! You copied ${next.round} ${next.round === 1 ? "dance" : "dances"}.`);
         onDone(next.round);
       }
     },
-    [showing, state, moves, onDone, name],
+    [showing, state, moves, onDone, name, later],
   );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const move = ({ ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" } as const)[event.key as "ArrowLeft"];
-      if (!move) return;
+      // Only while it's your turn, and never from a form field: the arrows stay the page's otherwise.
+      const typing = event.target instanceof HTMLElement && event.target.closest("input, select, textarea");
+      if (!move || typing || showing !== null || state.over) return;
       event.preventDefault();
       press(move);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [press]);
+  }, [press, showing, state.over]);
 
   return (
     <div className="space-y-3">

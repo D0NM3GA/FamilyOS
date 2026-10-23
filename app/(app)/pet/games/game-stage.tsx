@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { GAME_DEFS, scoreShare, type GameId } from "@/lib/pet/games/catalog";
 import { fill, GAME_REPLAY_LINES, GAME_RESULT_LINES, GAME_TIRED_LINES, pickLine } from "@/lib/pet/voice";
 import { BUILT_IN_SPOTS } from "@/lib/pet/games/hide-seek";
@@ -35,13 +34,20 @@ export function GameStage({
   decor: readonly string[];
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("ready");
   const [round, setRound] = useState(0);
   const [result, setResult] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
   const def = GAME_DEFS[game];
   const [seedBase] = useState(() => Math.random().toString(36).slice(2));
+  // When a round starts, focus goes into it: the game's own control if it has one, else the round.
+  const playArea = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const area = playArea.current;
+    const target = area?.querySelector<HTMLElement>("[data-game-focus]") ?? area?.querySelector<HTMLElement>("button:not([disabled])") ?? area;
+    target?.focus();
+  }, [phase, round]);
   const seed = `${game}-${seedBase}-${round}`;
   const sprite = { species: pet.species, stage: pet.stage, form: pet.form };
 
@@ -59,10 +65,9 @@ export function GameStage({
               ? GAME_TIRED_LINES
               : GAME_RESULT_LINES[tier];
         setResult(fill(pickLine(pool, Math.random), { name: pet.name, species: pet.species }));
-        router.refresh();
       });
     },
-    [game, pet.name, pet.species, router],
+    [game, pet.name, pet.species],
   );
 
   return (
@@ -88,7 +93,7 @@ export function GameStage({
       )}
 
       {phase !== "ready" && (
-        <div key={round} className={phase === "done" ? "pointer-events-none opacity-60" : ""}>
+        <div key={round} ref={playArea} tabIndex={-1} className={`outline-none ${phase === "done" ? "pointer-events-none opacity-60" : ""}`}>
           {game === "snack-catch" && <SnackCatchGame seed={seed} onDone={done} />}
           {game === "bubble-bath" && <BubbleBathGame seed={seed} pet={sprite} onDone={done} />}
           {game === "hide-seek" && (

@@ -5,6 +5,7 @@ import { markerAt, SWEET_HALF_WIDTH, SWEET_SPOT, THROWS, throwDistance } from "@
 import type { Species, Stage } from "@/lib/pet/state";
 import { PetSprite } from "../pet-sprite";
 import { useGameClock } from "./use-game-clock";
+import { useLater } from "./use-later";
 
 /** Phase 47.3: stop the sweeping marker in the sweet spot to throw far; three throws. */
 export function FetchGame({
@@ -18,6 +19,7 @@ export function FetchGame({
   const [distances, setDistances] = useState<number[]>([]);
   const [flying, setFlying] = useState<number | null>(null);
   const t = useGameClock(flying === null && distances.length < THROWS);
+  const later = useLater();
   const marker = markerAt(t, throwIndex);
 
   function throwIt() {
@@ -25,12 +27,12 @@ export function FetchGame({
     const distance = throwDistance(marker);
     const all = [...distances, distance];
     setFlying(distance);
-    window.setTimeout(() => {
+    later(1600, () => {
       setFlying(null);
       setDistances(all);
       setThrowIndex(all.length);
       if (all.length >= THROWS) onDone(all.reduce((sum, d) => sum + d, 0));
-    }, 1600);
+    });
   }
 
   const total = distances.reduce((sum, d) => sum + d, 0);
@@ -59,6 +61,7 @@ export function FetchGame({
         <button
           type="button"
           onClick={throwIt}
+          data-game-focus
           disabled={flying !== null || distances.length >= THROWS}
           className="min-h-14 rounded-2xl border-2 border-ink bg-sun px-8 text-lg font-extrabold text-ink shadow-[0_3px_0_#1f2933] active:translate-y-0.5 disabled:opacity-40"
         >
