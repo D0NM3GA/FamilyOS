@@ -225,9 +225,10 @@ Fable's scope review (2026-10-23) is folded in.
 - **Provenance:** a GitHub attestation action signs, for each pushed digest, which workflow and
   commit built it, and stores the record in the registry next to the image. Attest first, then
   move `main`.
-- **Order:** main runs queue instead of cancelling each other (only pull request runs cancel), so
-  every merge gets its `sha-` image; and the publish job moves `main` only if its commit is
-  still the branch's head, so a slow run can't point `main` back at an older commit.
+- **Order:** each push to main is a concurrency group of its own (only pull request runs cancel
+  each other), so no merge's run is cancelled or dropped and every commit on main gets its `sha-`
+  image; the publish job moves `main` only if its commit is still the branch's head, so a slow
+  run can't point `main` back at an older commit.
 - Pull requests never publish.
 
 ### 46.2 — Nothing about one family in a public image
@@ -243,8 +244,9 @@ Fable's scope review (2026-10-23) is folded in.
   and the example settings say to rename the line (no install uses it yet).
 - The Dockerfile has no family-specific build argument (`NODE_IMAGE`, the base image pin,
   stays). `scripts/container-test.sh` builds with a decoy `NEXT_PUBLIC_SENTRY_DSN` in the
-  environment and checks that neither the decoy nor any Sentry ingest address appears in the
-  image's browser code, and that the image's environment has no `NEXT_PUBLIC_` value.
+  environment (proving compose forwards nothing from the build machine) and checks that no
+  Sentry ingest address appears in the image's code and its environment has no `NEXT_PUBLIC_`
+  value; the guard test checks `.dockerignore` keeps settings files out of the build context.
 - A guard test reads the Dockerfile, the compose files and the workflow: no `NEXT_PUBLIC_`
   build argument, no `build.args`, the publish job's permissions exactly as above, and every
   action pinned to a full commit SHA from `actions/`.
@@ -257,8 +259,9 @@ Fable's scope review (2026-10-23) is folded in.
   a failed pull (a typo in the version, the registry down) is an error, never a quiet local
   build under the release's name. Building stays possible through an override file,
   `docker-compose.build.yml`, which the CI stack and a build on the server add with `-f`.
-- **Update:** set `FAMILYOS_VERSION` to the new `sha-…` tag (in the shell or an env file
-  outside the checkout, never `.env` in it, which a build would read), `git pull` the checkout
+- **Update:** set `FAMILYOS_VERSION` to the new `sha-…` tag in a one-line `.env` beside the
+  compose file (compose reads it for every command, the cron scripts included; `.dockerignore`
+  keeps it out of any build; unset is an error, never `main`), move the checkout
   to the same commit (compose, the break-glass and backup scripts and the Caddy file come from
   it), then `docker compose pull` and `up -d`. **Roll back:** the previous tag, same steps.
   Checking provenance: `gh attestation verify` on the pulled digest (from any machine with `gh`;

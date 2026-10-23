@@ -394,14 +394,16 @@ be on Cloudflare; and Cloudflare Access keeps everyone but the family away from 
 ### Start, update, roll back
 
 The server runs the images CI tested and published (Phase 46): `ghcr.io/d0nm3ga/familyos` and
-`ghcr.io/d0nm3ga/familyos-migrate`, each tagged `sha-<full commit>` for every merge to `main`.
+`ghcr.io/d0nm3ga/familyos-migrate`, each tagged `sha-<full commit>` for every commit on `main`
+from Phase 46 on (a pull request's own commits have none: pick one from `main`'s history).
+A fork changes the owner in the compose file and the Dockerfile's source label.
 The version it runs is pinned in one line, in a `.env` file beside the compose file. Compose reads
 it for every command, the cron scripts included, and an image build never sees it
 (`.dockerignore`). Only that line goes there; settings stay in `/etc/familyos/familyos.env`.
 
 ```bash
 cd /opt/familyos
-git fetch && git checkout <commit>
+git fetch && git checkout <a commit on main>
 echo "FAMILYOS_VERSION=sha-$(git rev-parse HEAD)" > .env
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
@@ -412,18 +414,21 @@ and the Caddy file come from the checkout. `up -d` runs any new migrations first
 the app. **To update**, repeat with the new commit; **to roll back**, with the previous one. A
 migration the older code doesn't know stays applied (if `migrate` refuses, see "A migration
 failed"); the restore drill covers going back further. A typo in the version fails the pull
-with an error: nothing is built in its place. Logs: `docker compose -f docker-compose.prod.yml
+with an error, and a missing `.env` stops every compose command with "set FAMILYOS_VERSION":
+nothing is built or pulled in its place. Commits from before Phase 46 have no image; their
+checkout still builds on the server (`up -d --build`). Logs: `docker compose -f docker-compose.prod.yml
 logs -f app`.
 
 - **First time:** the packages are public (the owner's call, 2026-10-23), so the server pulls
   with no sign-in. The first publish from a new repository makes them private: set each one to
   public once (the account's Packages → the package → Package settings). Images built on the
-  server before Phase 46 can then be removed (`docker image prune`).
+  server before Phase 46 can then be removed (`docker image rm familyos-app familyos-migrate`).
 - **Where an image came from:** each published image has a signed record of the workflow and
   commit that built it. On any machine with the GitHub CLI signed in:
   `gh attestation verify oci://ghcr.io/d0nm3ga/familyos:sha-<commit> --owner D0NM3GA`, then
   check the digest it names matches the one the server pulled (`docker image inspect
-  ghcr.io/d0nm3ga/familyos:sha-<commit> --format '{{index .RepoDigests 0}}'`).
+  ghcr.io/d0nm3ga/familyos:sha-<commit> --format '{{index .RepoDigests 0}}'`). The digest is the
+  real pin: re-running CI for a commit pushes its `sha-` tag again.
 - **Building on the server instead** (if the registry were ever unreachable): add the build
   file and use a tag of your own, never a published one:
   `FAMILYOS_VERSION=local docker compose -f docker-compose.prod.yml -f
@@ -542,9 +547,9 @@ touches the real database. Rehearse break-glass at the same time.
 
 `scripts/container-test.sh` builds the image (`docker-compose.build.yml`, under a local tag),
 starts it on a fresh database with throwaway settings (the app on `http://localhost:3100`, no
-tunnel), checks the run image (nothing secret, no development tools, not root, and, built with
-decoy Sentry settings in the environment, nothing from the build machine), runs the browser
-tests against it, then backs up what they made
+tunnel), checks the run image (nothing secret, no development tools, not root, no Sentry
+address and no `NEXT_PUBLIC_` value, built with decoy Sentry settings in the environment to
+prove compose forwards none), runs the browser tests against it, then backs up what they made
 and restores it with the drill. CI runs it on `main` and on pull requests that change what goes
 into the image; on any other pull request the check passes in seconds without building, so it can
 be a required check (`.github/workflows/container.yml`). On `main`, a separate job then publishes

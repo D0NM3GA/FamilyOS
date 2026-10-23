@@ -675,17 +675,20 @@ a pinned version.
   built and tested; a separate `publish` job (the only one with `packages: write`, no checkout,
   no npm) loads and pushes them to `ghcr.io/<owner>/familyos` and `…-migrate` as
   `sha-<commit>`, attests each digest (`actions/attest-build-provenance`, stored in the
-  registry), and moves `main` only if its commit is still the branch's head. Main runs queue
-  rather than cancel, so every merge gets an image.
+  registry), and moves `main` only if its commit is still the branch's head. Each push to main
+  is a concurrency group of its own, so no merge's run is cancelled and every commit on main gets
+  an image. The images are saved before the break-glass rehearsal, and CI's log is kept out of
+  the build context, so the rehearsal reuses them instead of rebuilding.
 - **Nothing about one family in the image.** Sentry's DSN was a build argument that Next inlined
   into browser and server code; it's now `SENTRY_DSN`, read on the server at run time and handed
   to the browser on `<html data-sentry-dsn>`. The Dockerfile takes no build argument but the base
   image and carries only fixed labels. The container test builds with decoy Sentry settings in
-  the environment and fails if they, any Sentry ingest address or a `NEXT_PUBLIC_` value reach
-  the image; `lib/deploy-guard.test.ts` checks the Dockerfile, compose files and workflows.
+  the environment (compose must forward nothing) and fails if any Sentry ingest address or a
+  `NEXT_PUBLIC_` value is in the image; `lib/deploy-guard.test.ts` checks the Dockerfile,
+  `.dockerignore`, compose files and workflows.
 - **Deploy from the registry.** `docker-compose.prod.yml` names images only (pinned by
-  `FAMILYOS_VERSION` in a one-line `.env` beside it), so a failed pull is an error, never a quiet
-  local build under a release's name. `docker-compose.build.yml` adds the build for CI, a Mac or a
+  `FAMILYOS_VERSION` in a one-line `.env` beside it; unset is an error), so a failed pull is an
+  error, never a quiet local build under a release's name or a fallback to the latest. `docker-compose.build.yml` adds the build for CI, a Mac or a
   fallback, under a local tag.
 - **A smaller image.** The break-glass state read used a path Turbopack couldn't know, so it
   traced the whole project into the standalone server (about 840 source and doc files). It now

@@ -209,12 +209,12 @@ applies to them.
 
 The app comes ready-made: every change merged to `main` is tested and then published as an image
 tagged `sha-<commit>`. Your server runs one of those, pinned by a one-line `.env` beside the
-compose file (only that line goes there; settings stay in `familyos.env`). Pick the newest commit
-on `main`:
+compose file (only that line goes there; settings stay in `familyos.env`; without it, compose
+refuses to run). Pick the newest commit on `main`:
 
 ```bash
 cd /opt/familyos
-git checkout <commit>
+git checkout <a commit on main>
 echo "FAMILYOS_VERSION=sha-$(git rev-parse HEAD)" > .env
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
@@ -508,7 +508,7 @@ line, switch it off.
 
 ```bash
 cd /opt/familyos
-git fetch && git checkout <new commit>
+git fetch && git checkout <a newer commit on main>
 echo "FAMILYOS_VERSION=sha-$(git rev-parse HEAD)" > .env
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
