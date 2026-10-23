@@ -122,6 +122,31 @@ describe.skipIf(!RUN)("the pet (database)", () => {
     expect(await finishMyGame(who.ivy, "copy-dance", 8, new Date(Date.now() + 61 * MINUTE))).toMatchObject({ ok: true });
   });
 
+  test("two rounds finishing at once pay out once", async () => {
+    await freshPet(who.ivy.id);
+    await prisma.petPlay.deleteMany({ where: { personId: who.ivy.id } });
+    const results = await Promise.all([finishMyGame(who.ivy, "fetch", 300), finishMyGame(who.ivy, "fetch", 300)]);
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.filter((result) => !result.ok && result.reason === "played-recently")).toHaveLength(1);
+  });
+
+  test("a round that changes nothing doesn't use up the hour", async () => {
+    await freshPet(who.ivy.id);
+    await prisma.petPlay.deleteMany({ where: { personId: who.ivy.id } });
+    const pet = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
+    await prisma.pet.update({ where: { id: pet.id }, data: { state: { ...(pet.state as object), energy: 0 } } });
+    expect(await finishMyGame(who.ivy, "fetch", 300)).toMatchObject({ ok: true, result: { outcome: "too-tired" } });
+    expect(await prisma.petPlay.count({ where: { personId: who.ivy.id } })).toBe(0);
+  });
+
+  test("two taps on one present open it once", async () => {
+    await freshPet(who.ivy.id);
+    await doneChore(who.ivy.id, who.ivy.id);
+    const [present] = (await getMyPet(who.ivy)).presents;
+    const results = await Promise.all([openMyPresent(who.ivy, present), openMyPresent(who.ivy, present)]);
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+  });
+
   test("you can only move your own things", async () => {
     await freshPet(who.max.id);
     await getMyPet(who.max);

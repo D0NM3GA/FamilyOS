@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/app/generated/prisma/client";
-import { serverTimeZone } from "@/lib/household-settings";
+import { getHouseholdRow, serverTimeZone } from "@/lib/household-settings";
 import { epochMinute, isCareMinute, MINUTE_MS, type CareHours } from "./care-hours";
 import { play, type CareResult } from "./care";
 import { effectOf, PAYOUT_MINUTES, type GameId } from "./games/catalog";
@@ -41,34 +41,33 @@ export type PetItemRecord = { id: string; itemId: string; place: Place };
 
 export type Goodbye = { name: string; species: string; stage: string; form: number; cause: string; ageMinutes: number };
 
-async function careContext(householdId: string, seed: string): Promise<AdvanceContext> {
-  const row = await prisma.household.findUnique({
-    where: { id: householdId },
-    select: { petCareHours: true, timezone: true },
-  });
-  return { seed, careHours: readCareHours(row?.petCareHours), timeZone: row?.timezone ?? serverTimeZone() };
-}
+type CareSettings = { careHours: CareHours; timeZone: string };
 
-export async function getCareHours(householdId: string): Promise<{ careHours: CareHours; timeZone: string }> {
-  const { careHours, timeZone } = await careContext(householdId, "");
-  return { careHours, timeZone };
+/**
+ * The household's care hours and time zone, from the row the layout already read this request
+ * (React `cache`). Read before a transaction starts, never inside one: a read through the shared
+ * client mid-transaction would need a second pool connection while the first is held.
+ */
+export async function getCareHours(householdId: string): Promise<CareSettings> {
+  const row = await getHouseholdRow(householdId);
+  return { careHours: readCareHours(row?.petCareHours), timeZone: row?.timezone ?? serverTimeZone() };
 }
 
 function toJson(state: PetState): Prisma.InputJsonValue {
   return state as unknown as Prisma.InputJsonValue;
 }
 
-/** Hands out what growing up and bond have earned that this person doesn't have yet. */
-async function grantUnlocks(tx: Tx, profile: Profile, state: PetState): Promise<string[]> {
-  const owned = await tx.petItem.findMany({ where: { personId: profile.id }, select: { itemId: true } });
-  const have = new Set(owned.map((item) => item.itemId));
-  const fresh = unlockedItems(state.stage, state.bond).filter((id) => !have.has(id));
-  if (fresh.length > 0) {
-    await tx.petItem.createMany({
-      data: fresh.map((itemId) => ({ householdId: profile.householdId, personId: profile.id, itemId })),
-    });
-  }
-  return fresh;
+/**
+ * Hands out what growing up and bond have earned. One write, no read: items are one of each
+ * (unique person and item), so what's already owned is skipped by the database.
+ */
+async function grantUnlocks(tx: Tx, profile: Profile, state: PetState): Promise<void> {
+  const earned = unlockedItems(state.stage, state.bond);
+  if (earned.length === 0) return;
+  await tx.petItem.createMany({
+    data: earned.map((itemId) => ({ householdId: profile.householdId, personId: profile.id, itemId })),
+    skipDuplicates: true,
+  });
 }
 
 const dayFormats = new Map<string, Intl.DateTimeFormat>();
@@ -123,6 +122,23 @@ async function grantChoreGifts(tx: Tx, profile: Profile, pet: { seed: string; bo
   });
 }
 
+/** Thrown inside a transaction to roll it back and still answer with `result`. */
+class Undo<T> extends Error {
+  constructor(readonly result: T) {
+    super("undo");
+  }
+}
+
+/** Runs `work` in a transaction; an `Undo` rolls everything back and returns its result. */
+async function undoUnless<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
+  try {
+    return await prisma.$transaction(work);
+  } catch (error) {
+    if (error instanceof Undo) return error.result as T;
+    throw error;
+  }
+}
+
 type CatchUp =
   | { kind: "none" }
   | { kind: "gone"; goodbye: Goodbye }
@@ -133,13 +149,13 @@ type CatchUp =
  * memory book and removed; otherwise the caught-up state is saved under the `lastAdvancedAt`
  * guard (`saved` is false if another request got there first; the caller decides).
  */
-async function catchUp(tx: Tx, profile: Profile, now: Date, persist: boolean): Promise<CatchUp> {
+async function catchUp(tx: Tx, profile: Profile, settings: CareSettings, now: Date, persist: boolean): Promise<CatchUp> {
   const row = await tx.pet.findUnique({ where: { personId: profile.id } });
   if (!row) return { kind: "none" };
   const stored = readPetState(row.state);
   if (!stored) throw new Error("A pet's saved state couldn't be read.");
 
-  const context = await careContext(profile.householdId, row.seed);
+  const context: AdvanceContext = { seed: row.seed, ...settings };
   const { state, events } = advance(stored, row.lastAdvancedAt.getTime(), now.getTime(), context);
   const personality = personalityFromSeed(row.seed);
 
@@ -211,7 +227,8 @@ export type MyPet = {
 
 /** This person's pet as it is right now, their items, and a goodbye if it just went. */
 export async function getMyPet(profile: Profile, now = new Date()): Promise<MyPet> {
-  const result = await prisma.$transaction((tx) => catchUp(tx, profile, now, true));
+  const settings = await getCareHours(profile.householdId);
+  const result = await prisma.$transaction((tx) => catchUp(tx, profile, settings, now, true));
   const [items, presents] = await Promise.all([
     getMyItems(profile.id),
     result.kind === "pet"
@@ -242,7 +259,8 @@ export async function changeMyPet(
   apply: (state: PetState, minute: number, personality: Personality) => CareResult,
   now = new Date(),
 ): Promise<ChangeResult> {
-  return prisma.$transaction((tx) => changeInTx(tx, profile, apply, now));
+  const settings = await getCareHours(profile.householdId);
+  return prisma.$transaction((tx) => changeInTx(tx, profile, settings, apply, now));
 }
 
 /**
@@ -256,18 +274,19 @@ export async function finishMyGame(
   score: number,
   now = new Date(),
 ): Promise<ChangeResult | { ok: false; reason: "played-recently" }> {
-  return prisma.$transaction(async (tx) => {
-    const last = await tx.petPlay.findUnique({ where: { personId_game: { personId: profile.id, game } } });
-    const paid = !last || now.getTime() - last.paidAt.getTime() >= PAYOUT_MINUTES * MINUTE_MS;
-    if (!paid) return { ok: false, reason: "played-recently" } as const;
-    const change = await changeInTx(tx, profile, (state) => play(state, effectOf(game, score)), now);
-    if (change.ok && change.result.outcome === "ok") {
-      await tx.petPlay.upsert({
-        where: { personId_game: { personId: profile.id, game } },
-        create: { personId: profile.id, game, paidAt: now },
-        update: { paidAt: now },
-      });
+  const settings = await getCareHours(profile.householdId);
+  return undoUnless(async (tx) => {
+    // Claim this hour's payout first: the insert or the conditional update takes the row's lock,
+    // so a second round finishing at the same moment waits, then finds it claimed.
+    const fresh = await tx.petPlay.createMany({ data: [{ personId: profile.id, game, paidAt: now }], skipDuplicates: true });
+    if (fresh.count === 0) {
+      const due = new Date(now.getTime() - PAYOUT_MINUTES * MINUTE_MS);
+      const claimed = await tx.petPlay.updateMany({ where: { personId: profile.id, game, paidAt: { lte: due } }, data: { paidAt: now } });
+      if (claimed.count === 0) return { ok: false, reason: "played-recently" } as const;
     }
+    const change = await changeInTx(tx, profile, settings, (state) => play(state, effectOf(game, score)), now);
+    // A round that changed nothing (asleep, too tired) doesn't use up the hour.
+    if (!change.ok || change.result.outcome !== "ok") throw new Undo(change);
     return change;
   });
 }
@@ -275,10 +294,11 @@ export async function finishMyGame(
 async function changeInTx(
   tx: Tx,
   profile: Profile,
+  settings: CareSettings,
   apply: (state: PetState, minute: number, personality: Personality) => CareResult,
   now: Date,
 ): Promise<ChangeResult> {
-  const caught = await catchUp(tx, profile, now, false);
+  const caught = await catchUp(tx, profile, settings, now, false);
   if (caught.kind === "none") return { ok: false, reason: "no-pet" };
   if (caught.kind === "gone") return { ok: false, reason: "gone" };
   const { pet, events, lastAdvancedAt } = caught;
@@ -298,25 +318,33 @@ export type OpenedPresent = { ok: true; hint: string; gift: string } | { ok: fal
 
 /** Unwraps one of this person's presents: a treat goes to the pet, a keepsake to the toy box. */
 export async function openMyPresent(profile: Profile, presentId: string, now = new Date()): Promise<OpenedPresent> {
-  return prisma.$transaction(async (tx) => {
+  const settings = await getCareHours(profile.householdId);
+  return undoUnless(async (tx) => {
     const present = await tx.petGift.findFirst({ where: { id: presentId, personId: profile.id, openedAt: null, itemId: { not: null } } });
-    if (!present?.itemId) return { ok: false, reason: "no-present" };
+    if (!present?.itemId) return { ok: false, reason: "no-present" } as const;
+    // Claim it before giving anything: two taps at once can't open it twice.
+    const claimed = await tx.petGift.updateMany({ where: { id: present.id, openedAt: null }, data: { openedAt: now } });
+    if (claimed.count === 0) return { ok: false, reason: "no-present" } as const;
+
     const owned = await tx.petItem.findFirst({ where: { personId: profile.id, itemId: present.itemId } });
     // A keepsake already owned (a second pet, say) becomes a feast instead.
     const treat = isTreat(present.itemId) ? present.itemId : owned ? "feast" : null;
     if (treat) {
-      const change = await changeInTx(tx, profile, (state) => ({ state: openTreat(state, treat), outcome: "ok" }), now);
-      if (!change.ok) return { ok: false, reason: change.reason };
+      const change = await changeInTx(tx, profile, settings, (state) => ({ state: openTreat(state, treat), outcome: "ok" }), now);
+      // Asleep or busy: put the present back by the door for later.
+      if (!change.ok) throw new Undo({ ok: false, reason: change.reason } as const);
     } else {
-      await tx.petItem.create({ data: { householdId: profile.householdId, personId: profile.id, itemId: present.itemId } });
+      await tx.petItem.createMany({
+        data: [{ householdId: profile.householdId, personId: profile.id, itemId: present.itemId }],
+        skipDuplicates: true,
+      });
     }
-    const openedBefore = await tx.petGift.count({ where: { personId: profile.id, openedAt: { not: null } } });
-    await tx.petGift.update({ where: { id: present.id }, data: { openedAt: now } });
+    const openedBefore = await tx.petGift.count({ where: { personId: profile.id, openedAt: { not: null }, NOT: { id: present.id } } });
     return {
       ok: true,
       hint: giftHint(openedBefore, present.id),
       gift: treat ? TREAT_NAMES[treat] : (ITEMS.find((item) => item.id === present.itemId)?.name ?? "something nice"),
-    };
+    } as const;
   });
 }
 

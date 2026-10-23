@@ -2301,7 +2301,8 @@ model PetItem {
   place       String?
   createdAt   DateTime  @default(now())
 
-  @@index([personId])
+  /// One of each: two requests granting the same thing at once can't make a second.
+  @@unique([personId, itemId])
   @@map("pet_item")
 }
 
