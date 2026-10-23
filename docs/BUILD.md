@@ -728,15 +728,19 @@ defaults), and about 140 date calculations became right without being touched.
   and after a restore. Only canonical names are set: an unknown one silently becomes UTC.
 - **Stored days move with the zone** (the owner's call: they keep their date and clock time).
   `Household.dayZone` records the zone the days were written in; when it differs from the
-  household's, `moveStoredDays` rewrites them in SQL (`AT TIME ZONE`), including once on the
-  upgrade itself (setup already stored the device's zone while days followed the server's).
+  household's, `moveStoredDays` rewrites them in the same transaction that saves the zone,
+  including once on the upgrade itself (setup already stored the device's zone while days
+  followed the server's). Clearing the zone moves them back to the deploy's.
   Columns: chore and med start and due dates, vehicle log dates, school due dates typed in, and
   receipt-dated prices (exactly midnight). Instants never move.
 - **Review findings that shaped it (Fable):** instances are generated on page loads, not only by
   jobs, so generation re-plans under a shared advisory lock when it has rows to write and a move
   holds it exclusively; task instances are unique per definition and time, checked row by row,
   so they're parked a thousand years out before moving (a 12-hour move of morning and evening
-  doses would collide); two doses landing on one time (a skipped hour) keep the done one.
+  doses would collide); two doses landing on one time (a skipped hour) keep the done one. The new
+  values are worked out in JavaScript with the app's own zone data (`lib/zone-clock.ts`), not
+  Postgres's `AT TIME ZONE`: Intl's canonical names include ones Postgres's zone list lacks
+  (`Asia/Calcutta`, `Europe/Kiev`), and saving one would have failed every page after.
 - **Restores** move a file's days from its `exportedTimeZone` (now the days' zone) to the
   restored household's instead of refusing, and the preview says so.
 - **The browser:** client components format with the household's zone (`useHouseholdZone`), so

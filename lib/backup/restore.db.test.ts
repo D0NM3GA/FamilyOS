@@ -281,4 +281,17 @@ describe.skipIf(!RUN)("restore (database)", () => {
     expect(after).toEqual(ctx.others);
     expect(await prisma.person.count({ where: { householdId: ctx.h1 } })).toBe(5);
   });
+
+  test("Phase 49: a file from another zone has its days moved, each keeping its date and time", async () => {
+    // Saved where it was 7 PM on New Year's Day when New York was at midnight (Kiritimati, UTC+14).
+    const file = { ...structuredClone(ctx.B1), exportedTimeZone: "Pacific/Kiritimati" };
+    const preview = await previewRestore(ctx.h2, file);
+    expect(preview.ok && preview.preview.timeZoneNote).toMatch(/saved in Pacific\/Kiritimati time.*moved to America\/New York time/);
+    expect((await restore(ctx.h2, ctx.a2, file)).ok).toBe(true);
+    // So the chore starts at 7 PM on New Year's Day, New York time (00:00Z the next day).
+    const dishes = await prisma.taskDefinition.findFirstOrThrow({ where: { householdId: ctx.h2, title: "Dishes" } });
+    expect(dishes.startDate.toISOString()).toBe("2026-01-02T00:00:00.000Z");
+    expect((await prisma.household.findUniqueOrThrow({ where: { id: ctx.h2 } })).dayZone).toBe("America/New_York");
+    expect(processZone()).toBe("America/New_York");
+  });
 });

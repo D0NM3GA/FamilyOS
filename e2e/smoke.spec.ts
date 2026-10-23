@@ -331,7 +331,7 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
     const travel = await trip.newPage();
     const tripProblems = watchForProblems(travel);
     await travel.goto("/meds");
-    await expect(travel.getByText(/8:00\sAM at home · .* here/).first()).toBeVisible();
+    await expect(travel.getByText(/8:00\sAM at home,? · .* here/).first()).toBeVisible();
     await travel.goto("/");
     await expect(travel.getByRole("note")).toContainText("different time zone from home");
     await expectAccessible(travel, "/ (away from home)");

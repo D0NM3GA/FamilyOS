@@ -149,6 +149,29 @@ describe.skipIf(!RUN)("moving stored days between zones (database)", () => {
     expect((await prisma.taskDefinition.findUniqueOrThrow({ where: { id: chore.id } })).startDate).toEqual(at("2026-05-04T23:00:00Z"));
   });
 
+  test("a zone Postgres doesn't know by Intl's name (Asia/Calcutta) still saves and moves", async () => {
+    const h = await family({ timezone: "America/New_York", dayZone: "America/New_York" });
+    const chore = await definition(h, at("2026-05-05T04:00:00Z"));
+    const r = await syncHouseholdZone(h, { timezone: "Asia/Kolkata" });
+    const zone = processZone();
+    expect(["Asia/Calcutta", "Asia/Kolkata"]).toContain(zone);
+    expect(r).toMatchObject({ from: "America/New_York", to: zone });
+    const saved = await prisma.household.findUniqueOrThrow({ where: { id: h } });
+    expect([saved.timezone, saved.dayZone]).toEqual([zone, zone]);
+    // Midnight in India (UTC+5:30) on the same date.
+    expect((await prisma.taskDefinition.findUniqueOrThrow({ where: { id: chore.id } })).startDate).toEqual(at("2026-05-04T18:30:00Z"));
+  });
+
+  test("clearing the zone moves the days back to the deploy's and forgets dayZone", async () => {
+    const h = await family({ timezone: "Europe/London", dayZone: "Europe/London" });
+    const chore = await definition(h, at("2026-05-04T23:00:00Z"));
+    await syncHouseholdZone(h, { timezone: null });
+    expect(processZone()).toBe("America/New_York");
+    const saved = await prisma.household.findUniqueOrThrow({ where: { id: h } });
+    expect([saved.timezone, saved.dayZone]).toEqual([null, null]);
+    expect((await prisma.taskDefinition.findUniqueOrThrow({ where: { id: chore.id } })).startDate).toEqual(at("2026-05-05T04:00:00Z"));
+  });
+
   test("a household without a zone stays on the deploy's", async () => {
     const h = await family({ timezone: null });
     applyProcessZone("Asia/Tokyo");

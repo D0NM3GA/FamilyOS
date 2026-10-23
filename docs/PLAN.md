@@ -446,10 +446,12 @@ have. Fable's scope review (2026-10-23) is folded in.
   the list against every writer. **What doesn't:** instants (`createdAt`, `completedAt`,
   sign-ins, calendar and feed events) and the people dates `middayInZone` already writes in the
   household zone.
-- **The move** is SQL in one transaction: each value's date and clock time in the old zone
-  become the same date and clock time in the new one (`AT TIME ZONE`), so a chore due Tuesday
-  stays due Tuesday and an 8:00 AM dose stays at 8:00 AM. Postgres settles clock times that
-  don't exist or happen twice on a DST change the same way every time. `TaskInstance` is
+- **The move** happens in the same transaction that saves the zone: each value's date and clock
+  time in the old zone become the same date and clock time in the new one, so a chore due Tuesday
+  stays due Tuesday and an 8:00 AM dose stays at 8:00 AM. A clock time that doesn't exist or
+  happens twice on a DST change is settled the same way every time. (Built in JavaScript with the
+  app's zone data, not Postgres's `AT TIME ZONE`: Fable's implementation review found Intl names
+  Postgres doesn't know.) Clearing the zone moves the days back to the deploy's. `TaskInstance` is
   unique on `(definitionId, dueDate)`, checked row by row, so a 12-hour move of an 8 AM and an
   8 PM dose would collide halfway: the rows go to a far-off placeholder first, then to their
   new values.

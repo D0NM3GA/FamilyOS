@@ -19,8 +19,25 @@ export function AwayTime({ at, line, className }: { at: Date | string; line?: bo
   const otherDay = toISODate(when, away.here) !== toISODate(when, away.home);
   const here = `${otherDay ? `${when.toLocaleDateString([], { timeZone: away.here, weekday: "short" })} ` : ""}${clock(away.here)} here`;
   // On its own line (a card whose first line is already full): both times, home first.
-  if (line) return <p className={className}>{clock(away.home)} at home · {here}</p>;
-  return <span className="whitespace-nowrap"> at home · {here}</span>;
+  // The dot is only a separator: a screen reader hears "8:00 AM at home, 2:00 PM here".
+  const dot = <span aria-hidden="true"> · </span>;
+  if (line) {
+    return (
+      <p className={className}>
+        {clock(away.home)} at home<span className="sr-only">,</span>
+        {dot}
+        {here}
+      </p>
+    );
+  }
+  return (
+    <span className="whitespace-nowrap">
+      {" "}
+      at home<span className="sr-only">,</span>
+      {dot}
+      {here}
+    </span>
+  );
 }
 
 /** Says once, at the top of Home, why times come in pairs while away. */
