@@ -96,7 +96,8 @@ changes what admins or the family see also updates the guides in `docs/guides/`.
 
 ## Roadmap
 
-Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's call).
+Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's call),
+**tabled** (until the owner says it's time).
 
 ### Foundation and first modules
 
@@ -166,13 +167,19 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 43 | Production container and HTTPS through a tunnel | merged |
 | 42 | Security: CSP with nonces, database rate limits, Access check, restore drill, break-glass | merged |
 | 45 | Settings hub, guided setup, home location without coordinates | merged |
-| 46 | Publish the tested image; the server pulls it instead of building | being built |
+| 46 | Publish the tested image; the server pulls it instead of building | merged |
 | 47 | The pet: a digital pet with a room, toys, petting and mini-games, and a hidden bonus for chores | built |
 | 44 | Polish: accessibility checks on every page, Shop list without signal | merged |
 | — | Kids' allowance | waiting |
-| — | Remove the dev sign-in | later |
+| — | Go live on the home server | tabled |
+| — | Remove the dev sign-in (just before going live) | tabled |
 | — | LMS connector (Canvas or Google Classroom) | waiting |
-| — | Settings friction fixes (see Phase 45, "Not in this phase") | later |
+| 48 | Slim the migrate image to Prisma's CLI | merged |
+| 49 | The household's timezone in every date calculation | next |
+| 50 | Teams without Power Automate | later |
+| 51 | Find the school calendar from the school's web address | later |
+| 52 | Statement imports that work out their own columns | later |
+| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | later |
 
 ### Phases 42–45 in brief
 
@@ -195,10 +202,31 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 
 ## Current state
 
-Everything through Phase 45 is merged to `main`, CI runs on every pull request, and the
-production container, the security phase and the accessibility and offline polish are done.
-The next steps are standing up the home server and entering the real family, then the items
-below. The database still holds test data only.
+Everything through Phase 46, and Phase 48 (the migrate image cut from 2.26 GB to about 690 MB),
+is merged to `main` (2026-10-23). The project moved to this public
+repository the same day (one clean commit; the earlier history is archived privately). `main`
+takes changes only through pull requests: a ruleset requires the three CI jobs and the container
+check, and a pull request merges itself once they pass. Every merge to `main` publishes the
+tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`, public, tagged
+`sha-<commit>`, with signed provenance).
+
+**Tabled until the owner says it's time (2026-10-23):** going live (the server, Cloudflare
+Tunnel and Access, the pinned version, backups and break-glass, following
+`docs/guides/admin.md`, then entering the real family) and, with it, removing the dev sign-in.
+The database still holds test data only.
+
+**Next, the remaining engineering work, in this order** (each its own phase and pull request;
+the owner's questions are asked at each scope):
+1. **Phase 49 — The household's timezone in every date calculation**, so "today", due dates and
+   streaks no longer depend on the server's `TZ`.
+2. **Phase 50 — Teams without Power Automate:** a "Connect Teams" button through Graph, and
+   picking a jar's Teams chat from a list.
+3. **Phase 51 — Find the school calendar** from the school's web address.
+4. **Phase 52 — Statement imports that work out their own columns.**
+5. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
+   alert mailbox set and tested in Settings, a link to Entra's role assignments.
+
+The decisions waiting on the owner are under "Open items".
 
 ## Phase 46 — scope (publish the tested image, 2026-10-23)
 
@@ -532,6 +560,70 @@ below are what shipped; the owner can still change them.
    shorter, longer, or never die of old age?
 2. Default care hours: 7–8am and 3–8pm on weekdays, 8am–8pm on weekends?
 3. Up to 3 chore gifts a day?
+## Phase 48 — scope (slim the migrate image, 2026-10-23)
+
+The migrate image is 2.26 GB because it is the whole `install` stage: every dependency of the
+app, its build tools and its test tools, to run one command, `prisma migrate deploy`. Each
+publish pushes it, and each server update pulls it. A spike that kept only Prisma's CLI and
+what it needs came to 686 MB, and it applied every migration to a fresh database under the
+production limits (read-only root, no capabilities). Fable's scope review (2026-10-23) is
+folded in.
+
+### 48.1 — Only Prisma's CLI, from the same install
+
+- A `migrate-deps` stage from `install` rewrites its own `package.json` to list only `prisma`,
+  as a dependency so an `--omit=dev` from the environment can't prune it (keeping `overrides`,
+  without which npm would re-resolve and fail offline, and `allowScripts`), runs `npm prune
+  --offline --ignore-scripts`, and deletes the scope folders the prune emptied. What is left is
+  a subset of the tree `install` built from the lockfile: the same versions, the same files, and
+  the schema engine its approved install script already fetched. Nothing is downloaded or
+  resolved again, so there's no second lockfile to keep in step and nothing for the 7-day
+  cooldown to miss.
+- Why not a separate `package.json` and lockfile for the migrate image: two lockfiles drift, and
+  each Prisma upgrade would need both changed and checked. Why not a list of directories to
+  copy: Prisma's tree changes with each release, and a missed package only shows up as a failed
+  migration on the server.
+
+### 48.2 — A migrate image from the base image
+
+- The `migrate` stage starts from `${NODE_IMAGE}`, not `install`, and copies in only the pruned
+  `node_modules` and `package.json`, `prisma.config.ts`, `prisma/schema.prisma` and
+  `prisma/migrations`. No seeds, no app code, no lockfile, no `.npmrc`. Root-owned files,
+  `WORKDIR /app` (the command and the run book use relative paths), `USER node`,
+  `CHECKPOINT_DISABLE=1` (Prisma's usage check-in stays off, as it is in CI), the same labels
+  and the same command, so `docker-compose.prod.yml`, the restore drill and the "A migration
+  failed" steps (`prisma migrate resolve`) are unchanged.
+
+### 48.3 — Guards
+
+- `lib/deploy-guard.test.ts`: the migrate stage starts from the base image, sets `WORKDIR`,
+  copies nothing but from `migrate-deps`, and runs as `node`; the prune is `--offline
+  --ignore-scripts`, keeps `prisma` as a dependency and leaves `overrides` and `allowScripts`
+  alone.
+- `scripts/container-test.sh` (the test CI and a Mac both run): checks the migrate image like
+  the run image (not root; no settings, lockfile, `.npmrc`, seeds or `.next`; no `next`,
+  TypeScript, test tools or `@prisma/client`; no empty folders; the CLI starts), prints both
+  image sizes, and fails when the migrate image is over 1 GB (uncompressed), so a later change
+  can't quietly bring the whole install back.
+
+### 48.4 — Docs
+
+- README (the image section), `docs/BUILD.md` and this plan. Neither guide changes: admins pull
+  and run the image exactly as before, and the family sees nothing.
+
+### Checks
+
+- Lint, types, unit (the guard test), database and browser tests; the container test, which runs
+  the new migrate image on a fresh database before the browser tests; the restore drill
+  (`migrate deploy` on restored data, and on a database with a migration it doesn't know);
+  `prisma migrate resolve` run from the new image; the privacy check.
+
+### Not in this phase
+
+- Deleting parts of Prisma's own dependencies (Studio, its local dev server) by hand: they are
+  the CLI's declared dependencies, and a hand-made cut would break quietly on a Prisma release.
+- A distroless or Alpine base: the schema engine `install` fetched is matched to this base
+  image's C library, and the app image uses the same base.
 
 ## Open items
 
@@ -550,13 +642,13 @@ below are what shipped; the owner can still change them.
 - **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
   with it. Removing it before going live is planned (the owner's call to keep it for now).
 - **Dates follow the server's clock** until the deployment's `TZ` matches the household's zone;
-  using the household timezone in every date calculation is later work.
+  using the household timezone in every date calculation is Phase 49.
 - **Teams alerts need a Power Automate flow**; a "Connect Teams" button through Graph, and
-  picking a jar's Teams chat from a list, are later work.
-- **Other setup friction, each its own phase:** finding the school calendar from the school's
-  web address, statement imports that work out their own columns, VIN entry or scanning, smoother
-  bank-feed setup, the alert mailbox set and tested in Settings, a link to Entra's role
-  assignments.
+  picking a jar's Teams chat from a list, are Phase 50.
+- **Other setup friction:** finding the school calendar from the school's web address (Phase
+  51), statement imports that work out their own columns (Phase 52), and VIN entry or scanning,
+  smoother bank-feed setup, the alert mailbox set and tested in Settings, and a link to Entra's
+  role assignments (Phase 53).
 - **Order emails:** improvements to forwarded order mail are deferred. Sam's Club orders can't
   be priced, since its emails carry no prices.
 - **Accessibility:** a screen-reader audit by a person is worth doing once the family uses the

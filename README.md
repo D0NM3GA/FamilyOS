@@ -18,16 +18,18 @@ pass (see docs/BUILD.md).
 
 ## Status
 
-Everything through **Phase 45** is built and merged to `main` (2026-10-22), except Phase 44, which is
-built on its branch: the money jars
+Everything through **Phase 46** and Phase 48 is merged to `main` (2026-10-23): the money jars
 (Phases 25–34), the security, dependency and nav passes, the **full review of 2026-10-09**, the
 **privacy pass (2026-10-12)** that renamed the app FamilyOS and took every real personal detail
 out of the code and docs, the customization phases (35–37), and the polish roadmap:
 sharp edges (38), performance (39), **sign-in and users (40)**: passkeys, a first-visitor setup,
 invites, any OIDC provider, Microsoft optional and checked against Entra; **CI with browser
 tests (41)**; **security before going live (42)**; a **production container (43)** behind a
-Cloudflare Tunnel; **accessibility and the Shop list without signal (44)**; and a **Settings hub
-with a guided setup (45)**. The phase-by-phase
+Cloudflare Tunnel; **accessibility and the Shop list without signal (44)**; a **Settings hub
+with a guided setup (45)**; and **published, signed images (46)** that the server pulls by a
+pinned version, with a migrate image cut down to Prisma's CLI (48). Since 2026-10-23 the project lives in this public repository, started from one
+clean commit (the earlier history is archived privately); `main` takes changes only through pull
+requests whose required checks pass, and they merge themselves. The phase-by-phase
 log is docs/BUILD.md; what's next and what's waiting on the owner is docs/PLAN.md ("Current
 state" and "Open items").
 
@@ -549,13 +551,16 @@ touches the real database. Rehearse break-glass at the same time.
 starts it on a fresh database with throwaway settings (the app on `http://localhost:3100`, no
 tunnel), checks the run image (nothing secret, no development tools, not root, no Sentry
 address and no `NEXT_PUBLIC_` value, built with decoy Sentry settings in the environment to
-prove compose forwards none), runs the browser tests against it, then backs up what they made
+prove compose forwards none), checks the migrate image (Phase 48: Prisma's CLI, the schema and
+the migrations, no app code, seeds or settings, not root, under a 1 GB budget; it prints both
+images' sizes), runs the browser tests against the app, then backs up what they made
 and restores it with the drill. CI runs it on `main` and on pull requests that change what goes
 into the image; on any other pull request the check passes in seconds without building, so it can
 be a required check (`.github/workflows/container.yml`). On `main`, a separate job then publishes
 the images it tested ("Start, update, roll back"). `lib/deploy-guard.test.ts` keeps the rules:
 no build arguments, no build in the production compose file, only the publish job writing to the
-registry, every action pinned.
+registry, every action pinned, and a migrate image built from the base image with only a pruned,
+offline copy of the install's Prisma CLI.
 
 ## Testing on phones (camera barcode scanning)
 
