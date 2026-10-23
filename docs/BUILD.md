@@ -692,6 +692,36 @@ opened. The small dot on the Pet tile while the pet is calling isn't built: the 
 every page, and knowing whether a pet is calling means catching it up, which would put a pet
 catch-up on every page of the app. The pet's own screen shows the call.
 
+## Phase 54 — The pet's fun pass
+
+The owner's call: items 1–3 of the researched fun list, plus the juice from item 1, split from
+daily surprises and sound (Phase 55) on Fable's advice. Same rules as Phase 47: additive only,
+nothing bought, the chore secret kept, no streaks, no countdowns, no guilt.
+
+- **Growing up, seen.** Growth events now carry the stage and form they reached. The pet keeps a
+  bookmark of what the kid has seen (`shownStage`, `shownForm`, `shownTricks`); when the pet has
+  moved on, the room opens with a reveal: the old form glows to a silhouette and the new one
+  pops in with sparkles and a line in the pet's voice, and new tricks are announced the same
+  way. **Yay!** (focused, so Enter or Space; Escape too) saves it as seen with its own plain
+  update, read from the saved pet on the server, which works while the pet sleeps and can't
+  race a care action. A pet from before this phase gets its bookmark without a reveal. Not
+  backed up: a display bookmark.
+- **The collection book** (`/pet/book`, `PetDiscovery`): every form a person's pets have
+  reached, recorded on every catch-up path whenever the pet grew or a reveal is waiting
+  (including a pet that grows and goes in one catch-up), and filled in from the memory book for
+  pets from before. Per species, 10 forms; found ones in full, the rest as silhouettes with a
+  hint about care in general. Read only, no prize for finishing. Backed up.
+- **Tricks** (`lib/pet/tricks.ts`): sit, spin, wave, bow and roll over, learned as bond grows.
+  Bond stays on the server; the page passes the list. Asking for a trick is a show worked out
+  in the browser (good manners make it reliable; otherwise something sillier), with nothing
+  saved and nothing to farm.
+- **Juice** (`app/(app)/pet/effects.tsx`): hearts, sparkles, crumbs and bubbles from points in
+  the room, food that arcs from the bowl to the pet, a bubble puff where each poop was when
+  cleaning, and a squash-and-stretch on every tap. Positions use container units of the room,
+  so they line up at any size; reduced motion finishes them at once.
+- The room's geometry (slots, poop spots, the bowl) moved to `lib/pet/room.ts`. Two migrations
+  are named after other branches' `20261112`–`20261113` folders, so they sort last.
+
 ## Grown-up apps closed to kids (security fix)
 
 Hiding grown-up apps from kids' navigation was cosmetic. The owner's call: closed on the server.

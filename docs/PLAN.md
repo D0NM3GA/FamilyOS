@@ -665,7 +665,7 @@ no countdowns, no guilt.
   `build.ts` select, `plan.ts` person remap and a duplicates check on (person, species, stage,
   form), `restore.ts` delete-then-insert and counts, `coverage.test.ts` (and `shownStage`,
   `shownForm`, `shownTricks` on the pet's allowlist). Migrations after
-  `20261111150000_pet_gifts_checked`: `20261111160000_pet_shown`, `20261111170000_pet_discovery`.
+  `20261111150000_pet_gifts_checked`: `20261114120000_pet_shown`, `20261114130000_pet_discovery` (after other branches' `20261112`–`20261113` folders, so they sort last).
 - `/pet/book`: per species, the 10 forms (baby 1, child 2, teen 3, adult 4) in stage order. Found
   ones drawn in full with their name; the rest as a dark silhouette with "???" and a hint line in
   the pet's voice about care in general ("Raised with lots of care…"), never presents or anything
