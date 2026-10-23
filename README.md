@@ -428,11 +428,18 @@ logs -f app`.
   public once (the account's Packages → the package → Package settings). Images built on the
   server before Phase 46 can then be removed (`docker image rm familyos-app familyos-migrate`).
 - **Where an image came from:** each published image has a signed record of the workflow and
-  commit that built it. On any machine with the GitHub CLI signed in:
-  `gh attestation verify oci://ghcr.io/d0nm3ga/familyos:sha-<commit> --owner D0NM3GA`, then
-  check the digest it names matches the one the server pulled (`docker image inspect
-  ghcr.io/d0nm3ga/familyos:sha-<commit> --format '{{index .RepoDigests 0}}'`). The digest is the
-  real pin: re-running CI for a commit pushes its `sha-` tag again.
+  commit that built it. Check the exact image the server pulled, by its digest (`gh` reads a
+  `sha-…` tag as `latest`, so a tag doesn't work here), on any machine with the GitHub CLI
+  signed in:
+
+  ```bash
+  ref="$(docker image inspect ghcr.io/d0nm3ga/familyos:sha-<commit> --format '{{index .RepoDigests 0}}')"
+  gh attestation verify "oci://$ref" --owner D0NM3GA --format json
+  ```
+
+  It passes only if the image was built by this repository's `container.yml` on a push to
+  `main`; the output names the commit. The same for `familyos-migrate`. The digest is the real
+  pin: re-running CI for a commit pushes its `sha-` tag again.
 - **Building on the server instead** (if the registry were ever unreachable): add the build
   file and use a tag of your own, never a published one:
   `FAMILYOS_VERSION=local docker compose -f docker-compose.prod.yml -f
