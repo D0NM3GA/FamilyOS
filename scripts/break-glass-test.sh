@@ -13,7 +13,8 @@ cd "$(dirname "$0")/.."
 
 work="$(mktemp -d)"
 export COMPOSE_PROJECT=familyos-bgtest
-compose=(docker compose -p "$COMPOSE_PROJECT" -f docker-compose.prod.yml -f docker-compose.ci.yml)
+export FAMILYOS_VERSION="${FAMILYOS_VERSION:-local}"
+compose=(docker compose -p "$COMPOSE_PROJECT" -f docker-compose.prod.yml -f docker-compose.build.yml -f docker-compose.ci.yml)
 cleanup() {
   "${compose[@]}" --profile breakglass down -v --remove-orphans > /dev/null 2>&1 || true
   # The certificate and state file belong to root by now (as on the server).
@@ -61,7 +62,9 @@ export FAMILYOS_ENV_FILE="$work/familyos.env" FAMILYOS_SECRETS_DIR="$work/secret
   BREAK_GLASS_LAN_IP=127.0.0.1 BREAK_GLASS_PORT=8443
 
 "${compose[@]}" down -v --remove-orphans > /dev/null 2>&1 || true
-"${compose[@]}" up -d --build --wait db migrate app > /dev/null
+# Phase 46: the images scripts/container-test.sh just built and tested, as they are (built here
+# only if they're missing), so CI publishes exactly what both tests ran.
+"${compose[@]}" up -d --wait db migrate app > /dev/null
 
 # Access on, nothing in front: only the health check answers.
 [ "$(status http://localhost:3100/api/auth/ok)" = 200 ] || fail "the health check should answer"

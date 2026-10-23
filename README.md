@@ -360,7 +360,9 @@ be on Cloudflare; and Cloudflare Access keeps everyone but the family away from 
 1. **A Debian VM on Proxmox** (2 cores, 4 GB of memory, 32 GB of disk is plenty), with Docker
    from Docker's own packages (docs.docker.com, "Install Docker Engine on Debian") and git. Only
    the owner is in the `docker` group: anyone in it can read the settings (`docker inspect`).
-2. **The code:** `git clone` the repository to `/opt/familyos`.
+2. **The code:** `git clone` the repository to `/opt/familyos`. The app itself comes from the
+   published images ("Start, update, roll back"); the checkout holds the compose file and the
+   scripts.
 3. **Settings:** copy `familyos.env.example` to `/etc/familyos/familyos.env` and fill it in.
    Never name it `.env.production` (`next build` would read that). Compose reads it as the user
    who runs it, so it and its folder belong to the owner:
@@ -391,16 +393,47 @@ be on Cloudflare; and Cloudflare Access keeps everyone but the family away from 
 
 ### Start, update, roll back
 
+The server runs the images CI tested and published (Phase 46): `ghcr.io/d0nm3ga/familyos` and
+`ghcr.io/d0nm3ga/familyos-migrate`, each tagged `sha-<full commit>` for every commit on `main`
+from Phase 46 on (a pull request's own commits have none: pick one from `main`'s history).
+A fork changes the owner in the compose file and the Dockerfile's source label.
+The version it runs is pinned in one line, in a `.env` file beside the compose file. Compose reads
+it for every command, the cron scripts included, and an image build never sees it
+(`.dockerignore`). Only that line goes there; settings stay in `/etc/familyos/familyos.env`.
+
 ```bash
-cd /opt/familyos && docker compose -f docker-compose.prod.yml up -d --build
+cd /opt/familyos
+git fetch && git checkout <a commit on main>
+echo "FAMILYOS_VERSION=sha-$(git rev-parse HEAD)" > .env
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-Then open the hostname and set the household up (`/setup`, then the guided setup). To update:
-`git pull`, then the same command; it rebuilds the image, runs any new migrations first, and
-replaces the app. To roll back, check out the previous commit and run it again: a migration the
-older code doesn't know stays applied (if `migrate` refuses, see "A migration failed"); Phase
-42's restore drill covers going back further. Logs:
-`docker compose -f docker-compose.prod.yml logs -f app`.
+The checkout and the image stay on the same commit: compose, the backup and break-glass scripts
+and the Caddy file come from the checkout. `up -d` runs any new migrations first, then replaces
+the app. **To update**, repeat with the new commit; **to roll back**, with the previous one. A
+migration the older code doesn't know stays applied (if `migrate` refuses, see "A migration
+failed"); the restore drill covers going back further. A typo in the version fails the pull
+with an error, and a missing `.env` stops every compose command with "set FAMILYOS_VERSION":
+nothing is built or pulled in its place. Commits from before Phase 46 have no image; their
+checkout still builds on the server (`up -d --build`). Logs: `docker compose -f docker-compose.prod.yml
+logs -f app`.
+
+- **First time:** the packages are public (the owner's call, 2026-10-23), so the server pulls
+  with no sign-in. The first publish from a new repository makes them private: set each one to
+  public once (the account's Packages → the package → Package settings). Images built on the
+  server before Phase 46 can then be removed (`docker image rm familyos-app familyos-migrate`).
+- **Where an image came from:** each published image has a signed record of the workflow and
+  commit that built it. On any machine with the GitHub CLI signed in:
+  `gh attestation verify oci://ghcr.io/d0nm3ga/familyos:sha-<commit> --owner D0NM3GA`, then
+  check the digest it names matches the one the server pulled (`docker image inspect
+  ghcr.io/d0nm3ga/familyos:sha-<commit> --format '{{index .RepoDigests 0}}'`). The digest is the
+  real pin: re-running CI for a commit pushes its `sha-` tag again.
+- **Building on the server instead** (if the registry were ever unreachable): add the build
+  file and use a tag of your own, never a published one:
+  `FAMILYOS_VERSION=local docker compose -f docker-compose.prod.yml -f
+  docker-compose.build.yml up -d --build`. Images are built for x86-64, like the server; a Mac
+  builds its own the same way.
 
 - **Sign-in limits and sessions:** request limits live in the database (Phase 42), so a restart
   doesn't reset them. A sign-in lasts 30 days, then each grown-up signs in again.
@@ -412,8 +445,8 @@ older code doesn't know stays applied (if `migrate` refuses, see "A migration fa
   volume, so run `ALTER USER familyos PASSWORD '…'` in the database
   (`docker compose -f docker-compose.prod.yml exec db psql -U familyos`), then update
   `db_password` and `DATABASE_URL` and restart.
-- **Sentry:** its DSN is built into the browser code, so set `NEXT_PUBLIC_SENTRY_DSN` in the
-  shell when building and rebuild to change it.
+- **Sentry:** `SENTRY_DSN` in the settings file, read when the app starts (Phase 46: never built
+  into the image); the server hands it to each page for the browser. A restart applies a change.
 - **Base images** (Node, Postgres, cloudflared) are pinned by digest in `Dockerfile` and
   `docker-compose.prod.yml`. Bump them by hand, with `.node-version` for Node, at least 7 days
   after a release, like npm packages.
@@ -512,12 +545,17 @@ touches the real database. Rehearse break-glass at the same time.
 
 ### Testing the image
 
-`scripts/container-test.sh` builds the image, starts it on a fresh database with throwaway
-settings (the app on `http://localhost:3100`, no tunnel), checks the run image (nothing secret,
-no development tools, not root), runs the browser tests against it, then backs up what they made
+`scripts/container-test.sh` builds the image (`docker-compose.build.yml`, under a local tag),
+starts it on a fresh database with throwaway settings (the app on `http://localhost:3100`, no
+tunnel), checks the run image (nothing secret, no development tools, not root, no Sentry
+address and no `NEXT_PUBLIC_` value, built with decoy Sentry settings in the environment to
+prove compose forwards none), runs the browser tests against it, then backs up what they made
 and restores it with the drill. CI runs it on `main` and on pull requests that change what goes
 into the image; on any other pull request the check passes in seconds without building, so it can
-be a required check (`.github/workflows/container.yml`).
+be a required check (`.github/workflows/container.yml`). On `main`, a separate job then publishes
+the images it tested ("Start, update, roll back"). `lib/deploy-guard.test.ts` keeps the rules:
+no build arguments, no build in the production compose file, only the publish job writing to the
+registry, every action pinned.
 
 ## Testing on phones (camera barcode scanning)
 
@@ -1040,9 +1078,11 @@ to the local `backups/` folder; nothing is scheduled or copied off the machine y
 
 ## Error monitoring (Sentry)
 
-Errors and a sample of performance traces go to your own Sentry project when
-`NEXT_PUBLIC_SENTRY_DSN` is set in `.env` (`SENTRY_ORG` / `SENTRY_PROJECT` are only for a future
-source-map upload). Leave it empty and Sentry is
+Errors and a sample of performance traces go to your own Sentry project when `SENTRY_DSN` is
+set (`.env` in development, `/etc/familyos/familyos.env` on the server; `SENTRY_ORG` /
+`SENTRY_PROJECT` are only for a future source-map upload). Phase 46: it's read when the app
+starts and handed to each page for the browser, never built into the image. (It was
+`NEXT_PUBLIC_SENTRY_DSN` before: rename the line.) Leave it empty and Sentry is
 completely off, which is the case in tests and CI.
 
 **This app holds health, contact and location data, so what may be sent is locked down in

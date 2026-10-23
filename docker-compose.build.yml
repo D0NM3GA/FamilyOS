@@ -1,0 +1,13 @@
+# Phase 46: build the app and migrate images from this checkout instead of pulling them, under
+# the same names docker-compose.prod.yml runs. CI (scripts/container-test.sh) tests what it
+# builds this way; on a Mac or as a fallback on the server:
+#
+#   FAMILYOS_VERSION=local docker compose -f docker-compose.prod.yml -f docker-compose.build.yml up -d --build
+#
+# Use a tag of your own (like "local"), never a published one: a local build under a release's
+# tag would pass for the tested image. No build arguments: nothing about one family is built in.
+services:
+  migrate:
+    build: { context: ., target: migrate }
+  app:
+    build: { context: ., target: run }

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { contentSecurityPolicy, isPageRequest, makeNonce } from "@/lib/security/csp";
 import { accessConfigFrom, checkAccessToken, type AccessConfig } from "@/lib/security/cf-access";
 import { BREAK_GLASS_HEADER, breakGlassAllows } from "@/lib/security/break-glass";
-import { SENTRY_DSN } from "@/lib/observability/options";
+import { serverSentryDsn } from "@/lib/observability/options";
 
 /**
  * Phase 42: every request passes here first (Next 16's proxy, the Node runtime).
@@ -55,7 +55,7 @@ export async function proxy(request: NextRequest) {
   if (!isPageRequest(pathname, request.headers)) return NextResponse.next();
 
   const nonce = makeNonce();
-  const policy = contentSecurityPolicy({ nonce, dev, https, sentryDsn: SENTRY_DSN });
+  const policy = contentSecurityPolicy({ nonce, dev, https, sentryDsn: serverSentryDsn() });
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", policy);

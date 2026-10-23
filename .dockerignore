@@ -15,6 +15,10 @@ e2e/
 playwright-report/
 test-results/
 coverage/
+# Logs CI writes into the checkout (container-app.log) and TypeScript's incremental cache: never
+# part of a build, and either would make a rebuild of the same commit miss the cache.
+*.log
+*.tsbuildinfo
 docs/
 **/*.test.ts
 **/*.db.test.ts

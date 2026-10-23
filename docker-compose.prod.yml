@@ -1,6 +1,13 @@
 # Phase 43: FamilyOS in production on the home server (README "Running in production").
 #
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   FAMILYOS_VERSION=sha-<commit> docker compose -f docker-compose.prod.yml pull
+#   FAMILYOS_VERSION=sha-<commit> docker compose -f docker-compose.prod.yml up -d
+#
+# Phase 46: the app and migrate images are the ones CI tested and published, pulled by a pinned
+# tag (FAMILYOS_VERSION in a one-line .env beside this file, the same for both, always; unset is an
+# error, never a quiet fallback to the latest). No build here, so a failed pull is an error,
+# never a local build under the release's name; docker-compose.build.yml adds the build when one
+# is wanted (CI, a Mac, or a fallback on the server).
 #
 # Settings: one host file outside the repository, never in the image: FAMILYOS_ENV_FILE
 # (default /etc/familyos/familyos.env, mode 600; see familyos.env.example). Never call it
@@ -33,8 +40,7 @@ services:
   # Runs `prisma migrate deploy` once, then exits; the app waits for it to succeed. A failed
   # migration keeps the app down (README "A migration failed").
   migrate:
-    build: { context: ., target: migrate }
-    image: familyos-migrate
+    image: ${FAMILYOS_IMAGE:-ghcr.io/d0nm3ga/familyos}-migrate:${FAMILYOS_VERSION:?set FAMILYOS_VERSION in .env beside this file}
     env_file: ${FAMILYOS_ENV_FILE:-/etc/familyos/familyos.env}
     depends_on:
       db: { condition: service_healthy }
@@ -46,12 +52,7 @@ services:
     security_opt: ["no-new-privileges:true"]
 
   app:
-    build:
-      context: .
-      target: run
-      args:
-        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
-    image: familyos-app
+    image: ${FAMILYOS_IMAGE:-ghcr.io/d0nm3ga/familyos}:${FAMILYOS_VERSION:?set FAMILYOS_VERSION in .env beside this file}
     restart: unless-stopped
     env_file: ${FAMILYOS_ENV_FILE:-/etc/familyos/familyos.env}
     depends_on:

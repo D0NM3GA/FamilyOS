@@ -19,9 +19,8 @@ RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm ci
 # check their keys at import, so throwaway keys are made for this one command and kept nowhere.
 FROM install AS build
 COPY . .
-# The only build argument: Sentry's DSN is inlined into the browser bundle (not a secret).
-ARG NEXT_PUBLIC_SENTRY_DSN=""
-ENV NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}
+# Phase 46: no build arguments beyond the base image. The image is published, so nothing about
+# one family may be built in: Sentry's DSN is read when the app starts (SENTRY_DSN).
 RUN export DATABASE_URL=postgresql://build:build@localhost:5432/build \
       BETTER_AUTH_URL=http://localhost:3000 \
       BETTER_AUTH_SECRET="$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")" \
@@ -31,12 +30,18 @@ RUN export DATABASE_URL=postgresql://build:build@localhost:5432/build \
 # ---- migrate: `prisma migrate deploy`, run once before the app starts (docker-compose.prod.yml).
 # From the install stage: the Prisma CLI, its schema engine, the config and the migrations.
 FROM install AS migrate
+# Fixed labels only (the commit is in the published tag and its provenance record, not here).
+LABEL org.opencontainers.image.source="https://github.com/D0NM3GA/FamilyOS" \
+      org.opencontainers.image.licenses="MIT"
 USER node
 CMD ["node_modules/.bin/prisma", "migrate", "deploy"]
 
 # ---- run: the standalone server only. Root-owned files the node user can read but not change;
 # compose adds a read-only root filesystem with tmpfs for Next's cache.
 FROM ${NODE_IMAGE} AS run
+# Fixed labels only (the commit is in the published tag and its provenance record, not here).
+LABEL org.opencontainers.image.source="https://github.com/D0NM3GA/FamilyOS" \
+      org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build /app/.next/standalone ./

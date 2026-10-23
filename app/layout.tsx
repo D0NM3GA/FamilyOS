@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { headers } from "next/headers";
 import { getFamilyLook } from "@/lib/household-settings";
 import { themeColorCss, themeColorOf } from "@/lib/theme-colors";
+import { serverSentryDsn } from "@/lib/observability/options";
 import "./globals.css";
 
 // Replaces Geist Sans as part of the warm/family-friendly design pass — see
@@ -97,6 +98,9 @@ export default async function RootLayout({
       lang="en"
       className={`${nunito.variable} ${baloo.variable} ${gaegu.variable} h-full antialiased`}
       data-bunson-volume={look.mascot.on ? undefined : "OFF"}
+      // Phase 46: Sentry's DSN for the browser, from the server's settings at run time
+      // (instrumentation-client.ts reads it), so the published image carries none.
+      data-sentry-dsn={serverSentryDsn()}
       suppressHydrationWarning
     >
       <head>

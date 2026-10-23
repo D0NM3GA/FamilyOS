@@ -24,7 +24,7 @@ const COORDS = `${LAT},-87.6298`;
 
 beforeAll(() => {
   Sentry.init({
-    ...sharedSentryOptions(),
+    ...sharedSentryOptions(undefined),
     dsn: "https://public@example.invalid/1",
     enabled: true,
     tracesSampleRate: 1.0,

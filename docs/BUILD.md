@@ -658,6 +658,43 @@ Hiding grown-up apps from kids' navigation was cosmetic. The owner's call: close
 `requireAppOn` sends a kid home from any `adultOnly` app, every Cars and Garage action needs an
 adult, and `lib/adult-apps.test.ts` fails if a page, action or download skips the check.
 
+## The move to a public repository
+
+The owner's call (2026-10-23): a fresh public repository under a neutral owner, started from one
+clean commit, with condensed build and plan logs; the earlier history stays private. MIT licence.
+`main` takes changes only through pull requests whose required checks pass, and a pull request
+merges itself once they do. The container check always reports: it builds the image only when
+something that goes into it changed.
+
+## Phase 46 — Publish the tested image
+
+The owner's calls: CI publishes the image it tested, the packages are public, and the server runs
+a pinned version.
+
+- **Publish only what passed.** On `main`, the container job saves the app and migrate images it
+  built and tested; a separate `publish` job (the only one with `packages: write`, no checkout,
+  no npm) loads and pushes them to `ghcr.io/<owner>/familyos` and `…-migrate` as
+  `sha-<commit>`, attests each digest (`actions/attest-build-provenance`, stored in the
+  registry), and moves `main` only if its commit is still the branch's head. Each push to main
+  is a concurrency group of its own, so no merge's run is cancelled and every commit on main gets
+  an image. The images are saved before the break-glass rehearsal, and CI's log is kept out of
+  the build context, so the rehearsal reuses them instead of rebuilding.
+- **Nothing about one family in the image.** Sentry's DSN was a build argument that Next inlined
+  into browser and server code; it's now `SENTRY_DSN`, read on the server at run time and handed
+  to the browser on `<html data-sentry-dsn>`. The Dockerfile takes no build argument but the base
+  image and carries only fixed labels. The container test builds with decoy Sentry settings in
+  the environment (compose must forward nothing) and fails if any Sentry ingest address or a
+  `NEXT_PUBLIC_` value is in the image; `lib/deploy-guard.test.ts` checks the Dockerfile,
+  `.dockerignore`, compose files and workflows.
+- **Deploy from the registry.** `docker-compose.prod.yml` names images only (pinned by
+  `FAMILYOS_VERSION` in a one-line `.env` beside it; unset is an error), so a failed pull is an
+  error, never a quiet local build under a release's name or a fallback to the latest. `docker-compose.build.yml` adds the build for CI, a Mac or a
+  fallback, under a local tag.
+- **A smaller image.** The break-glass state read used a path Turbopack couldn't know, so it
+  traced the whole project into the standalone server (about 840 source and doc files). It now
+  reads through `process.getBuiltinModule("node:fs/promises")`, and the standalone output keeps
+  only what it needs.
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with

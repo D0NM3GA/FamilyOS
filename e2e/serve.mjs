@@ -85,7 +85,7 @@ const env = {
   VAPID_PRIVATE_KEY: "",
   VAPID_SUBJECT: "",
   DOCINTEL_ENDPOINT: "",
-  NEXT_PUBLIC_SENTRY_DSN: "",
+  SENTRY_DSN: "",
   // The build's Sentry plugin would otherwise make a release in the family's Sentry project.
   SENTRY_AUTH_TOKEN: "",
   SENTRY_ORG: "",

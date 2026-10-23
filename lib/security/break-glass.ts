@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { timingSafeEqual } from "node:crypto";
 
 /**
@@ -41,6 +40,11 @@ export async function readBreakGlass(now = Date.now()): Promise<BreakGlassState 
   if (cache && cache.path === path && now - cache.at < CACHE_MS) {
     return cache.state && cache.state.endsAt.getTime() > now ? cache.state : null;
   }
+  // Phase 46: fs through process.getBuiltinModule, not an import. A file read at a path known
+  // only at run time made Turbopack trace the whole project into the standalone server (every
+  // source file, the README and compose files ended up in the image). A built-in is always
+  // there at run time, and the bundler has nothing to trace.
+  const { readFile } = process.getBuiltinModule("node:fs/promises");
   const state = await readFile(path, "utf8").then(
     (text) => parseBreakGlass(text, now),
     () => null,
