@@ -36,10 +36,12 @@ describe("the process zone", () => {
     expect(processZone()).toBe("America/New_York");
   });
 
-  test("the picker keeps the household's own zone even when Intl's list leaves it out (UTC)", () => {
-    expect(listTimeZones().includes("UTC")).toBe(false);
-    expect(listTimeZones("UTC")[0]).toBe("UTC");
+  test("the picker always has UTC (Intl's list doesn't) and the household's own zone", () => {
+    expect(Intl.supportedValuesOf("timeZone").includes("UTC")).toBe(false);
+    expect(listTimeZones()).toContain("UTC");
+    expect(listTimeZones("UTC").filter((z) => z === "UTC")).toHaveLength(1);
     expect(listTimeZones("Europe/London").filter((z) => z === "Europe/London")).toHaveLength(1);
+    expect(listTimeZones("Etc/GMT+5")).toContain("Etc/GMT+5");
   });
 
   test("applying the zone it's already in is a no-op", () => {
