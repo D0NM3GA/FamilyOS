@@ -166,7 +166,7 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 43 | Production container and HTTPS through a tunnel | merged |
 | 42 | Security: CSP with nonces, database rate limits, Access check, restore drill, break-glass | merged |
 | 45 | Settings hub, guided setup, home location without coordinates | merged |
-| 46 | Publish the tested image; the server pulls it instead of building | being built |
+| 46 | Publish the tested image; the server pulls it instead of building | merged |
 | 44 | Polish: accessibility checks on every page, Shop list without signal | merged |
 | — | Kids' allowance | waiting |
 | — | Remove the dev sign-in | later |
@@ -194,10 +194,21 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 
 ## Current state
 
-Everything through Phase 45 is merged to `main`, CI runs on every pull request, and the
-production container, the security phase and the accessibility and offline polish are done.
-The next steps are standing up the home server and entering the real family, then the items
-below. The database still holds test data only.
+Everything through Phase 46 is merged to `main` (2026-10-23). The project moved to this public
+repository the same day (one clean commit; the earlier history is archived privately). `main`
+takes changes only through pull requests: a ruleset requires the three CI jobs and the container
+check, and a pull request merges itself once they pass. Every merge to `main` publishes the
+tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`, public, tagged
+`sha-<commit>`, with signed provenance).
+
+**Next:**
+1. **Go live** (the owner's steps, deferred on 2026-10-23): the server, Cloudflare Tunnel and
+   Access, the pinned version, backups and break-glass, following `docs/guides/admin.md`; then
+   enter the real family. The database still holds test data only.
+2. **Slim the migrate image** (2.26 GB: it's built from the full install stage, but only needs
+   Prisma's CLI), so each publish is faster.
+3. Then the open items below: the Settings friction fixes and the decisions waiting on the
+   owner.
 
 ## Phase 46 — scope (publish the tested image, 2026-10-23)
 
