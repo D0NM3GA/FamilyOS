@@ -263,6 +263,17 @@ describe.skipIf(!RUN)("the pet (database)", () => {
       expect(found.map((entry) => entry.stage).sort()).toEqual(["baby", "child"]);
     });
 
+    test("growing up during a care action is recorded too", async () => {
+      await freshPet(who.ivy.id);
+      await getMyPet(who.ivy);
+      // A baby an hour behind: the catch-up inside the care action grows it into a child.
+      const pet = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
+      const back = new Date(Date.now() - (STAGE_MINUTES.baby + 5) * MINUTE);
+      await prisma.pet.update({ where: { id: pet.id }, data: { lastAdvancedAt: back, state: { ...(pet.state as object), hunger: 100, fun: 100, energy: 100, stageMinutes: 0 } } });
+      await changeMyPet(who.ivy, (state) => ({ state, outcome: "ok" }));
+      expect(await prisma.petDiscovery.count({ where: { personId: who.ivy.id, stage: "child" } })).toBe(1);
+    });
+
     test("seeing it saves the bookmark, even while the pet is asleep", async () => {
       await freshPet(who.ivy.id);
       await prisma.pet.update({ where: { personId: who.ivy.id }, data: { shownStage: "egg", shownForm: 0, shownTricks: 0 } });

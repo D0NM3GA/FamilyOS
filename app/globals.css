@@ -366,7 +366,7 @@ main#main,
 /* Phase 54: the room's effects (app/(app)/pet/effects.tsx). --dx and --dy are where each one
    heads, in container units of the room. */
 .pet-fx-heart {
-  animation: pet-fx-rise 1.2s ease-out forwards;
+  animation: pet-fx-rise 1.2s ease-out both;
 }
 .pet-fx-sparkle {
   animation: pet-fx-burst 0.8s ease-out both;
@@ -440,6 +440,19 @@ main#main,
   animation: pet-fx-burst 0.9s ease-out 1s both;
   --dx: 0px;
   --dy: -40px;
+}
+/* Reduced motion: no glow-and-pop, so show before and after side by side instead. */
+@media (prefers-reduced-motion: reduce) {
+  .pet-reveal-out {
+    animation: none;
+    opacity: 0.55;
+    filter: grayscale(1);
+    transform: translateX(-55%) scale(0.8);
+  }
+  .pet-reveal-in {
+    animation: none;
+    transform: translateX(55%);
+  }
 }
 @keyframes pet-reveal-out {
   0% {

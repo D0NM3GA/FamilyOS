@@ -721,6 +721,15 @@ nothing bought, the chore secret kept, no streaks, no countdowns, no guilt.
   so they line up at any size; reduced motion finishes them at once.
 - The room's geometry (slots, poop spots, the bowl) moved to `lib/pet/room.ts`. Two migrations
   are named after other branches' `20261112`–`20261113` folders, so they sort last.
+- **Fable's implementation review** (2026-10-23), fixed: effects started off-centre (Tailwind's
+  translate utility adds to the keyframes' own centring); the reveal claimed to be modal but
+  the care buttons stayed live, so a tap mid-reveal could unlock a trick that was then never
+  announced (everything else is now `inert` while it shows, and focus returns to Play, or Room
+  while the pet sleeps); an egg that grew past baby unseen was said to have "hatched into" a
+  child form; under reduced motion the reveal now shows before and after side by side; locked
+  tricks are labelled for screen readers; and the promised tests for form names and growth
+  during a care action were added. Left as is: a meal flies to where the pet is walking to,
+  not where it is mid-walk (cosmetic, over in half a second).
 
 ## Grown-up apps closed to kids (security fix)
 

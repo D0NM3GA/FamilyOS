@@ -38,7 +38,8 @@ export function RevealMoment({
   const lines: string[] = [];
   if (reveal) {
     const form = formName(species, reveal.to.stage, reveal.to.form);
-    const pool = reveal.from === null ? HATCH_REVEAL_LINES : GROW_REVEAL_LINES;
+    // "Hatched into" only for a baby: an egg that grew further while unseen gets a growing line.
+    const pool = reveal.from === null && reveal.to.stage === "baby" ? HATCH_REVEAL_LINES : GROW_REVEAL_LINES;
     lines.push(fill(pickLine(pool, rngFor(name, reveal.to.stage, reveal.to.form)), { ...context, form }));
   }
   for (const trick of newTricks) {

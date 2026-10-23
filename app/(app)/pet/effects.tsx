@@ -36,10 +36,11 @@ export function EffectLayer({ effects }: { effects: Effect[] }) {
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
       {effects.map((effect) =>
         effect.kind === "food" ? (
-          // An arc: the outer moves across at an even pace, the inner rises then drops.
+          // An arc: the outer moves across at an even pace, the inner rises then drops. Centred
+          // with the translate utility, which the keyframes' transform adds to.
           <span
             key={effect.id}
-            className="pet-fx-arc-x absolute text-2xl"
+            className="pet-fx-arc-x absolute -translate-x-1/2 -translate-y-1/2 text-2xl"
             style={{ left: `${effect.at.x}%`, top: `${effect.at.y}%`, "--dx": `${effect.move.x}cqw`, "--dy": `${effect.move.y}cqh` } as React.CSSProperties}
           >
             <span className="pet-fx-arc-y inline-block">{effect.emoji ?? "🍙"}</span>
@@ -47,7 +48,9 @@ export function EffectLayer({ effects }: { effects: Effect[] }) {
         ) : (
           <span
             key={effect.id}
-            className={`pet-fx-${effect.kind} absolute -translate-x-1/2 -translate-y-1/2 ${effect.kind === "crumb" ? "text-xs text-amber-700" : "text-xl"}`}
+            // Centred by the keyframes themselves (translate(-50%, -50%)), not a translate utility:
+            // Tailwind's goes on the separate `translate` property and would add to it.
+            className={`pet-fx-${effect.kind} absolute ${effect.kind === "crumb" ? "text-xs text-amber-700" : "text-xl"}`}
             style={
               {
                 left: `${effect.at.x}%`,

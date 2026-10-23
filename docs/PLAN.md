@@ -180,7 +180,7 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 51 | Find the school calendar from the school's web address | later |
 | 52 | Statement imports that work out their own columns | later |
 | 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | later |
-| 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | being built |
+| 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | built |
 | 55 | The pet's daily surprises and sound | next |
 
 ### Phases 42–45 in brief

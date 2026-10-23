@@ -113,6 +113,7 @@ export function PetScreen({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [, startSeeing] = useTransition();
   const [panel, setPanel] = useState<Panel>(null);
   const [game, setGame] = useState<GameId | null>(null);
   const { line: reaction, flash, effects, say, show: showReaction, pose: flashPose, burst, fly } = useReactions(pet);
@@ -125,9 +126,22 @@ export function PetScreen({
   const revealKey = `${reveal?.to.stage ?? ""}-${reveal?.to.form ?? ""}-${newTricks.join(",")}`;
   const [seenReveal, setSeenReveal] = useState<string | null>(null);
   const revealing = (reveal !== null || newTricks.length > 0) && seenReveal !== revealKey && pet.stage !== "egg";
+  // When the reveal closes, focus goes back into the room's controls, not the top of the page.
+  // After it has closed, not on the tap: until then the controls are still inert.
+  const wasRevealing = useRef(revealing);
+  useEffect(() => {
+    if (wasRevealing.current && !revealing) {
+      // Play when it's usable, otherwise Room (which works even while the pet sleeps).
+      const play = document.getElementById("pet-play-button") as HTMLButtonElement | null;
+      (play && !play.disabled ? play : document.getElementById("pet-room-button"))?.focus();
+    }
+    wasRevealing.current = revealing;
+  }, [revealing]);
+
   function finishReveal() {
     setSeenReveal(revealKey);
-    startTransition(async () => {
+    // Its own transition, so saving it doesn't briefly disable the care buttons.
+    startSeeing(async () => {
       await seeGrowth();
     });
     burst("sparkle", petMiddle, 10);
@@ -361,6 +375,9 @@ export function PetScreen({
         className="relative mx-auto aspect-[40/26] w-full max-w-3xl touch-pan-y select-none overflow-hidden rounded-3xl border-2 border-ink shadow-[0_4px_0_#1f2933] [container-type:size] dark:border-white/20"
         onPointerMove={onRoomMove}
       >
+        {/* While the reveal is up, everything else is out of reach (it really is modal), so a care
+            tap can't change what Yay! saves as seen. */}
+        <div inert={revealing} className="contents">
         <PetRoom sky={sky} weather={weather} season={season} awake={pet.awake} decor={decor} poops={pet.poops} />
 
         {toysOut.map((toy, i) => (
@@ -409,6 +426,7 @@ export function PetScreen({
           )}
         </div>
 
+        </div>
         <EffectLayer effects={effects} />
         {revealing && <RevealMoment name={pet.name} species={pet.species} reveal={reveal} newTricks={newTricks} onDone={finishReveal} />}
 
@@ -419,6 +437,7 @@ export function PetScreen({
         )}
       </div>
 
+      <div inert={revealing} className="space-y-4">
       <p className="text-center text-lg font-bold">
         {pet.mood}
         {!pet.awake && <span className="block text-sm font-normal text-muted-foreground">Awake {careHours} today.</span>}
@@ -436,7 +455,7 @@ export function PetScreen({
         <BigButton emoji="🧽" label="Clean" disabled={!canCare} onClick={() => run(() => careForPet("clean"), { lines: CLEAN_LINES, mood: "happy", effect: "sparkle", puff: pet.poops })} />
         <BigButton emoji="💊" label="Medicine" disabled={!canCare} onClick={() => run(() => careForPet("medicine"), { lines: MEDICINE_LINES, mood: "content" })} />
         <BigButton emoji="✋" label="Say no" disabled={!canCare} onClick={() => run(() => careForPet("no"), { lines: SAY_NO_LINES, mood: "content" })} />
-        <BigButton emoji="🪴" label="Room" pressed={panel === "decorate"} onClick={() => setPanel(panel === "decorate" ? null : "decorate")} />
+        <BigButton id="pet-room-button" emoji="🪴" label="Room" pressed={panel === "decorate"} onClick={() => setPanel(panel === "decorate" ? null : "decorate")} />
       </div>
 
       {panel === "feed" && (
@@ -475,7 +494,12 @@ export function PetScreen({
                   {trick.name}
                 </button>
               ) : (
-                <span key={trick.id} className="inline-flex min-h-11 items-center rounded-xl border-2 border-dashed border-input px-3 text-sm font-bold text-muted-foreground">
+                <span
+                  key={trick.id}
+                  role="img"
+                  aria-label="A trick still to learn"
+                  className="inline-flex min-h-11 items-center rounded-xl border-2 border-dashed border-input px-3 text-sm font-bold text-muted-foreground"
+                >
                   ???
                 </span>
               ),
@@ -518,6 +542,7 @@ export function PetScreen({
       </div>
 
       {panel === "stats" && <StatsPanel pet={pet} />}
+      </div>
     </div>
   );
 }

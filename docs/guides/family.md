@@ -224,7 +224,7 @@ it a name, and in a few minutes it hatches.
   shadows and hints for the ones still to find.
 - **Tricks:** as you and your pet get closer, it learns tricks (sit, spin, wave and more). Ask
   for one under **Play**. With good manners it'll do it; otherwise, something sillier.
-- It It's only awake at certain times of day (a grown-up sets them), so it's fine while
+- It's only awake at certain times of day (a grown-up sets them), so it's fine while
   you're at school or asleep.
 - If it's left hungry or poorly for too long, it goes back to Egg Island. Its page stays in
   your **Memory book**, and a new egg is ready straight away.
