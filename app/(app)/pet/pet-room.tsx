@@ -1,7 +1,7 @@
 import { memo } from "react";
 import type { Weather } from "@/lib/pet/behavior";
 import type { RoomSlot } from "@/lib/pet/items";
-import { ROOM_W, SLOT_ANCHORS, type Season, type Sky } from "@/lib/pet/room";
+import { POOP_SPOTS, ROOM_H, ROOM_W, SLOT_ANCHORS, type Season, type Sky } from "@/lib/pet/room";
 
 /**
  * Phase 47: the pet's room, side on: a wall with a window onto the real sky and weather, a
@@ -10,15 +10,8 @@ import { ROOM_W, SLOT_ANCHORS, type Season, type Sky } from "@/lib/pet/room";
  * in the same 400 × 260 frame as percentages. Drawn in-house; swappable like the pet.
  */
 
-const ROOM_H = 260;
 const FLOOR_Y = 175;
 
-const POOP_SPOTS = [
-  { x: 150, y: 238 },
-  { x: 182, y: 250 },
-  { x: 228, y: 244 },
-  { x: 120, y: 252 },
-];
 
 const SKY: Record<Sky, [string, string]> = {
   dawn: ["#ffc8a2", "#ffeacb"],
