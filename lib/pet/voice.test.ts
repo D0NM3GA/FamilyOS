@@ -26,7 +26,7 @@ describe("the pet's voice", () => {
   it("fills every placeholder, for every species, food and toy", () => {
     for (const line of lines)
       for (const species of SPECIES) {
-        const filled = voice.fill(line, { name: longestName, species, food: FOODS[0], toy: TOYS[0] });
+        const filled = voice.fill(line, { name: longestName, species, food: FOODS[0], toy: TOYS[0], form: "Scruffy Thumper", trick: "Roll over" });
         expect(filled, line).not.toMatch(/[{}]/);
         expect(filled[0], filled).toMatch(/[A-Z"']/);
       }
@@ -34,7 +34,7 @@ describe("the pet's voice", () => {
 
   it("keeps lines short enough for a 7-year-old to read in one go", () => {
     for (const line of lines) {
-      const filled = voice.fill(line, { name: longestName, species: "critter", food: "rice-ball", toy: "bubbles" });
+      const filled = voice.fill(line, { name: longestName, species: "critter", food: "rice-ball", toy: "bubbles", form: "Scruffy Splodge", trick: "Roll over" });
       expect(filled.length, filled).toBeLessThanOrEqual(90);
     }
   });

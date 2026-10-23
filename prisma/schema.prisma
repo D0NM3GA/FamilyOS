@@ -97,6 +97,7 @@ model Household {
   petItems               PetItem[]
   petMemorials           PetMemorial[]
   petGifts               PetGift[]
+  petDiscoveries         PetDiscovery[]
 
   @@map("household")
 }
@@ -230,6 +231,7 @@ model Person {
   petMemorials PetMemorial[]
   petPlays     PetPlay[]
   petGifts     PetGift[]
+  petDiscoveries PetDiscovery[]
 
   schoolProfile    SchoolProfile?
   schoolContactFor SchoolContact[]
@@ -2297,6 +2299,13 @@ model Pet {
   /// reads newer ones. Null (a new pet, or after a restore) means from `bornAt`. Rebuilt by
   /// looking, so it isn't in backups.
   giftsCheckedAt DateTime?
+  /// Phase 54: the form (stage and form) and how many tricks the kid has already seen, so the
+  /// next view after growing up or learning a trick opens with the reveal. Null on a pet from
+  /// before Phase 54 (or after a restore): set on its next view without a reveal. A display
+  /// bookmark, so not in backups.
+  shownStage     String?
+  shownForm      Int?
+  shownTricks    Int?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -2379,4 +2388,22 @@ model PetGift {
 
   @@index([personId, day])
   @@map("pet_gift")
+}
+
+/// Phase 54: the collection book. Every form a person's pets have reached (never the egg),
+/// written on every catch-up path (lib/pet/queries.ts recordDiscoveries) and kept after a pet
+/// is gone. One row per person and form; writing one again changes nothing.
+model PetDiscovery {
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  species     String
+  stage       String
+  form        Int
+  foundAt     DateTime  @default(now())
+
+  @@id([personId, species, stage, form])
+  @@index([householdId])
+  @@map("pet_discovery")
 }

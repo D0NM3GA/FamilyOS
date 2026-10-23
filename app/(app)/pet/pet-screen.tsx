@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
 import { nextBehavior, type Behavior, type BehaviorInput, type RoomView, type Weather } from "@/lib/pet/behavior";
 import { itemDef, ROOM_SLOTS, type Place, type RoomSlot } from "@/lib/pet/items";
-import type { Personality, PetSpot, Toy } from "@/lib/pet/personality";
+import type { Food, Personality, PetSpot, Toy } from "@/lib/pet/personality";
 import { rngFor } from "@/lib/pet/random";
 import type { Season, Sky } from "@/lib/pet/room";
 import type { CallKind, Species, Stage } from "@/lib/pet/state";
@@ -21,6 +21,8 @@ import {
   OUTCOME_LINES,
   PET_LINES,
   SAY_NO_LINES,
+  TRICK_LINES,
+  TRICK_SILLY_LINES,
   serveFood,
   SNACK_LINES,
   STILL_SICK_LINES,
@@ -29,7 +31,7 @@ import {
 } from "@/lib/pet/voice";
 import { GAME_DEFS, GAMES, type GameId } from "@/lib/pet/games/catalog";
 import { btn, btnPrimary, card, sectionTitle } from "@/components/styles";
-import { careForPet, openPresent, petPet, playWithToy, type CareReply } from "./actions";
+import { careForPet, openPresent, petPet, playWithToy, seeGrowth, type CareReply } from "./actions";
 import { BigButton, ToyIcon } from "./pet-controls";
 import { BED_X, durationOf, moodFor, poseFor, spotOfDecor, TOY_SPOTS, WINDOW_X, type Mood } from "@/lib/pet/motion";
 import { PetRoom } from "./pet-room";
@@ -37,6 +39,12 @@ import { PetSprite } from "./pet-sprite";
 import { RoomPanel } from "./room-panel";
 import { StatsPanel } from "./stats-panel";
 import { useReactions } from "./use-reactions";
+import { EffectLayer, roomPoint } from "./effects";
+import { RevealMoment, type ScreenReveal } from "./reveal";
+import { BOWL, POOP_SPOTS } from "@/lib/pet/room";
+import { TRICKS, tryTrick, type TrickId } from "@/lib/pet/tricks";
+
+const FOOD_EMOJI: Record<Food, string> = { berries: "🫐", "rice-ball": "🍙", pancake: "🥞", carrot: "🥕", fish: "🐟" };
 
 // The games are only fetched when one is opened: most visits are feeding and petting.
 const GameStage = dynamic(() => import("./games/game-stage").then((module) => module.GameStage), {
@@ -88,10 +96,16 @@ export function PetScreen({
   weather,
   season,
   careHours,
+  tricks,
+  newTricks,
+  reveal,
 }: {
   pet: ScreenPet;
   items: ScreenItem[];
   presents: string[];
+  tricks: TrickId[];
+  newTricks: TrickId[];
+  reveal: ScreenReveal;
   sky: Sky;
   weather: Weather;
   season: Season;
@@ -99,19 +113,46 @@ export function PetScreen({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [, startSeeing] = useTransition();
   const [panel, setPanel] = useState<Panel>(null);
   const [game, setGame] = useState<GameId | null>(null);
-  const { line: reaction, flash, floaters, say, show: showReaction, pose: flashPose, burst } = useReactions(pet);
+  const { line: reaction, flash, effects, say, show: showReaction, pose: flashPose, burst, fly } = useReactions(pet);
   const [look, setLook] = useState({ x: 0, y: 0 });
   const [x, setX] = useState(45);
   const tick = useRef(0);
+  // Where effects start: the pet's middle, the bowl, each poop.
+  const petMiddle = { x, y: 70 };
+  // The reveal shows until the kid has seen it; keyed by what it shows, so a new one starts fresh.
+  const revealKey = `${reveal?.to.stage ?? ""}-${reveal?.to.form ?? ""}-${newTricks.join(",")}`;
+  const [seenReveal, setSeenReveal] = useState<string | null>(null);
+  const revealing = (reveal !== null || newTricks.length > 0) && seenReveal !== revealKey && pet.stage !== "egg";
+  // When the reveal closes, focus goes back into the room's controls, not the top of the page.
+  // After it has closed, not on the tap: until then the controls are still inert.
+  const wasRevealing = useRef(revealing);
+  useEffect(() => {
+    if (wasRevealing.current && !revealing) {
+      // Play when it's usable, otherwise Room (which works even while the pet sleeps).
+      const play = document.getElementById("pet-play-button") as HTMLButtonElement | null;
+      (play && !play.disabled ? play : document.getElementById("pet-room-button"))?.focus();
+    }
+    wasRevealing.current = revealing;
+  }, [revealing]);
+
+  function finishReveal() {
+    setSeenReveal(revealKey);
+    // Its own transition, so saving it doesn't briefly disable the care buttons.
+    startSeeing(async () => {
+      await seeGrowth();
+    });
+    burst("sparkle", petMiddle, 10);
+  }
 
   function unwrap(presentId: string) {
     startTransition(async () => {
       const opened = await openPresent(presentId);
       if (opened.ok) {
         showReaction(`${opened.hint} Inside: ${opened.gift}!`, "excited", "dance");
-        burst(5);
+        burst("sparkle", petMiddle, 8);
       } else if (opened.reason === "asleep") {
         showReaction(`Shh, ${pet.name} is asleep. Open it together when it wakes up.`);
       }
@@ -182,7 +223,19 @@ export function PetScreen({
     };
   }, [game, pet.hatchesIn, router]);
 
-  type Success = { lines: readonly string[]; favoriteLines?: readonly string[]; extra?: Partial<LineContext>; mood: Mood; hearts?: number };
+  type Success = {
+    lines: readonly string[];
+    favoriteLines?: readonly string[];
+    extra?: Partial<LineContext>;
+    mood: Mood;
+    /** What bursts from the pet, and how many (more for a favorite). */
+    effect?: "heart" | "sparkle";
+    hearts?: number;
+    /** Food that flies from the bowl first. */
+    food?: string;
+    /** Bubbles where each poop was (cleaning). */
+    puff?: number;
+  };
 
   function run(action: () => Promise<CareReply & { favorite?: boolean }>, success: Success) {
     startTransition(async () => {
@@ -190,10 +243,12 @@ export function PetScreen({
       if (reply.outcome === "ok") {
         const favorite = reply.favorite && success.favoriteLines;
         showReaction(say(favorite ? success.favoriteLines! : success.lines, success.extra), success.mood);
-        burst(favorite ? 5 : (success.hearts ?? 2));
+        if (success.food) fly(success.food, roomPoint(BOWL.x, BOWL.y - 10), { x, y: 72 });
+        for (const spot of POOP_SPOTS.slice(0, success.puff ?? 0)) burst("bubble", roomPoint(spot.x, spot.y - 6), 4);
+        burst(success.effect ?? "heart", petMiddle, favorite ? 6 : (success.hearts ?? 2));
       } else if (reply.outcome === "cured") {
         showReaction(say(CURED_LINES), "happy");
-        burst(3);
+        burst("sparkle", petMiddle, 6);
       } else if (reply.outcome === "still-sick") {
         showReaction(say(STILL_SICK_LINES), "sick", "idle");
       } else if (reply.outcome === "asleep") {
@@ -217,7 +272,20 @@ export function PetScreen({
       favoriteLines: FAVORITE_MEAL_LINES,
       extra: { food },
       mood: "eating",
+      food: FOOD_EMOJI[food],
     });
+  }
+
+  /** A trick: a show for the kid, worked out here. Nothing is saved, so nothing to farm. */
+  function doTrick(trick: TrickId) {
+    if (tryTrick(pet.discipline, Math.random)) {
+      flashPose("excited", trick, 1500);
+      showReaction(say(TRICK_LINES[trick]));
+      burst("sparkle", petMiddle, 5);
+    } else {
+      flashPose("happy", "dance", 1500);
+      showReaction(say(TRICK_SILLY_LINES));
+    }
   }
 
   function petSpot(spot: PetSpot) {
@@ -226,7 +294,14 @@ export function PetScreen({
 
   function playToy(toy: ScreenItem) {
     const id = toy.itemId as Toy;
-    run(() => playWithToy(toy.id), { lines: TOY_LINES[id] ?? TOY_LINES.ball, favoriteLines: FAVORITE_TOY_LINES, extra: { toy: id }, mood: "excited" });
+    run(() => playWithToy(toy.id), {
+      lines: TOY_LINES[id] ?? TOY_LINES.ball,
+      favoriteLines: FAVORITE_TOY_LINES,
+      extra: { toy: id },
+      mood: "excited",
+      effect: "sparkle",
+      hearts: 4,
+    });
   }
 
   function onPetDown(event: PointerEvent<HTMLDivElement>) {
@@ -251,7 +326,7 @@ export function PetScreen({
   function onPetUp() {
     if (stroke.current && stroke.current.travelled < 10) {
       // A tap: it notices you.
-      flashPose(pet.stage === "egg" ? "content" : "happy", pet.stage === "egg" ? "wobble" : "wiggle");
+      flashPose(pet.stage === "egg" ? "content" : "happy", pet.stage === "egg" ? "wobble" : "squash", 400);
     }
     stroke.current = null;
   }
@@ -297,9 +372,12 @@ export function PetScreen({
   return (
     <div className="space-y-4">
       <div
-        className="relative mx-auto aspect-[40/26] w-full max-w-3xl touch-pan-y select-none overflow-hidden rounded-3xl border-2 border-ink shadow-[0_4px_0_#1f2933] dark:border-white/20"
+        className="relative mx-auto aspect-[40/26] w-full max-w-3xl touch-pan-y select-none overflow-hidden rounded-3xl border-2 border-ink shadow-[0_4px_0_#1f2933] [container-type:size] dark:border-white/20"
         onPointerMove={onRoomMove}
       >
+        {/* While the reveal is up, everything else is out of reach (it really is modal), so a care
+            tap can't change what Yay! saves as seen. */}
+        <div inert={revealing} className="contents">
         <PetRoom sky={sky} weather={weather} season={season} awake={pet.awake} decor={decor} poops={pet.poops} />
 
         {toysOut.map((toy, i) => (
@@ -346,12 +424,11 @@ export function PetScreen({
           {behavior.kind === "call" && !flash && (
             <span className="absolute -top-2 right-2 rounded-full border-2 border-ink bg-sun px-2 text-lg font-black text-ink">!</span>
           )}
-          {floaters.map((id, i) => (
-            <span key={id} aria-hidden="true" className="pet-float-up absolute top-0 text-2xl" style={{ left: `${20 + ((i * 23) % 60)}%`, animationDelay: `${i * 90}ms` }}>
-              💗
-            </span>
-          ))}
         </div>
+
+        </div>
+        <EffectLayer effects={effects} />
+        {revealing && <RevealMoment name={pet.name} species={pet.species} reveal={reveal} newTricks={newTricks} onDone={finishReveal} />}
 
         {reaction && (
           <p role="status" className="absolute left-1/2 top-[4%] max-w-[80%] -translate-x-1/2 rounded-2xl border-2 border-ink bg-card px-3 py-1 text-center text-sm font-bold shadow-[0_2px_0_#1f2933]">
@@ -360,6 +437,7 @@ export function PetScreen({
         )}
       </div>
 
+      <div inert={revealing} className="space-y-4">
       <p className="text-center text-lg font-bold">
         {pet.mood}
         {!pet.awake && <span className="block text-sm font-normal text-muted-foreground">Awake {careHours} today.</span>}
@@ -374,10 +452,10 @@ export function PetScreen({
       <div className="mx-auto grid max-w-3xl grid-cols-3 gap-2 sm:grid-cols-6">
         <BigButton emoji="🍙" label="Feed" disabled={!canCare} pressed={panel === "feed"} onClick={() => setPanel(panel === "feed" ? null : "feed")} />
         <BigButton id="pet-play-button" emoji="🎾" label="Play" disabled={!canCare} pressed={panel === "play"} onClick={() => setPanel(panel === "play" ? null : "play")} />
-        <BigButton emoji="🧽" label="Clean" disabled={!canCare} onClick={() => run(() => careForPet("clean"), { lines: CLEAN_LINES, mood: "happy" })} />
+        <BigButton emoji="🧽" label="Clean" disabled={!canCare} onClick={() => run(() => careForPet("clean"), { lines: CLEAN_LINES, mood: "happy", effect: "sparkle", puff: pet.poops })} />
         <BigButton emoji="💊" label="Medicine" disabled={!canCare} onClick={() => run(() => careForPet("medicine"), { lines: MEDICINE_LINES, mood: "content" })} />
         <BigButton emoji="✋" label="Say no" disabled={!canCare} onClick={() => run(() => careForPet("no"), { lines: SAY_NO_LINES, mood: "content" })} />
-        <BigButton emoji="🪴" label="Room" pressed={panel === "decorate"} onClick={() => setPanel(panel === "decorate" ? null : "decorate")} />
+        <BigButton id="pet-room-button" emoji="🪴" label="Room" pressed={panel === "decorate"} onClick={() => setPanel(panel === "decorate" ? null : "decorate")} />
       </div>
 
       {panel === "feed" && (
@@ -385,7 +463,7 @@ export function PetScreen({
           <button type="button" className={btnPrimary} disabled={!canCare} onClick={serveMeal}>
             🍚 A meal
           </button>
-          <button type="button" className={btn} disabled={!canCare} onClick={() => run(() => careForPet("snack"), { lines: SNACK_LINES, mood: "eating" })}>
+          <button type="button" className={btn} disabled={!canCare} onClick={() => run(() => careForPet("snack"), { lines: SNACK_LINES, mood: "eating", food: "🍪" })}>
             🍪 A snack
           </button>
         </div>
@@ -408,6 +486,26 @@ export function PetScreen({
               ))}
             </div>
           )}
+          <p className={sectionTitle}>Tricks</p>
+          <div className="flex flex-wrap gap-2">
+            {TRICKS.map((trick) =>
+              tricks.includes(trick.id) ? (
+                <button key={trick.id} type="button" className={btn} disabled={!canCare} onClick={() => doTrick(trick.id)}>
+                  {trick.name}
+                </button>
+              ) : (
+                <span
+                  key={trick.id}
+                  role="img"
+                  aria-label="A trick still to learn"
+                  className="inline-flex min-h-11 items-center rounded-xl border-2 border-dashed border-input px-3 text-sm font-bold text-muted-foreground"
+                >
+                  ???
+                </span>
+              ),
+            )}
+          </div>
+          {tricks.length < TRICKS.length && <p className="text-sm text-muted-foreground">Get closer to {pet.name} to learn more.</p>}
           <p className={sectionTitle}>Cuddles</p>
           <p className="text-sm text-muted-foreground">Stroke {pet.name} in the room, or pick a spot:</p>
           <div className="flex flex-wrap gap-2">
@@ -435,12 +533,16 @@ export function PetScreen({
         <button type="button" className={btn} aria-pressed={panel === "stats"} onClick={() => setPanel(panel === "stats" ? null : "stats")}>
           📋 About {pet.name}
         </button>
+        <Link href="/pet/book" className={btn}>
+          📚 Collection book
+        </Link>
         <Link href="/pet/memories" className={btn}>
           📖 Memory book
         </Link>
       </div>
 
       {panel === "stats" && <StatsPanel pet={pet} />}
+      </div>
     </div>
   );
 }

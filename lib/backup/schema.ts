@@ -444,6 +444,10 @@ const petMemorial = z.object({
 // them out again. instanceId is null once its chore is gone.
 const petGift = z.object({ id, personId: id, instanceId: nullableId, day: text, itemId: nullableText, grantedAt: iso, openedAt: nullableIso });
 
+// Phase 54: the collection book, every form a person's pets have reached. Composite primary
+// key (person, species, stage, form), no id of its own.
+const petDiscovery = z.object({ personId: id, species: text, stage: text, form: int, foundAt: iso });
+
 export const BACKUP_FORMAT = "familyos-household-backup";
 /**
  * v2 (Phase 12.5) added the garage-supplies arrays; v3 (Phase 18) the school arrays; v4
@@ -451,7 +455,7 @@ export const BACKUP_FORMAT = "familyos-household-backup";
  * (Phase 22) the groceries redesign: product sizes and section order, every list row a Pantry
  * item, and no quantity units (an older file's units are ignored); v6 (Phase 24) receipt
  * prices and learned receipt matches; v7 (Phase 28) the sealed money jars; v8 (Phase 47) the
- * digital pet (pets, their items, game payouts, chore presents, the memory book, and the household's care
+ * digital pet (pets, their items, game payouts, chore presents, the memory book, the collection book, and the household's care
  * hours). Older
  * files still restore with the arrays they lack defaulting to empty, so restoring one
  * removes that data here (the restore preview shows those delete counts). A v1 file still restores: those arrays
@@ -526,6 +530,7 @@ export const backupSchema = z.object({
   petPlays: z.array(petPlay).default([]),
   petMemorials: z.array(petMemorial).default([]),
   petGifts: z.array(petGift).default([]),
+  petDiscoveries: z.array(petDiscovery).default([]),
   sealedMoney: sealedMoneySchema.nullable().default(null),
 });
 

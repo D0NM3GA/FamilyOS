@@ -9,7 +9,9 @@ import { hearts, type CallKind } from "./state";
  */
 
 export type Mood = "happy" | "content" | "sad" | "sick" | "asleep" | "eating" | "petted" | "excited";
-export type Pose = "idle" | "hop" | "wiggle" | "dance" | "droop" | "lie" | "wobble";
+export type Pose = "idle" | "hop" | "wiggle" | "dance" | "droop" | "lie" | "wobble" | "squash" | TrickPose;
+/** Phase 54: one pose per trick (lib/pet/tricks.ts), named after it. */
+export type TrickPose = "sit" | "spin" | "wave" | "bow" | "roll";
 
 /** Where things stand on the floor, as a percentage across the room. */
 export const BED_X = 86;

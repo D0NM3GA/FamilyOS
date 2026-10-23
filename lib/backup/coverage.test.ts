@@ -37,6 +37,7 @@ import type {
   PetPlayModel,
   PetMemorialModel,
   PetGiftModel,
+  PetDiscoveryModel,
 } from "@/app/generated/prisma/models";
 import type { Backup } from "./schema";
 
@@ -114,14 +115,16 @@ const checks = {
   schoolAssignment: true satisfies Covered<SchoolAssignmentModel, Row<"schoolAssignments">, "updatedAt">,
   // Phase 47: the digital pet.
   // Phase 47: giftsCheckedAt is a scan bookmark, rebuilt by looking (null scans from birth).
-  pet: true satisfies Covered<PetModel, Row<"pets">, Scope | "updatedAt" | "giftsCheckedAt">,
+  // Phase 54: shownStage/shownForm/shownTricks are what the kid has seen, a display bookmark.
+  pet: true satisfies Covered<PetModel, Row<"pets">, Scope | "updatedAt" | "giftsCheckedAt" | "shownStage" | "shownForm" | "shownTricks">,
   petItem: true satisfies Covered<PetItemModel, Row<"petItems">, Scope>,
   petPlay: true satisfies Covered<PetPlayModel, Row<"petPlays">>,
   petMemorial: true satisfies Covered<PetMemorialModel, Row<"petMemorials">, Scope>,
   petGift: true satisfies Covered<PetGiftModel, Row<"petGifts">, Scope>,
+  petDiscovery: true satisfies Covered<PetDiscoveryModel, Row<"petDiscoveries">, Scope>,
 };
 
 test("every app-owned model is checked for backup coverage", () => {
   expect(Object.values(checks).every(Boolean)).toBe(true);
-  expect(Object.keys(checks)).toHaveLength(37);
+  expect(Object.keys(checks)).toHaveLength(38);
 });

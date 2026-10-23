@@ -121,6 +121,11 @@ function fixture(): Backup {
       { id: "pg1", personId: "Kid", instanceId: "ti1", day: "2026-01-01", itemId: "ball", grantedAt: T, openedAt: T2 },
       { id: "pg2", personId: "Kid", instanceId: null, day: "2026-02-01", itemId: null, grantedAt: T2, openedAt: null },
     ],
+    petDiscoveries: [
+      { personId: "Kid", species: "blob", stage: "adult", form: 3, foundAt: T },
+      { personId: "Kid", species: "bird", stage: "baby", form: 0, foundAt: T2 },
+      { personId: "Kid2", species: "bird", stage: "baby", form: 0, foundAt: T2 },
+    ],
     sealedMoney: null,
   };
 }
@@ -157,6 +162,7 @@ const REFS: Record<string, Record<string, string>> = {
   petPlays: { personId: "people" },
   petMemorials: { personId: "people" },
   petGifts: { personId: "people", instanceId: "taskInstances" },
+  petDiscoveries: { personId: "people" },
 };
 const HEADER = new Set(["format", "schemaVersion", "exportedAt", "exportedTimeZone", "databaseMigration", "household", "sealedMoney"]);
 
@@ -332,6 +338,17 @@ describe.skipIf(!RUN)("restore (database)", () => {
     ]);
     const h = await prisma.household.findUniqueOrThrow({ where: { id: ctx.h1 }, select: { petCareHours: true } });
     expect(h.petCareHours).toEqual(fixture().household.petCareHours);
+    // Phase 54: the collection book, each entry on the restored person.
+    const book = await prisma.petDiscovery.findMany({
+      where: { householdId: ctx.h1 },
+      select: { species: true, stage: true, form: true, foundAt: true, person: { select: { firstName: true } } },
+      orderBy: [{ person: { firstName: "asc" } }, { foundAt: "asc" }],
+    });
+    expect(book).toEqual([
+      { species: "blob", stage: "adult", form: 3, foundAt: new Date(T), person: { firstName: "Kid" } },
+      { species: "bird", stage: "baby", form: 0, foundAt: new Date(T2), person: { firstName: "Kid" } },
+      { species: "bird", stage: "baby", form: 0, foundAt: new Date(T2), person: { firstName: "Kid2" } },
+    ]);
   });
 
   test("a pet whose state doesn't read is dropped, and the rest restores (Phase 47)", async () => {
@@ -351,13 +368,13 @@ describe.skipIf(!RUN)("restore (database)", () => {
   test("a v7 file, from before the pet, still restores and clears today's pets (Phase 47)", async () => {
     const old = structuredClone(ctx.B1) as unknown as Record<string, unknown>;
     old.schemaVersion = 7;
-    for (const k of ["pets", "petItems", "petPlays", "petMemorials", "petGifts"]) delete old[k];
+    for (const k of ["pets", "petItems", "petPlays", "petMemorials", "petGifts", "petDiscoveries"]) delete old[k];
     delete (old.household as Record<string, unknown>).petCareHours;
     const parsed = parseBackupFile(JSON.stringify(old));
     if (!parsed.ok) throw new Error(parsed.errors.join("; "));
     const admin = await prisma.person.findFirstOrThrow({ where: { householdId: ctx.h3, role: "ADMIN", authUserId: { not: null } } });
     const preview = await previewRestore(ctx.h3, parsed.backup);
-    expect(preview.ok && preview.preview.deletes).toMatchObject({ pets: 1, "pet memories": 1 });
+    expect(preview.ok && preview.preview.deletes).toMatchObject({ pets: 1, "pet memories": 1, "pet collection book entries": 3 });
     const r = await restore(ctx.h3, admin.id, parsed.backup);
     if (!r.ok) throw new Error(r.errors.join("; "));
     expect(r.previousBackup.pets).toHaveLength(1);
@@ -365,6 +382,7 @@ describe.skipIf(!RUN)("restore (database)", () => {
     expect(await prisma.petItem.count({ where: { householdId: ctx.h3 } })).toBe(0);
     expect(await prisma.petPlay.count({ where: { person: { householdId: ctx.h3 } } })).toBe(0);
     expect(await prisma.petGift.count({ where: { householdId: ctx.h3 } })).toBe(0);
+    expect(await prisma.petDiscovery.count({ where: { householdId: ctx.h3 } })).toBe(0);
     expect(await prisma.household.findUniqueOrThrow({ where: { id: ctx.h3 }, select: { petCareHours: true } })).toEqual({ petCareHours: null });
     expect(await prisma.person.count({ where: { householdId: ctx.h3 } })).toBe(5);
   });

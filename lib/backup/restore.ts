@@ -84,7 +84,7 @@ function moneyContext(backup: Backup, people: PeoplePlan, linked: LinkedPerson[]
 
 async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promise<Record<string, number>> {
   const person = { householdId };
-  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories] = await Promise.all([
+  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories, petDiscoveries] = await Promise.all([
     db.person.count({ where: { householdId, authUserId: null } }),
     db.taskInstance.count({ where: { definition: { householdId } } }),
     db.taskDefinition.count({ where: { householdId } }),
@@ -104,6 +104,7 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     db.itemPrice.count({ where: { householdId } }),
     db.pet.count({ where: { householdId } }),
     db.petMemorial.count({ where: { householdId } }),
+    db.petDiscovery.count({ where: { householdId } }),
   ]);
   return {
     "people (without their own sign-in)": people,
@@ -125,6 +126,7 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     "receipt prices": prices,
     pets,
     "pet memories": petMemories,
+    "pet collection book entries": petDiscoveries,
   };
 }
 
@@ -151,6 +153,7 @@ function insertCounts(b: Backup): Record<string, number> {
     // A pet whose state doesn't read is left out (readablePets), so it isn't counted.
     pets: readablePets(b).length,
     "pet memories": b.petMemorials.length,
+    "pet collection book entries": b.petDiscoveries.length,
   };
 }
 
@@ -264,6 +267,7 @@ export async function applyRestore(
       await tx.petMemorial.deleteMany({ where: { householdId } });
       await tx.petPlay.deleteMany({ where: { person: { householdId } } });
       await tx.petGift.deleteMany({ where: { householdId } });
+      await tx.petDiscovery.deleteMany({ where: { householdId } });
       const everyone = { householdId };
       await tx.pointsLedger.deleteMany({ where: { person: everyone } });
       await tx.importantDate.deleteMany({ where: { person: everyone } });
@@ -323,6 +327,7 @@ export async function applyRestore(
       await createInChunks(rows.petMemorials, (data) => tx.petMemorial.createMany({ data }));
       // After the chores' instances, which a present points at.
       await createInChunks(rows.petGifts, (data) => tx.petGift.createMany({ data }));
+      await createInChunks(rows.petDiscoveries, (data) => tx.petDiscovery.createMany({ data }));
 
       // 4a. Phase 49: the file's days move to the restored household's zone, each keeping its
       // date and clock time, and the household records the zone they're in now.

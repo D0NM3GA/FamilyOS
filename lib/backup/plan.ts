@@ -132,6 +132,7 @@ export function checkReferences(b: Backup): string[] {
   check("petPlays.personId", b.petPlays.map((r) => r.personId), people);
   check("petMemorials.personId", b.petMemorials.map((r) => r.personId), people);
   check("petGifts.personId", b.petGifts.map((r) => r.personId), people);
+  check("petDiscoveries.personId", b.petDiscoveries.map((r) => r.personId), people);
   // petGifts.instanceId isn't checked: a present whose chore isn't in the file keeps its
   // place in the daily cap with no chore (remapBackup nulls it, like the database's SET NULL).
   return problems;
@@ -208,6 +209,8 @@ export function checkUniques(b: Backup): string[] {
   dupes("pets (one per person)", b.pets.map((r) => r.personId));
   dupes("petPlays (person, game)", b.petPlays.map((r) => `${r.personId}|${r.game}`));
   dupes("petGifts (one per chore)", b.petGifts.map((r) => r.instanceId));
+  // Composite primary key and no id, so this is its "duplicate ids" check too.
+  dupes("petDiscoveries (person, species, stage, form)", b.petDiscoveries.map((r) => `${r.personId}|${r.species}|${r.stage}|${r.form}`));
   return problems;
 }
 
@@ -691,6 +694,7 @@ export function remapBackup(
       grantedAt: date(r.grantedAt),
       openedAt: dateOrNull(r.openedAt),
     })),
+    petDiscoveries: b.petDiscoveries.map((r) => ({ ...r, householdId, personId: req(people, r.personId), foundAt: date(r.foundAt) })),
   };
 }
 

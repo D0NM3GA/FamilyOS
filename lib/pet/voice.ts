@@ -18,7 +18,8 @@ import type { Species } from "./state";
  *   marks, no em dashes, no "Uh oh", no grown-up idioms.
  * - The world has one fixed place: Egg Island. Eggs come from there, and pets go back there.
  *
- * Placeholders: {name}, {sound}, {Sound} (capitalized), {food}, {toy}. Pure and client-safe.
+ * Placeholders: {name}, {sound}, {Sound} (capitalized), {food}, {toy}, {form}, {trick}. Pure and
+ * client-safe.
  */
 
 const SOUNDS: Record<Species, string> = { blob: "blup", bird: "pip", critter: "mrrp" };
@@ -33,7 +34,7 @@ const FOOD_NAMES: Record<Food, string> = {
 
 const TOY_NAMES: Record<Toy, string> = { ball: "ball", plush: "plush", bubbles: "bubbles", drum: "drum", kite: "kite" };
 
-export type LineContext = { name: string; species: Species; food?: Food; toy?: Toy };
+export type LineContext = { name: string; species: Species; food?: Food; toy?: Toy; form?: string; trick?: string };
 
 /** Fills a line's placeholders. */
 export function fill(line: string, context: LineContext): string {
@@ -43,7 +44,9 @@ export function fill(line: string, context: LineContext): string {
     .replaceAll("{Sound}", sound[0].toUpperCase() + sound.slice(1))
     .replaceAll("{sound}", sound)
     .replaceAll("{food}", context.food ? FOOD_NAMES[context.food] : "dinner")
-    .replaceAll("{toy}", context.toy ? TOY_NAMES[context.toy] : "toy");
+    .replaceAll("{toy}", context.toy ? TOY_NAMES[context.toy] : "toy")
+    .replaceAll("{form}", context.form ?? "something new")
+    .replaceAll("{trick}", context.trick ?? "a trick");
 }
 
 /** One line from a pool, never the one said last if there's another to say. */
@@ -168,3 +171,31 @@ export const GAME_TIRED_LINES = ["{name} flops over. Worn out. Nap time.", "{nam
 
 export const HIDE_SEEK_MISS = ["Not behind there.", "Nope. Just dust bunnies.", "Empty! Where could {name} be?"];
 export const HIDE_SEEK_FOUND = ["Found you!", "There's {name}!", "Got you! {name} giggles."];
+
+/* Phase 54: growing up, tricks and the collection book. */
+
+export const HATCH_REVEAL_LINES = ["Crack! {name} hatched into a {form}.", "Out pops {name}, a brand new {form}. {Sound}!"];
+export const GROW_REVEAL_LINES = ["{name} grew into a {form}!", "Look at that. {name} is a {form} now.", "{Sound}! {name} has grown into a {form}."];
+export const TRICK_LEARNED_LINES = ["{name} learned a new trick: {trick}!", "New trick! {name} can {trick} now."];
+
+export const TRICK_LINES: Record<"sit" | "spin" | "wave" | "bow" | "roll", readonly string[]> = {
+  sit: ["{name} sits. Very proper.", "Plop. {name} sits and waits for applause."],
+  spin: ["{name} spins around twice. Wheee.", "{name} spins so fast it gets dizzy."],
+  wave: ["{name} waves at you. Hello!", "{name} waves with its whole body."],
+  bow: ["{name} takes a deep bow.", "{name} bows like a famous actor."],
+  roll: ["{name} rolls over and over.", "Roll, roll, flop. {name} looks very pleased."],
+};
+
+export const TRICK_SILLY_LINES = [
+  "{name} does a different trick instead. Close enough!",
+  "{name} sneezes, then looks at you like that was the trick.",
+  "{name} forgot the trick and did a little dance instead.",
+];
+
+/** Collection-book hints for forms not found yet: about care in general, nothing more. */
+export const BOOK_HINT_LINES = {
+  first: ["Every egg starts out as one of these…", "The very first form. Hatch an egg to meet it…"],
+  splendid: ["Raised with lots of care…", "Raised by someone who never missed a call…"],
+  middle: ["Raised somewhere in between…", "A mostly-good day, every day…"],
+  scruffy: ["Raised the scruffy way…", "Lots of fun, not much tidying…"],
+} as const;

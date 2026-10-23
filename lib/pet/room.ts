@@ -45,3 +45,16 @@ export const SLOT_ANCHORS: Record<RoomSlot, { x: number; y: number }> = {
   "floor-left": { x: 62, y: 228 },
   "floor-right": { x: 258, y: 205 },
 };
+
+/** Where poop lands, first to last, in room units (the cleaning puff goes here too). */
+export const POOP_SPOTS = [
+  { x: 150, y: 238 },
+  { x: 182, y: 250 },
+  { x: 228, y: 244 },
+  { x: 120, y: 252 },
+];
+
+/** The food bowl, where a meal flies from. */
+export const BOWL = { x: 26, y: 232 };
+
+export const ROOM_H = 260;

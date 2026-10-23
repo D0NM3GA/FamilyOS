@@ -9,7 +9,7 @@ import { clean, feedMeal, feedSnack, giveMedicine, petIt, play, sayNo, type Care
 import { isToy, ROOM_SLOTS, type Place } from "@/lib/pet/items";
 import { PET_SPOTS } from "@/lib/pet/personality";
 import { isGame } from "@/lib/pet/games/catalog";
-import { changeMyPet, finishMyGame, getMyItem, hatchEgg, openMyPresent, placeMyItem, renameMyPet, type ChangeResult, type OpenedPresent } from "@/lib/pet/queries";
+import { changeMyPet, finishMyGame, getMyItem, hatchEgg, markSeen, openMyPresent, placeMyItem, renameMyPet, type ChangeResult, type OpenedPresent } from "@/lib/pet/queries";
 import { SPECIES } from "@/lib/pet/state";
 import { cleanPetName } from "@/lib/pet/words";
 
@@ -102,6 +102,14 @@ export async function openPresent(presentId: string): Promise<OpenedPresent> {
   const result = await openMyPresent(profile, id.data);
   revalidatePath("/pet");
   return result;
+}
+
+/** Phase 54: the kid has seen the growing-up reveal (and any new tricks). */
+export async function seeGrowth(): Promise<{ ok: boolean }> {
+  const profile = await petProfile();
+  const ok = await markSeen(profile);
+  revalidatePath("/pet");
+  return { ok };
 }
 
 const hatchForm = z.object({ species: z.enum(SPECIES), name: z.string() });

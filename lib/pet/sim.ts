@@ -36,7 +36,8 @@ export type PetEventKind =
   | "woke"
   | "gone";
 
-export type PetEvent = { minute: number; kind: PetEventKind };
+/** Growth events say what it grew into, so a catch-up through two stages knows both forms. */
+export type PetEvent = { minute: number; kind: PetEventKind; stage?: Stage; form?: number };
 
 export type AdvanceContext = { seed: string; careHours: CareHours; timeZone: string };
 
@@ -95,7 +96,7 @@ export function pickForm(stage: Stage, state: PetState): number {
 function grow(state: PetState & { stage: Exclude<Stage, "adult"> }, minute: number, events: PetEvent[]): PetState {
   const stage = NEXT_STAGE[state.stage];
   const form = pickForm(stage, state);
-  events.push({ minute, kind: state.stage === "egg" ? "hatched" : "grew" });
+  events.push({ minute, kind: state.stage === "egg" ? "hatched" : "grew", stage, form });
   return {
     ...state,
     stage,

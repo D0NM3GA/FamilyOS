@@ -117,6 +117,15 @@ describe("advance", () => {
     expect(events.map((event) => event.kind)).toContain("grew");
   });
 
+  it("says what it grew into, for every growth in a catch-up", () => {
+    const { events } = advance(newEgg("bird", startMinute), at(0), at(STAGE_MINUTES.egg + STAGE_MINUTES.baby + 1), ctx());
+    const growth = events.filter((event) => event.kind === "hatched" || event.kind === "grew");
+    expect(growth.map(({ stage, form }) => ({ stage, form }))).toEqual([
+      { stage: "baby", form: 0 },
+      { stage: "child", form: expect.any(Number) },
+    ]);
+  });
+
   it("sets a lifespan when it grows into an adult", () => {
     const pet = baby({ stage: "teen", stageMinutes: STAGE_MINUTES.teen - 1, discipline: 100, lastAwakeMinute: startMinute });
     const { state } = advance(pet, at(0), at(1), ctx());

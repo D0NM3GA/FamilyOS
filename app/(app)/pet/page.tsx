@@ -78,6 +78,9 @@ export default async function PetPage() {
         pet={toScreen(mine.pet)}
         items={mine.items}
         presents={mine.presents}
+        tricks={mine.tricks}
+        newTricks={mine.newTricks}
+        reveal={mine.reveal}
         sky={skyAt(hour)}
         weather={weatherFrom(today?.shortForecast)}
         season={seasonOf(month)}

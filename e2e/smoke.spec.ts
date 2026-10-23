@@ -150,6 +150,8 @@ const PAGES = [
     "/settings/get-started",
     // Phase 47: the pet's memory book (the pet itself is an app, above).
     "/pet/memories",
+    // Phase 54: the collection book (before any pet hatches, so its empty state).
+    "/pet/book",
   ]),
 ];
 

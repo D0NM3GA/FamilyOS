@@ -11,7 +11,8 @@ import { giftHint, isTreat, openTreat, pickGift, TREAT_NAMES, withinDailyCap } f
 import { fitsPlace, ITEMS, itemDef, unlockedItems, type Place } from "./items";
 import { personalityFromSeed, type Personality } from "./personality";
 import { advance, type AdvanceContext, type PetEvent } from "./sim";
-import { isAlive, newEgg, type PetState, type Species } from "./state";
+import { isAlive, newEgg, STAGES, type PetState, type Species, type Stage } from "./state";
+import { unlockedTricks, type TrickId } from "./tricks";
 import { readCareHours, readPetState } from "./stored";
 
 /**
@@ -35,7 +36,12 @@ export type PetRecord = {
   personality: Personality;
   awake: boolean;
   minute: number;
+  /** What the kid has already seen (Phase 54): null on a pet from before then. */
+  shown: { stage: string | null; form: number | null; tricks: number | null };
 };
+
+/** Phase 54: the growing-up reveal waiting to be seen (from null: a hatching). */
+export type Reveal = { from: { stage: Stage; form: number } | null; to: { stage: Stage; form: number } } | null;
 
 export type PetItemRecord = { id: string; itemId: string; place: Place };
 
@@ -176,6 +182,11 @@ async function catchUp(tx: Tx, profile: Profile, settings: CareSettings, now: Da
   const context: AdvanceContext = { seed: row.seed, ...settings };
   const { state, events } = advance(stored, row.lastAdvancedAt.getTime(), now.getTime(), context);
   const personality = personalityFromSeed(row.seed);
+  // Before the alive-or-gone split, so a pet that grows and then goes in one catch-up still
+  // counts in the book. Only when it grew, a reveal is still waiting, or the pet is from before
+  // the book, so a plain view writes nothing here.
+  const unseen = row.shownStage !== state.stage || row.shownForm !== state.form;
+  if (unseen || events.some(isGrowth)) await recordDiscoveries(tx, profile, state, events);
 
   if (!isAlive(state)) {
     const goneMinute = events.findLast((event) => event.kind === "gone")?.minute ?? epochMinute(now.getTime());
@@ -235,8 +246,29 @@ async function catchUp(tx: Tx, profile: Profile, settings: CareSettings, now: Da
       personality,
       awake: state.stage === "egg" || isCareMinute(minute, context.careHours, context.timeZone),
       minute,
+      shown: { stage: row.shownStage, form: row.shownForm, tricks: row.shownTricks },
     },
   };
+}
+
+function isGrowth(event: PetEvent): boolean {
+  return event.kind === "hatched" || event.kind === "grew";
+}
+
+/**
+ * Phase 54: every form this pet has reached, into the collection book: the ones it grew into
+ * along the way and the one it's in now (never the egg). Writing a form again changes nothing,
+ * so this needs no guard and can run on any path, saved or not.
+ */
+async function recordDiscoveries(tx: Tx, profile: Profile, state: PetState, events: PetEvent[]) {
+  const forms = [...events.filter(isGrowth).map(({ stage, form }) => ({ stage, form })), { stage: state.stage, form: state.form }].filter(
+    (found): found is { stage: Stage; form: number } => found.stage !== undefined && found.stage !== "egg" && found.form !== undefined,
+  );
+  if (forms.length === 0) return;
+  await tx.petDiscovery.createMany({
+    data: forms.map(({ stage, form }) => ({ householdId: profile.householdId, personId: profile.id, species: state.species, stage, form })),
+    skipDuplicates: true,
+  });
 }
 
 export type MyPet = {
@@ -245,6 +277,10 @@ export type MyPet = {
   items: PetItemRecord[];
   /** Presents waiting by the door. */
   presents: string[];
+  /** Phase 54: the tricks it knows, the ones learned since last seen, and the growth reveal. */
+  tricks: TrickId[];
+  newTricks: TrickId[];
+  reveal: Reveal;
 };
 
 /** This person's pet as it is right now, their items, and a goodbye if it just went. */
@@ -258,10 +294,62 @@ export async function getMyPet(profile: Profile, now = new Date()): Promise<MyPe
       : Promise.resolve([]),
   ]);
   const ids = presents.map((present) => present.id);
-  if (result.kind === "pet") return { pet: result.pet, goodbye: null, items, presents: ids };
+  if (result.kind === "pet") return { pet: result.pet, goodbye: null, items, presents: ids, ...(await whatsNew(profile, result.pet)) };
   // The goodbye stays up until a new egg is picked, not just for the one view that found it gone.
   const goodbye = result.kind === "gone" ? result.goodbye : await lastGoodbye(profile.id);
-  return { pet: null, goodbye, items, presents: [] };
+  return { pet: null, goodbye, items, presents: [], tricks: [], newTricks: [], reveal: null };
+}
+
+/**
+ * Phase 54: the tricks it knows, and what the kid hasn't seen yet: a new form, new tricks. A
+ * pet from before then (nothing shown yet) gets its bookmark set now, with no reveal.
+ */
+async function whatsNew(profile: Profile, pet: PetRecord): Promise<Pick<MyPet, "tricks" | "newTricks" | "reveal">> {
+  const { state, shown } = pet;
+  const tricks = unlockedTricks(state.bond);
+  if (shown.stage === null || shown.form === null || shown.tricks === null) {
+    await markSeen(profile);
+    return { tricks, newTricks: [], reveal: null };
+  }
+  const grew = state.stage !== "egg" && (shown.stage !== state.stage || shown.form !== state.form);
+  const from = shown.stage === "egg" || !(STAGES as readonly string[]).includes(shown.stage) ? null : { stage: shown.stage as Stage, form: shown.form };
+  return {
+    tricks,
+    newTricks: tricks.slice(shown.tricks),
+    reveal: grew ? { from, to: { stage: state.stage, form: state.form } } : null,
+  };
+}
+
+/**
+ * Marks the pet's current form and tricks as seen. Its own plain update, read from the saved
+ * pet on the server (never what the browser says), with no `lastAdvancedAt` guard: it works
+ * while the pet is asleep, and can't race a care action or the minute refresh.
+ */
+export async function markSeen(profile: Profile): Promise<boolean> {
+  const row = await prisma.pet.findUnique({ where: { personId: profile.id }, select: { state: true } });
+  const state = row && readPetState(row.state);
+  if (!state) return false;
+  const { count } = await prisma.pet.updateMany({
+    where: { personId: profile.id },
+    data: { shownStage: state.stage, shownForm: state.form, shownTricks: unlockedTricks(state.bond).length },
+  });
+  return count === 1;
+}
+
+/**
+ * The collection book: every form this person's pets have reached. Pets that went before the
+ * book existed are filled in from the memory book (which kept their final form) first.
+ */
+export async function getMyDiscoveries(profile: Profile) {
+  const memories = await prisma.petMemorial.findMany({ where: { personId: profile.id }, select: { species: true, stage: true, form: true } });
+  const known = memories.filter((memory) => (STAGES as readonly string[]).includes(memory.stage) && memory.stage !== "egg");
+  if (known.length > 0) {
+    await prisma.petDiscovery.createMany({
+      data: known.map((memory) => ({ householdId: profile.householdId, personId: profile.id, ...memory })),
+      skipDuplicates: true,
+    });
+  }
+  return prisma.petDiscovery.findMany({ where: { personId: profile.id }, select: { species: true, stage: true, form: true } });
 }
 
 async function lastGoodbye(personId: string): Promise<Goodbye | null> {
@@ -401,6 +489,10 @@ export async function hatchEgg(profile: Profile, species: Species, name: string,
         state: toJson(newEgg(species, epochMinute(now.getTime()))),
         bornAt: now,
         lastAdvancedAt: now,
+        // Seen as an egg: hatching is the first reveal.
+        shownStage: "egg",
+        shownForm: 0,
+        shownTricks: 0,
       },
     });
     return true;
