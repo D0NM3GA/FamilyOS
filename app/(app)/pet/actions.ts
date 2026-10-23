@@ -9,7 +9,8 @@ import { clean, feedMeal, feedSnack, giveMedicine, petIt, play, sayNo, type Care
 import { isToy, ROOM_SLOTS, type Place } from "@/lib/pet/items";
 import { PET_SPOTS } from "@/lib/pet/personality";
 import { isGame } from "@/lib/pet/games/catalog";
-import { changeMyPet, finishMyGame, openMyPresent, type OpenedPresent, getMyItems, hatchEgg, placeMyItem, renameMyPet, SPECIES_INPUT, type ChangeResult } from "@/lib/pet/queries";
+import { changeMyPet, finishMyGame, getMyItem, hatchEgg, openMyPresent, placeMyItem, renameMyPet, type ChangeResult, type OpenedPresent } from "@/lib/pet/queries";
+import { SPECIES } from "@/lib/pet/state";
 import { cleanPetName } from "@/lib/pet/words";
 
 /**
@@ -75,7 +76,7 @@ export async function playWithToy(itemRowId: string): Promise<CareReply & { favo
   const profile = await petProfile();
   const id = rowId.safeParse(itemRowId);
   if (!id.success) return { outcome: "no-pet", favorite: false };
-  const owned = (await getMyItems(profile.id)).find((item) => item.id === id.data);
+  const owned = await getMyItem(profile.id, id.data);
   if (!owned || !isToy(owned.itemId)) return { outcome: "no-pet", favorite: false };
   let favorite = false;
   const change = await changeMyPet(profile, (state, _minute, personality) => {
@@ -103,7 +104,7 @@ export async function openPresent(presentId: string): Promise<OpenedPresent> {
   return result;
 }
 
-const hatchForm = z.object({ species: z.enum(SPECIES_INPUT), name: z.string() });
+const hatchForm = z.object({ species: z.enum(SPECIES), name: z.string() });
 
 export type HatchState = { error?: string };
 

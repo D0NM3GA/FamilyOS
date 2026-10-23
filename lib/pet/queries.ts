@@ -30,7 +30,6 @@ export type PetRecord = {
   id: string;
   name: string;
   seed: string;
-  bornAt: Date;
   state: PetState;
   personality: Personality;
   awake: boolean;
@@ -87,19 +86,18 @@ function dayIn(date: Date, timeZone: string): string {
 }
 
 /**
- * Phase 47.4, the secret: looks at this person's chores finished since the pet hatched that
+ * Phase 47.4, the secret: finds this person's chores finished since the pet hatched that
  * haven't been looked at yet, and leaves a present for each, up to the day's cap. The person
  * a chore counts for is the same as for stickers: whoever it was assigned to, or whoever did
  * an "Anyone" chore. Each chore is looked at once (unique instanceId), present or not, so
  * undoing and redoing it brings nothing more, and undoing it takes nothing back.
  */
-async function grantChoreGifts(
+async function findNewChores(
   tx: Tx,
   profile: Profile,
-  pet: { seed: string; bornAt: Date; giftsCheckedAt: Date | null },
-  timeZone: string,
+  pet: { bornAt: Date; giftsCheckedAt: Date | null },
   now: Date,
-): Promise<Date> {
+): Promise<{ chores: { id: string; completedAt: Date | null }[]; checkedThrough: Date }> {
   // Only chores finished since the last look (a little before it, for a chore whose save was
   // still finishing then; `petGift: null` keeps those from counting twice), never before birth.
   const since = pet.giftsCheckedAt ? new Date(Math.max(pet.bornAt.getTime(), pet.giftsCheckedAt.getTime() - GIFT_LOOKBACK_MS)) : pet.bornAt;
@@ -117,8 +115,12 @@ async function grantChoreGifts(
   });
   // A full batch may have more behind it: checked only as far as the last one read.
   const checkedThrough = chores.length === GIFT_SCAN_LIMIT ? (chores.at(-1)?.completedAt ?? now) : now;
-  if (chores.length === 0) return checkedThrough;
+  return { chores, checkedThrough };
+}
 
+/** A present (or, past the day's cap, a note that it was looked at) for each chore found. */
+async function leaveGifts(tx: Tx, profile: Profile, seed: string, chores: { id: string; completedAt: Date | null }[], timeZone: string) {
+  if (chores.length === 0) return;
   const withDays = chores.map((chore) => ({ id: chore.id, day: dayIn(chore.completedAt ?? new Date(), timeZone) }));
   const days = [...new Set(withDays.map((chore) => chore.day))];
   const [earlier, owned] = await Promise.all([
@@ -129,13 +131,12 @@ async function grantChoreGifts(
   const have = owned.map((item) => item.itemId);
   await tx.petGift.createMany({
     data: withDays.map((chore) => {
-      const itemId = lucky.has(chore) ? pickGift(pet.seed, chore.id, have) : null;
+      const itemId = lucky.has(chore) ? pickGift(seed, chore.id, have) : null;
       if (itemId && !isTreat(itemId)) have.push(itemId);
       return { householdId: profile.householdId, personId: profile.id, instanceId: chore.id, day: chore.day, itemId };
     }),
     skipDuplicates: true,
   });
-  return checkedThrough;
 }
 
 /** Thrown inside a transaction to roll it back and still answer with `result`. */
@@ -203,15 +204,16 @@ async function catchUp(tx: Tx, profile: Profile, settings: CareSettings, now: Da
 
   let saved = false;
   if (persist) {
+    // Look for new chores first, so the save that claims this catch-up also moves the bookmark.
+    const { chores, checkedThrough } = await findNewChores(tx, profile, row, now);
     const { count } = await tx.pet.updateMany({
       where: { id: row.id, lastAdvancedAt: row.lastAdvancedAt },
-      data: { state: toJson(state), lastAdvancedAt: now },
+      data: { state: toJson(state), lastAdvancedAt: now, giftsCheckedAt: checkedThrough },
     });
     saved = count === 1;
     if (saved) {
       await grantUnlocks(tx, profile, state);
-      const giftsCheckedAt = await grantChoreGifts(tx, profile, row, context.timeZone, now);
-      await tx.pet.update({ where: { id: row.id }, data: { giftsCheckedAt } });
+      await leaveGifts(tx, profile, row.seed, chores, context.timeZone);
     }
   }
 
@@ -225,7 +227,6 @@ async function catchUp(tx: Tx, profile: Profile, settings: CareSettings, now: Da
       id: row.id,
       name: row.name,
       seed: row.seed,
-      bornAt: row.bornAt,
       state,
       personality,
       awake: state.stage === "egg" || isCareMinute(minute, context.careHours, context.timeZone),
@@ -255,6 +256,12 @@ export async function getMyPet(profile: Profile, now = new Date()): Promise<MyPe
   const ids = presents.map((present) => present.id);
   if (result.kind === "pet") return { pet: result.pet, goodbye: null, items, presents: ids };
   return { pet: null, goodbye: result.kind === "gone" ? result.goodbye : null, items, presents: [] };
+}
+
+/** One of this person's items by its row id, or null if it isn't theirs. */
+export async function getMyItem(personId: string, itemRowId: string): Promise<PetItemRecord | null> {
+  const row = await prisma.petItem.findFirst({ where: { id: itemRowId, personId }, select: { id: true, itemId: true, place: true } });
+  return row && itemDef(row.itemId) ? { ...row, place: row.place as Place } : null;
 }
 
 export async function getMyItems(personId: string): Promise<PetItemRecord[]> {
@@ -327,7 +334,10 @@ async function changeInTx(
     data: { state: toJson(result.state), lastAdvancedAt: now },
   });
   if (count === 0) return { ok: false, reason: "busy" };
-  await grantUnlocks(tx, profile, result.state);
+  // Only when this care earned something new (a page view also checks, every time).
+  if (unlockedItems(result.state.stage, result.state.bond).length > unlockedItems(pet.state.stage, pet.state.bond).length) {
+    await grantUnlocks(tx, profile, result.state);
+  }
   return { ok: true, result, events };
 }
 
@@ -364,8 +374,6 @@ export async function openMyPresent(profile: Profile, presentId: string, now = n
     } as const;
   });
 }
-
-export const SPECIES_INPUT = ["blob", "bird", "critter"] as const satisfies readonly Species[];
 
 /** A new egg for someone without a pet. False if they already have one. */
 export async function hatchEgg(profile: Profile, species: Species, name: string, now = new Date()): Promise<boolean> {
