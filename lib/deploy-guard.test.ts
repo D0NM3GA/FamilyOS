@@ -45,6 +45,17 @@ describe("nothing is built into the image", () => {
     expect(read("docker-compose.prod.yml")).not.toMatch(/^\s+build:/m);
   });
 
+  test("production runs a pinned version, and an unset one is an error, never the latest", () => {
+    const images = [...read("docker-compose.prod.yml").matchAll(/^\s+image:\s*(\S*FAMILYOS_IMAGE\S*)/gm)].map((m) => m[1]);
+    expect(images).toHaveLength(2);
+    for (const image of images) expect(image).toMatch(/:\$\{FAMILYOS_VERSION:\?/);
+  });
+
+  test("the build context never holds settings, secrets or logs", () => {
+    const ignored = read(".dockerignore").split("\n").map((l) => l.trim());
+    for (const entry of [".env*", "familyos.env", "*.pem", "*.log", "*.tsbuildinfo", ".git"]) expect(ignored, entry).toContain(entry);
+  });
+
   test("no NEXT_PUBLIC_ setting is read anywhere (Next would build it in)", () => {
     const files = ["lib", "app", "components"].flatMap(sourceFiles);
     const roots = ["proxy.ts", "instrumentation.ts", "instrumentation-client.ts", "sentry.server.config.ts", "sentry.edge.config.ts", "next.config.ts"];
@@ -68,6 +79,13 @@ describe("the workflows", () => {
       const writes = text.match(/^\s+packages:\s*write/gm) ?? [];
       if (file !== ".github/workflows/container.yml") expect(writes, file).toEqual([]);
     }
+    for (const file of WORKFLOWS) {
+      const text = read(file);
+      for (const scope of ["id-token", "attestations"]) {
+        const n = (text.match(new RegExp(`^\\s+${scope}:\\s*write`, "gm")) ?? []).length;
+        expect(n, `${file}: ${scope}`).toBe(file === ".github/workflows/container.yml" ? 1 : 0);
+      }
+    }
     const container = read(".github/workflows/container.yml");
     // The workflow's default stays read-only.
     expect(container).toMatch(/^permissions:\n {2}contents: read\n/m);
@@ -79,7 +97,16 @@ describe("the workflows", () => {
     expect(publish).toMatch(/if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
   });
 
-  test("main runs queue instead of cancelling each other", () => {
-    expect(read(".github/workflows/container.yml")).toMatch(/cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  test("no run on main is ever cancelled or dropped: each push is a group of its own", () => {
+    const text = read(".github/workflows/container.yml");
+    expect(text).toMatch(/group: container-\$\{\{ github\.event_name == 'pull_request' && github\.ref \|\| github\.sha \}\}/);
+    expect(text).toMatch(/cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  });
+
+  test("what's published is what both tests ran: saved first, and the rehearsal doesn't rebuild", () => {
+    const text = read(".github/workflows/container.yml");
+    expect(text.indexOf("name: Save the tested images")).toBeGreaterThan(-1);
+    expect(text.indexOf("name: Save the tested images")).toBeLessThan(text.indexOf("name: Rehearse the break-glass entrance"));
+    expect(read("scripts/break-glass-test.sh")).not.toMatch(/up\b[^\n]*--build/);
   });
 });
