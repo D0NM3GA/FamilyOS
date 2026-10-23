@@ -1,6 +1,8 @@
 import { requireActiveProfile } from "@/lib/active-profile";
 import { breakGlassStatus, breakGlassTime } from "@/lib/break-glass-notice";
-import { getFamilyLook, getHouseholdSettings, warnIfTimezoneMismatch } from "@/lib/household-settings";
+import { getFamilyLook, getHouseholdSettings } from "@/lib/household-settings";
+import { followHouseholdZone, processZone } from "@/lib/household-zone";
+import { HouseholdZoneProvider } from "@/components/household-zone";
 import { Bunson } from "@/components/bunson";
 import { isAdult } from "@/lib/authz";
 import { unreadCount } from "@/lib/notifications";
@@ -35,7 +37,8 @@ export default async function AppLayout({
     // Phase 42.7: the break-glass entrance, said on every page while it's on.
     settings.then((h) => breakGlassStatus(profile.householdId, h.timezone)),
   ]);
-  warnIfTimezoneMismatch(household.timezone);
+  // Phase 49: a string compare, unless another app instance just saved a new zone.
+  await followHouseholdZone(household);
 
   const adult = isAdult(profile);
   const viewMode = resolveViewMode(profile.viewMode, adult);
@@ -43,6 +46,7 @@ export default async function AppLayout({
   const volume = look.mascot.on ? profile.bunsonVolume : "OFF";
 
   return (
+    <HouseholdZoneProvider zone={processZone()}>
     <FamilyLookProvider look={look}>
       <NavProvider
         // Re-mount on profile switch so one person's apps never flash on another's rail.
@@ -106,5 +110,6 @@ export default async function AppLayout({
         </div>
       </NavProvider>
     </FamilyLookProvider>
+    </HouseholdZoneProvider>
   );
 }

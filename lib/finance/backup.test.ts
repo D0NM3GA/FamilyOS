@@ -31,7 +31,7 @@ type Of<K extends keyof Jar> = Jar[K] extends (infer R)[] ? R : never;
 
 const checks = {
   // Phase 30: the shared Teams chat is a setting, not money: pasted again after a restore.
-  jar: true satisfies Covered<MoneyJarModel, Jar, "householdId" | "teamsChatId" | "teamsChatError">,
+  jar: true satisfies Covered<MoneyJarModel, Jar, "householdId" | "teamsChatId" | "teamsChatName" | "teamsChatError">,
   member: true satisfies Covered<MoneyJarMemberModel, Of<"members">, "jarId">,
   account: true satisfies Covered<FinAccountModel, Of<"accounts">, "jarId">,
   category: true satisfies Covered<FinCategoryModel, Of<"categories">, "jarId">,

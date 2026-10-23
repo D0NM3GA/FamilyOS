@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AwayNote } from "@/components/away-time";
 import { BunsonMoment } from "@/components/bunson-moment";
 import { RewardWord } from "@/components/family-look";
 import { TaskInstanceCard, type Instance } from "@/components/tasks/task-instance-card";
@@ -56,6 +57,7 @@ export function BigHome({
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-4 sm:p-6">
       <h1 className="sr-only">Home</h1>
+      <AwayNote />
       <BunsonMoment kind="chatty" text={greeting} />
 
       {stickers !== null && (

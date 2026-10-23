@@ -10,7 +10,7 @@ export function findAlertTarget(householdId: string, personId: string) {
   return prisma.person.findFirst({
     // Phase 40.4: not someone Entra cut off (they're no admin while ended).
     where: { id: personId, householdId, isHouseholdMember: true, role: "ADMIN", entraAccessEndedAt: null },
-    select: { id: true, firstName: true, email: true, authUser: { select: { email: true, accounts: { where: { providerId: "microsoft" }, select: { id: true } } } } },
+    select: { id: true, firstName: true, email: true, authUser: { select: { email: true, accounts: { where: { providerId: "microsoft" }, select: { id: true, accountId: true } } } } },
   });
 }
 
@@ -23,7 +23,7 @@ export function listAlertTargets(householdId: string) {
       id: true,
       firstName: true,
       email: true,
-      authUser: { select: { email: true, accounts: { where: { providerId: "microsoft" }, select: { id: true } } } },
+      authUser: { select: { email: true, accounts: { where: { providerId: "microsoft" }, select: { id: true, accountId: true } } } },
       alertPrefs: {
         select: {
           teamsEnabled: true,

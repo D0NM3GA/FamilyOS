@@ -34,7 +34,7 @@ describe.skipIf(!RUN)("putting money jars back (database)", { timeout: 120_000 }
   const restore = async (householdId: string, viewerId: string, b: Backup, withMoney: boolean) => {
     const preview = await previewRestore(householdId, b, hooks);
     if (!preview.ok) return preview;
-    return applyRestore(householdId, viewerId, b, { allowTimeZoneMismatch: false, expectedPlanDigest: preview.preview.planDigest, hooks, restoreMoney: withMoney });
+    return applyRestore(householdId, viewerId, b, { expectedPlanDigest: preview.preview.planDigest, hooks, restoreMoney: withMoney });
   };
 
   beforeAll(async () => {

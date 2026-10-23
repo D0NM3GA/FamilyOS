@@ -1,3 +1,4 @@
+import { deployZone } from "@/lib/household-zone";
 import { prisma } from "@/lib/prisma";
 import { BACKUP_FORMAT, BACKUP_SCHEMA_VERSION, backupSchema, type Backup, type SealedMoney } from "./schema";
 import { LOOK_SELECT } from "@/lib/family-look";
@@ -77,7 +78,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     await Promise.all([
       tx.household.findUniqueOrThrow({
         where: { id: householdId },
-        select: { name: true, timezone: true, latitude: true, longitude: true, familyGoalStickers: true, familyGoalTitle: true, disabledApps: true, setupReviewed: true, petCareHours: true, ...LOOK_SELECT },
+        select: { name: true, timezone: true, dayZone: true, latitude: true, longitude: true, familyGoalStickers: true, familyGoalTitle: true, disabledApps: true, setupReviewed: true, petCareHours: true, ...LOOK_SELECT },
       }),
       tx.person.findMany({
         where: { householdId },
@@ -462,14 +463,17 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
   const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
   const databaseMigration = await latestMigration(tx);
+  // Phase 49: dayZone goes into exportedTimeZone, not the household (lib/backup/coverage.test.ts).
+  const { dayZone, ...householdSettings } = household;
 
   const backup = {
     format: BACKUP_FORMAT,
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: iso(now),
-    exportedTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    // Phase 49: the zone the days are written in (lib/household-zone.ts).
+    exportedTimeZone: dayZone ?? deployZone(),
     databaseMigration,
-    household,
+    household: householdSettings,
     people: people.map((p) => ({ ...p, lastContactedAt: isoOrNull(p.lastContactedAt), createdAt: iso(p.createdAt) })),
     importantDates,
     interactions: interactions.map((i) => ({ ...i, occurredAt: iso(i.occurredAt), createdAt: iso(i.createdAt) })),

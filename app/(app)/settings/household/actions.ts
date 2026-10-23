@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isSessionOwner } from "@/lib/active-profile";
 import { prisma } from "@/lib/prisma";
+import { syncHouseholdZone } from "@/lib/household-zone";
+import { captureError } from "@/lib/observability";
 import { requireAdmin } from "@/lib/authz";
 import { pinError } from "@/lib/pin-rules";
 import { canonicalizeTimeZone, isValidTimeZone } from "@/lib/household-settings";
@@ -78,14 +80,19 @@ export async function updateHouseholdSettings(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  // Canonicalized, not the raw typed string — isValidTimeZone (via the zod refine above)
-  // already proved it resolves, so this can't fail; storing the canonical form keeps
-  // warnIfTimezoneMismatch's string comparison meaningful regardless of case/alias input.
+  // Canonicalized, not the raw typed string: isValidTimeZone (via the zod refine above)
+  // already proved it resolves, and the canonical form is what the server's clock is set to.
   const timezone = parsed.data.timezone ? canonicalizeTimeZone(parsed.data.timezone) : null;
-  await prisma.household.update({
-    where: { id: admin.householdId },
-    data: { name: parsed.data.name, timezone },
-  });
+  await prisma.household.update({ where: { id: admin.householdId }, data: { name: parsed.data.name } });
+  // Phase 49: the zone is saved together with moving the saved days (each keeps its date and
+  // clock time), and the server follows it; a failed move leaves the old zone as it was.
+  try {
+    await syncHouseholdZone(admin.householdId, { timezone });
+  } catch (err) {
+    captureError(new Error(`saving the household zone failed: ${err instanceof Error ? err.constructor.name : "unknown"}`));
+    revalidatePath("/settings/household");
+    return { error: "The name is saved, but the time zone couldn't be changed. Try again in a minute." };
+  }
 
   revalidatePath("/settings/household");
   return { success: true };

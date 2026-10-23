@@ -1,24 +1,25 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { encryptSecret } from "@/lib/crypto";
 import { deliverNotifications, deliverOrderAlerts, sendTest, type Senders } from "./dispatch";
-import { householdTeamsAad } from "./teams";
 import { findAlertTarget, listAlertTargets } from "./targets";
 
 /**
  * Phase 21.5 alert delivery against a real database: `npm run test:db`. Senders are fakes,
- * so nothing leaves the machine. The family has one Teams link; each admin is reached at
- * their Microsoft sign-in address.
+ * so nothing leaves the machine. Phase 50: the family's Teams app is published; each admin is
+ * reached by their Entra object id (their Microsoft account's id).
  */
 const RUN = import.meta.env.MODE === "db";
 
-const URL_A = "https://prod-00.example.logic.azure.com/workflows/a/triggers/manual/paths/invoke?sig=A";
+const APP = "catalog-app-1";
 
 describe.skipIf(!RUN)("alert delivery (database)", () => {
   const ids = { h: "", other: "", mom: "", dad: "", grandma: "", kid: "", gone: "", outsider: "", reward: "", userIds: [] as string[] };
   const tag = `e2e-alerts-${Date.now()}`;
 
+  const env = { ...process.env };
   beforeAll(async () => {
+    // The family's Teams app needs Microsoft sign-in configured (lib/teams/family-app.ts).
+    Object.assign(process.env, { MICROSOFT_CLIENT_ID: "app-id", MICROSOFT_TENANT_ID: "tenant-id", MICROSOFT_CLIENT_SECRET: "secret" });
     const h = await prisma.household.create({ data: { name: tag } });
     const other = await prisma.household.create({ data: { name: `${tag}-other` } });
     const user = (email: string) =>
@@ -36,17 +37,7 @@ describe.skipIf(!RUN)("alert delivery (database)", () => {
     const kid = await mk("Ivy", "KID");
     const gone = await mk("Gone", "ADMIN", { isHouseholdMember: false });
     const outsider = await mk("Outsider", "ADMIN", {}, other.id);
-    const enc = encryptSecret(URL_A, householdTeamsAad(h.id));
-    await prisma.householdAlerts.create({
-      data: {
-        householdId: h.id,
-        teamsWebhookEnc: new Uint8Array(enc.encryptedValue),
-        teamsWebhookIv: new Uint8Array(enc.iv),
-        teamsWebhookTag: new Uint8Array(enc.authTag),
-        teamsWebhookHost: "prod-00.example.logic.azure.com",
-        updatedByPersonId: mom.id,
-      },
-    });
+    await prisma.householdAlerts.create({ data: { householdId: h.id, teamsManifestId: `${tag}-manifest`, teamsAppId: APP, updatedByPersonId: mom.id } });
     await prisma.alertPrefs.createMany({
       data: [
         { personId: mom.id, teamsEnabled: true, emailEnabled: true },
@@ -60,6 +51,7 @@ describe.skipIf(!RUN)("alert delivery (database)", () => {
   afterAll(async () => {
     await prisma.household.deleteMany({ where: { id: { in: [ids.h, ids.other] } } });
     await prisma.user.deleteMany({ where: { id: { in: ids.userIds } } });
+    process.env = { ...env };
   });
 
   // Builds an order and its bell notifications directly (a kernel test mustn't import the
@@ -93,8 +85,8 @@ describe.skipIf(!RUN)("alert delivery (database)", () => {
 
     expect(senders.teams).toHaveBeenCalledTimes(1);
     expect(senders.teams.mock.calls[0]).toEqual([
-      URL_A,
-      `mom-${tag}@example.com`,
+      APP,
+      { personId: ids.mom, aadObjectId: `${tag}-mom-oid` },
       "Ivy bought 🎵 DJ in the car · 20 stickers",
       expect.stringMatching(/\/points#orders$/),
     ]);
@@ -120,7 +112,7 @@ describe.skipIf(!RUN)("alert delivery (database)", () => {
     // Mom has email on for store orders; money alerts don't use it.
     expect(senders.email).not.toHaveBeenCalled();
     expect(senders.teams).toHaveBeenCalledTimes(1);
-    expect(senders.teams.mock.calls[0]).toEqual([URL_A, `mom-${tag}@example.com`, "🧾 Netflix is due about Oct 7 (Family)", expect.stringMatching(/\/finances\/j\/bills$/), card]);
+    expect(senders.teams.mock.calls[0]).toEqual([APP, { personId: ids.mom, aadObjectId: `${tag}-mom-oid` }, "🧾 Netflix is due about Oct 7 (Family)", expect.stringMatching(/\/finances\/j\/bills$/), card]);
     // Grandma never switched Teams on (no AlertPrefs) and is still tried; she has no Microsoft sign-in yet.
     const g = await prisma.alertPrefs.findUniqueOrThrow({ where: { personId: ids.grandma } });
     expect(g.lastErrorTeams).toBe("Grandma needs to sign in here with Microsoft once before Teams can reach them.");
@@ -146,9 +138,8 @@ describe.skipIf(!RUN)("alert delivery (database)", () => {
     await expect(sendTest(ids.other, ids.mom, "teams", senders)).rejects.toThrow();
   });
 
-  test("without a family link, orders skip Teams silently; a test explains why", async () => {
-    const saved = await prisma.householdAlerts.findUniqueOrThrow({ where: { householdId: ids.h } });
-    await prisma.householdAlerts.update({ where: { householdId: ids.h }, data: { teamsWebhookEnc: null } });
+  test("without the family's Teams app, orders skip Teams silently; a test explains why", async () => {
+    await prisma.householdAlerts.update({ where: { householdId: ids.h }, data: { teamsAppId: null } });
     try {
       await prisma.alertPrefs.update({ where: { personId: ids.mom }, data: { lastErrorTeams: null } });
       const placed = await placeOrder();
@@ -158,27 +149,17 @@ describe.skipIf(!RUN)("alert delivery (database)", () => {
       expect((await prisma.alertPrefs.findUniqueOrThrow({ where: { personId: ids.mom } })).lastErrorTeams).toBeNull();
       expect(await sendTest(ids.h, ids.mom, "teams", senders)).toBe("Teams isn't set up for the family yet.");
     } finally {
-      await prisma.householdAlerts.update({ where: { householdId: ids.h }, data: { teamsWebhookEnc: saved.teamsWebhookEnc } });
+      await prisma.householdAlerts.update({ where: { householdId: ids.h }, data: { teamsAppId: APP } });
     }
   });
 
-  test("an unreadable family link says to paste it again", async () => {
-    const saved = await prisma.householdAlerts.findUniqueOrThrow({ where: { householdId: ids.h } });
-    await prisma.householdAlerts.update({ where: { householdId: ids.h }, data: { teamsWebhookTag: new Uint8Array(16) } });
+  test("without Microsoft sign-in configured, there's no Teams at all", async () => {
+    const id = process.env.MICROSOFT_CLIENT_ID;
+    delete process.env.MICROSOFT_CLIENT_ID;
     try {
-      expect(await sendTest(ids.h, ids.mom, "teams", fakes())).toBe("The family's Teams link can't be read anymore. Paste it again.");
-      // On a real order it isn't silent either: every Teams recipient gets the fixed text.
-      await prisma.alertPrefs.update({ where: { personId: ids.dad }, data: { lastErrorTeams: null } });
-      const placed = await placeOrder();
-      const senders = fakes();
-      await deliverOrderAlerts(placed.orderId, senders);
-      expect(senders.teams).not.toHaveBeenCalled();
-      expect(senders.email).toHaveBeenCalled();
-      expect((await prisma.alertPrefs.findUniqueOrThrow({ where: { personId: ids.dad } })).lastErrorTeams).toBe(
-        "The family's Teams link can't be read anymore. Paste it again.",
-      );
+      expect(await sendTest(ids.h, ids.mom, "teams", fakes())).toBe("Teams isn't set up for the family yet.");
     } finally {
-      await prisma.householdAlerts.update({ where: { householdId: ids.h }, data: { teamsWebhookTag: saved.teamsWebhookTag } });
+      process.env.MICROSOFT_CLIENT_ID = id;
     }
   });
 

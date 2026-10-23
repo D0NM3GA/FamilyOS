@@ -10,12 +10,14 @@ import {
   remapBackup,
   pantryCounts,
   readablePets,
-  timeZoneMismatch,
+  dayZoneNote,
+  restoredDayZones,
   type LinkedPerson,
   type PeoplePlan,
   type Rejection,
 } from "./plan";
 import type { Backup } from "./schema";
+import { applyProcessZone, deployZone, lockStoredDays, moveStoredDays } from "@/lib/household-zone";
 
 /**
  * Restore = REPLACE this household's data with a backup's (owner's call, Phase 16.5).
@@ -35,7 +37,6 @@ import type { Backup } from "./schema";
  */
 
 const CHUNK = 1000;
-export const SERVER_TIME_ZONE = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export type RestorePreview = {
   deletes: Record<string, number>;
@@ -44,7 +45,8 @@ export type RestorePreview = {
   keptLinked: string[];
   newMembersNeedingPin: number;
   matchedButRemoved: number;
-  timeZoneWarning: string | null;
+  /** Phase 49: the days will be moved to the restored household's zone; null when they won't. */
+  timeZoneNote: string | null;
   anythingToDelete: boolean;
   /** Phase 28: money jars sealed in the file. */
   sealedMoneyJars: number;
@@ -186,7 +188,7 @@ export async function previewRestore(householdId: string, backup: Backup, hooks:
       keptLinked: v.people.keptLinked.map((l) => l.firstName),
       newMembersNeedingPin: v.people.newMembers,
       matchedButRemoved: v.people.matchedButRemoved,
-      timeZoneWarning: timeZoneMismatch(backup, SERVER_TIME_ZONE()),
+      timeZoneNote: dayZoneNote(restoredDayZones(backup, deployZone())),
       anythingToDelete: Object.values(deletes).some((n) => n > 0),
       sealedMoneyJars: backup.sealedMoney?.jarCount ?? 0,
       money,
@@ -204,7 +206,7 @@ export async function applyRestore(
   householdId: string,
   viewerId: string,
   backup: Backup,
-  opts: { allowTimeZoneMismatch: boolean; expectedPlanDigest: string; hooks?: BackupHooks; restoreMoney?: boolean },
+  opts: { expectedPlanDigest: string; hooks?: BackupHooks; restoreMoney?: boolean },
 ): Promise<
   | { ok: true; previousBackup: Backup; inserted: Record<string, number>; money: { restored: MoneyRestoreCounts; previousMemberIds: string[] } | null }
   | Rejection
@@ -213,14 +215,15 @@ export async function applyRestore(
   if (opts.restoreMoney && (!backup.sealedMoney || !hooks.restoreMoney)) {
     return { ok: false, errors: ["This file has no money jars to put back."] };
   }
-  const tzWarning = timeZoneMismatch(backup, SERVER_TIME_ZONE());
-  if (tzWarning && !opts.allowTimeZoneMismatch) return { ok: false, errors: [tzWarning] };
+  const zones = restoredDayZones(backup, deployZone());
 
   const v = await validate(householdId, backup);
   if (!v.ok) return v;
 
   const previousBackup = await prisma.$transaction(
     async (tx) => {
+      // Phase 49: no day is written in the old zone while this replaces them all.
+      await lockStoredDays(tx);
       // 1. Snapshot first: replace is irreversible, and the file might be the wrong one.
       const snapshot = await readBackup(tx, householdId, new Date(), hooks);
 
@@ -321,6 +324,11 @@ export async function applyRestore(
       // After the chores' instances, which a present points at.
       await createInChunks(rows.petGifts, (data) => tx.petGift.createMany({ data }));
 
+      // 4a. Phase 49: the file's days move to the restored household's zone, each keeping its
+      // date and clock time, and the household records the zone they're in now.
+      await moveStoredDays(tx, householdId, zones.from, zones.to);
+      await tx.household.update({ where: { id: householdId }, data: { dayZone: backup.household.timezone ? zones.to : null } });
+
       // 4b. Phase 28.5: the money jars, once the people and trips they point at exist.
       let money: { restored: MoneyRestoreCounts; previousMemberIds: string[] } | null = null;
       if (opts.restoreMoney && backup.sealedMoney && hooks.restoreMoney) {
@@ -352,6 +360,7 @@ export async function applyRestore(
   });
 
   if (previousBackup instanceof RestoreRejected) return { ok: false, errors: previousBackup.errors };
+  applyProcessZone(backup.household.timezone ? zones.to : null);
   return { ok: true, previousBackup: previousBackup.snapshot, inserted: insertCounts(backup), money: previousBackup.money };
 }
 

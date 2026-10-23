@@ -239,6 +239,10 @@ stickers for taking theirs.
 
 Grown-ups: **+ New medication** and **Manage**.
 
+**Away from home.** On a trip to another time zone, times show home's first and then where you
+are ("8:00 AM at home · 2:00 PM here"), so doses stay on their usual schedule. Days stay home's
+days. Home says so at the top while you're away.
+
 <!-- screenshot: today's meds -->
 
 ## Groceries
@@ -307,6 +311,12 @@ Inside a jar:
 A jar's Settings connects the bank feed, imports statements and sets your own **Alerts for me**
 (bills due, a broken bank feed, over budget, running low). Alerts never include amounts.
 
+**One Teams chat for the jar**: instead of a message to each of you, a jar can send its alerts
+once to a Teams group chat. In the jar's Settings, **Choose a Teams chat** lists your own group
+chats; pick one with everyone in the jar. The family's Teams app joins the chat to post there; it
+can't read what anyone writes. Someone from outside the family's Microsoft 365 is marked, since
+they'd see the alerts too.
+
 **🗄️ Keep a copy** on the Money page downloads your own jars (it asks you to sign in again first).
 
 <!-- screenshot: a jar's Activity -->
@@ -335,6 +345,10 @@ sign-in.
 
 **My phones** lists your phones; **Remove** stops one. If you blocked notifications by mistake,
 allow them in the phone's settings and reload the page.
+
+**In Teams** (grown-ups who sign in with Microsoft): alerts an admin switched on for you arrive as
+messages from the family's Teams app, named like the app, under **Chat** in Teams. It only sends;
+there's nothing to reply to.
 
 Kids get notes in the bell (orders, "Not this time"), not on their phone.
 
@@ -393,6 +407,9 @@ in it was deleted.
 **A banner says "Emergency local access is on".** Cloudflare is having trouble and an admin opened
 the emergency way in at home. Everything works as usual; it goes away when things are back to
 normal.
+
+**Times come in pairs, "at home" and "here".** Your phone is in a different time zone from home.
+Home's time is first, then the time where you are.
 
 **It says "No signal".** The page needs a connection. If you opened Shop recently, **Open the saved
 shopping list** still works; otherwise **Try again** once you have signal.

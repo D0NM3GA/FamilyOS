@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Bell as BellIcon } from "lucide-react";
 import { formatRelative } from "@/lib/format";
+import { useHouseholdZone } from "@/components/household-zone";
 import { getUnreadCount, openBell } from "./notification-actions";
 
 type Item = { id: string; title: string; href: string; unread: boolean; createdAt: Date };
@@ -17,6 +18,7 @@ type Item = { id: string; title: string; href: string; unread: boolean; createdA
 const POLL_MS = 60_000;
 
 export function Bell({ unread: initialUnread }: { unread: number }) {
+  const zone = useHouseholdZone();
   const [unread, setUnread] = useState(initialUnread);
   const [seenInitial, setSeenInitial] = useState(initialUnread);
   if (initialUnread !== seenInitial) {
@@ -110,7 +112,7 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
                     className={`block rounded-lg px-2 py-2 hover:bg-muted ${n.unread ? "font-bold" : ""}`}
                   >
                     {n.title}
-                    <span className="block text-xs font-normal text-muted-foreground">{formatRelative(n.createdAt)}</span>
+                    <span className="block text-xs font-normal text-muted-foreground">{formatRelative(n.createdAt, zone)}</span>
                   </Link>
                 </li>
               ))}

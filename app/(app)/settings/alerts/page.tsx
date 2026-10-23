@@ -3,10 +3,11 @@ import { isSessionOwner, requireActiveProfile } from "@/lib/active-profile";
 import { isAdmin } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { alertMailbox } from "@/lib/alerts/email";
-import { householdTeamsUrl, pushProblem, recipientEmail, teamsRecipient } from "@/lib/alerts/dispatch";
+import { pushProblem, recipientEmail, teamsRecipient } from "@/lib/alerts/dispatch";
+import { familyTeamsApp, teamsBotAppId } from "@/lib/teams/family-app";
 import { listAlertTargets } from "@/lib/alerts/targets";
 import { formatRelative } from "@/lib/format";
-import { DisconnectTeamsButton, PersonChannel, PersonPhones, ResetPhoneKeysButton, TeamsLinkForm } from "./controls";
+import { DisconnectTeamsButton, PersonChannel, PersonPhones, ResetPhoneKeysButton, TeamsAppButtons } from "./controls";
 import { ThisDevice } from "./this-device";
 import { getVapidState } from "@/lib/alerts/vapid";
 import { RewardWord } from "@/components/family-look";
@@ -15,11 +16,12 @@ import { microsoftEnabled } from "@/lib/auth";
 export const metadata = { title: "Alerts" };
 
 /**
- * Phase 21.5: the family's alert settings (admins only). One Teams link for everyone, then
+ * Phase 21.5: the family's alert settings (admins only). Teams set up once for everyone, then
  * a row per admin where any admin can switch Teams/email on. Quiet like the rest of
- * Settings. The Teams link never comes back to the browser — only its host.
+ * Settings. Phase 50: Teams is the family's own Teams app, published from here.
  */
-export default async function AlertsPage() {
+export default async function AlertsPage({ searchParams }: { searchParams: Promise<{ grant?: string }> }) {
+  const { grant } = await searchParams;
   const profile = await requireActiveProfile();
   if (!isAdmin(profile)) {
     return <p className="p-4 text-muted-foreground sm:p-6">Only admins can change the family&apos;s alerts.</p>;
@@ -27,7 +29,7 @@ export default async function AlertsPage() {
   const [link, people, owner] = await Promise.all([
     prisma.householdAlerts.findUnique({
       where: { householdId: profile.householdId },
-      select: { teamsWebhookHost: true, updatedAt: true, updatedBy: { select: { firstName: true } } },
+      select: { updatedBy: { select: { firstName: true } } },
     }),
     listAlertTargets(profile.householdId),
     isSessionOwner(profile),
@@ -38,13 +40,8 @@ export default async function AlertsPage() {
   // Phase 45.2: the server's own keys unless `.env` has some; a problem is said in words here.
   const keys = await getVapidState();
   const vapid = keys.ok ? keys.vapid : null;
-  // Readable, not just present: a rotated key leaves the host behind but breaks the link.
-  const readable = await householdTeamsUrl(profile.householdId).then(
-    (url) => Boolean(url),
-    () => false,
-  );
-  const connected = Boolean(link?.teamsWebhookHost) && readable;
-  const broken = Boolean(link?.teamsWebhookHost) && !readable;
+  const teamsApp = teamsBotAppId() ? await familyTeamsApp(profile.householdId) : null;
+  const connected = Boolean(teamsApp?.teamsAppId);
 
   return (
     <div className="max-w-3xl space-y-6 p-4 sm:p-6">
@@ -78,29 +75,37 @@ export default async function AlertsPage() {
 
       <section className="space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
         <h2 className="text-base font-semibold">Teams for the family</h2>
-        {broken && (
-          <p role="alert" className="text-sm text-destructive">
-            The family&apos;s Teams link can&apos;t be read anymore (the server&apos;s encryption key may have changed). Paste it again.
-          </p>
-        )}
-        {connected ? (
-          <p className="break-words text-sm text-muted-foreground">
-            Connected through a Teams workflow ({link?.teamsWebhookHost})
-            {link?.updatedBy ? ` by ${link.updatedBy.firstName}` : ""} · {formatRelative(link!.updatedAt).toLowerCase()}.
-          </p>
+        {!teamsApp ? (
+          <p className="text-sm text-muted-foreground">Teams alerts need Microsoft 365 sign-in set up on this install (README, Microsoft).</p>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            One person builds a small Teams workflow once (README, Alerts — about five minutes); after that it messages each
-            person below in their own Teams chat. Nobody else has to set anything up.
-          </p>
-        )}
-        {owner ? (
           <>
-            <TeamsLinkForm replacing={connected} />
-            {connected && <DisconnectTeamsButton />}
+            <p className="text-sm text-muted-foreground">
+              The family&apos;s own Teams app messages each person below in their own Teams chat with it, and a money jar&apos;s group chat
+              if the jar picks one. It only sends; it can&apos;t read anyone&apos;s chats. Set up once by an admin who is also a Teams
+              administrator (README, Teams: an Azure Bot, three permissions, then the button here).
+            </p>
+            {connected && (
+              <p className="text-sm text-muted-foreground">
+                ✅ In Teams{link?.updatedBy ? `, added by ${link.updatedBy.firstName}` : ""}
+                {teamsApp.publishedAt ? ` · ${formatRelative(teamsApp.publishedAt).toLowerCase()}` : ""}.
+                {teamsApp.outOfDate && " The family's name or icon changed since: update it so Teams shows the new one."}
+              </p>
+            )}
+            {grant === "teams" && <p className="text-sm font-semibold">Thanks, Microsoft gave the permission. Now add the app to Teams.</p>}
+            {grant === "failed" && (
+              <p role="alert" className="text-sm text-destructive">
+                Microsoft didn&apos;t give the permission. It needs a Teams or Global administrator.
+              </p>
+            )}
+            {owner ? (
+              (!connected || teamsApp.outOfDate) && (
+                <TeamsAppButtons label={connected ? "Update in Teams" : "Add to Teams"} askFirst={!connected && grant !== "teams"} />
+              )
+            ) : (
+              <p className="text-sm text-muted-foreground">Use the app on your own sign-in to change Teams for the family.</p>
+            )}
+            {owner && connected && <DisconnectTeamsButton />}
           </>
-        ) : (
-          <p className="text-sm text-muted-foreground">Use the app on your own sign-in to change the family&apos;s Teams link.</p>
         )}
       </section>
 
@@ -128,10 +133,10 @@ export default async function AlertsPage() {
                   <PersonChannel
                     personId={p.id}
                     channel="teams"
-                    label={teamsTo ? `Teams (${teamsTo})` : microsoftEnabled() ? "Teams (needs one Microsoft sign-in first)" : "Teams (needs Microsoft 365)"}
+                    label={teamsTo ? `Teams (${p.authUser?.email ?? "Microsoft sign-in"})` : microsoftEnabled() ? "Teams (needs one Microsoft sign-in first)" : "Teams (needs Microsoft 365)"}
                     enabled={prefs?.teamsEnabled ?? false}
                     available={connected && Boolean(teamsTo)}
-                    status={status(prefs?.lastErrorTeams ?? null, prefs?.lastSentTeams ?? null, "Last handed to Teams")}
+                    status={status(prefs?.lastErrorTeams ?? null, prefs?.lastSentTeams ?? null, "Last sent to Teams")}
                   />
                   <PersonChannel
                     personId={p.id}
