@@ -261,5 +261,7 @@ describe.skipIf(!RUN)("the pet (database)", () => {
     expect(mine.goodbye).toMatchObject({ name: "Pip", cause: "sickness", stage: "baby" });
     expect(await prisma.petMemorial.count({ where: { personId: who.ivy.id } })).toBe(1);
     expect(await prisma.pet.count({ where: { personId: who.ivy.id } })).toBe(0);
+    // Looking again before picking a new egg still says goodbye.
+    expect((await getMyPet(who.ivy)).goodbye).toMatchObject({ name: "Pip", cause: "sickness" });
   });
 });

@@ -221,8 +221,12 @@ it a name, and in a few minutes it hatches.
 - It grows from a baby into a grown-up, and how well it's looked after decides what it grows
   into. It's only awake at certain times of day (a grown-up sets them), so it's fine while
   you're at school or asleep.
-- If it's left hungry or poorly for too long, it goes away. Its page stays in your **Memory
-  book**, and a new egg is ready straight away.
+- If it's left hungry or poorly for too long, it goes back to Egg Island. Its page stays in
+  your **Memory book**, and a new egg is ready straight away.
+- **With a keyboard:** every game can be played without a mouse. Snack Catch moves the bowl
+  with the left and right arrows, Bubble Bath pops a bubble with Space, Copy Dance uses the
+  arrow keys, and Fetch Far throws with Enter. Instead of stroking, **Play** has a button for
+  each spot.
 
 The pet has nothing to do with stickers: it never costs any, and nothing in it is bought.
 

@@ -202,21 +202,33 @@ test("every page is accessible, light at desktop width and dark at phone width",
 // an egg puts the room, the care buttons and its panels on screen; axe checks each. (Hatching
 // takes five minutes of wall time, so the hatched pet itself stays a manual check.)
 test("an egg goes into the pet room, and the room and its panels are accessible", async () => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
+  const desktop = page.viewportSize()!;
   try {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/pet");
     await page.getByLabel("Name it").fill("Pip");
     await page.getByRole("button", { name: "This one!" }).click();
     await expect(page.getByRole("img", { name: /^Pip the Egg$/ })).toBeVisible();
-    await expectAccessible(page, "the pet room with an egg");
-    await page.getByRole("button", { name: "Room" }).click();
-    await expect(page.getByLabel("On the wall")).toBeVisible();
-    await expectAccessible(page, "the pet room's decorating panel");
-    await page.getByRole("button", { name: "About Pip" }).click();
-    await expect(page.getByLabel("Rename")).toBeVisible();
-    await expectAccessible(page, "the pet's about panel");
+    // The same two passes as every page above: light at desktop width, dark at phone width.
+    for (const [scheme, size] of [
+      ["light", desktop],
+      ["dark", { width: 390, height: 844 }],
+    ] as const) {
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await page.setViewportSize(size);
+      await page.goto("/pet");
+      const where = `${scheme} at ${size.width}px`;
+      await expectAccessible(page, `the pet room with an egg, ${where}`);
+      await page.getByRole("button", { name: "Room" }).click();
+      await expect(page.getByLabel("On the wall")).toBeVisible();
+      await expectAccessible(page, `the pet room's decorating panel, ${where}`);
+      await page.getByRole("button", { name: "About Pip" }).click();
+      await expect(page.getByLabel("Rename")).toBeVisible();
+      await expectAccessible(page, `the pet's about panel, ${where}`);
+    }
   } finally {
-    await page.emulateMedia({ reducedMotion: null });
+    await page.emulateMedia({ colorScheme: null, reducedMotion: null });
+    await page.setViewportSize(desktop);
   }
   problems.expectNone();
 });

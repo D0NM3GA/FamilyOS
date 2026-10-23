@@ -258,7 +258,17 @@ export async function getMyPet(profile: Profile, now = new Date()): Promise<MyPe
   ]);
   const ids = presents.map((present) => present.id);
   if (result.kind === "pet") return { pet: result.pet, goodbye: null, items, presents: ids };
-  return { pet: null, goodbye: result.kind === "gone" ? result.goodbye : null, items, presents: [] };
+  // The goodbye stays up until a new egg is picked, not just for the one view that found it gone.
+  const goodbye = result.kind === "gone" ? result.goodbye : await lastGoodbye(profile.id);
+  return { pet: null, goodbye, items, presents: [] };
+}
+
+async function lastGoodbye(personId: string): Promise<Goodbye | null> {
+  return prisma.petMemorial.findFirst({
+    where: { personId },
+    orderBy: { goneAt: "desc" },
+    select: { name: true, species: true, stage: true, form: true, cause: true, ageMinutes: true },
+  });
 }
 
 /** One of this person's items by its row id, or null if it isn't theirs. */

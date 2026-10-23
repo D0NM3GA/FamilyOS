@@ -682,12 +682,15 @@ actions don't trigger a second page load, the room doesn't redraw as the eyes fo
 pointer, the minute refresh survives a hidden tab and pauses during a game, and timers stop
 when a screen or game closes. Games take focus when they start and give it back to Play;
 Bubble Bath plays with Space, Copy Dance says each move, and care results are announced. A
-browser test checks the egg room and its panels with axe.
+browser test checks the egg room and its panels with axe, light at desktop width and dark at
+phone width. The goodbye stays on screen until a new egg is picked.
 
 Departures from the plan: the pet's state is one checked JSON column rather than typed columns;
 a turned-off Pet app goes to the usual "turned off" page; clearing a memory-book page isn't built
 (each book is only its owner's); changing care hours applies to the time since a pet was last
-opened.
+opened. The small dot on the Pet tile while the pet is calling isn't built: the tile is drawn on
+every page, and knowing whether a pet is calling means catching it up, which would put a pet
+catch-up on every page of the app. The pet's own screen shows the call.
 
 ## Grown-up apps closed to kids (security fix)
 
