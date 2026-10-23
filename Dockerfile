@@ -27,12 +27,33 @@ RUN export DATABASE_URL=postgresql://build:build@localhost:5432/build \
       INTEGRATION_ENCRYPTION_KEY="$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")" \
  && npm run build
 
+# ---- migrate-deps: Prisma's CLI and nothing else (Phase 48). A subset of the tree `install` built
+# from the lockfile: package.json is cut down to `prisma` and `npm prune` removes the rest, offline
+# and without scripts, so nothing is resolved or fetched again (the schema engine is the one
+# `install` fetched). `overrides` stays, or npm would re-resolve and fail offline. `prisma` moves
+# to dependencies so an --omit=dev from the environment can't prune it away. Prune leaves the
+# emptied scope folders behind; they go too.
+FROM install AS migrate-deps
+RUN node -e 'const fs = require("node:fs"); const p = JSON.parse(fs.readFileSync("package.json", "utf8")); \
+      p.dependencies = { prisma: p.devDependencies.prisma }; p.devDependencies = {}; \
+      fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n")' \
+ && npm prune --offline --ignore-scripts --no-audit \
+ && find node_modules -mindepth 1 -maxdepth 1 -type d -empty -delete
+
 # ---- migrate: `prisma migrate deploy`, run once before the app starts (docker-compose.prod.yml).
-# From the install stage: the Prisma CLI, its schema engine, the config and the migrations.
-FROM install AS migrate
+# Only the CLI, its config, the schema and the migrations: no app code, seeds, lockfile or .npmrc.
+FROM ${NODE_IMAGE} AS migrate
 # Fixed labels only (the commit is in the published tag and its provenance record, not here).
 LABEL org.opencontainers.image.source="https://github.com/D0NM3GA/FamilyOS" \
       org.opencontainers.image.licenses="MIT"
+WORKDIR /app
+# Prisma's usage check-in never leaves the server.
+ENV CHECKPOINT_DISABLE=1
+COPY --from=migrate-deps /app/node_modules ./node_modules
+COPY --from=migrate-deps /app/package.json ./
+COPY prisma.config.ts ./
+COPY prisma/schema.prisma ./prisma/
+COPY prisma/migrations ./prisma/migrations
 USER node
 CMD ["node_modules/.bin/prisma", "migrate", "deploy"]
 
