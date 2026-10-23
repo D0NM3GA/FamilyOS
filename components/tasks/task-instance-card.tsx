@@ -3,6 +3,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { Check, Undo2, CloudRain, Minus } from "lucide-react";
 import { formatRelative } from "@/lib/format";
+import { useHouseholdZone } from "@/components/household-zone";
 import { useReportMilestone } from "./milestone-toast";
 import { useRewardWords } from "@/components/family-look";
 import { rewardCount } from "@/lib/reward-words";
@@ -156,6 +157,7 @@ export function TaskInstanceCard({
 }) {
   const reward = useRewardWords();
   const big = size === "big";
+  const zone = useHouseholdZone();
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(instance.status);
   const [, startTransition] = useTransition();
   const [celebrating, setCelebrating] = useState(false);
@@ -248,7 +250,7 @@ export function TaskInstanceCard({
     startTransition(() => onReassign(instance.id, newAssigneeId));
   }
 
-  const dateLabel = [showDate ? formatRelative(instance.dueDate) : null, timeLabel]
+  const dateLabel = [showDate ? formatRelative(instance.dueDate, zone) : null, timeLabel]
     .filter(Boolean)
     .join(" · ");
 

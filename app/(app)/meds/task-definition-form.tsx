@@ -7,6 +7,8 @@ import { searchMedicationNames } from "./actions";
 import type { TaskFormState } from "./actions";
 import { stripDosageForm } from "@/lib/meds/rxterms";
 import { RewardWord } from "@/components/family-look";
+import { useHouseholdZone } from "@/components/household-zone";
+import { toISODate } from "@/lib/format";
 
 const FREQUENCIES = [
   { value: "ONCE", label: "Once" },
@@ -53,13 +55,6 @@ type Defaults = {
   pharmacyId?: string | null;
 };
 
-function toDateInputValue(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 export function TaskDefinitionForm({
   action,
   defaults,
@@ -75,6 +70,7 @@ export function TaskDefinitionForm({
   submitLabel: string;
   cancelHref: string;
 }) {
+  const zone = useHouseholdZone();
   const [state, formAction, pending] = useActionState<TaskFormState, FormData>(action, {});
   const [frequency, setFrequency] = useState(defaults?.frequencyType ?? "DAILY");
   const [assigneeId, setAssigneeId] = useState<string | undefined>(defaults?.assigneeIds?.[0]);
@@ -321,7 +317,7 @@ export function TaskDefinitionForm({
         label="Starting"
         name="startDate"
         type="date"
-        defaultValue={toDateInputValue(defaults?.startDate ?? new Date())}
+        defaultValue={toISODate(defaults?.startDate ?? new Date(), zone)}
         required
       />
 
