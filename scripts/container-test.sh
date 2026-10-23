@@ -62,6 +62,25 @@ docker run --rm --entrypoint sh "$image" -c '
   echo "run image: ok"
 '
 
+# Phase 48: the migrate image is Prisma's CLI and the migrations, nothing more: not root, no
+# settings, no app or its tools, no seeds, and the CLI still starts.
+migrate_image="$("${compose[@]}" images -q migrate | head -n1)"
+docker run --rm --entrypoint sh "$migrate_image" -c '
+  set -e
+  test "$(id -u)" != 0 || { echo "runs as root"; exit 1; }
+  for f in .env .env.production familyos.env .npmrc package-lock.json prisma/seed.ts .next; do test ! -e "$f" || { echo "$f is in the migrate image"; exit 1; }; done
+  for p in next typescript vitest tsx @playwright/test @prisma/client; do test ! -e "node_modules/$p" || { echo "$p is in the migrate image"; exit 1; }; done
+  test -z "$(find node_modules -maxdepth 1 -type d -empty)" || { echo "empty folders are left in node_modules"; exit 1; }
+  node_modules/.bin/prisma migrate --help > /dev/null
+  echo "migrate image: ok"
+'
+
+# Uncompressed, as Docker stores them locally (a push is about a third of it). The migrate image was
+# 2.26 GB when it carried the whole install; the budget keeps that from coming back unnoticed.
+size_mb() { echo $(( $(docker image inspect --format '{{.Size}}' "$1") / 1000000 )); }
+echo "image sizes: app $(size_mb "$image") MB, migrate $(size_mb "$migrate_image") MB"
+test "$(size_mb "$migrate_image")" -le 1000 || { echo "the migrate image is over its 1 GB budget" >&2; exit 1; }
+
 E2E_BASE_URL=http://localhost:3100 npx playwright test "$@"
 
 # Phase 42.6: the restore drill, for real: the household the browser tests just made, backed up by

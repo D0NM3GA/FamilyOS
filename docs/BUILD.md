@@ -695,6 +695,26 @@ a pinned version.
   reads through `process.getBuiltinModule("node:fs/promises")`, and the standalone output keeps
   only what it needs.
 
+## Phase 48 — Slim the migrate image
+
+The migrate image was the whole `install` stage (2.26 GB) to run `prisma migrate deploy`. It is
+now about 690 MB: a `migrate-deps` stage cuts `package.json` down to `prisma` and runs
+`npm prune --offline --ignore-scripts` (then deletes the emptied scope folders), so what's left is a subset of the tree the lockfile
+installed, with the schema engine `install` already fetched; the `migrate` stage starts from the
+base image and copies in only that, `prisma.config.ts`, the schema and the migrations.
+
+- **Why prune, not a second lockfile or a copy list:** two lockfiles drift, and a hand-made list
+  of Prisma's packages breaks quietly on a release. `overrides` stays in the cut-down file, or npm
+  would re-resolve and fail offline; `prisma` moves to `dependencies` so an `--omit=dev` from the
+  environment can't prune it (review finding).
+- **Prisma loads `prisma.config.ts` through jiti**, so the image needs no TypeScript. With a
+  read-only root, jiti keeps its cache under the temp folder, which is why compose gives the
+  migrate service a `/tmp` tmpfs.
+  `CHECKPOINT_DISABLE=1` keeps Prisma's usage check-in from trying to leave the server.
+- **Guards:** `scripts/container-test.sh` checks the migrate image's contents and that the CLI
+  starts, prints both sizes and fails over a 1 GB budget; `lib/deploy-guard.test.ts` checks the
+  two stages' shape.
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with

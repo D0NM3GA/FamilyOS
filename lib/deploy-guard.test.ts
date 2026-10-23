@@ -64,6 +64,38 @@ describe("nothing is built into the image", () => {
   });
 });
 
+/** One Dockerfile stage: from its `FROM … AS <name>` line to the next FROM. */
+function stage(name: string): string {
+  const text = read("Dockerfile");
+  const start = text.search(new RegExp(`^FROM \\S+ AS ${name}$`, "m"));
+  if (start < 0) return "";
+  const next = text.slice(start + 1).search(/^FROM /m);
+  return next < 0 ? text.slice(start) : text.slice(start, start + 1 + next);
+}
+
+describe("the migrate image is Prisma's CLI only (Phase 48)", () => {
+  test("it starts from the base image and takes only the pruned tree from the build", () => {
+    const migrate = stage("migrate");
+    expect(migrate).toMatch(/^FROM \$\{NODE_IMAGE\} AS migrate$/m);
+    expect(migrate).toMatch(/^WORKDIR \/app$/m);
+    expect(migrate).not.toMatch(/^COPY \. /m);
+    const fromStages = [...migrate.matchAll(/^COPY --from=(\S+)/gm)].map((m) => m[1]);
+    expect(fromStages.length).toBeGreaterThan(0);
+    expect(new Set(fromStages)).toEqual(new Set(["migrate-deps"]));
+    expect(migrate).toMatch(/^USER node$/m);
+  });
+
+  test("the prune is a subset of the lockfile's install: offline, no scripts, prisma kept", () => {
+    const deps = stage("migrate-deps");
+    expect(deps).toMatch(/^FROM install AS migrate-deps$/m);
+    expect(deps).toMatch(/npm prune --offline --ignore-scripts/);
+    // prisma as a dependency, so an --omit=dev from the environment can't prune it.
+    expect(deps).toMatch(/p\.dependencies = \{ prisma: p\.devDependencies\.prisma \}/);
+    // Only the dependency lists change: overrides and allowScripts stay as they are.
+    expect(deps).not.toMatch(/p\.overrides|p\.allowScripts/);
+  });
+});
+
 describe("the workflows", () => {
   test("every action is GitHub's own, pinned to a full commit SHA", () => {
     for (const file of WORKFLOWS) {
