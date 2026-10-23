@@ -166,6 +166,7 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 43 | Production container and HTTPS through a tunnel | merged |
 | 42 | Security: CSP with nonces, database rate limits, Access check, restore drill, break-glass | merged |
 | 45 | Settings hub, guided setup, home location without coordinates | merged |
+| 46 | Publish the tested image; the server pulls it instead of building | being built |
 | 44 | Polish: accessibility checks on every page, Shop list without signal | merged |
 | — | Kids' allowance | waiting |
 | — | Remove the dev sign-in | later |
@@ -197,6 +198,102 @@ Everything through Phase 45 is merged to `main`, CI runs on every pull request, 
 production container, the security phase and the accessibility and offline polish are done.
 The next steps are standing up the home server and entering the real family, then the items
 below. The database still holds test data only.
+
+## Phase 46 — scope (publish the tested image, 2026-10-23)
+
+**The owner's call:** after the move to a public repository, CI publishes the production image
+it has just tested, and the home server pulls that image instead of building its own. The
+server then runs exactly what passed, and an update or a rollback is "pull this version".
+Fable's scope review (2026-10-23) is folded in.
+
+### 46.1 — Publish only what passed
+
+- On a push to `main`, after *Production image and browser tests* passes, a separate job pushes
+  the app image (`run` stage) and the migration image (`migrate` stage) to GitHub's container
+  registry: `ghcr.io/<owner>/familyos` and `ghcr.io/<owner>/familyos-migrate`, with the owner
+  lowercased (registry names must be lowercase; the account name isn't).
+- **The tested bytes, not a rebuild:** after the container test and the break-glass rehearsal
+  (which reuses the same images), the test job saves both images by name into one archive
+  (`docker save`, shared layers stored once, kept one day); the publish job loads and pushes
+  them. Only the publish job can write to the registry (`packages: write`, `id-token: write`,
+  `attestations: write`, `contents: read`), and it runs no npm install, no build and no tests,
+  so no dependency's code ever runs with a token that can publish.
+- **Tags:** `sha-<full commit>` (never moves; matches `git rev-parse HEAD` on the server) and
+  `main` (the latest). The commit lives in the tag and the provenance record, not in the image:
+  the Dockerfile carries only fixed labels (`org.opencontainers.image.source` pointing at the
+  repository, which links the package to it, and the licence).
+- **Provenance:** a GitHub attestation action signs, for each pushed digest, which workflow and
+  commit built it, and stores the record in the registry next to the image. Attest first, then
+  move `main`.
+- **Order:** main runs queue instead of cancelling each other (only pull request runs cancel), so
+  every merge gets its `sha-` image; and the publish job moves `main` only if its commit is
+  still the branch's head, so a slow run can't point `main` back at an older commit.
+- Pull requests never publish.
+
+### 46.2 — Nothing about one family in a public image
+
+- **Sentry's address moves from build time to run time, under a new name.** Today
+  `NEXT_PUBLIC_SENTRY_DSN` is a build argument, and Next inlines `NEXT_PUBLIC_*` into both the
+  browser and the server code at build time, so a published image would carry one family's
+  Sentry project (or, built without it, ignore the setting at run time). It becomes
+  `SENTRY_DSN` in the settings file, read only on the server: the server's Sentry setup and the
+  script policy read it per request, and the root layout puts it on the page
+  (`<html data-sentry-dsn>`), where the browser's Sentry setup reads it. Shared Sentry options
+  take the DSN as a parameter instead of one module-level constant. A clean rename: the docs
+  and the example settings say to rename the line (no install uses it yet).
+- The Dockerfile has no family-specific build argument (`NODE_IMAGE`, the base image pin,
+  stays). `scripts/container-test.sh` builds with a decoy `NEXT_PUBLIC_SENTRY_DSN` in the
+  environment and checks that neither the decoy nor any Sentry ingest address appears in the
+  image's browser code, and that the image's environment has no `NEXT_PUBLIC_` value.
+- A guard test reads the Dockerfile, the compose files and the workflow: no `NEXT_PUBLIC_`
+  build argument, no `build.args`, the publish job's permissions exactly as above, and every
+  action pinned to a full commit SHA from `actions/`.
+
+### 46.3 — Deploy from the registry
+
+- `docker-compose.prod.yml` names images only: `app` and `migrate` use
+  `${FAMILYOS_IMAGE:-ghcr.io/<owner>/familyos}:${FAMILYOS_VERSION:-main}` and
+  `…familyos-migrate` at the same version (the two never differ). With no `build:` in the file,
+  a failed pull (a typo in the version, the registry down) is an error, never a quiet local
+  build under the release's name. Building stays possible through an override file,
+  `docker-compose.build.yml`, which the CI stack and a build on the server add with `-f`.
+- **Update:** set `FAMILYOS_VERSION` to the new `sha-…` tag (in the shell or an env file
+  outside the checkout, never `.env` in it, which a build would read), `git pull` the checkout
+  to the same commit (compose, the break-glass and backup scripts and the Caddy file come from
+  it), then `docker compose pull` and `up -d`. **Roll back:** the previous tag, same steps.
+  Checking provenance: `gh attestation verify` on the pulled digest (from any machine with `gh`;
+  the README says how, and to compare it with the digest the server pulled).
+- **First deploy:** the package's visibility (below), then the same steps; the old locally built
+  images can be pruned.
+
+### 46.4 — The break-glass build warning
+
+- `lib/security/break-glass.ts` reads its state file with a path the bundler can't know, so
+  Turbopack traces the whole project into the standalone server: every source file, the
+  README and the compose files end up in the image (and on a dev machine, `.env` in the local
+  build). The read uses `process.getBuiltinModule("node:fs/promises")`, which the bundler
+  doesn't trace (a Next import hint doesn't apply to file reads). Done when the warning is gone,
+  the middleware's traced project files drop to near zero, and `scripts/break-glass-test.sh`
+  still passes.
+
+### The owner's answers (2026-10-23)
+
+1. **Package visibility: public.** The server pulls with no credentials; the image holds only the
+   public code. (GitHub can't make a package private again once it's public.)
+2. **The server runs a pinned version:** a `sha-…` tag, changed on purpose to update or roll
+   back; `main` is never what the server follows.
+
+### Checks
+
+- Lint, types, unit (the guard test), database and browser tests; the container test with the
+  decoy check; the break-glass rehearsal; the publish job on the merge to `main`, then pulling
+  the published images and verifying their provenance; the privacy check.
+
+### Not in this phase
+
+- Automatic deploys to the server (a watcher that pulls new images): the owner updates by hand.
+- CodeQL code scanning: a repository setting (Settings → Code security), no code needed.
+- Images for other CPU types: CI builds for x86-64, as the server runs; a Mac builds its own.
 
 ## Open items
 
