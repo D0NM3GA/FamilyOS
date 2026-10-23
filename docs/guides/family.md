@@ -214,6 +214,10 @@ stickers for taking theirs.
 
 Grown-ups: **+ New medication** and **Manage**.
 
+**Away from home.** On a trip to another time zone, times show home's first and then where you
+are ("8:00 AM at home · 2:00 PM here"), so doses stay on their usual schedule. Days stay home's
+days. Home says so at the top while you're away.
+
 <!-- screenshot: today's meds -->
 
 ## Groceries
@@ -368,6 +372,9 @@ in it was deleted.
 **A banner says "Emergency local access is on".** Cloudflare is having trouble and an admin opened
 the emergency way in at home. Everything works as usual; it goes away when things are back to
 normal.
+
+**Times come in pairs, "at home" and "here".** Your phone is in a different time zone from home.
+Home's time is first, then the time where you are.
 
 **It says "No signal".** The page needs a connection. If you opened Shop recently, **Open the saved
 shopping list** still works; otherwise **Try again** once you have signal.

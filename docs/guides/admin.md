@@ -109,7 +109,7 @@ image.
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` | Signs sign-ins and cookies. Make it once and keep it |
 | `INTEGRATION_ENCRYPTION_KEY` | `openssl rand -base64 32` (a different one) | Encrypts stored connections (bank feed, Teams link, phone-alert keys) and seals money jars in backups. Make it once and keep it |
 | `TRUSTED_PROXIES` | `172.30.43.10` | The tunnel's fixed address in `docker-compose.prod.yml`; leave it unless you change the subnet |
-| `TZ` | The household's time zone, e.g. `America/New_York` | "Today" and due dates follow the server's clock. Settings → Household warns admins when it differs |
+| `TZ` | Optional: a time zone, e.g. `America/New_York` | Only used until the household has a time zone (setup takes it from the device you set up on). After that the app keeps the household's own |
 | `CONTACT_EMAIL` | An address for whoever runs the server | Push services, the US Weather Service, Open Food Facts and Let's Encrypt ask for one. Without it, phone alerts use the app's `https://` address instead |
 | `CF_ACCESS_TEAM_DOMAIN` | `<team>.cloudflareaccess.com` | From Cloudflare (section 5). Anything else stops the app with a 503 until fixed |
 | `CF_ACCESS_AUD` | The Access application's Application Audience (AUD) tag | From Cloudflare (section 5) |
@@ -257,7 +257,13 @@ already keeps strangers away, but don't leave it waiting.)
      first).
 3. Anything skipped waits under **Finish setting up** at the top of Settings.
 
-Then, in Settings → Household, check the time zone matches `TZ`, and set a PIN for each kid.
+Then, in Settings → Household, check the time zone is home's, and set a PIN for each kid.
+
+**The time zone** is the family's clock: "today", due dates, dose times and every date the app
+shows follow it, wherever the server runs. Changing it later (the family moves) keeps everything
+already saved on its date and clock time: a chore due Tuesday stays due Tuesday, an 8:00 AM dose
+stays at 8:00 AM. A restore from a backup made in another zone does the same, and its preview says
+so.
 
 ## 9. People and sign-in
 
@@ -599,8 +605,8 @@ tunnel's log: if it can't read its token, `tunnel_token` isn't owned by uid 6553
 **The app stopped at start with a settings error.** A partial set of `MICROSOFT_*` or `OIDC_*`,
 or `DEV_AUTH` set. The log names it.
 
-**"Today" is wrong.** `TZ` doesn't match the household's time zone (Settings → Household says
-so).
+**"Today" is wrong.** Check the time zone in Settings → Household: the app follows it, not the
+server's `TZ`.
 
 **Someone signed in with Microsoft lands on "not provisioned".** Their account has no `Admin` or
 `Adult` app role in Entra.

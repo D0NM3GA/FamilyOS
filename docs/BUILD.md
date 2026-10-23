@@ -715,6 +715,37 @@ base image and copies in only that, `prisma.config.ts`, the schema and the migra
   starts, prints both sizes and fails over a 1 GB budget; `lib/deploy-guard.test.ts` checks the
   two stages' shape.
 
+## Phase 49 — The household's timezone everywhere
+
+"Today", due dates and every printed date followed the server process's `TZ`, and Settings only
+warned when it wasn't the household's. The owner's call: the server follows the household's zone.
+One server serves one household, so `lib/household-zone.ts` sets `process.env.TZ` to the
+household's zone (Node picks the change up at once for local getters, `toLocale…` and `Intl`
+defaults), and about 140 date calculations became right without being touched.
+
+- **When it's applied:** at start (`instrumentation.ts`, not during `next build`), in the app
+  layout on every request (a string compare), on every background tick, after the zone is saved
+  and after a restore. Only canonical names are set: an unknown one silently becomes UTC.
+- **Stored days move with the zone** (the owner's call: they keep their date and clock time).
+  `Household.dayZone` records the zone the days were written in; when it differs from the
+  household's, `moveStoredDays` rewrites them in SQL (`AT TIME ZONE`), including once on the
+  upgrade itself (setup already stored the device's zone while days followed the server's).
+  Columns: chore and med start and due dates, vehicle log dates, school due dates typed in, and
+  receipt-dated prices (exactly midnight). Instants never move.
+- **Review findings that shaped it (Fable):** instances are generated on page loads, not only by
+  jobs, so generation re-plans under a shared advisory lock when it has rows to write and a move
+  holds it exclusively; task instances are unique per definition and time, checked row by row,
+  so they're parked a thousand years out before moving (a 12-hour move of morning and evening
+  doses would collide); two doses landing on one time (a skipped hour) keep the done one.
+- **Restores** move a file's days from its `exportedTimeZone` (now the days' zone) to the
+  restored household's instead of refusing, and the preview says so.
+- **The browser:** client components format with the household's zone (`useHouseholdZone`), so
+  they match the server's render. **Away from home** (the owner's call), a time of day shows home
+  first and then the device's ("8:00 AM at home · 2:00 PM here") on dose cards, the calendar and
+  events, with a note at the top of Home; the device's zone never leaves the browser.
+- **Guards:** Vitest runs in `America/New_York`; `lib/household-zone-guard.test.ts` refuses a
+  formatter or date made at module load (a vehicle's "newest model year" was one).
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with

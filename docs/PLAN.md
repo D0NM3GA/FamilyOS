@@ -174,8 +174,8 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | — | Remove the dev sign-in (just before going live) | tabled |
 | — | LMS connector (Canvas or Google Classroom) | waiting |
 | 48 | Slim the migrate image to Prisma's CLI | merged |
-| 49 | The household's timezone in every date calculation | next |
-| 50 | Teams without Power Automate | later |
+| 49 | The household's timezone in every date calculation | merged |
+| 50 | Teams without Power Automate | next |
 | 51 | Find the school calendar from the school's web address | later |
 | 52 | Statement imports that work out their own columns | later |
 | 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | later |
@@ -201,13 +201,13 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 
 ## Current state
 
-Everything through Phase 46, and Phase 48 (the migrate image cut from 2.26 GB to about 690 MB),
-is merged to `main` (2026-10-23). The project moved to this public
-repository the same day (one clean commit; the earlier history is archived privately). `main`
-takes changes only through pull requests: a ruleset requires the three CI jobs and the container
-check, and a pull request merges itself once they pass. Every merge to `main` publishes the
-tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`, public, tagged
-`sha-<commit>`, with signed provenance).
+Everything through Phase 46, Phase 48 (the migrate image cut from 2.26 GB to about 690 MB) and
+Phase 49 (the household's timezone everywhere) is merged to `main` (2026-10-23). The project
+moved to this public repository the same day (one clean commit; the earlier history is archived
+privately). `main` takes changes only through pull requests: a ruleset requires the three CI
+jobs and the container check, and a pull request merges itself once they pass. Every merge to
+`main` publishes the tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`,
+public, tagged `sha-<commit>`, with signed provenance).
 
 **Tabled until the owner says it's time (2026-10-23):** going live (the server, Cloudflare
 Tunnel and Access, the pinned version, backups and break-glass, following
@@ -216,13 +216,11 @@ The database still holds test data only.
 
 **Next, the remaining engineering work, in this order** (each its own phase and pull request;
 the owner's questions are asked at each scope):
-1. **Phase 49 — The household's timezone in every date calculation**, so "today", due dates and
-   streaks no longer depend on the server's `TZ`.
-2. **Phase 50 — Teams without Power Automate:** a "Connect Teams" button through Graph, and
+1. **Phase 50 — Teams without Power Automate:** a "Connect Teams" button through Graph, and
    picking a jar's Teams chat from a list.
-3. **Phase 51 — Find the school calendar** from the school's web address.
-4. **Phase 52 — Statement imports that work out their own columns.**
-5. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
+2. **Phase 51 — Find the school calendar** from the school's web address.
+3. **Phase 52 — Statement imports that work out their own columns.**
+4. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
    alert mailbox set and tested in Settings, a link to Entra's role assignments.
 
 The decisions waiting on the owner are under "Open items".
@@ -441,8 +439,9 @@ have. Fable's scope review (2026-10-23) is folded in.
   after the upgrade treats it as a move from the process zone.
 - **What moves:** `TaskDefinition.startDate`, `TaskInstance.dueDate`,
   `VehicleMaintenanceItem.lastDoneAt`, `VehicleServiceLog.doneAt`, `VehicleFuelLog.filledAt`,
-  `SchoolTask.dueDate`, `SchoolAssignment.dueDate` for rows typed in (feed rows are already in
-  the household zone, `lib/school/feeds/refresh.ts`), and `ItemPrice.observedAt` where it came
+  `SchoolTask.dueDate`, `SchoolAssignment.dueDate` for rows typed in (every row today; an LMS
+  connector's rows will carry their own times, and school feed events are instants in their own
+  table), and `ItemPrice.observedAt` where it came
   from a receipt's printed date without a trip (`lib/groceries/receipts.ts`). The build confirms
   the list against every writer. **What doesn't:** instants (`createdAt`, `completedAt`,
   sign-ins, calendar and feed events) and the people dates `middayInZone` already writes in the
@@ -466,7 +465,7 @@ have. Fable's scope review (2026-10-23) is folded in.
   recorded the server's zone, which before this phase is what the days were written in, so both
   read the same way. Today a restore across zones is refused unless the admin accepts the shift
   ("Dates would shift"). Instead, the restore moves the restored days from `exportedTimeZone` to
-  the restored household's zone (feed-made school rows excepted, as above), says so in the
+  the restored household's zone, says so in the
   restore summary, sets `dayZone` and applies the zone. A member's own money download
   (`/api/backup/my-money`) holds only jar data, whose dates don't depend on a zone.
 
@@ -496,7 +495,7 @@ have. Fable's scope review (2026-10-23) is folded in.
 - Unit: the move across a DST change, dose times, month ends, a clock time that doesn't exist
   and one that happens twice; canonical names only.
 - Database: a save that moves days; the two-dose collision; the upgrade move (`dayZone` empty,
-  household zone set, process zone different); typed-in versus feed school rows; the lock
+  household zone set, process zone different); typed-in versus connector school rows; the lock
   against instance generation; a restore across zones, including an older backup.
 - Browser: change the zone in Settings and find a chore still on its day; with the browser in a
   different zone from the household's, a dose shows both times; in the same zone, only one.
@@ -544,8 +543,6 @@ have. Fable's scope review (2026-10-23) is folded in.
 
 - **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
   with it. Removing it before going live is planned (the owner's call to keep it for now).
-- **Dates follow the server's clock** until the deployment's `TZ` matches the household's zone;
-  using the household timezone in every date calculation is Phase 49.
 - **Teams alerts need a Power Automate flow**; a "Connect Teams" button through Graph, and
   picking a jar's Teams chat from a list, are Phase 50.
 - **Other setup friction:** finding the school calendar from the school's web address (Phase

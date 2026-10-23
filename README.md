@@ -18,20 +18,21 @@ pass (see docs/BUILD.md).
 
 ## Status
 
-Everything through **Phase 46** and Phase 48 is merged to `main` (2026-10-23): the money jars
-(Phases 25–34), the security, dependency and nav passes, the **full review of 2026-10-09**, the
-**privacy pass (2026-10-12)** that renamed the app FamilyOS and took every real personal detail
-out of the code and docs, the customization phases (35–37), and the polish roadmap:
-sharp edges (38), performance (39), **sign-in and users (40)**: passkeys, a first-visitor setup,
-invites, any OIDC provider, Microsoft optional and checked against Entra; **CI with browser
-tests (41)**; **security before going live (42)**; a **production container (43)** behind a
-Cloudflare Tunnel; **accessibility and the Shop list without signal (44)**; a **Settings hub
-with a guided setup (45)**; and **published, signed images (46)** that the server pulls by a
-pinned version, with a migrate image cut down to Prisma's CLI (48). Since 2026-10-23 the project lives in this public repository, started from one
-clean commit (the earlier history is archived privately); `main` takes changes only through pull
-requests whose required checks pass, and they merge themselves. The phase-by-phase
-log is docs/BUILD.md; what's next and what's waiting on the owner is docs/PLAN.md ("Current
-state" and "Open items").
+Everything through **Phase 46**, and Phases 48 and 49, is merged to `main` (2026-10-23): the
+money jars (Phases 25–34), the security, dependency and nav passes, the **full review of
+2026-10-09**, the **privacy pass (2026-10-12)** that renamed the app FamilyOS and took every
+real personal detail out of the code and docs, the customization phases (35–37), and the polish
+roadmap: sharp edges (38), performance (39), **sign-in and users (40)**: passkeys, a
+first-visitor setup, invites, any OIDC provider, Microsoft optional and checked against Entra;
+**CI with browser tests (41)**; **security before going live (42)**; a **production container
+(43)** behind a Cloudflare Tunnel; **accessibility and the Shop list without signal (44)**; a
+**Settings hub with a guided setup (45)**; and **published, signed images (46)** that the server
+pulls by a pinned version, with a migrate image cut down to Prisma's CLI (48); and the
+**household's timezone everywhere (49)**, with both times shown away from home. Since 2026-10-23
+the project lives in this public repository, started from one clean commit (the earlier history
+is archived privately); `main` takes changes only through pull requests whose required checks
+pass, and they merge themselves. The phase-by-phase log is docs/BUILD.md; what's next and what's
+waiting on the owner is docs/PLAN.md ("Current state" and "Open items").
 
 | Area | What's there |
 |---|---|
@@ -121,7 +122,7 @@ machine too; what matters is in docs/PLAN.md and docs/BUILD.md.
 | `BETTER_AUTH_SECRET` | Session/cookie signing secret (`npx @better-auth/cli secret`) |
 | `BETTER_AUTH_URL` | Base URL, `http://localhost:3000` in dev |
 | `MICROSOFT_CLIENT_ID` / `_SECRET` / `_TENANT_ID` | Optional: from the Entra app registration, for Microsoft sign-in and the Microsoft 365 features. All three or none (a partial set stops the app at start) |
-| `TZ` | The server's time zone. Set it to the household's (Settings → Household): "today" and due dates follow the server's clock, and Settings → Household says when the two differ |
+| `TZ` | Optional: the time zone used until the household has one. Since Phase 49 the app keeps the household's time zone (Settings → Household) itself, whatever this says |
 | `FAMILY_CALENDAR_NAME` | Optional default: the exact name of the calendar Home shows, e.g. a synced Google Calendar, for anyone who hasn't picked one in Settings → Calendar on Home (each Microsoft grown-up can). Unset → their main Outlook calendar |
 | `ALERT_MAILBOX` | Shared mailbox Sticker Store alert emails come from (see Alerts). Empty → email alerts unavailable |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Optional phone push keys (`node scripts/generate-vapid.mjs`) and contact. Empty → the server makes and keeps its own, with `CONTACT_EMAIL` or the `https://` `BETTER_AUTH_URL` as the contact (see Alerts) |
