@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
-import { decryptSecret } from "@/lib/crypto";
 import { captureError } from "@/lib/observability";
 import { getAppName } from "@/lib/household-settings";
 import { alertMailbox, sendEmail } from "./email";
-import { householdTeamsAad, sendTeams, type TeamsCard } from "./teams";
+import { teamsActivity, type TeamsCard } from "./teams";
+import { familyTeamsAppId, sendToPerson as sendTeamsToPerson } from "@/lib/teams/family-app";
+import { TeamsError } from "@/lib/teams/microsoft";
 import { sendPush, type PushOutcome, type PushTarget, type Vapid } from "./webpush";
 import { getVapidState, type VapidState } from "./vapid";
 
@@ -14,12 +15,12 @@ import { getVapidState, type VapidState } from "./vapid";
  * are there. Never throws: an alert that can't be delivered is recorded on the person's
  * AlertPrefs as fixed text (shown on /settings/alerts) and reported without secrets.
  *
- * Phase 21.5: Teams goes through the family's one link, naming each recipient by their
- * Microsoft sign-in address.
+ * Phase 50: Teams goes through the family's own Teams app (lib/teams), to each recipient's chat
+ * with it, addressed by their Entra object id.
  *
  * Phase 27: deliverNotifications serves any bell notifications. "prefs" follows each
  * person's Alerts switches (store orders); "teams-first" (money alerts) goes to Teams
- * whenever the family link is set, plus phones, because the per-jar switches are the opt-in.
+ * whenever the family's Teams app is published, plus phones, because the per-jar switches are the opt-in.
  * Either way the last outcome lands on the person's AlertPrefs.
  */
 
@@ -27,14 +28,17 @@ export type Channel = "teams" | "email" | "push";
 
 export type PushPayload = { title: string; body: string; path: string };
 
+/** Who a Teams message goes to: their person row (for their kept chat) and Entra object id. */
+export type TeamsTo = { personId: string; aadObjectId: string };
+
 export type Senders = {
-  teams: (url: string, recipient: string, title: string, link: string, card?: TeamsCard) => Promise<void>;
+  teams: (teamsAppId: string, to: TeamsTo, title: string, link: string, card?: TeamsCard) => Promise<void>;
   email: (to: string, title: string, link: string, appName: string, linkText?: string) => Promise<void>;
   push: (sub: PushTarget, payload: PushPayload, vapid: Vapid) => Promise<PushOutcome>;
 };
 
 const defaultSenders: Senders = {
-  teams: (u, r, t, l, card) => sendTeams(u, r, t, l, fetch, card),
+  teams: (appId, to, t, l, card) => sendTeamsToPerson(to.personId, to.aadObjectId, appId, teamsActivity(t, l, card)),
   email: (to, t, l, appName, linkText) => sendEmail(to, t, l, appName, {}, linkText),
   push: (sub, payload, vapid) => sendPush(sub, payload, { vapid }),
 };
@@ -69,7 +73,7 @@ type Recipient = {
   firstName: string;
   email: string | null;
   /** `accounts`: their Microsoft sign-in, if any (Teams can only reach those). */
-  authUser: { email: string | null; accounts: { id: string }[] } | null;
+  authUser: { email: string | null; accounts: { id: string; accountId: string }[] } | null;
   pushSubscriptions?: { id: string; endpoint: string; p256dh: string; auth: string; failureCount: number }[];
 };
 
@@ -79,31 +83,16 @@ export function recipientEmail(r: Pick<Recipient, "email" | "authUser">): string
 }
 
 /**
- * Teams: only the Microsoft sign-in address. The Flow bot can only reach accounts in the
- * family's tenant, and a profile email might be a personal one that silently goes nowhere.
- * Phase 40.2c: a passkey sign-in's email is anyone's address, so it needs the Microsoft account.
+ * Teams: only someone with a Microsoft sign-in, addressed by their Entra object id (the Microsoft
+ * account's id, which is Graph's user id), never an email: a profile or passkey email is anyone's
+ * address, and a sign-in name isn't always the mail address. Null for anyone else.
  */
 export function teamsRecipient(r: Pick<Recipient, "authUser">): string | null {
-  return r.authUser && r.authUser.accounts.length > 0 ? r.authUser.email || null : null;
+  return r.authUser?.accounts[0]?.accountId || null;
 }
 
 /** For any query that feeds teamsRecipient: the person's Microsoft account, if they have one. */
-export const MICROSOFT_ACCOUNTS = { where: { providerId: "microsoft" }, select: { id: true } } as const;
-
-/** The family's Teams link, decrypted; null when it isn't set up. Throws ConfigError if unreadable. */
-export async function householdTeamsUrl(householdId: string): Promise<string | null> {
-  const row = await prisma.householdAlerts.findUnique({ where: { householdId } });
-  if (!row?.teamsWebhookEnc || !row.teamsWebhookIv || !row.teamsWebhookTag) return null;
-  try {
-    return decryptSecret(
-      { encryptedValue: Buffer.from(row.teamsWebhookEnc), iv: Buffer.from(row.teamsWebhookIv), authTag: Buffer.from(row.teamsWebhookTag) },
-      householdTeamsAad(householdId),
-    );
-  } catch {
-    // Key rotated or row damaged: Node's own message means nothing to an admin.
-    throw new ConfigError("The family's Teams link can't be read anymore. Paste it again.");
-  }
-}
+export const MICROSOFT_ACCOUNTS = { where: { providerId: "microsoft" }, select: { id: true, accountId: true } } as const;
 
 async function record(personId: string, channel: Channel, error: string | null) {
   const now = new Date();
@@ -161,7 +150,7 @@ async function pushToDevices(r: Recipient, payload: PushPayload, senders: Sender
 async function sendToPerson(
   r: Recipient,
   channels: Channel[],
-  teamsUrl: string | null,
+  teamsAppId: string | null,
   title: string,
   path: string,
   appName: string,
@@ -175,10 +164,11 @@ async function sendToPerson(
       let error: string | null = null;
       try {
         if (channel === "teams") {
-          if (!teamsUrl) throw new ConfigError("Teams isn't set up for the family yet.");
-          const to = teamsRecipient(r);
-          if (!to) throw new ConfigError(`${r.firstName} needs to sign in here with Microsoft once before Teams can reach them.`);
-          await (card ? senders.teams(teamsUrl, to, title, link, card) : senders.teams(teamsUrl, to, title, link));
+          if (!teamsAppId) throw new ConfigError("Teams isn't set up for the family yet.");
+          const aadObjectId = teamsRecipient(r);
+          if (!aadObjectId) throw new ConfigError(`${r.firstName} needs to sign in here with Microsoft once before Teams can reach them.`);
+          const to = { personId: r.id, aadObjectId };
+          await (card ? senders.teams(teamsAppId, to, title, link, card) : senders.teams(teamsAppId, to, title, link));
         } else if (channel === "email") {
           const to = recipientEmail(r);
           if (!to) throw new ConfigError(`There's no email address for ${r.firstName}.`);
@@ -189,7 +179,9 @@ async function sendToPerson(
       } catch (err) {
         // Every sender throws fixed text only (never a URL, token or secret).
         error = message(err);
-        if (!(err instanceof ConfigError)) captureError(new Error(`Alert delivery failed (${channel}): ${error}`));
+        // A Teams setup problem (a policy, an app not published yet) is the admins' to fix, not a fault.
+        const setup = err instanceof ConfigError || (err instanceof TeamsError && err.kind !== "failed");
+        if (!setup) captureError(new Error(`Alert delivery failed (${channel}): ${error}`));
       }
       out[channel] = error;
       await record(r.id, channel, error);
@@ -240,17 +232,10 @@ export async function deliverNotifications(where: Prisma.NotificationWhereInput,
     });
     if (notes.length === 0) return;
 
-    // One household per call: load and decrypt the family link once. No link is a chosen
-    // state, so Teams is quietly skipped. An unreadable link is a fault, so it's stamped on
-    // every Teams recipient (shown on the Alerts page) instead of failing silently.
-    let teamsUrl: string | null = null;
-    let teamsFault: string | null = null;
+    // One household per call: the family's Teams app once. Not published is a chosen state
+    // (Teams isn't set up), so Teams is quietly skipped.
     const keys = await getVapidState();
-    try {
-      teamsUrl = await householdTeamsUrl(notes[0].householdId);
-    } catch (err) {
-      teamsFault = message(err);
-    }
+    const teamsAppId = await familyTeamsAppId(notes[0].householdId);
     const appName = await getAppName(notes[0].householdId);
 
     await Promise.allSettled(
@@ -259,17 +244,16 @@ export async function deliverNotifications(where: Prisma.NotificationWhereInput,
         if (n.recipient.entraAccessEndedAt && !opts.includeEnded) return Promise.resolve();
         const p = n.recipient.alertPrefs;
         const wantsTeams = opts.channels === "teams-first" || (opts.channels === "prefs" && Boolean(p?.teamsEnabled));
-        if (wantsTeams && teamsFault) await record(n.recipient.id, "teams", teamsFault);
         // Push has no switch: registered devices are the opt-in. Keys missing while devices
         // exist is a fault (they were set up once), so it's recorded, not skipped.
         const hasPhones = n.recipient.pushSubscriptions.length > 0;
         if (hasPhones && !keys.ok) await record(n.recipient.id, "push", pushProblem(keys));
         const channels: Channel[] = [];
-        if (wantsTeams && teamsUrl) channels.push("teams");
+        if (wantsTeams && teamsAppId) channels.push("teams");
         if ((opts.channels === "prefs" && p?.emailEnabled) || (opts.alsoEmail && alertMailbox() !== null)) channels.push("email");
         if (hasPhones && keys.ok) channels.push("push");
         if (channels.length === 0) return Promise.resolve();
-        return sendToPerson(n.recipient, channels, teamsUrl, n.title, n.href, appName, senders, opts.card);
+        return sendToPerson(n.recipient, channels, teamsAppId, n.title, n.href, appName, senders, opts.card);
       }),
     );
   } catch {
@@ -280,17 +264,8 @@ export async function deliverNotifications(where: Prisma.NotificationWhereInput,
 /** "Send a test" on /settings/alerts: one channel, one person, a fixed message. */
 export async function sendTest(householdId: string, personId: string, channel: Channel, senders: Senders = defaultSenders) {
   const r = await prisma.person.findFirstOrThrow({ where: { id: personId, householdId }, select: recipientSelect });
-  let teamsUrl: string | null = null;
-  if (channel === "teams") {
-    try {
-      teamsUrl = await householdTeamsUrl(householdId);
-    } catch (err) {
-      const error = message(err);
-      await record(r.id, "teams", error);
-      return error;
-    }
-  }
+  const teamsAppId = channel === "teams" ? await familyTeamsAppId(householdId) : null;
   const appName = await getAppName(householdId);
-  const out = await sendToPerson(r, [channel], teamsUrl, `Test from ${appName} — alerts are working! 🎉`, "/points#orders", appName, senders);
+  const out = await sendToPerson(r, [channel], teamsAppId, `Test from ${appName} — alerts are working! 🎉`, "/points#orders", appName, senders);
   return out[channel] ?? null;
 }

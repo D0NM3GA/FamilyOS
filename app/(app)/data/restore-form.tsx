@@ -12,7 +12,7 @@ type Preview = {
   keptLinked: string[];
   newMembersNeedingPin: number;
   matchedButRemoved: number;
-  timeZoneWarning: string | null;
+  timeZoneNote: string | null;
   anythingToDelete: boolean;
   sealedMoneyJars: number;
   money: { canRestore: true; counts: MoneyCounts } | { canRestore: false; reason: string } | null;
@@ -71,7 +71,6 @@ export function RestoreForm() {
   const router = useRouter();
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const [confirm, setConfirm] = useState("");
-  const [allowTz, setAllowTz] = useState(false);
   const [withMoney, setWithMoney] = useState(false);
 
   async function onFile(file: File | undefined) {
@@ -81,7 +80,6 @@ export function RestoreForm() {
     const { ok, body } = await post(text, "mode=preview");
     if (!ok) return setStep({ kind: "errors", errors: body.errors ?? ["That didn't work."] });
     setConfirm("");
-    setAllowTz(false);
     setWithMoney(false);
     setStep({ kind: "preview", text, preview: body.preview as Preview, fileHash: body.fileHash as string });
   }
@@ -89,7 +87,6 @@ export function RestoreForm() {
   async function onApply() {
     if (step.kind !== "preview") return;
     const query = new URLSearchParams({ mode: "apply", confirm, hash: step.fileHash, plan: step.preview.planDigest });
-    if (allowTz) query.set("allowTimeZoneMismatch", "1");
     if (withMoney) query.set("money", "1");
     setStep({ kind: "working", label: "Restoring… keep this page open." });
     const { ok, body } = await post(step.text, query.toString());
@@ -134,7 +131,7 @@ export function RestoreForm() {
 
   if (step.kind === "preview") {
     const p = step.preview;
-    const canApply = confirm === "REPLACE" && (!p.timeZoneWarning || allowTz);
+    const canApply = confirm === "REPLACE";
     return (
       <div className="mt-3 space-y-3 text-sm">
         <p className="font-medium text-foreground">This will replace the household&apos;s data with the backup&apos;s.</p>
@@ -200,12 +197,8 @@ export function RestoreForm() {
           Not in a backup, so not restored: PINs, photos (they come back from Microsoft 365), and connected services.
           A copy of the household as it is now downloads automatically before anything changes.
         </p>
-        {p.timeZoneWarning && (
-          <label className="flex items-start gap-2 rounded-md bg-amber-50 p-2 text-xs text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30">
-            <input type="checkbox" checked={allowTz} onChange={(e) => setAllowTz(e.target.checked)} />
-            <span>{p.timeZoneWarning} Restore anyway</span>
-          </label>
-        )}
+        {/* Phase 49: a backup from another zone has its days moved, not shifted. */}
+        {p.timeZoneNote && <p className="text-xs text-muted-foreground">{p.timeZoneNote}</p>}
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={confirm}

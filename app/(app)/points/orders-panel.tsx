@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { formatRelative } from "@/lib/format";
+import { useHouseholdZone } from "@/components/household-zone";
 import type { OrderAction } from "@/lib/store/rules";
 import { btn, btnPrimary, field } from "@/components/styles";
 import { handleOrder } from "./actions";
@@ -40,6 +41,7 @@ export function OrdersPanel({ orders }: { orders: OpenOrder[] }) {
 
 function OrderRow({ order }: { order: OpenOrder }) {
   const [pending, start] = useTransition();
+  const zone = useHouseholdZone();
   const [error, setError] = useState<string | null>(null);
   const [noteFor, setNoteFor] = useState<OrderAction | null>(null);
   const [note, setNote] = useState("");
@@ -66,7 +68,7 @@ function OrderRow({ order }: { order: OpenOrder }) {
             {order.who} {waiting ? "wants" : "bought"} {order.title}
           </p>
           <p className="text-xs text-muted-foreground">
-            ⭐ {order.cost} · {formatRelative(order.createdAt)}
+            ⭐ {order.cost} · {formatRelative(order.createdAt, zone)}
             {waiting && <> · needs your OK (<RewardWord /> on hold)</>}
           </p>
         </div>

@@ -299,14 +299,23 @@ export function planDigest(plan: PeoplePlan): string {
 }
 
 /**
- * Chore/med due dates and vehicle log dates are stored as the server's local midnight, so
- * restoring on a server in another timezone would shift every one of them (and duplicate
- * instances). Returns a warning, or null when they match.
+ * Phase 49: a backup's days (chore and med due dates, vehicle and school dates) are written in
+ * its `exportedTimeZone`; older files recorded the server's zone, which is what their days were
+ * written in. A restore moves them to the restored household's zone, keeping each date and clock
+ * time (lib/household-zone.ts). `fallback` is the zone used for a missing or unknown one.
  */
-export function timeZoneMismatch(b: Backup, serverTimeZone: string): string | null {
-  return b.exportedTimeZone === serverTimeZone
-    ? null
-    : `This backup was made on a server set to ${b.exportedTimeZone}, but this server is set to ${serverTimeZone}. Dates would shift.`;
+export function restoredDayZones(b: Backup, fallback: string): { from: string; to: string } {
+  return {
+    from: canonicalizeTimeZone(b.exportedTimeZone) ?? fallback,
+    to: (b.household.timezone && canonicalizeTimeZone(b.household.timezone)) || fallback,
+  };
+}
+
+/** What the preview says when the restore will move the days, or null when it won't. */
+export function dayZoneNote(zones: { from: string; to: string }): string | null {
+  if (zones.from === zones.to) return null;
+  const name = (z: string) => z.replace(/_/g, " ");
+  return `Dates in this backup were saved in ${name(zones.from)} time. They'll be moved to ${name(zones.to)} time, each keeping its date and clock time.`;
 }
 
 /** Household fields a file may lack (added after its version); each has a default. */

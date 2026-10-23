@@ -25,8 +25,12 @@ cleanup() {
 trap cleanup EXIT
 
 key() { node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"; }
-# The browser's zone and the server's must agree, or pages render dates differently on each side.
-zone="$(node -e "console.log(Intl.DateTimeFormat().resolvedOptions().timeZone)")"
+# Phase 49: the server's TZ is deliberately not the browser's. Setup takes the household's zone
+# from the browser, and the app then keeps the household's time, so the pages must still agree
+# with the browser (a mismatch would be a hydration error the browser tests catch).
+browser_zone="$(node -e "console.log(Intl.DateTimeFormat().resolvedOptions().timeZone)")"
+zone="Pacific/Kiritimati"
+test "$browser_zone" != "$zone" || zone="Pacific/Pago_Pago"
 password="$(node -e "console.log(require('crypto').randomBytes(18).toString('hex'))")"
 mkdir -p "$work/secrets"
 printf '%s' "$password" > "$work/secrets/db_password"

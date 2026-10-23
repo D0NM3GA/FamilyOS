@@ -175,9 +175,9 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | — | Remove the dev sign-in (just before going live) | tabled |
 | — | LMS connector (Canvas or Google Classroom) | waiting |
 | 48 | Slim the migrate image to Prisma's CLI | merged |
-| 49 | The household's timezone in every date calculation | next |
-| 50 | Teams without Power Automate | later |
-| 51 | Find the school calendar from the school's web address | later |
+| 49 | The household's timezone in every date calculation | merged |
+| 50 | Teams without Power Automate: the app's own Teams bot, a jar chat picked from a list | merged |
+| 51 | Find the school calendar from the school's web address | next |
 | 52 | Statement imports that work out their own columns | later |
 | 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | later |
 | 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | built |
@@ -204,13 +204,14 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 
 ## Current state
 
-Everything through Phase 46, and Phase 48 (the migrate image cut from 2.26 GB to about 690 MB),
-is merged to `main` (2026-10-23). The project moved to this public
-repository the same day (one clean commit; the earlier history is archived privately). `main`
-takes changes only through pull requests: a ruleset requires the three CI jobs and the container
-check, and a pull request merges itself once they pass. Every merge to `main` publishes the
-tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`, public, tagged
-`sha-<commit>`, with signed provenance).
+Everything through Phase 46, Phase 48 (the migrate image cut from 2.26 GB to about 690 MB) and
+Phase 49 (the household's timezone everywhere) and Phase 50 (Teams through the family's own
+Teams app, no Power Automate) are merged to `main` (2026-10-23). The project moved to this
+public repository the same day (one clean commit; the earlier history is archived privately).
+`main` takes changes only through pull requests: a ruleset requires the three CI jobs and the
+container check, and a pull request merges itself once they pass. Every merge to `main`
+publishes the tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`, public,
+tagged `sha-<commit>`, with signed provenance).
 
 **Tabled until the owner says it's time (2026-10-23):** going live (the server, Cloudflare
 Tunnel and Access, the pinned version, backups and break-glass, following
@@ -219,13 +220,9 @@ The database still holds test data only.
 
 **Next, the remaining engineering work, in this order** (each its own phase and pull request;
 the owner's questions are asked at each scope):
-1. **Phase 49 — The household's timezone in every date calculation**, so "today", due dates and
-   streaks no longer depend on the server's `TZ`.
-2. **Phase 50 — Teams without Power Automate:** a "Connect Teams" button through Graph, and
-   picking a jar's Teams chat from a list.
-3. **Phase 51 — Find the school calendar** from the school's web address.
-4. **Phase 52 — Statement imports that work out their own columns.**
-5. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
+1. **Phase 51 — Find the school calendar** from the school's web address.
+2. **Phase 52 — Statement imports that work out their own columns.**
+3. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
    alert mailbox set and tested in Settings, a link to Entra's role assignments.
 
 The decisions waiting on the owner are under "Open items".
@@ -627,6 +624,265 @@ folded in.
 - A distroless or Alpine base: the schema engine `install` fetched is matched to this base
   image's C library, and the app image uses the same base.
 
+## Phase 49 — scope (the household's timezone everywhere, 2026-10-23)
+
+"Today", due dates, streaks, the week on the calendar and every date the server prints follow
+the server process's clock (`TZ`), not `Household.timezone`. Settings → Household only warns
+when the two differ. A sweep found about 140 server call sites that use the local clock
+(`atMidnight`, `addDays`, local getters, `toLocale…` with no zone, `todayCivil`), 6 in the
+browser, and a handful of columns that store a day as the server's local midnight. A few places
+already read the household zone (`lib/people.ts` `dayInZone` and `middayInZone`,
+`lib/calendar/agenda.ts`, school feeds, `formatEventWhen`). Most of finance is zone-free
+(`@db.Date` columns and UTC civil-date maths); its "today" (`todayCivil`) and
+`lib/finance/grocery-link.ts` `localDay` use the local clock.
+
+**The approach (recommended): the server's clock is the household's.** One server serves one
+household by design, so instead of passing a zone through 140 call sites, the app sets its own
+process zone to the household's. Node 24 picks up `process.env.TZ` changes at run time: local
+`Date` getters, `toLocale…` and `Intl` defaults follow at once (checked). The deployment fits:
+one standalone Node process, no render workers, `proxy.ts` on the Node runtime, and no
+`use cache`, `unstable_cache` or `revalidate` anywhere. Prisma is unaffected: its Postgres
+adapter reads and writes `timestamp(3)` as UTC. Better Auth and Sentry use instants only. The
+alternative, a zone passed into every date function, is a far bigger change with more ways to
+miss a spot, and only pays off with several households per server, which this app will never
+have. Fable's scope review (2026-10-23) is folded in.
+
+### 49.1 — The server follows the household's zone
+
+- `lib/household-zone.ts`: `applyHouseholdZone(zone)` sets `process.env.TZ` to the zone's
+  canonical name only (an unknown name would silently become UTC; Intl's canonical form can
+  differ, e.g. `Asia/Calcutta` for `Asia/Kolkata`) and logs a change once. It runs at start
+  (`instrumentation.ts`, skipped during `next build`), on every request where
+  `app/(app)/layout.tsx` already reads the household settings (a string compare), on every
+  background tick, after the zone is saved (Settings → Household, the guided setup) and after a
+  restore. Re-applying per request and per tick closes the start-up window and keeps a second
+  app instance in step. With no zone set, the deploy's `TZ` is used as before.
+- No `Intl.DateTimeFormat` kept at module level (a made formatter keeps its zone for good) and
+  no date worked out at load (`CURRENT_YEAR` in `app/(app)/vehicles/actions.ts`): a guard test
+  checks for both.
+- The mismatch warning (`warnIfTimezoneMismatch`, Settings' "the server is set to …" notice) is
+  retired. A comment where the zone is set says why the process zone is global state on purpose
+  (one household per server).
+
+### 49.2 — Stored days move with the zone
+
+- **`Household.dayZone`** (new) records the zone the stored days were written in. Whenever it
+  differs from the zone to apply, the days are moved first, then `dayZone` is set. That covers
+  a zone change in Settings, the first save of a zone, and **the upgrade itself**: setup already
+  stores the device's zone, so installs today can have `Household.timezone` set while their days
+  were written in the deploy's `TZ`. The migration starts `dayZone` empty, and the first apply
+  after the upgrade treats it as a move from the process zone.
+- **What moves:** `TaskDefinition.startDate`, `TaskInstance.dueDate`,
+  `VehicleMaintenanceItem.lastDoneAt`, `VehicleServiceLog.doneAt`, `VehicleFuelLog.filledAt`,
+  `SchoolTask.dueDate`, `SchoolAssignment.dueDate` for rows typed in (every row today; an LMS
+  connector's rows will carry their own times, and school feed events are instants in their own
+  table), and `ItemPrice.observedAt` where it came
+  from a receipt's printed date without a trip (`lib/groceries/receipts.ts`). The build confirms
+  the list against every writer. **What doesn't:** instants (`createdAt`, `completedAt`,
+  sign-ins, calendar and feed events) and the people dates `middayInZone` already writes in the
+  household zone.
+- **The move** happens in the same transaction that saves the zone: each value's date and clock
+  time in the old zone become the same date and clock time in the new one, so a chore due Tuesday
+  stays due Tuesday and an 8:00 AM dose stays at 8:00 AM. A clock time that doesn't exist or
+  happens twice on a DST change is settled the same way every time. (Built in JavaScript with the
+  app's zone data, not Postgres's `AT TIME ZONE`: Fable's implementation review found Intl names
+  Postgres doesn't know.) Clearing the zone moves the days back to the deploy's. `TaskInstance` is
+  unique on `(definitionId, dueDate)`, checked row by row, so a 12-hour move of an 8 AM and an
+  8 PM dose would collide halfway: the rows go to a far-off placeholder first, then to their
+  new values.
+- **The lock:** instances are generated on page loads (Home, Chores, Meds, a person's page,
+  the print chart, the calendar, calendar sync) with `createMany` outside a transaction, not
+  only by background jobs. The move takes an exclusive advisory lock (the pattern in
+  `lib/setup.ts`); instance generation runs in a transaction holding the shared one, so nothing
+  is written in the old zone halfway through a move.
+
+### 49.3 — Backups and restores
+
+- `exportedTimeZone` records `dayZone`, the zone the backup's days are written in. Older backups
+  recorded the server's zone, which before this phase is what the days were written in, so both
+  read the same way. Today a restore across zones is refused unless the admin accepts the shift
+  ("Dates would shift"). Instead, the restore moves the restored days from `exportedTimeZone` to
+  the restored household's zone, says so in the
+  restore summary, sets `dayZone` and applies the zone. A member's own money download
+  (`/api/backup/my-money`) holds only jar data, whose dates don't depend on a zone.
+
+### 49.4 — The browser shows the household's dates
+
+- The 6 browser call sites (the chore and meds forms' start date, the Shop list's saved note,
+  `formatRelative` on task cards, the bell and the points orders; the build confirms the list) get the server's "today" or the
+  zone as a prop and format with `timeZone`. That also ends the possible mismatch between the
+  server's render and the browser's.
+
+### 49.5 — Away from home: both times (the owner's call)
+
+- When a grown-up's or kid's device is in a different zone from the household's (a vacation),
+  timed things show the home time first and the time where they are beside it, so medication
+  stays on its regular schedule: "8:00 AM at home · 2:00 PM here". That covers dose times on
+  Meds, Home and task cards, timed calendar and Outlook events, and other times of day the
+  server prints. Days stay the household's days: a chore due Tuesday is due on home's Tuesday.
+- A small shared component renders the home time on the server (so the first render matches)
+  and adds the "here" time in the browser after it loads, only when the zones differ. A short
+  note at the top of Home says once that times show home and here while away.
+- The device's zone is read in the browser (`Intl`), never sent to or stored on the server.
+
+### 49.6 — Tests
+
+- Vitest runs with a fixed zone that has daylight saving (`America/New_York`), so date tests
+  don't depend on the developer's machine.
+- Unit: the move across a DST change, dose times, month ends, a clock time that doesn't exist
+  and one that happens twice; canonical names only.
+- Database: a save that moves days; the two-dose collision; the upgrade move (`dayZone` empty,
+  household zone set, process zone different); typed-in versus connector school rows; the lock
+  against instance generation; a restore across zones, including an older backup.
+- Browser: change the zone in Settings and find a chore still on its day; with the browser in a
+  different zone from the household's, a dose shows both times; in the same zone, only one.
+
+### 49.7 — Docs and guides
+
+- `docs/guides/admin.md`: set the timezone in Settings; the server's `TZ` no longer has to match.
+  `familyos.env.example`: `TZ` is only used until a zone is set. README, `docs/BUILD.md`, this
+  plan. `docs/guides/family.md`: what the two times mean while away.
+
+### Checks
+
+- Lint, types, unit, database and browser tests; the container test with the server's `TZ` set
+  to a different zone than the household's, to prove the household's wins (the browser tests
+  set up the household with the browser's zone, so the pages still agree with the browser); the
+  restore drill; the privacy check.
+
+### Not in this phase
+
+- A zone per person saved on the server: the device's own zone covers travel (49.5).
+- Storing days as `@db.Date`: cleaner, but every column above and its callers would change, and
+  med doses carry a time of day. The move in 49.2 gives the same result for users.
+- Several households per server.
+
+### The owner's answers (2026-10-23)
+
+1. **The server follows the household's zone**, not a zone passed through every function.
+2. **Changing the zone later keeps each saved day and dose time** on its date and clock time.
+3. **Away from home, show both:** the original time in the household's zone and the time where
+   the viewer is, so medication and routines stay regular (49.5).
+
+## Phase 50 — scope (Teams without Power Automate, 2026-10-23)
+
+Teams alerts go through a Power Automate Workflows link that one admin builds by hand (a template,
+a trigger set to "Anyone", an expression for the recipient, a second branch and a condition for
+jar chats; README "Teams"), and a jar's Teams chat is a pasted link. The link is a password
+anyone holding it can use to message anyone in the tenant as the Flow bot. The aim: connect Teams
+from Settings with Microsoft's own pieces, pick a jar's chat from a list, and drop the Workflows
+link.
+
+**What Microsoft allows (researched 2026-10-23, Microsoft Learn):**
+- **An app can't post chat messages as itself.** Graph's send-message calls take delegated
+  permissions only (app-only is for importing history). Posting as a family member would make
+  alerts come "from Dad" and can't reach Dad himself.
+- **Activity feed notifications** (`TeamsActivity.Send`) are app-only, but they can only link to
+  a Teams address, not the app's, and Microsoft shows them on phones only for apps on its allow
+  list. Most of the family reads alerts on a phone.
+- **A Teams bot** can message a person or a group chat it's installed in, with the Adaptive Cards
+  the app already builds. That's what the Flow bot is. A single-tenant Azure Bot can use the
+  family's existing app registration (new multi-tenant bots ended July 2025). The app can
+  install itself for each person through Graph (`TeamsAppInstallation.ReadWriteSelfForUser.All`)
+  and in a chat (`…SelfForChat.All`), read that person's bot chat from the install, and send
+  through the Bot Connector service. Nothing has to reach the app from outside, so Cloudflare
+  Access stays as it is.
+
+**The approach (recommended): the app's own Teams bot.** Fable's scope review (2026-10-23)
+checked it against Microsoft's docs: installing through Graph, reading the person's chat id from
+the install and posting with the global service address, without ever receiving anything, is
+Microsoft's own documented pattern; a single-tenant token works; the free tier covers Teams.
+
+### 50.1 — The family's Teams app
+
+- The app builds its Teams app package itself: a manifest with a notification-only bot
+  (`isNotificationOnly`, so there's no compose box), personal and group chat scopes, and
+  `webApplicationInfo` (`id` the app registration, `resource` `api://botid-{appId}`; without it
+  Graph won't list the installs). Name, developer name and descriptions come from the family's
+  settings (Make it yours), never a fixed product name; its URLs from `BETTER_AUTH_URL`. Icons: the
+  192×192 color icon from `lib/app-icon.tsx`, and a new 32×32 outline, white on transparent only
+  (Teams rejects anything else). Nothing in it leaves the family's tenant.
+- `HouseholdAlerts` keeps the manifest's fixed id, the catalog's app id, and the published
+  version and a hash of what it was built from. A changed name or icon publishes a new version
+  (`/appDefinitions`). The catalog takes a moment to show a new app, so the first install retries.
+- Settings → Alerts → **Teams** shows what's done and what's next, as a short checklist: the
+  Azure Bot answers (a test token and a dry call), the app is in the catalog, each grown-up has
+  it, and a test message arrived.
+
+### 50.2 — Messages to each grown-up
+
+- `lib/alerts/teams.ts` sends through Bot Connector (`/v3/conversations/{chatId}/activities`)
+  with a token for `https://api.botframework.com/.default` from the existing app registration
+  (`lib/graph/app-token.ts`). The cards stay as they are (`teamsPayload` without `recipient`).
+- A grown-up signed in with Microsoft gets the app installed for them on first need, addressed by
+  their Entra object id (the Microsoft `Account.accountId`, never the email), and their bot
+  chat's id is read from the install and kept (`AlertPrefs`, with the install id). Handled
+  explicitly: `BotDisabledByAdmin` (a plain "Teams isn't allowed for you here"), not in the chat
+  or chat gone (reinstall, read the chat again, send once more; this also covers a quiet chat
+  Teams has let lapse), 429 (wait for Retry-After), 401 (a fresh token).
+- Same rules as today: only people with a Microsoft sign-in, recipients from
+  `lib/alerts/targets.ts`, failures on Settings → Alerts, one bad recipient never stops the rest.
+  The bot sends only: a message typed to it isn't answered (there's no inbound address).
+
+### 50.3 — A jar's group chat, picked from a list
+
+- Jar Settings → **Teams chat** lists the group chats the signed-in member is in (delegated
+  `Chat.ReadBasic`, asked for on this button only; `/me/chats?$filter=chatType eq 'group'` with
+  members, paged), by topic and members' names, with anyone outside the family's organization
+  marked (posts reach them too). Picking one installs the bot there and sends a hello. The pasted
+  link and its parsing go.
+- The app may install itself in any chat in the tenant (`…SelfForChat.All`), so the pick is the
+  guard: only a jar member, and the server accepts only a chat id from that member's own fresh
+  listing at save time, of type group. Without a chat-reading permission the bot never sees the
+  chat's messages (it would only hear an @mention, and it doesn't listen); the guide says so.
+- A one-to-one chat can't be picked, as today. Posts no longer need a member's address.
+
+### 50.4 — Retire the Workflows link
+
+- `HouseholdAlerts`' encrypted link and its host (the table stays for 50.1's columns), its checks
+  (`checkTeamsWebhookUrl`, `*.logic.azure.com`, `sig`, the AAD label), the Sentry rule that
+  treats those hosts as private (`lib/observability/options.ts`), the link form
+  (`settings/alerts/controls.tsx`), their tests, and the README's Power Automate steps go.
+  `lastSentTeams` now means Teams accepted the message (Bot Connector's 201). Backups don't change
+  (alert settings were never in them).
+
+### 50.5 — Setup an admin does once
+
+- In the Azure portal: create an **Azure Bot** (free tier), single-tenant, "use existing app
+  registration" (the family's), and turn on the **Microsoft Teams** channel. The messaging
+  address can be left empty or be the app's: Teams' install notices then stop at Cloudflare
+  Access and show as delivery failures in the Azure Bot resource, which is expected.
+- In Entra: grant `TeamsAppInstallation.ReadWriteSelfForUser.All` and
+  `TeamsAppInstallation.ReadWriteSelfForChat.All` (application), and `Chat.ReadBasic`
+  (delegated).
+- In Teams admin center: allow custom apps for the family (an app permission policy), then add
+  the app to the catalog (see question 3).
+- `docs/guides/admin.md` and the README get these steps; the
+  family guide says where Teams alerts come from now.
+
+### Tests
+
+- Unit: the manifest (family name and icon, no fixed name, required fields and lengths,
+  `isNotificationOnly`, the outline icon only white and transparent), a new version when the name
+  or icon changes, the Bot Connector payload, error wording, install and chat-id handling with
+  Graph mocked (the roster 403 reinstall, 429, 401). Database: recipients, a missing install, one
+  failure among several, a jar chat pick (only an id from the member's own listing; an external
+  member shown). The guard tests keep the Workflows hosts out. No live Microsoft call in CI.
+
+### Not in this phase
+
+- Answering from Teams (approve an order with a button): the bot would need an address Teams can
+  call, through Cloudflare Access; a later phase if wanted.
+- Activity feed notifications, and alerts to kids (no Microsoft sign-in).
+
+### The owner's answers (2026-10-23)
+
+1. **The app's own Teams bot**, not activity notifications or Power Automate.
+2. **Create a free-tier Azure Bot** in the family's tenant (an Azure subscription, no cost at
+   this size), on the family's existing app registration.
+3. **An Add to Teams button** for an admin who is a Teams or Global administrator, publishing
+   through Graph, and again when the name or icon changes.
+4. **Remove the Workflows link now:** nothing is live yet.
 ## Phase 54 — scope (the pet's fun pass, 2026-10-23)
 
 **The owner's call (2026-10-23):** items 1–5 of the researched fun list, split in two on Fable's
@@ -769,10 +1025,6 @@ advice. Same rules as Phase 47 and 54. To be re-scoped against the code once Pha
 
 - **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
   with it. Removing it before going live is planned (the owner's call to keep it for now).
-- **Dates follow the server's clock** until the deployment's `TZ` matches the household's zone;
-  using the household timezone in every date calculation is Phase 49.
-- **Teams alerts need a Power Automate flow**; a "Connect Teams" button through Graph, and
-  picking a jar's Teams chat from a list, are Phase 50.
 - **Other setup friction:** finding the school calendar from the school's web address (Phase
   51), statement imports that work out their own columns (Phase 52), and VIN entry or scanning,
   smoother bank-feed setup, the alert mailbox set and tested in Settings, and a link to Entra's

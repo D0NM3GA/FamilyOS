@@ -29,6 +29,7 @@ import { getMyWallet, getOpenOrders } from "@/lib/store/queries";
 import { getDisabledApps } from "@/lib/app-switches";
 import { appsOffFor, isAppOn } from "@/lib/apps";
 import { SubmitButton } from "@/components/submit";
+import { AwayNote, AwayTime } from "@/components/away-time";
 import { signInKind } from "@/lib/sign-in-kind";
 import { microsoftEnabled } from "@/lib/auth";
 
@@ -148,6 +149,9 @@ export default async function HomePage() {
   return (
     <div className="p-4 sm:p-6">
       <h1 className="sr-only">Home</h1>
+      <div className="mb-4 empty:hidden">
+        <AwayNote />
+      </div>
       <BunsonMoment
         kind="chatty"
         text={greetingLine(profile.firstName, currentHour(zone), on("chores") ? choreProgressFor(profile.id, choreBoard) : null, words)}
@@ -288,7 +292,10 @@ export default async function HomePage() {
                 {schoolEvents.slice(0, 3).map((e) => (
                   <li key={`${e.feedId}-${e.occurrenceKey}`} className="flex justify-between gap-2 px-1 text-sm text-muted-foreground">
                     <span className="truncate">📅 {e.title}</span>
-                    <span className="shrink-0 text-xs">{formatEventWhen(e, zone)}</span>
+                    <span className="shrink-0 text-xs">
+                      {formatEventWhen(e, zone)}
+                      {!e.allDay && <AwayTime at={e.startsAt} />}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -382,7 +389,10 @@ async function CalendarCard({ load, index }: { load: Promise<ThisWeekResult>; in
           {result.events.map((e) => (
             <li key={e.id} className="flex justify-between gap-2 text-sm">
               <span className="min-w-0 truncate text-foreground">{e.subject}</span>
-              <span className="shrink-0 text-muted-foreground">{formatEventTime(e)}</span>
+              <span className="shrink-0 text-muted-foreground">
+                {formatEventTime(e)}
+                {!e.isAllDay && <AwayTime at={e.start} />}
+              </span>
             </li>
           ))}
         </ul>

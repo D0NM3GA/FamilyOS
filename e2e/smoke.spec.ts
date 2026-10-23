@@ -350,6 +350,66 @@ test("the Shop list opens without signal, and its ticks sync later", async () =>
   problems.expectNone();
 });
 
+test("a dose away from home shows both times, and a new zone keeps saved days on their day", async ({ browser }) => {
+  // Phase 49: the household's zone is the one setup took from this browser.
+  const home = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  await page.goto("/meds/new");
+  await page.getByLabel("Medication").fill("Vitamin D");
+  await page.getByLabel("Time", { exact: true }).fill("08:00");
+  await page.getByRole("radio", { name: "Dad" }).check();
+  await page.getByRole("button", { name: "Add medication" }).click();
+  await expect(page).toHaveURL(/\/meds$/);
+  await expect(page.getByText(/8:00\sAM/).first()).toBeVisible();
+  await expect(page.getByText(/at home ·/)).toHaveCount(0);
+  problems.expectNone();
+
+  // The same sign-in on a device in another zone (half a day from home, so it's surely different).
+  const away = home === "Asia/Tokyo" ? "America/Los_Angeles" : "Asia/Tokyo";
+  // No motion, like the accessibility pass above: axe would otherwise catch cards mid fade-in.
+  const trip = await browser.newContext({ storageState: await dad.storageState(), timezoneId: away, reducedMotion: "reduce" });
+  try {
+    const travel = await trip.newPage();
+    const tripProblems = watchForProblems(travel);
+    await travel.goto("/meds");
+    await expect(travel.getByText(/8:00\sAM at home,? · .* here/).first()).toBeVisible();
+    await travel.goto("/");
+    await expect(travel.getByRole("note")).toContainText("different time zone from home");
+    await expectAccessible(travel, "/ (away from home)");
+    // The server's render and the browser's agree: no hydration error from the other zone.
+    tripProblems.expectNone();
+  } finally {
+    await trip.close();
+  }
+
+  // A new household zone: the dose's start date stays the same date. Honolulu is behind nearly
+  // every zone, so without the move a midnight here would read as the day before there.
+  await page.goto("/meds/manage");
+  await page.getByRole("link", { name: "Edit Vitamin D" }).click();
+  const started = await page.getByLabel("Starting").inputValue();
+  await page.goto("/settings/household");
+  // What's selected now (CI's browser is in UTC, which the picker lists only as the household's own).
+  const original = await page.getByLabel("Timezone").inputValue();
+  const moved = home === "Pacific/Honolulu" ? "Asia/Tokyo" : "Pacific/Honolulu";
+  const setZone = async (zone: string) => {
+    await page.goto("/settings/household");
+    await page.getByLabel("Timezone").selectOption(zone);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Saved.")).toBeVisible();
+  };
+  await setZone(moved);
+  try {
+    await page.goto("/meds/manage");
+    await page.getByRole("link", { name: "Edit Vitamin D" }).click();
+    await expect(page.getByLabel("Starting")).toHaveValue(started);
+  } finally {
+    // Back to the zone it had, so the rest of the story renders like the browser.
+    await setZone(original);
+  }
+  await page.goto("/meds");
+  await expect(page.getByText(/8:00\sAM/).first()).toBeVisible();
+  problems.expectNone();
+});
+
 test("signing out, and back in with the passkey", async () => {
   await page.goto("/profiles");
   await page.getByRole("button", { name: "Not Dad? Sign out" }).click();

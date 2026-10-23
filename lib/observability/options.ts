@@ -76,7 +76,8 @@ export function withoutConsoleIntegration<I extends { name: string }>(defaults: 
  * Requests whose URL itself is private get no span and no breadcrumb at all (the fetch
  * integration's own filter covers both):
  * - the NWS forecast URL's path IS the household's latitude/longitude;
- * - a Teams Workflows trigger URL's `sig` query parameter IS a bearer secret (Phase 21);
+ * - a Teams message's address IS a chat's id, and the family's Teams app's Graph calls name
+ *   people and chats (Phase 50);
  * - a Web Push endpoint IS a device's capability (Phase 21.6).
  */
 export function isPrivateOutgoingRequest(url: string): boolean {
@@ -87,7 +88,8 @@ export function isPrivateOutgoingRequest(url: string): boolean {
   } catch {
     return false;
   }
-  if (host.endsWith(".logic.azure.com") || host.endsWith(".environment.api.powerplatform.com")) return true;
+  if (host === "smba.trafficmanager.net") return true;
+  if (host === "graph.microsoft.com" && /\/(teamwork|chats|appCatalogs)\b|\/me\/chats/.test(new URL(url).pathname)) return true;
   // Phase 24: Document Intelligence requests carry receipt photos and results.
   if (host.endsWith(".cognitiveservices.azure.com")) return true;
   // Phase 25: bank feeds and card data.

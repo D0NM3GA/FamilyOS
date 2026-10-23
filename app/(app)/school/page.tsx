@@ -4,6 +4,7 @@ import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdmin, isAdult } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { formatEventWhen, formatFullDate } from "@/lib/format";
+import { AwayTime } from "@/components/away-time";
 import { getHouseholdSettings } from "@/lib/household-settings";
 import { getStudentHub, getUpcomingSchoolEvents, listStudents } from "@/lib/school/queries";
 import { scheduleFeedRefresh } from "@/lib/school/feeds/schedule";
@@ -386,7 +387,8 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                     {e.location && <span className="text-xs text-muted-foreground"> · {e.location}</span>}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatEventWhen(e, zone)} · {e.feed.kid?.firstName ?? e.feed.name}
+                    {formatEventWhen(e, zone)}
+                    {!e.allDay && <AwayTime at={e.startsAt} />} · {e.feed.kid?.firstName ?? e.feed.name}
                   </span>
                 </li>
               ))}

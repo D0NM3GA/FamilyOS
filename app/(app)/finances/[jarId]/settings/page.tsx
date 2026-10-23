@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { eligibleMemberWhere, requireJar } from "@/lib/finance/access";
-import { addMember, connectPrivacy, connectSimpleFin, deleteJar, disconnect, importStatement, removeMember, renameJar, scanOrdersNow, setCushion, setJarChat, setMyAlerts, setOrderMail, setSpendingAccounts, testJarChat } from "../../actions";
+import { addMember, allowChatList, connectPrivacy, connectSimpleFin, deleteJar, disconnect, importStatement, removeMember, renameJar, scanOrdersNow, setCushion, setJarChat, setMyAlerts, setOrderMail, setSpendingAccounts, stopJarChat, testJarChat } from "../../actions";
+import { chatLabel, myGroupChats } from "@/lib/teams/jar-chat";
 import { ActionForm, ConfirmSubmit, Submit, SyncButton } from "../../forms";
 import { backLink, btn, card, field } from "@/components/styles";
 import { centsToInput, formatMoney } from "@/lib/money";
@@ -21,9 +22,16 @@ const checkbox = "size-5 shrink-0";
  * Phase 32: which accounts are spending money, and the cushion, for Safe to spend.
  * Phase 37: a link to the jar's Categories page.
  */
-export default async function JarSettingsPage({ params }: { params: Promise<{ jarId: string }> }) {
+export default async function JarSettingsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ jarId: string }>;
+  searchParams: Promise<{ pick?: string; chat?: string; grant?: string }>;
+}) {
   await requireAppOn("money");
   const { jarId } = await params;
+  const shown = await searchParams;
   const { jar, viewer } = await requireJar(jarId);
 
   const orderScan = await prisma.mailOrderScan.findUnique({ where: { personId: viewer.id }, include: { jar: { select: { name: true } } } });
@@ -39,8 +47,8 @@ export default async function JarSettingsPage({ params }: { params: Promise<{ ja
     }),
     prisma.moneyJarMember.findUnique({ where: { jarId_personId: { jarId: jar.id, personId: viewer.id } }, select: { alertBills: true, alertSync: true, alertOverBudget: true, alertLowBalance: true } }),
     prisma.alertPrefs.findUnique({ where: { personId: viewer.id }, select: { lastSentTeams: true, lastErrorTeams: true } }),
-    prisma.householdAlerts.findUnique({ where: { householdId: viewer.householdId }, select: { teamsWebhookEnc: true } }),
-    prisma.moneyJar.findUniqueOrThrow({ where: { id: jar.id }, select: { teamsChatId: true, teamsChatError: true, cushionCents: true } }),
+    prisma.householdAlerts.findUnique({ where: { householdId: viewer.householdId }, select: { teamsAppId: true } }),
+    prisma.moneyJar.findUniqueOrThrow({ where: { id: jar.id }, select: { teamsChatId: true, teamsChatName: true, teamsChatError: true, cushionCents: true } }),
   ]);
   const memberIds = new Set(members.map((m) => m.person.id));
   const addable = eligible.filter((p) => !memberIds.has(p.id));
@@ -52,6 +60,8 @@ export default async function JarSettingsPage({ params }: { params: Promise<{ ja
     ? await prisma.moneyJar.findFirst({ where: { id: sf.skippedJarId, members: { some: { personId: viewer.id } } }, select: { name: true } })
     : null;
   const skippedWhere = skippedIn ? skippedIn.name : `another jar ${sf?.createdBy?.firstName ?? "the person who connected it"} is in`;
+  // Phase 50: the member's own group chats, only while choosing (it's a Microsoft call).
+  const chatList = shown.pick === "1" && teamsLink?.teamsAppId ? await myGroupChats() : null;
   const when = (d: Date | null) => (d ? d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "not yet");
 
   return (
@@ -86,7 +96,7 @@ export default async function JarSettingsPage({ params }: { params: Promise<{ ja
           Sent to your Teams chat (and your phone, if it&apos;s set up), and the bell. Just yours: everyone in the jar picks their own. They
           never include amounts.
         </p>
-        {!teamsLink?.teamsWebhookEnc && <p className="mt-1 text-sm font-semibold">Teams isn&apos;t set up for the family yet, so these only reach the bell and phones.</p>}
+        {!teamsLink?.teamsAppId && <p className="mt-1 text-sm font-semibold">Teams isn&apos;t set up for the family yet, so these only reach the bell and phones.</p>}
         <ActionForm action={setMyAlerts.bind(null, jar.id)} className="mt-2 flex flex-col gap-1.5">
           <label className={checkRow}>
             <input type="checkbox" className={checkbox} name="bills" defaultChecked={mine?.alertBills ?? true} /> A bill is due in the next 3 days, or a bill went up
@@ -112,33 +122,70 @@ export default async function JarSettingsPage({ params }: { params: Promise<{ ja
       <section className={card}>
         <h2 className="font-extrabold">💬 One Teams chat for this jar</h2>
         <p className="text-sm text-muted-foreground">
-          Sends this jar&apos;s alerts once to a Teams group chat instead of to each person. Make a group chat with everyone in the jar
-          (no kids), then in Teams pick the chat&apos;s ⋯ → Copy link, and paste it here. Everyone still gets the bell and their phone. An
-          alert about a 🎁 surprise only goes to the people who can see it.
+          Sends this jar&apos;s alerts once to a Teams group chat instead of to each person. Make a group chat with everyone in the jar (no
+          kids), then choose it here. The family&apos;s Teams app joins the chat to post; it can&apos;t read what anyone writes there. Everyone
+          still gets the bell and their phone. An alert about a 🎁 surprise only goes to the people who can see it.
         </p>
-        {!teamsLink?.teamsWebhookEnc && <p className="mt-1 text-sm font-semibold">Teams isn&apos;t set up for the family yet, so this has nothing to send through.</p>}
-        <ActionForm action={setJarChat.bind(null, jar.id)} className="mt-2 flex flex-wrap gap-2" resetOnSuccess>
-          <input
-            name="chat"
-            required
-            maxLength={2000}
-            placeholder="https://teams.microsoft.com/l/chat/19:…"
-            aria-label="Teams chat link"
-            className={`${field} min-w-0 flex-1`}
-          />
-          <Submit>Save</Submit>
-        </ActionForm>
+        {!teamsLink?.teamsAppId && <p className="mt-1 text-sm font-semibold">Teams isn&apos;t set up for the family yet, so this has nothing to send through.</p>}
+        {shown.chat === "hello" && <p className="mt-1 text-sm font-semibold">Saved, and a hello went to the chat.</p>}
+        {shown.chat === "saved" && <p className="mt-1 text-sm font-semibold">Saved, but the hello didn&apos;t go (see below). Send a test once it&apos;s fixed.</p>}
+        {shown.grant === "failed" && <p className="mt-1 text-sm font-semibold text-tomato">Microsoft didn&apos;t give the permission. Try again, or ask an admin to approve it.</p>}
         {jarRow.teamsChatId && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-semibold">✅ Alerts go to the chat. Paste a new link above to change it.</span>
+            <span className="font-semibold">✅ Alerts go to {jarRow.teamsChatName ? <>&ldquo;{jarRow.teamsChatName}&rdquo;</> : "the chat"}.</span>
             <SyncButton sync={testJarChat.bind(null, jar.id)} label="💬 Send a test" busy="Sending…" />
-            <ActionForm action={setJarChat.bind(null, jar.id)}>
-              <input type="hidden" name="chat" value="" />
+            <ActionForm action={stopJarChat.bind(null, jar.id)}>
               <Submit className={btn} pendingText="…">
                 Stop
               </Submit>
             </ActionForm>
           </div>
+        )}
+        {teamsLink?.teamsAppId && !chatList && (
+          <Link href={`/finances/${jar.id}/settings?pick=1#teams-chat`} className={`${btn} mt-2 self-start`}>
+            {jarRow.teamsChatId ? "Choose another chat" : "Choose a Teams chat"}
+          </Link>
+        )}
+        {chatList && !chatList.ok && (
+          <div className="mt-2 space-y-2 text-sm">
+            <p className="font-semibold">{chatList.error}</p>
+            {chatList.needsGrant && (
+              <ActionForm action={allowChatList.bind(null, jar.id)}>
+                <Submit className={btn}>Allow listing my Teams chats</Submit>
+              </ActionForm>
+            )}
+          </div>
+        )}
+        {chatList?.ok && (
+          <ActionForm action={setJarChat.bind(null, jar.id)} className="mt-2 flex flex-col gap-2">
+            <fieldset id="teams-chat" className="flex flex-col gap-1.5">
+              <legend className="text-sm font-semibold">Your group chats</legend>
+              {chatList.chats.length === 0 && <p className="text-sm text-muted-foreground">You&apos;re not in any group chats yet. Make one in Teams first.</p>}
+              {chatList.chats.map((c) => {
+                const outside = c.members.filter((m) => m.outside);
+                return (
+                  <label key={c.id} className={checkRow}>
+                    <input type="radio" className={checkbox} name="chat" value={c.id} required defaultChecked={c.id === jarRow.teamsChatId} />
+                    <span>
+                      <span className="font-semibold">{chatLabel(c)}</span>
+                      <span className="block text-xs text-muted-foreground">{c.members.map((m) => m.name).join(", ")}</span>
+                      {outside.length > 0 && (
+                        <span className="block text-xs font-semibold text-tomato">
+                          {outside.length === 1 ? "1 person is" : `${outside.length} people are`} from outside your family&apos;s Microsoft 365; alerts would reach them too.
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
+            </fieldset>
+            <div className="flex flex-wrap gap-2">
+              {chatList.chats.length > 0 && <Submit>Use this chat</Submit>}
+              <Link href={`/finances/${jar.id}/settings`} className={btn}>
+                Cancel
+              </Link>
+            </div>
+          </ActionForm>
         )}
         {jarRow.teamsChatError && <p className="mt-1 text-xs font-semibold text-tomato">Last chat alert didn&apos;t go: {jarRow.teamsChatError}</p>}
       </section>

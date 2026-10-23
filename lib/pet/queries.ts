@@ -2,7 +2,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/app/generated/prisma/client";
-import { getHouseholdRow, serverTimeZone } from "@/lib/household-settings";
+import { getHouseholdRow } from "@/lib/household-settings";
+import { processZone } from "@/lib/household-zone";
 import { epochMinute, isCareMinute, MINUTE_MS, type CareHours } from "./care-hours";
 import { play, type CareResult } from "./care";
 import { effectOf, PAYOUT_MINUTES, type GameId } from "./games/catalog";
@@ -55,7 +56,7 @@ type CareSettings = { careHours: CareHours; timeZone: string };
  */
 export async function getCareHours(householdId: string): Promise<CareSettings> {
   const row = await getHouseholdRow(householdId);
-  return { careHours: readCareHours(row?.petCareHours), timeZone: row?.timezone ?? serverTimeZone() };
+  return { careHours: readCareHours(row?.petCareHours), timeZone: row?.timezone ?? processZone() };
 }
 
 function toJson(state: PetState): Prisma.InputJsonValue {
