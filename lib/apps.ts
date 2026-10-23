@@ -36,6 +36,7 @@ export const APPS: readonly AppDef[] = [
   { id: "school", label: "School", emoji: "🎒", href: "/school", group: "everyday", adultOnly: false, tint: "#FFE9D6" },
   { id: "money", label: "Money", emoji: "💰", href: "/finances", group: "everyday", adultOnly: true, tint: "#EAF6DA" },
   { id: "store", label: "Store", emoji: "🛍️", href: "/points", group: "everyday", adultOnly: false, tint: "#E6F4FF" },
+  { id: "pet", label: "Pet", emoji: "🥚", href: "/pet", group: "everyday", adultOnly: false, tint: "#F3E8FF" },
   { id: "cars", label: "Cars", emoji: "🚐", href: "/vehicles", group: "home", adultOnly: true, tint: "#E6F4FF" },
   { id: "garage", label: "Garage", emoji: "🔧", href: "/vehicles/supplies", group: "home", adultOnly: true, tint: "#F1EADB" },
   { id: "data", label: "Data", emoji: "💾", href: "/data", group: "home", adultOnly: true, tint: "#EEF1F4" },
@@ -53,7 +54,7 @@ export const APP_GROUPS: { id: AppGroup; label: string }[] = [
  * switch of its own, it's part of Cars (APP_FOLLOWS). Turning one off hides it everywhere and
  * pauses its background work; nothing is deleted, and turning it back on brings it all back.
  */
-export const SWITCHABLE_APPS = ["calendar", "chores", "meds", "groceries", "school", "money", "store", "cars"] as const;
+export const SWITCHABLE_APPS = ["calendar", "chores", "meds", "groceries", "school", "money", "store", "pet", "cars"] as const;
 export type SwitchableAppId = (typeof SWITCHABLE_APPS)[number];
 
 /** Apps that go wherever another app goes. */
@@ -106,7 +107,8 @@ export function visibleApps(isAdult: boolean, disabled: readonly string[]): AppD
 
 /** How many apps the rail shows before "Show more", and up to how many it just shows them all. */
 export const RAIL_FIRST = 6;
-const RAIL_ALL_UP_TO = 8;
+// Nine since Phase 47, so a kid (who has nine apps with Pet) still sees every one without "Show more".
+const RAIL_ALL_UP_TO = 9;
 /** The phone's bottom bar: the first few, then "All apps". */
 export const BOTTOM_BAR_COUNT = 4;
 

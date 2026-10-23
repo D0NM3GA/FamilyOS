@@ -62,6 +62,10 @@ model Household {
   /// admin has been through them (the guided setup's Continue, or saving the page itself).
   /// lib/setup-checklist.ts reads it with everything else it can infer.
   setupReviewed      String[] @default([])
+  /// Phase 47: when the pets are awake ({ weekday, weekend } windows in minutes of the day,
+  /// lib/pet/care-hours.ts). Null means the defaults. Read through lib/pet/stored.ts, which
+  /// falls back to the defaults for anything it can't use.
+  petCareHours       Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -89,6 +93,10 @@ model Household {
   signInEvents           SignInEvent[]
   invites                Invite[]
   entraCheck             EntraCheck?
+  pets                   Pet[]
+  petItems               PetItem[]
+  petMemorials           PetMemorial[]
+  petGifts               PetGift[]
 
   @@map("household")
 }
@@ -215,6 +223,13 @@ model Person {
   loggedVehicleServiceEntries VehicleServiceLog[]
   loggedVehicleFuelEntries    VehicleFuelLog[]
   acknowledgedVehicleRecalls  VehicleRecallAck[]
+
+  /// Phase 47: this person's pet, the things it owns, and the pets they've had.
+  pet          Pet?
+  petItems     PetItem[]
+  petMemorials PetMemorial[]
+  petPlays     PetPlay[]
+  petGifts     PetGift[]
 
   schoolProfile    SchoolProfile?
   schoolContactFor SchoolContact[]
@@ -453,6 +468,9 @@ model TaskInstance {
   createdAt DateTime @default(now())
 
   pointsLedger PointsLedger[]
+  /// Phase 47.4: the pet present this chore brought, if any (lib/pet/gifts.ts reads chores; the
+  /// Chores code never knows).
+  petGift      PetGift?
 
   @@unique([definitionId, dueDate])
   @@index([assignedToId, dueDate])
@@ -2256,4 +2274,109 @@ model BreakGlassNotice {
 
   @@index([householdId, endedAt])
   @@map("break_glass_notice")
+}
+
+/// Phase 47: a person's digital pet, one at a time. `state` is lib/pet/state.ts's PetState as
+/// JSON: the simulation reads and writes it whole, and lib/pet/stored.ts checks it on the way
+/// in. Every change goes through lib/pet/queries.ts, which advances it to now first and saves
+/// only if `lastAdvancedAt` hasn't moved, so two tabs can't both feed it. It has nothing to do
+/// with points, stickers or the Store, and never reads or writes PointsLedger.
+model Pet {
+  id             String    @id @default(cuid())
+  householdId    String
+  household      Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  personId       String    @unique
+  person         Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  name           String
+  /// The pet's own dice (lib/pet/random.ts): fixes its personality and every random event.
+  seed           String
+  state          Json
+  bornAt         DateTime  @default(now())
+  lastAdvancedAt DateTime
+  /// Phase 47: chores finished up to here have been looked at for presents, so each look only
+  /// reads newer ones. Null (a new pet, or after a restore) means from `bornAt`. Rebuilt by
+  /// looking, so it isn't in backups.
+  giftsCheckedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([householdId])
+  @@map("pet")
+}
+
+/// Phase 47: the toys, decorations and wearables a person's pets have, by catalog id
+/// (lib/pet/items.ts). They belong to the person, not the pet, so the next pet moves into the
+/// same room. `place` is where it is: a room slot for decorations, "out" for a toy left on the
+/// floor, "worn" for a hat; null is in the toy box.
+model PetItem {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  itemId      String
+  place       String?
+  createdAt   DateTime  @default(now())
+
+  /// One of each: two requests granting the same thing at once can't make a second.
+  @@unique([personId, itemId])
+  @@map("pet_item")
+}
+
+/// Phase 47.3: the last time each mini-game paid out for a person, so a game's effect comes
+/// once per care-hour however often it's played (or a score is posted).
+model PetPlay {
+  personId String
+  person   Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  game     String
+  paidAt   DateTime
+
+  @@id([personId, game])
+  @@map("pet_play")
+}
+
+/// Phase 47: the memory book. Written in the same transaction that removes a pet that's gone.
+model PetMemorial {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  name        String
+  species     String
+  stage       String
+  form        Int
+  /// lib/pet/state.ts DeathCause, shown in gentle words (lib/pet/words.ts).
+  cause       String
+  ageMinutes  Int
+  favoriteToy String
+  bornAt      DateTime
+  goneAt      DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([personId, goneAt])
+  @@map("pet_memorial")
+}
+
+/// Phase 47.4, the secret: each chore a person finishes after their pet hatched is looked at
+/// once (the unique instanceId), and brings a present for the pet up to a daily cap. `itemId`
+/// null means it was looked at but brought nothing (over the cap). Never taken back: undoing
+/// the chore leaves the row, and its instance going away only clears the link. Read and
+/// written only by lib/pet; the Chores code is unchanged and never mentions it.
+model PetGift {
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  personId    String
+  person      Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  instanceId  String?       @unique
+  instance    TaskInstance? @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+  /// The chore's day in the household's time zone ("2026-10-23"), for the daily cap.
+  day         String
+  itemId      String?
+  grantedAt   DateTime      @default(now())
+  openedAt    DateTime?
+
+  @@index([personId, day])
+  @@map("pet_gift")
 }

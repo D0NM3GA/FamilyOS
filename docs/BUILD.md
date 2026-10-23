@@ -652,6 +652,46 @@ typing coordinates isn't acceptable. Home location comes from the device or a ZI
 bundled, server-only Census ZCTA table), rounded to two decimals. VAPID keys are generated and
 stored encrypted when not in `.env`. A walkthrough at `/settings/get-started` and a checklist.
 
+## Phase 47 — The pet
+
+A digital pet for the kids, separate from points and the Store: classic care over time (hunger,
+fun, sickness, discipline, life stages, death from neglect) that only runs in family-set care
+hours, in a room the kid decorates, with toys, petting and five short mini-games. A pure, seeded
+simulation catches the pet up whenever it's opened. Finishing a chore quietly brings the pet a
+present (additive only, capped daily), kept secret from the chores side by a test. Pets are in
+household backups (format 8).
+
+**The pet's voice** (`lib/pet/voice.ts`). The pet never speaks English: each species has one
+sound ("blup", "pip", "mrrp"), the way a Pokémon says its own name, and a narrator says what it
+does ("Pip flops over for a belly rub", not "Pip is happy"). Plain words for buttons and
+settings; the play lives in the pet's lines. Its quirk changes how its happy lines sound, the way
+Animal Crossing villagers sound like their type. Lines come in pools, never the same one twice in
+a row, written for a 7-year-old to read alone. Eggs come from Egg Island and pets go back there.
+`lib/pet/voice.test.ts` keeps the style: every placeholder filled, 90 characters at most, no
+dashes, one exclamation mark at most, nothing about chores or the reward word.
+
+**Hardening after review.** A payout, a present and an item are each claimed in the database
+before anything is granted (a conditional update, or an insert that skips duplicates; items are
+one of each per person), so two taps at once give one. A round or present that changes nothing
+is rolled back and doesn't use up its hour. Care hours come from the household row the layout
+already read, before any transaction starts. The present check keeps a bookmark (`Pet.giftsCheckedAt`) and
+only reads chores finished since its last look, in batches of 100 that never skip one, so it
+stays as quick for an old pet as a new one. Actions answer odd input instead of throwing, and
+the pet's own seed (which decides sickness and presents) stays on the server. On the screen,
+actions don't trigger a second page load, the room doesn't redraw as the eyes follow the
+pointer, the minute refresh survives a hidden tab and pauses during a game, and timers stop
+when a screen or game closes. Games take focus when they start and give it back to Play;
+Bubble Bath plays with Space, Copy Dance says each move, and care results are announced. A
+browser test checks the egg room and its panels with axe, light at desktop width and dark at
+phone width. The goodbye stays on screen until a new egg is picked.
+
+Departures from the plan: the pet's state is one checked JSON column rather than typed columns;
+a turned-off Pet app goes to the usual "turned off" page; clearing a memory-book page isn't built
+(each book is only its owner's); changing care hours applies to the time since a pet was last
+opened. The small dot on the Pet tile while the pet is calling isn't built: the tile is drawn on
+every page, and knowing whether a pet is calling means catching it up, which would put a pet
+catch-up on every page of the app. The pet's own screen shows the call.
+
 ## Grown-up apps closed to kids (security fix)
 
 Hiding grown-up apps from kids' navigation was cosmetic. The owner's call: closed on the server.

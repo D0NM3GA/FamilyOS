@@ -205,6 +205,31 @@ take some back from a kid's sticker history. Grown-ups can see everyone's wallet
 
 <!-- screenshot: the store shelves and an order -->
 
+## Pet
+
+Everyone can look after a little digital pet. Pick an egg (a Blob, a Birdie or a Critter), give
+it a name, and in a few minutes it hatches.
+
+- **Look after it** with the big buttons: **Feed** (a meal, or a snack, but not too many),
+  **Clean** up after it, **Medicine** when it's poorly, and **Say no** when it's making a fuss
+  about nothing. The words under the room say how it's feeling; **About** shows its hearts.
+- **Play** together: stroke it in the room (it has a favorite spot), play with its toys, or
+  pick one of five short games: Snack Catch, Bubble Bath, Hide and Seek, Copy Dance and Fetch
+  Far. Games tire it out, so it may want a nap.
+- **Room** decorates its room and dresses it up. New toys, decorations and hats come as it
+  grows up and the two of you get closer.
+- It grows from a baby into a grown-up, and how well it's looked after decides what it grows
+  into. It's only awake at certain times of day (a grown-up sets them), so it's fine while
+  you're at school or asleep.
+- If it's left hungry or poorly for too long, it goes back to Egg Island. Its page stays in
+  your **Memory book**, and a new egg is ready straight away.
+- **With a keyboard:** every game can be played without a mouse. Snack Catch moves the bowl
+  with the left and right arrows, Bubble Bath pops a bubble with Space, Copy Dance uses the
+  arrow keys, and Fetch Far throws with Enter. Instead of stroking, **Play** has a button for
+  each spot.
+
+The pet has nothing to do with stickers: it never costs any, and nothing in it is bought.
+
 ## Meds
 
 Like chores, for medicine: what's due today and what's coming up in the next two weeks. Tick

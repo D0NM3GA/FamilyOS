@@ -344,11 +344,33 @@ there: take their sign-in away first, or, for Microsoft people, remove them in E
 A phone keeps the name and icon it was added to the Home Screen with until it's added again.
 
 **Settings → Apps** turns off apps the family doesn't use: Calendar, Chores, Meds, Groceries,
-School, Money, Store and Cars (the Garage goes with Cars). Home, People, Data and Settings are
+School, Money, Store, Pet and Cars (the Garage goes with Cars). Home, People, Data and Settings are
 always on, so they aren't listed. A turned-off app disappears for everyone, its background work
 pauses, and **nothing is deleted**: switch it back on and it's all there. Two things to know: a
 turned-off app's events leave the Outlook family calendar until it's back; and bank feeds only
 reach about 3 months back, so Money off for longer leaves a gap (a statement file can fill it).
+
+### The pet
+
+**Settings → Apps → Pet care hours** sets when the family's pets are awake: up to two stretches
+on weekdays and on weekends (by default 7–8am and 3–8pm on weekdays, 8am–8pm at weekends). A
+pet's clock only runs in these hours, so school and bedtime can't make one hungry or sick.
+Changing them applies from the next time each pet is opened. Turn the whole Pet app off in the
+list above; pets just sleep until it's back.
+
+The pet is separate from stickers and the store: it never reads or changes a balance.
+
+<details>
+<summary><strong>Spoiler: for grown-ups</strong> (the kids are meant to work this out themselves)</summary>
+
+Finishing a chore quietly leaves a present by the pet's door: a feast, a lucky charm (it stops
+the next sickness), a sparkle treat (it helps the pet grow into a nicer form), or a decoration or
+hat that only comes this way. Up to 3 a day; a chore counts for whoever it was assigned to (or
+whoever did an Anyone chore), the same as stickers. Undoing a chore never takes a present
+back, and redoing it doesn't bring a second one. Nothing in Chores mentions the pet, and the
+notes on the presents only hint, getting warmer each time. Please don't spoil it!
+
+</details>
 
 ## 11. Alerts
 

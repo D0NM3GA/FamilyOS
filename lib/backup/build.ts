@@ -78,7 +78,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     await Promise.all([
       tx.household.findUniqueOrThrow({
         where: { id: householdId },
-        select: { name: true, timezone: true, dayZone: true, latitude: true, longitude: true, familyGoalStickers: true, familyGoalTitle: true, disabledApps: true, setupReviewed: true, ...LOOK_SELECT },
+        select: { name: true, timezone: true, dayZone: true, latitude: true, longitude: true, familyGoalStickers: true, familyGoalTitle: true, disabledApps: true, setupReviewed: true, petCareHours: true, ...LOOK_SELECT },
       }),
       tx.person.findMany({
         where: { householdId },
@@ -422,6 +422,46 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     }),
   ]);
 
+  // Phase 47: the digital pet. Pets, items and memories carry householdId; a game payout
+  // only its person.
+  const [pets, petItems, petPlays, petMemorials, petGifts] = await Promise.all([
+    tx.pet.findMany({
+      where: { householdId },
+      select: { id: true, personId: true, name: true, seed: true, state: true, bornAt: true, lastAdvancedAt: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    tx.petItem.findMany({
+      where: { householdId },
+      select: { id: true, personId: true, itemId: true, place: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    tx.petPlay.findMany({ where: { person: { householdId } }, select: { personId: true, game: true, paidAt: true } }),
+    tx.petMemorial.findMany({
+      where: { householdId },
+      select: {
+        id: true,
+        personId: true,
+        name: true,
+        species: true,
+        stage: true,
+        form: true,
+        cause: true,
+        ageMinutes: true,
+        favoriteToy: true,
+        bornAt: true,
+        goneAt: true,
+        createdAt: true,
+      },
+      orderBy: { goneAt: "asc" },
+    }),
+    tx.petGift.findMany({
+      where: { householdId },
+      select: { id: true, personId: true, instanceId: true, day: true, itemId: true, grantedAt: true, openedAt: true },
+      orderBy: { grantedAt: "asc" },
+    }),
+  ]);
+  const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
   const databaseMigration = await latestMigration(tx);
   // Phase 49: dayZone goes into exportedTimeZone, not the household (lib/backup/coverage.test.ts).
   const { dayZone, ...householdSettings } = household;
@@ -485,6 +525,15 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     purchaseItems,
     itemPrices: itemPrices.map((p) => ({ ...p, observedAt: iso(p.observedAt) })),
     receiptAliases,
+    // A pet whose state isn't even an object couldn't be read back anyway; leaving it out
+    // keeps one bad row from failing the whole download.
+    pets: pets
+      .filter((p) => isObject(p.state))
+      .map((p) => ({ ...p, bornAt: iso(p.bornAt), lastAdvancedAt: iso(p.lastAdvancedAt), createdAt: iso(p.createdAt) })),
+    petItems: petItems.map((i) => ({ ...i, createdAt: iso(i.createdAt) })),
+    petPlays: petPlays.map((p) => ({ ...p, paidAt: iso(p.paidAt) })),
+    petMemorials: petMemorials.map((m) => ({ ...m, bornAt: iso(m.bornAt), goneAt: iso(m.goneAt), createdAt: iso(m.createdAt) })),
+    petGifts: petGifts.map((g) => ({ ...g, grantedAt: iso(g.grantedAt), openedAt: isoOrNull(g.openedAt) })),
     sealedMoney: hooks.sealMoney ? await hooks.sealMoney(tx, householdId) : null,
   };
 
