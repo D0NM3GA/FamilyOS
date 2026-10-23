@@ -13,7 +13,7 @@ import type { RewardWords } from "@/lib/reward-words";
 export const getHouseholdRow = cache(async (householdId: string) =>
   prisma.household.findUnique({
     where: { id: householdId },
-    select: { id: true, name: true, timezone: true, latitude: true, longitude: true, disabledApps: true, ...LOOK_SELECT },
+    select: { id: true, name: true, timezone: true, latitude: true, longitude: true, disabledApps: true, petCareHours: true, ...LOOK_SELECT },
   }),
 );
 

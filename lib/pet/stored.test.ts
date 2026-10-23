@@ -9,6 +9,8 @@ describe("stored pet data", () => {
     expect(readPetState(JSON.parse(JSON.stringify(egg)))).toEqual(egg);
     expect(readPetState({ ...egg, hunger: 400 })).toBeNull();
     expect(readPetState("nope")).toBeNull();
+    // A long list from an older save is trimmed, not a reason to lose the pet.
+    expect(readPetState({ ...egg, recentSnacks: Array.from({ length: 30 }, (_, i) => i) })?.recentSnacks).toHaveLength(10);
   });
 
   it("falls back to the default care hours for anything unusable", () => {

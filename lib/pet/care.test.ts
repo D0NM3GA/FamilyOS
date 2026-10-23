@@ -27,6 +27,13 @@ describe("care", () => {
     expect(result.state.sick).toBe(true);
   });
 
+  it("says no to snacks while sick, and keeps its snack list short", () => {
+    expect(feedSnack(pet({ sick: true, dosesNeeded: 1 }), 0).outcome).toBe("too-many-snacks");
+    let state = pet({ charms: 99 });
+    for (let i = 0; i < 50; i++) state = feedSnack(state, i % 5).state;
+    expect(state.recentSnacks.length).toBeLessThanOrEqual(SNACKS_BEFORE_SICK + 1);
+  });
+
   it("lets a lucky charm stop a tummy ache", () => {
     let state = pet({ charms: 1 });
     for (let i = 0; i <= SNACKS_BEFORE_SICK; i++) state = feedSnack(state, i).state;

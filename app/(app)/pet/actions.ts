@@ -24,6 +24,9 @@ async function petProfile() {
   return profile;
 }
 
+/** A database row id from the browser: a cuid, never anything long or odd. */
+const rowId = z.string().regex(/^[a-z0-9]{10,40}$/);
+
 export type CareReply = { outcome: CareOutcome | "no-pet" | "gone" | "asleep" | "busy" | "played-recently" };
 
 function reply(change: ChangeResult | { ok: false; reason: "played-recently" }): CareReply {
@@ -35,10 +38,11 @@ const careKind = z.enum(["meal", "snack", "clean", "medicine", "no"]);
 
 export async function careForPet(kind: string): Promise<CareReply> {
   const profile = await petProfile();
-  const parsed = careKind.parse(kind);
+  const parsed = careKind.safeParse(kind);
+  if (!parsed.success) return { outcome: "no-pet" };
   return reply(
     await changeMyPet(profile, (state, minute) => {
-      switch (parsed) {
+      switch (parsed.data) {
         case "meal":
           return feedMeal(state);
         case "snack":
@@ -56,10 +60,11 @@ export async function careForPet(kind: string): Promise<CareReply> {
 
 export async function petPet(spot: string): Promise<CareReply & { favorite: boolean }> {
   const profile = await petProfile();
-  const parsed = z.enum(PET_SPOTS).parse(spot);
+  const parsed = z.enum(PET_SPOTS).safeParse(spot);
+  if (!parsed.success) return { outcome: "no-pet", favorite: false };
   let favorite = false;
   const change = await changeMyPet(profile, (state, minute, personality) => {
-    favorite = personality.favoriteSpot === parsed;
+    favorite = personality.favoriteSpot === parsed.data;
     return petIt(state, minute, favorite);
   });
   return { ...reply(change), favorite: change.ok && change.result.outcome === "ok" && favorite };
@@ -68,8 +73,9 @@ export async function petPet(spot: string): Promise<CareReply & { favorite: bool
 /** Playing with a toy together: a little fun for a little energy, and more with its favorite. */
 export async function playWithToy(itemRowId: string): Promise<CareReply & { favorite: boolean }> {
   const profile = await petProfile();
-  const id = z.string().min(1).max(40).parse(itemRowId);
-  const owned = (await getMyItems(profile.id)).find((item) => item.id === id);
+  const id = rowId.safeParse(itemRowId);
+  if (!id.success) return { outcome: "no-pet", favorite: false };
+  const owned = (await getMyItems(profile.id)).find((item) => item.id === id.data);
   if (!owned || !isToy(owned.itemId)) return { outcome: "no-pet", favorite: false };
   let favorite = false;
   const change = await changeMyPet(profile, (state, _minute, personality) => {
@@ -83,12 +89,16 @@ export async function playWithToy(itemRowId: string): Promise<CareReply & { favo
 export async function finishGame(game: string, score: number): Promise<CareReply> {
   const profile = await petProfile();
   if (!isGame(game)) return { outcome: "no-pet" };
-  return reply(await finishMyGame(profile, game, z.number().finite().min(0).max(10_000).catch(0).parse(score)));
+  // A score that isn't a sensible number counts as zero (the effect is capped on the server anyway).
+  const points = z.number().finite().min(0).max(10_000).safeParse(score);
+  return reply(await finishMyGame(profile, game, points.success ? points.data : 0));
 }
 
 export async function openPresent(presentId: string): Promise<OpenedPresent> {
   const profile = await petProfile();
-  const result = await openMyPresent(profile, z.string().min(1).max(40).parse(presentId));
+  const id = rowId.safeParse(presentId);
+  if (!id.success) return { ok: false, reason: "no-present" };
+  const result = await openMyPresent(profile, id.data);
   revalidatePath("/pet");
   return result;
 }
@@ -122,9 +132,10 @@ const placeInput = z.enum([...ROOM_SLOTS, "out", "worn", "box"]);
 /** Puts an item somewhere: a room slot, out on the floor, worn, or back in the toy box. */
 export async function placeItem(itemRowId: string, place: string): Promise<{ ok: boolean }> {
   const profile = await petProfile();
-  const id = z.string().min(1).max(40).parse(itemRowId);
-  const parsed = placeInput.parse(place);
-  const ok = await placeMyItem(profile, id, parsed === "box" ? null : (parsed as Place));
+  const id = rowId.safeParse(itemRowId);
+  const parsed = placeInput.safeParse(place);
+  if (!id.success || !parsed.success) return { ok: false };
+  const ok = await placeMyItem(profile, id.data, parsed.data === "box" ? null : (parsed.data as Place));
   revalidatePath("/pet");
   return { ok };
 }

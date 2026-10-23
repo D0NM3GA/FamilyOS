@@ -36,12 +36,13 @@ const petStateSchema = z.object({
   lifespanMinutes: count,
   napUntil: minute,
   lastAwakeMinute: minute,
-  recentSnacks: z.array(minute).max(10),
-  recentPets: z.array(minute).max(10),
+  // Only the newest few matter; trimming instead of refusing keeps an odd list from breaking a pet.
+  recentSnacks: z.array(minute).transform((list) => list.slice(-10)),
+  recentPets: z.array(minute).transform((list) => list.slice(-10)),
   charms: count,
   sparkles: count,
   cause: z.enum(["hunger", "sickness", "old-age"]).nullable(),
-}) satisfies z.ZodType<PetState>;
+}) satisfies z.ZodType<PetState, unknown>;
 
 /** The kept state, or null if it isn't one (a hand edit, or a shape from a later version). */
 export function readPetState(json: unknown): PetState | null {

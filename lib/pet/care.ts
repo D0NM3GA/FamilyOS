@@ -59,7 +59,10 @@ export function feedMeal(state: PetState): CareResult {
 export function feedSnack(state: PetState, minute: number): CareResult {
   const blocked = unhatched(state);
   if (blocked) return blocked;
-  const recentSnacks = [...state.recentSnacks.filter((at) => minute - at < SNACK_WINDOW_MINUTES), minute];
+  // A poorly tummy says no to snacks (and can't be tapped for endless bond).
+  if (state.sick) return { state, outcome: "too-many-snacks" };
+  // Only the last few count, so the list stays short however fast the taps come.
+  const recentSnacks = [...state.recentSnacks.filter((at) => minute - at < SNACK_WINDOW_MINUTES), minute].slice(-(SNACKS_BEFORE_SICK + 1));
   let next = addBond(
     { ...state, fun: clampMeter(state.fun + SNACK_FUN), weight: state.weight + 2, recentSnacks },
     1,
@@ -106,7 +109,7 @@ export function sayNo(state: PetState): CareResult {
 export function petIt(state: PetState, minute: number, favoriteSpot: boolean): CareResult {
   const blocked = unhatched(state);
   if (blocked) return blocked;
-  const recentPets = state.recentPets.filter((at) => minute - at < 60);
+  const recentPets = state.recentPets.filter((at) => minute - at < 60).slice(-PETS_PER_HOUR);
   if (recentPets.length >= PETS_PER_HOUR) return { state: { ...state, recentPets }, outcome: "wriggled" };
   const petted = addBond(
     {
