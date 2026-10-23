@@ -180,6 +180,8 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 51 | Find the school calendar from the school's web address | later |
 | 52 | Statement imports that work out their own columns | later |
 | 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | later |
+| 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | being built |
+| 55 | The pet's daily surprises and sound | next |
 
 ### Phases 42–45 in brief
 
@@ -624,6 +626,132 @@ folded in.
   the CLI's declared dependencies, and a hand-made cut would break quietly on a Prisma release.
 - A distroless or Alpine base: the schema engine `install` fetched is matched to this base
   image's C library, and the app image uses the same base.
+
+## Phase 54 — scope (the pet's fun pass, 2026-10-23)
+
+**The owner's call (2026-10-23):** items 1–5 of the researched fun list, split in two on Fable's
+advice (its scope review, 2026-10-23, is folded in). This phase: a growing-up moment and a juice
+pass, a collection book of every form, and tricks unlocked by bond. Daily surprises and sound
+are Phase 55. Same rules as Phase 47:
+additive only, nothing bought, the chore secret kept, nothing leaves the server, no streaks,
+no countdowns, no guilt.
+
+### 54.1 — Growing up, seen
+
+- `advance` emits `hatched` and `grew` events as `{minute, kind}` only (`sim.ts`); they gain the
+  new `stage` and `form`, so a catch-up that passes two stages knows both (tested).
+- **`Pet.shownStage` / `Pet.shownForm`** (nullable): the last form the kid has seen. When the
+  page's pet is in a different stage or form, the room opens with the **reveal**: the old form
+  glows, turns to a silhouette, pops into the new one with sparkles, and a line in the pet's
+  voice names it ("Pip grew into a Splendid Sprout!"). A focused **Yay!** button (Escape too;
+  not "any key", which would swallow Tab) calls `seeGrowth`. The reveal is keyed by stage and
+  form, not state synced from props. Reduced motion: a still before-and-after.
+- **`seeGrowth` is its own plain update** (`pet.updateMany({ where: { personId } })`), with the
+  values read from the row's own state on the server, never from the client, and no
+  `lastAdvancedAt` in it: it works while the pet is asleep, and it can't race the care guard or
+  the minute refresh. The first view of a pet with null shown fields sets them the same way,
+  without a reveal (existing pets, and after a restore). Not in backups: a display bookmark.
+
+### 54.2 — The collection book
+
+- **`PetDiscovery`** (person, species, stage, form; unique together; never the egg): every form
+  a person's pets have reached. One helper, `recordDiscoveries`, writes the forms from the
+  growth events plus the current form with `createMany({ skipDuplicates })`. It's idempotent, so
+  it needs no `lastAdvancedAt` guard and runs on **every** path: in `catchUp` before the
+  alive/gone split (so a pet that grows and then goes still counts), on the idle-skipped view,
+  and after the care save in `changeInTx`. The book also fills in from `PetMemorial` (which keeps
+  species, stage and form) on its first view, so pets from before this phase count.
+- In backups (it's the kid's progress): a `.default([])` array (format 8 is still unreleased),
+  `build.ts` select, `plan.ts` person remap and a duplicates check on (person, species, stage,
+  form), `restore.ts` delete-then-insert and counts, `coverage.test.ts` (and `shownStage`,
+  `shownForm`, `shownTricks` on the pet's allowlist). Migrations after
+  `20261111150000_pet_gifts_checked`: `20261111160000_pet_shown`, `20261111170000_pet_discovery`.
+- `/pet/book`: per species, the 10 forms (baby 1, child 2, teen 3, adult 4) in stage order. Found
+  ones drawn in full with their name; the rest as a dark silhouette with "???" and a hint line in
+  the pet's voice about care in general ("Raised with lots of care…"), never presents or anything
+  that would give away the chore secret. A count per species ("4 of 10"). An empty state with no
+  pet and no memories (the every-page browser pass visits before hatching). Linked from the pet
+  screen next to the memory book. Read only; no prizes for completing it.
+
+### 54.3 — Tricks
+
+- `lib/pet/tricks.ts` (pure): five tricks unlocked by bond (sit 10, spin 25, wave 45, bow 70,
+  roll over 100) as `unlockedTricks(bond)`, and a `tryTrick(trick, discipline, rng)` that does
+  it, or (low discipline) does something sillier instead, with lines in voice.ts. Bond stays on
+  the server: the page passes the unlocked list and the newly unlocked ones. Performing a trick
+  is client-only, a show for the kid with no action and nothing to farm. Each trick is a pose in
+  the sprite (CSS keyframes in globals.css, still under reduced motion). The Play panel gets a
+  **Tricks** row; locked ones show as "???" ("Get closer to learn more").
+- The one change on the server: a newly unlocked trick is announced once, on the reveal pattern
+  (54.1), from `Pet.shownTricks` (a count), saved by `seeGrowth`.
+
+### 54.4 — Juice
+
+- One effects layer (`app/(app)/pet/effects.tsx`) replacing the hearts-only floaters: hearts,
+  sparkles, crumbs, bubbles and stars, each a short CSS animation from a point. Used for:
+  - meals and snacks: the food flies in an arc from the bowl to the pet, then crumbs;
+  - cleaning: a puff of bubbles where each poop was;
+  - petting: hearts (bigger burst on the favorite spot); toys and games: sparkles;
+  - a squash-and-stretch on every tap of the pet.
+- Everything stills under reduced motion (globals.css already does this), and nothing flashes.
+
+### 54.5 — Docs
+
+- The family guide (the reveal, the book, tricks), `docs/BUILD.md` and this plan.
+
+### Checks
+
+- Unit: growth events carry stage and form; discovery from events; every species × stage × form
+  has a name; tricks unlock by bond and `tryTrick` is deterministic for a seed; the voice style test covers the new lines, which are all exported from voice.ts as `*_LINES` so
+  the test sees them.
+- Database: a catch-up through two growths records both discoveries and the reveal shows the
+  newest; a pet that grows and goes in one catch-up still records the form; growth during a
+  care action is recorded; `seeGrowth` works while asleep and only touches your own pet;
+  discoveries survive the pet's death and a backup round trip; `PetDiscovery` coverage.
+- Browser: `/pet/book` joins the every-page list (axe, both themes); the existing pet-room test.
+- `privacy:check`, lint, types.
+
+### Not in this phase
+
+- Daily surprises and sound (Phase 55), and items 6–13 of the fun list (adventures, playdates,
+  seasons in the room, family-life reactions, the diary, personal bests, the Home peek, photo
+  mode).
+
+## Phase 55 — scope (the pet's daily surprises and sound, 2026-10-23)
+
+**The owner's call (2026-10-23):** items 4 and 5 of the fun list, split from Phase 54 on Fable's
+advice. Same rules as Phase 47 and 54. To be re-scoped against the code once Phase 54 lands.
+
+### 55.1 — Something new each day
+
+- `lib/pet/moments.ts` (pure): `dailyMoment(seed, day, context)` picks at most one small moment
+  for the household's date from the pet's view seed, the season, the weather and whether the
+  mascot is on: a ladybug on the sill, a bird at the window, a butterfly, a rainbow on a rainy
+  day, snow excitement on a snowy one, the mascot (by the family's name for it) peeking in at
+  the window's edge, only when the family's mascot is on, or nothing (about one day in four, so
+  it stays a surprise). Same day, same moment. `day` is the household's date, worked out on the
+  server (`dayIn`, exported from queries.ts).
+- The room draws it, the pet reacts (goes to the window, waves), and a line in voice says it
+  once per day per device (`localStorage` through `useSyncExternalStore` with a server snapshot,
+  the nav rail's pattern, so the server render matches and no effect sets state). Purely
+  visual: no items, no state, nothing missed by not visiting.
+
+### 55.2 — Sound, off until turned on
+
+- `app/(app)/pet/use-pet-sound.ts`: Web Audio, made in the browser (no files). Each species has a
+  voice: a few short oscillator "syllables" per line, like Animalese, pitch by species; a
+  favorite petting spot is higher and quicker (as in Pokémon Refresh); plus a pop, a munch, a
+  ta-da and a soft splash. The context starts only on a tap (autoplay rules).
+- **Off by default**, a 🔈 toggle on the pet screen, remembered per device (`localStorage`
+  through `useSyncExternalStore`, as above; sound belongs to the device in the room). Hidden, and
+  silent, when the family's mascot is off or this person's mascot volume is Off: the page passes
+  `soundAllowed = look.mascot.on && profile.bunsonVolume !== "OFF"` (the layout's own rule), so
+  the family's quiet setting covers the pet too. Web Audio needs nothing from the CSP.
+
+### 55.3 — Docs
+
+- The family guide (daily moments, the sound switch), the admin guide (sound follows the
+  mascot setting), `docs/BUILD.md` and this plan.
 
 ## Open items
 
