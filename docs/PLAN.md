@@ -391,6 +391,143 @@ folded in.
 - A distroless or Alpine base: the schema engine `install` fetched is matched to this base
   image's C library, and the app image uses the same base.
 
+## Phase 49 — scope (the household's timezone everywhere, 2026-10-23)
+
+"Today", due dates, streaks, the week on the calendar and every date the server prints follow
+the server process's clock (`TZ`), not `Household.timezone`. Settings → Household only warns
+when the two differ. A sweep found about 140 server call sites that use the local clock
+(`atMidnight`, `addDays`, local getters, `toLocale…` with no zone, `todayCivil`), 6 in the
+browser, and a handful of columns that store a day as the server's local midnight. A few places
+already read the household zone (`lib/people.ts` `dayInZone` and `middayInZone`,
+`lib/calendar/agenda.ts`, school feeds, `formatEventWhen`). Most of finance is zone-free
+(`@db.Date` columns and UTC civil-date maths); its "today" (`todayCivil`) and
+`lib/finance/grocery-link.ts` `localDay` use the local clock.
+
+**The approach (recommended): the server's clock is the household's.** One server serves one
+household by design, so instead of passing a zone through 140 call sites, the app sets its own
+process zone to the household's. Node 24 picks up `process.env.TZ` changes at run time: local
+`Date` getters, `toLocale…` and `Intl` defaults follow at once (checked). The deployment fits:
+one standalone Node process, no render workers, `proxy.ts` on the Node runtime, and no
+`use cache`, `unstable_cache` or `revalidate` anywhere. Prisma is unaffected: its Postgres
+adapter reads and writes `timestamp(3)` as UTC. Better Auth and Sentry use instants only. The
+alternative, a zone passed into every date function, is a far bigger change with more ways to
+miss a spot, and only pays off with several households per server, which this app will never
+have. Fable's scope review (2026-10-23) is folded in.
+
+### 49.1 — The server follows the household's zone
+
+- `lib/household-zone.ts`: `applyHouseholdZone(zone)` sets `process.env.TZ` to the zone's
+  canonical name only (an unknown name would silently become UTC; Intl's canonical form can
+  differ, e.g. `Asia/Calcutta` for `Asia/Kolkata`) and logs a change once. It runs at start
+  (`instrumentation.ts`, skipped during `next build`), on every request where
+  `app/(app)/layout.tsx` already reads the household settings (a string compare), on every
+  background tick, after the zone is saved (Settings → Household, the guided setup) and after a
+  restore. Re-applying per request and per tick closes the start-up window and keeps a second
+  app instance in step. With no zone set, the deploy's `TZ` is used as before.
+- No `Intl.DateTimeFormat` kept at module level (a made formatter keeps its zone for good) and
+  no date worked out at load (`CURRENT_YEAR` in `app/(app)/vehicles/actions.ts`): a guard test
+  checks for both.
+- The mismatch warning (`warnIfTimezoneMismatch`, Settings' "the server is set to …" notice) is
+  retired. A comment where the zone is set says why the process zone is global state on purpose
+  (one household per server).
+
+### 49.2 — Stored days move with the zone
+
+- **`Household.dayZone`** (new) records the zone the stored days were written in. Whenever it
+  differs from the zone to apply, the days are moved first, then `dayZone` is set. That covers
+  a zone change in Settings, the first save of a zone, and **the upgrade itself**: setup already
+  stores the device's zone, so installs today can have `Household.timezone` set while their days
+  were written in the deploy's `TZ`. The migration starts `dayZone` empty, and the first apply
+  after the upgrade treats it as a move from the process zone.
+- **What moves:** `TaskDefinition.startDate`, `TaskInstance.dueDate`,
+  `VehicleMaintenanceItem.lastDoneAt`, `VehicleServiceLog.doneAt`, `VehicleFuelLog.filledAt`,
+  `SchoolTask.dueDate`, `SchoolAssignment.dueDate` for rows typed in (feed rows are already in
+  the household zone, `lib/school/feeds/refresh.ts`), and `ItemPrice.observedAt` where it came
+  from a receipt's printed date without a trip (`lib/groceries/receipts.ts`). The build confirms
+  the list against every writer. **What doesn't:** instants (`createdAt`, `completedAt`,
+  sign-ins, calendar and feed events) and the people dates `middayInZone` already writes in the
+  household zone.
+- **The move** is SQL in one transaction: each value's date and clock time in the old zone
+  become the same date and clock time in the new one (`AT TIME ZONE`), so a chore due Tuesday
+  stays due Tuesday and an 8:00 AM dose stays at 8:00 AM. Postgres settles clock times that
+  don't exist or happen twice on a DST change the same way every time. `TaskInstance` is
+  unique on `(definitionId, dueDate)`, checked row by row, so a 12-hour move of an 8 AM and an
+  8 PM dose would collide halfway: the rows go to a far-off placeholder first, then to their
+  new values.
+- **The lock:** instances are generated on page loads (Home, Chores, Meds, a person's page,
+  the print chart, the calendar, calendar sync) with `createMany` outside a transaction, not
+  only by background jobs. The move takes an exclusive advisory lock (the pattern in
+  `lib/setup.ts`); instance generation runs in a transaction holding the shared one, so nothing
+  is written in the old zone halfway through a move.
+
+### 49.3 — Backups and restores
+
+- `exportedTimeZone` records `dayZone`, the zone the backup's days are written in. Older backups
+  recorded the server's zone, which before this phase is what the days were written in, so both
+  read the same way. Today a restore across zones is refused unless the admin accepts the shift
+  ("Dates would shift"). Instead, the restore moves the restored days from `exportedTimeZone` to
+  the restored household's zone (feed-made school rows excepted, as above), says so in the
+  restore summary, sets `dayZone` and applies the zone. A member's own money download
+  (`/api/backup/my-money`) holds only jar data, whose dates don't depend on a zone.
+
+### 49.4 — The browser shows the household's dates
+
+- The 6 browser call sites (the chore and meds forms' start date, the Shop list's saved note,
+  `formatRelative` on task cards, the bell and the points orders; the build confirms the list) get the server's "today" or the
+  zone as a prop and format with `timeZone`. That also ends the possible mismatch between the
+  server's render and the browser's.
+
+### 49.5 — Away from home: both times (the owner's call)
+
+- When a grown-up's or kid's device is in a different zone from the household's (a vacation),
+  timed things show the home time first and the time where they are beside it, so medication
+  stays on its regular schedule: "8:00 AM at home · 2:00 PM here". That covers dose times on
+  Meds, Home and task cards, timed calendar and Outlook events, and other times of day the
+  server prints. Days stay the household's days: a chore due Tuesday is due on home's Tuesday.
+- A small shared component renders the home time on the server (so the first render matches)
+  and adds the "here" time in the browser after it loads, only when the zones differ. A short
+  note at the top of Home says once that times show home and here while away.
+- The device's zone is read in the browser (`Intl`), never sent to or stored on the server.
+
+### 49.6 — Tests
+
+- Vitest runs with a fixed zone that has daylight saving (`America/New_York`), so date tests
+  don't depend on the developer's machine.
+- Unit: the move across a DST change, dose times, month ends, a clock time that doesn't exist
+  and one that happens twice; canonical names only.
+- Database: a save that moves days; the two-dose collision; the upgrade move (`dayZone` empty,
+  household zone set, process zone different); typed-in versus feed school rows; the lock
+  against instance generation; a restore across zones, including an older backup.
+- Browser: change the zone in Settings and find a chore still on its day; with the browser in a
+  different zone from the household's, a dose shows both times; in the same zone, only one.
+
+### 49.7 — Docs and guides
+
+- `docs/guides/admin.md`: set the timezone in Settings; the server's `TZ` no longer has to match.
+  `familyos.env.example`: `TZ` is only used until a zone is set. README, `docs/BUILD.md`, this
+  plan. `docs/guides/family.md`: what the two times mean while away.
+
+### Checks
+
+- Lint, types, unit, database and browser tests; the container test with the server's `TZ` set
+  to a different zone than the household's, to prove the household's wins (the browser tests
+  set up the household with the browser's zone, so the pages still agree with the browser); the
+  restore drill; the privacy check.
+
+### Not in this phase
+
+- A zone per person saved on the server: the device's own zone covers travel (49.5).
+- Storing days as `@db.Date`: cleaner, but every column above and its callers would change, and
+  med doses carry a time of day. The move in 49.2 gives the same result for users.
+- Several households per server.
+
+### The owner's answers (2026-10-23)
+
+1. **The server follows the household's zone**, not a zone passed through every function.
+2. **Changing the zone later keeps each saved day and dose time** on its date and clock time.
+3. **Away from home, show both:** the original time in the household's zone and the time where
+   the viewer is, so medication and routines stay regular (49.5).
+
 ## Open items
 
 ### Waiting on a decision
