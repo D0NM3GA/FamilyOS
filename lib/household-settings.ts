@@ -73,14 +73,19 @@ export function isValidTimeZone(timezone: string): boolean {
   return canonicalizeTimeZone(timezone) !== null;
 }
 
-/** Every IANA zone name this Node runtime knows about, for the settings form's picker. */
-export function listTimeZones(): string[] {
+/**
+ * Every IANA zone name this Node runtime knows about, for the settings form's picker, plus the
+ * household's own when the list leaves it out: Intl's list has no "UTC", and a zone missing from
+ * the picker would read as "Not set" and be cleared by the next save.
+ */
+export function listTimeZones(current: string | null = null): string[] {
+  let zones: string[] = [];
   if (typeof Intl.supportedValuesOf === "function") {
     try {
-      return Intl.supportedValuesOf("timeZone");
+      zones = Intl.supportedValuesOf("timeZone");
     } catch {
-      // fall through to the empty list below
+      // the empty list below
     }
   }
-  return [];
+  return current && !zones.includes(current) ? [current, ...zones] : zones;
 }

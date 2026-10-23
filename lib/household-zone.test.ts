@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { canonicalizeTimeZone } from "./household-settings";
+import { canonicalizeTimeZone, listTimeZones } from "./household-settings";
 import { applyProcessZone, deployZone, processZone } from "./household-zone";
 
 /** Phase 49: the server's clock is the household's (lib/household-zone.ts). */
@@ -34,6 +34,12 @@ describe("the process zone", () => {
     applyProcessZone("Europe/London");
     applyProcessZone(null);
     expect(processZone()).toBe("America/New_York");
+  });
+
+  test("the picker keeps the household's own zone even when Intl's list leaves it out (UTC)", () => {
+    expect(listTimeZones().includes("UTC")).toBe(false);
+    expect(listTimeZones("UTC")[0]).toBe("UTC");
+    expect(listTimeZones("Europe/London").filter((z) => z === "Europe/London")).toHaveLength(1);
   });
 
   test("applying the zone it's already in is a no-op", () => {

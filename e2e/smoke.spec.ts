@@ -347,6 +347,9 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
   await page.goto("/meds/manage");
   await page.getByRole("link", { name: "Edit Vitamin D" }).click();
   const started = await page.getByLabel("Starting").inputValue();
+  await page.goto("/settings/household");
+  // What's selected now (CI's browser is in UTC, which the picker lists only as the household's own).
+  const original = await page.getByLabel("Timezone").inputValue();
   const moved = home === "Pacific/Honolulu" ? "Asia/Tokyo" : "Pacific/Honolulu";
   const setZone = async (zone: string) => {
     await page.goto("/settings/household");
@@ -360,8 +363,8 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
     await page.getByRole("link", { name: "Edit Vitamin D" }).click();
     await expect(page.getByLabel("Starting")).toHaveValue(started);
   } finally {
-    // Back to the browser's zone, so the rest of the story renders like the browser.
-    await setZone(home);
+    // Back to the zone it had, so the rest of the story renders like the browser.
+    await setZone(original);
   }
   await page.goto("/meds");
   await expect(page.getByText(/8:00\sAM/).first()).toBeVisible();

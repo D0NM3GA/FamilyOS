@@ -40,7 +40,7 @@ export default async function HouseholdSettingsPage({
   const { error } = await searchParams;
 
   const household = await getHouseholdSettings(profile.householdId);
-  const timeZones = listTimeZones();
+  const timeZones = listTimeZones(household.timezone);
   // Phase 45.1: a saved home is shown as the ZIP code it's near, never as coordinates.
   const home = household.latitude != null && household.longitude != null ? nearestZip(household.latitude, household.longitude).zip : null;
 
