@@ -423,7 +423,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
 
   // Phase 47: the digital pet. Pets, items and memories carry householdId; a game payout
   // only its person.
-  const [pets, petItems, petPlays, petMemorials, petGifts] = await Promise.all([
+  const [pets, petItems, petPlays, petMemorials, petGifts, petDiscoveries] = await Promise.all([
     tx.pet.findMany({
       where: { householdId },
       select: { id: true, personId: true, name: true, seed: true, state: true, bornAt: true, lastAdvancedAt: true, createdAt: true },
@@ -457,6 +457,11 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
       where: { householdId },
       select: { id: true, personId: true, instanceId: true, day: true, itemId: true, grantedAt: true, openedAt: true },
       orderBy: { grantedAt: "asc" },
+    }),
+    tx.petDiscovery.findMany({
+      where: { householdId },
+      select: { personId: true, species: true, stage: true, form: true, foundAt: true },
+      orderBy: { foundAt: "asc" },
     }),
   ]);
   const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -530,6 +535,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     petPlays: petPlays.map((p) => ({ ...p, paidAt: iso(p.paidAt) })),
     petMemorials: petMemorials.map((m) => ({ ...m, bornAt: iso(m.bornAt), goneAt: iso(m.goneAt), createdAt: iso(m.createdAt) })),
     petGifts: petGifts.map((g) => ({ ...g, grantedAt: iso(g.grantedAt), openedAt: isoOrNull(g.openedAt) })),
+    petDiscoveries: petDiscoveries.map((d) => ({ ...d, foundAt: iso(d.foundAt) })),
     sealedMoney: hooks.sealMoney ? await hooks.sealMoney(tx, householdId) : null,
   };
 

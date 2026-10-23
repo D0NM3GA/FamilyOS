@@ -90,6 +90,7 @@ function emptyBackup(): Backup {
     petPlays: [],
     petMemorials: [],
     petGifts: [],
+    petDiscoveries: [],
     sealedMoney: null,
   };
 }
@@ -175,6 +176,10 @@ function fullBackup(): Backup {
     { id: "pm1", personId: "kid", name: "Old Pip", species: "bird", stage: "adult", form: 2, cause: "old-age", ageMinutes: 9000, favoriteToy: "ball", bornAt: T, goneAt: T, createdAt: T },
   ];
   b.petGifts = [{ id: "pg1", personId: "kid", instanceId: "ti1", day: "2026-01-01", itemId: "ball", grantedAt: T, openedAt: null }];
+  b.petDiscoveries = [
+    { personId: "kid", species: "blob", stage: "egg", form: 0, foundAt: T },
+    { personId: "kid", species: "blob", stage: "baby", form: 0, foundAt: T },
+  ];
   return b;
 }
 
@@ -503,6 +508,10 @@ describe("remapBackup", () => {
     expect(rows.petPlays[0]).toMatchObject({ personId: kid, game: "catch" });
     expect(rows.petMemorials[0]).toMatchObject({ householdId: "H", personId: kid, name: "Old Pip", goneAt: new Date(T) });
     expect(rows.petGifts[0]).toMatchObject({ householdId: "H", personId: kid, instanceId: rows.taskInstances[0].id, day: "2026-01-01", openedAt: null });
+    expect(rows.petDiscoveries).toEqual([
+      { householdId: "H", personId: kid, species: "blob", stage: "egg", form: 0, foundAt: new Date(T) },
+      { householdId: "H", personId: kid, species: "blob", stage: "baby", form: 0, foundAt: new Date(T) },
+    ]);
     // Assignment order isn't meaningful; compare as sets.
     expect(rows.assigneeConnects).toHaveLength(1);
     expect(new Set(rows.assigneeConnects[0].personIds)).toEqual(new Set([kid, "live-mom"]));
@@ -619,12 +628,13 @@ describe("the digital pet (Phase 47)", () => {
     delete b.petPlays;
     delete b.petMemorials;
     delete b.petGifts;
+    delete b.petDiscoveries;
     const { petCareHours: _drop, ...household } = b.household as Record<string, unknown>;
     void _drop;
     b.household = household;
     const parsed = parseBackupFile(JSON.stringify(b));
     if (!parsed.ok) throw new Error(parsed.errors.join("; "));
-    expect(parsed.backup).toMatchObject({ pets: [], petItems: [], petPlays: [], petMemorials: [], petGifts: [] });
+    expect(parsed.backup).toMatchObject({ pets: [], petItems: [], petPlays: [], petMemorials: [], petGifts: [], petDiscoveries: [] });
     expect(parsed.backup.household.petCareHours).toBeNull();
   });
 
@@ -632,5 +642,21 @@ describe("the digital pet (Phase 47)", () => {
     const b = fullBackup() as unknown as { pets: Record<string, unknown>[] };
     b.pets[0].state = "hungry";
     expect(parseBackupFile(JSON.stringify(b)).ok).toBe(false);
+  });
+});
+
+describe("the collection book (Phase 54)", () => {
+  test("every entry belongs to someone in the file", () => {
+    const b = fullBackup();
+    b.petDiscoveries[0].personId = "gone";
+    expect(checkReferences(b)).toEqual(["petDiscoveries.personId: 1 reference(s) to missing rows"]);
+  });
+
+  test("a form is found once per person; another person or form is fine", () => {
+    const b = fullBackup();
+    b.petDiscoveries.push({ ...b.petDiscoveries[0], foundAt: "2026-02-01T00:00:00.000Z" });
+    b.petDiscoveries.push({ ...b.petDiscoveries[0], personId: "mom" });
+    b.petDiscoveries.push({ ...b.petDiscoveries[0], form: 1 });
+    expect(checkUniques(b)).toEqual(["petDiscoveries (person, species, stage, form): 1 duplicate(s)"]);
   });
 });

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import { prisma } from "@/lib/prisma";
 import { feedMeal } from "./care";
 import { GIFTS_PER_DAY } from "./gifts";
-import { changeMyPet, finishMyGame, getMyPet, hatchEgg, openMyPresent, placeMyItem } from "./queries";
+import { changeMyPet, finishMyGame, getMyDiscoveries, getMyPet, hatchEgg, markSeen, openMyPresent, placeMyItem } from "./queries";
 import { newEgg, STAGE_MINUTES } from "./state";
 
 /**
@@ -247,8 +247,76 @@ describe.skipIf(!RUN)("the pet (database)", () => {
     expect(await ledgerRows()).toBe(before);
   });
 
+  describe("growing up, seen (Phase 54)", () => {
+    beforeEach(async () => {
+      await prisma.petDiscovery.deleteMany({ where: { householdId: h.id } });
+    });
+
+    test("an egg that hatches and grows records both forms and reveals the newest", async () => {
+      await prisma.pet.deleteMany({ where: { personId: who.ivy.id } });
+      const start = new Date(Date.now() - 2 * 60 * MINUTE);
+      await hatchEgg(who.ivy, "bird", "Pip", start);
+      const mine = await getMyPet(who.ivy, new Date(start.getTime() + (STAGE_MINUTES.egg + STAGE_MINUTES.baby + 2) * MINUTE));
+      expect(mine.pet?.state.stage).toBe("child");
+      expect(mine.reveal).toMatchObject({ from: null, to: { stage: "child" } });
+      const found = await prisma.petDiscovery.findMany({ where: { personId: who.ivy.id } });
+      expect(found.map((entry) => entry.stage).sort()).toEqual(["baby", "child"]);
+    });
+
+    test("seeing it saves the bookmark, even while the pet is asleep", async () => {
+      await freshPet(who.ivy.id);
+      await prisma.pet.update({ where: { personId: who.ivy.id }, data: { shownStage: "egg", shownForm: 0, shownTricks: 0 } });
+      await prisma.household.update({ where: { id: h.id }, data: { petCareHours: { weekday: [], weekend: [] } } });
+      try {
+        expect((await getMyPet(who.ivy)).reveal).not.toBeNull();
+        expect(await markSeen(who.ivy)).toBe(true);
+        expect((await getMyPet(who.ivy)).reveal).toBeNull();
+      } finally {
+        await prisma.household.update({ where: { id: h.id }, data: { petCareHours: ALL_DAY } });
+      }
+    });
+
+    test("a pet from before the reveal gets its bookmark without one", async () => {
+      await freshPet(who.ivy.id);
+      const mine = await getMyPet(who.ivy);
+      expect(mine.reveal).toBeNull();
+      expect(mine.newTricks).toEqual([]);
+      const row = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
+      expect(row).toMatchObject({ shownStage: "baby", shownForm: 0 });
+      expect(await prisma.petDiscovery.count({ where: { personId: who.ivy.id, stage: "baby" } })).toBe(1);
+    });
+
+    test("new tricks are announced once", async () => {
+      await freshPet(who.ivy.id);
+      await getMyPet(who.ivy);
+      const pet = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
+      await prisma.pet.update({ where: { id: pet.id }, data: { state: { ...(pet.state as object), bond: 30 } } });
+      expect((await getMyPet(who.ivy)).newTricks).toEqual(["sit", "spin"]);
+      await markSeen(who.ivy);
+      expect((await getMyPet(who.ivy)).newTricks).toEqual([]);
+    });
+
+    test("seeing only ever touches your own pet", async () => {
+      await freshPet(who.max.id);
+      await prisma.pet.update({ where: { personId: who.max.id }, data: { shownStage: "egg", shownForm: 0, shownTricks: 0 } });
+      await markSeen(who.ivy);
+      expect(await prisma.pet.findUniqueOrThrow({ where: { personId: who.max.id } })).toMatchObject({ shownStage: "egg" });
+    });
+
+    test("the book keeps forms after a pet is gone, and fills in from the memory book", async () => {
+      await prisma.petMemorial.create({
+        data: { householdId: h.id, personId: who.ivy.id, name: "Old", species: "critter", stage: "teen", form: 2, cause: "old-age", ageMinutes: 100, favoriteToy: "ball", bornAt: new Date(), goneAt: new Date() },
+      });
+      const found = await getMyDiscoveries(who.ivy);
+      expect(found).toContainEqual({ species: "critter", stage: "teen", form: 2 });
+      expect(await getMyDiscoveries(who.max)).not.toContainEqual({ species: "critter", stage: "teen", form: 2 });
+      await prisma.petMemorial.deleteMany({ where: { personId: who.ivy.id, name: "Old" } });
+    });
+  });
+
   test("a pet that's gone moves to the memory book", async () => {
     await freshPet(who.ivy.id);
+    await prisma.petDiscovery.deleteMany({ where: { personId: who.ivy.id } });
     const pet = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
     const state = pet.state as Record<string, unknown>;
     await prisma.pet.update({
@@ -259,6 +327,8 @@ describe.skipIf(!RUN)("the pet (database)", () => {
     const mine = await getMyPet(who.ivy);
     expect(mine.pet).toBeNull();
     expect(mine.goodbye).toMatchObject({ name: "Pip", cause: "sickness", stage: "baby" });
+    // It grew and went in one catch-up: its form still made the book.
+    expect(await prisma.petDiscovery.count({ where: { personId: who.ivy.id, stage: "baby" } })).toBe(1);
     expect(await prisma.petMemorial.count({ where: { personId: who.ivy.id } })).toBe(1);
     expect(await prisma.pet.count({ where: { personId: who.ivy.id } })).toBe(0);
     // Looking again before picking a new egg still says goodbye.
