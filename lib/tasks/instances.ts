@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/app/generated/prisma/client";
+import { withStoredDays } from "@/lib/household-zone";
 import type { TaskDomain } from "@/app/generated/prisma/enums";
 import {
   atMidnight,
@@ -94,23 +96,35 @@ export function planInstances(
  * instances it has no opinion on, and vice versa.
  */
 export async function ensureInstancesGenerated(householdId: string, horizon: Date, domain: TaskDomain) {
-  const definitions = await prisma.taskDefinition.findMany({
+  // Most board reads have nothing to add, so they stay outside a transaction. Rows to write are
+  // planned again under the stored-days lock (Phase 49): a zone move in between would otherwise
+  // leave them in the old zone.
+  if ((await plannedRows(prisma, householdId, horizon, domain)).length === 0) return;
+  await withStoredDays(async (tx) => {
+    const rows = await plannedRows(tx, householdId, horizon, domain);
+    // Two boards rendering at once can plan the same rows; the (definitionId, dueDate) unique
+    // index keeps one of each.
+    if (rows.length > 0) await tx.taskInstance.createMany({ data: rows, skipDuplicates: true });
+  });
+}
+
+type Db = Prisma.TransactionClient | typeof prisma;
+
+async function plannedRows(db: Db, householdId: string, horizon: Date, domain: TaskDomain) {
+  const definitions = await db.taskDefinition.findMany({
     where: { householdId, active: true, domain },
     include: { assignees: { select: { id: true } } },
   });
-  if (definitions.length === 0) return;
+  if (definitions.length === 0) return [];
 
-  const histories = await recentInstances(definitions.map((d) => d.id));
+  const histories = await recentInstances(db, definitions.map((d) => d.id));
   const today = new Date();
-  const rows = definitions.flatMap((def) =>
+  return definitions.flatMap((def) =>
     planInstances(def, histories.get(def.id) ?? [], def.assignees.map((a) => a.id), today, horizon).map((p) => ({
       definitionId: def.id,
       ...p,
     })),
   );
-  // Two boards rendering at once can plan the same rows; the (definitionId, dueDate) unique
-  // index keeps one of each.
-  if (rows.length > 0) await prisma.taskInstance.createMany({ data: rows, skipDuplicates: true });
 }
 
 /** How many past instances the assignment rotation looks back over: plenty for a family. */
@@ -121,8 +135,8 @@ const HISTORY_WINDOW = 60;
  * (definitionId, dueDate) index backwards per definition: a nested `take` on the Prisma
  * include isn't pushed into SQL, so it loaded every instance ever and trimmed in memory.
  */
-async function recentInstances(definitionIds: string[]): Promise<Map<string, PriorInstance[]>> {
-  const rows = await prisma.$queryRaw<{ definitionId: string; dueDate: Date; assignedToId: string | null }[]>`
+async function recentInstances(db: Db, definitionIds: string[]): Promise<Map<string, PriorInstance[]>> {
+  const rows = await db.$queryRaw<{ definitionId: string; dueDate: Date; assignedToId: string | null }[]>`
     SELECT d.id AS "definitionId", i."dueDate", i."assignedToId"
     FROM unnest(${definitionIds}::text[]) AS d(id)
     CROSS JOIN LATERAL (

@@ -34,12 +34,14 @@ model Household {
   mascotName  String?
   /// The Home Screen icon (app/icon.tsx).
   appIcon     AppIcon @default(BUNNY)
-  /// IANA zone name (e.g. "America/New_York"), set from /settings/household. Null means
-  /// "not configured yet" — callers that care fall back to the server process's own zone.
-  /// This does NOT change how "today" is computed anywhere yet (see lib/household-settings.ts's
-  /// warnIfTimezoneMismatch) — it's the value a deploy's TZ env var should match, and the
-  /// field later features (calendar write-back, weather) actually consume.
+  /// IANA zone name (e.g. "America/New_York"), set at setup and in /settings/household. Phase
+  /// 49: the server process runs in this zone (lib/household-zone.ts), so "today", due dates and
+  /// every date the server prints follow it. Null means not set yet: the deploy's TZ is used.
   timezone  String?
+  /// Phase 49: the zone the stored days (local-midnight dates and dose times, see
+  /// lib/household-zone.ts DAY_COLUMNS) were written in. When it differs from `timezone`, the
+  /// days are moved to keep their date and clock time, then this is set. Null: the deploy's TZ.
+  dayZone   String?
   /// Set together or not at all, from /settings/household (admin-only), the guided setup or the
   /// Chores page: a phone's location or a typed ZIP code's center (Phase 45.1, lib/zip), never
   /// typed coordinates. Rounded to 2 decimal places (about a kilometre) so no house-level point

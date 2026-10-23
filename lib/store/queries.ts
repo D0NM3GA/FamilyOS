@@ -88,8 +88,8 @@ export async function getWallets(householdId: string) {
  * since deleting a chore nulls that and would silently drop the earnings. Spending never
  * moves it back; undoing a chore does (undo deletes the earning row).
  *
- * The month starts on the server clock, like the rest of the task engine (see
- * lib/household-settings.ts warnIfTimezoneMismatch) — not a new tz-aware helper here.
+ * The month starts on the server's clock, which keeps the household's time (Phase 49,
+ * lib/household-zone.ts).
  */
 export async function getFamilySheet(householdId: string, now: Date = new Date()) {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);

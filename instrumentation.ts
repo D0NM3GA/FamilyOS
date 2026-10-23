@@ -25,6 +25,16 @@ export async function register() {
     } catch (err) {
       console.error(`[access] ${err instanceof Error ? err.message : err} Every request but the health check gets a 503 until it's fixed.`);
     }
+    // Phase 49: the server keeps the household's time, from before the first request (a stored
+    // day written in another zone is moved first). Not during `next build`, which has no database.
+    if (process.env.NEXT_PHASE !== "phase-production-build") {
+      const { syncServerZone } = await import("./lib/household-zone");
+      try {
+        await syncServerZone();
+      } catch (err) {
+        console.error(`[zone] Couldn't read the household's timezone at start (${err instanceof Error ? err.constructor.name : "unknown"}); the first page or background tick tries again.`);
+      }
+    }
     // Phase 27: after Sentry, so a job error is reported. Node only (lib/background.ts).
     const { startBackgroundJobs } = await import("./lib/background");
     startBackgroundJobs();

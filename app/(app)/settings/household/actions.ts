@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isSessionOwner } from "@/lib/active-profile";
 import { prisma } from "@/lib/prisma";
+import { syncHouseholdZone } from "@/lib/household-zone";
 import { requireAdmin } from "@/lib/authz";
 import { pinError } from "@/lib/pin-rules";
 import { canonicalizeTimeZone, isValidTimeZone } from "@/lib/household-settings";
@@ -78,14 +79,15 @@ export async function updateHouseholdSettings(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  // Canonicalized, not the raw typed string — isValidTimeZone (via the zod refine above)
-  // already proved it resolves, so this can't fail; storing the canonical form keeps
-  // warnIfTimezoneMismatch's string comparison meaningful regardless of case/alias input.
+  // Canonicalized, not the raw typed string: isValidTimeZone (via the zod refine above)
+  // already proved it resolves, and the canonical form is what the server's clock is set to.
   const timezone = parsed.data.timezone ? canonicalizeTimeZone(parsed.data.timezone) : null;
   await prisma.household.update({
     where: { id: admin.householdId },
     data: { name: parsed.data.name, timezone },
   });
+  // Phase 49: the server follows the new zone, and saved days keep their date and clock time.
+  await syncHouseholdZone(admin.householdId);
 
   revalidatePath("/settings/household");
   return { success: true };

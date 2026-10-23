@@ -4,7 +4,7 @@ import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdmin } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { fullName } from "@/lib/people";
-import { getHouseholdSettings, listTimeZones, timeZoneMismatch } from "@/lib/household-settings";
+import { getHouseholdSettings, listTimeZones } from "@/lib/household-settings";
 import { removeHouseholdMember, setMemberPin, updateHouseholdSettings } from "./actions";
 import { PinForm } from "./pin-form";
 import { HouseholdSettingsForm } from "./household-settings-form";
@@ -41,8 +41,6 @@ export default async function HouseholdSettingsPage({
 
   const household = await getHouseholdSettings(profile.householdId);
   const timeZones = listTimeZones();
-  // Phase 45.2: the server's zone, when it isn't the household's (dates follow the server's).
-  const serverZone = timeZoneMismatch(household.timezone);
   // Phase 45.1: a saved home is shown as the ZIP code it's near, never as coordinates.
   const home = household.latitude != null && household.longitude != null ? nearestZip(household.latitude, household.longitude).zip : null;
 
@@ -90,14 +88,6 @@ export default async function HouseholdSettingsPage({
       {error && (
         <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30">
           {error}
-        </p>
-      )}
-
-      {serverZone && (
-        <p className="mt-4 max-w-lg rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30">
-          &ldquo;Today&rdquo; and due dates still follow the server&apos;s clock ({serverZone.replace(/_/g, " ")}), not
-          this setting. Whoever runs the server sets its <code>TZ</code> to {household.timezone} (README, Environment
-          variables).
         </p>
       )}
 

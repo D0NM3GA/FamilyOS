@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getEntraRole, setActiveProfileCookie } from "@/lib/active-profile";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { syncServerZone } from "@/lib/household-zone";
 import { createSetupToken, finishDetailsSchema, finishSetup, isSetUp, readFinishDetails, SetupError, setupDetailsSchema } from "@/lib/setup";
 import { canonicalizeTimeZone } from "@/lib/household-settings";
 import { SETUP_PATH } from "@/lib/setup-checklist";
@@ -61,6 +62,8 @@ export async function completeSetup(_prev: FinishState, formData: FormData): Pro
     // Phase 45.2: the device's own zone, sent by the form; anything unrecognised is just left unset.
     const timezone = canonicalizeTimeZone(String(formData.get("timezone") ?? "").slice(0, 64));
     adminId = await finishSetup({ id: session.user.id, email: session.user.email ?? null }, parsed.data, timezone);
+    // Phase 49: from here on the server keeps the household's time.
+    await syncServerZone();
   } catch (err) {
     if (err instanceof SetupError) return { error: err.message };
     throw err;

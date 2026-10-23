@@ -14,6 +14,8 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     include: ["lib/**/*.test.ts"],
-    env: loadEnv(mode, process.cwd(), ""),
+    // Phase 49: one zone with daylight saving for every run, whatever the machine's (or .env's),
+    // so date tests mean the same everywhere. The app's own zone follows the household's.
+    env: { ...loadEnv(mode, process.cwd(), ""), TZ: "America/New_York" },
   },
 }));
