@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { buildBackup } from "./build";
 import { applyRestore, previewRestore, SERVER_TIME_ZONE } from "./restore";
 import { BACKUP_FORMAT, BACKUP_SCHEMA_VERSION, type Backup } from "./schema";
+import { parseBackupFile } from "./plan";
+import { newEgg } from "@/lib/pet/state";
 
 /**
  * Restore against a real database (Phase 16.5): `npm run test:db` (needs the dev Postgres
@@ -27,6 +29,7 @@ function fixture(): Backup {
       disabledApps: ["store", "cars"],
       setupReviewed: ["look"],
       themeColor: "forest", rewardOne: "star", rewardMany: "stars", rewardStore: "Star Shop", mascotOn: false, mascotName: "Clover", appIcon: "LETTER",
+      petCareHours: { weekday: [{ start: 420, end: 480 }, { start: 900, end: 1200 }], weekend: [{ start: 540, end: 1260 }] },
     },
     people: [
       P("Mom", { email: `mom-${tag}@example.com`, role: "ADMIN", phone: "555-1", notes: "note", notesAdultsOnly: true, contactCadenceDays: 7, lastContactedAt: T2 }),
@@ -104,6 +107,19 @@ function fixture(): Backup {
     purchaseItems: [{ id: "pi1", purchaseId: "pu1", productId: "p2", description: "Paper towels", quantity: 6, requestedById: "Kid", kidPick: false }],
     itemPrices: [{ id: "ip1", productId: "p2", storeId: "s1", totalCents: 1299, quantity: 1, unitCents: 1299, observedAt: T }],
     receiptAliases: [{ id: "ra1", textKey: `ppr twl ${tag}`, productId: "p2" }],
+    pets: [{ id: "pet1", personId: "Kid", name: "Pip", seed: "seed-1", state: { ...newEgg("bird", 1000), stage: "baby", bond: 4, recentSnacks: [990, 995] }, bornAt: T, lastAdvancedAt: T2, createdAt: T }],
+    petItems: [
+      { id: "pit1", personId: "Kid", itemId: "ball", place: "out", createdAt: T },
+      { id: "pit2", personId: "Kid", itemId: "party-hat", place: null, createdAt: T2 },
+    ],
+    petPlays: [{ personId: "Kid", game: "catch", paidAt: T2 }],
+    petMemorials: [
+      { id: "pm1", personId: "Kid", name: "Old Pip", species: "blob", stage: "adult", form: 3, cause: "old-age", ageMinutes: 7000, favoriteToy: "ball", bornAt: T, goneAt: T2, createdAt: T2 },
+    ],
+    petGifts: [
+      { id: "pg1", personId: "Kid", instanceId: "ti1", day: "2026-01-01", itemId: "ball", grantedAt: T, openedAt: T2 },
+      { id: "pg2", personId: "Kid", instanceId: null, day: "2026-02-01", itemId: null, grantedAt: T2, openedAt: null },
+    ],
     sealedMoney: null,
   };
 }
@@ -135,8 +151,22 @@ const REFS: Record<string, Record<string, string>> = {
   purchaseItems: { purchaseId: "purchases", productId: "products", requestedById: "people" },
   itemPrices: { productId: "products", storeId: "stores" },
   receiptAliases: { productId: "products" },
+  pets: { personId: "people" },
+  petItems: { personId: "people" },
+  petPlays: { personId: "people" },
+  petMemorials: { personId: "people" },
+  petGifts: { personId: "people", instanceId: "taskInstances" },
 };
 const HEADER = new Set(["format", "schemaVersion", "exportedAt", "exportedTimeZone", "databaseMigration", "household", "sealedMoney"]);
+
+/** JSON with object keys sorted: Postgres jsonb (a pet's state) doesn't keep key order. */
+function stable(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stable).join(",")}]`;
+  if (v && typeof v === "object") {
+    return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable((v as Record<string, unknown>)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v);
+}
 
 /** Ids replaced by a content key of the row they point at (recursively), tables sorted. */
 function normalize(b: Backup, dropPeople: Set<string> = new Set()) {
@@ -153,7 +183,7 @@ function normalize(b: Backup, dropPeople: Set<string> = new Set()) {
       else if (Array.isArray(v)) out[k] = v.map((id) => key(target, byId.get(`${target}:${id}`)![1])).sort();
       else out[k] = v == null ? null : key(target, byId.get(`${target}:${v}`)![1]);
     }
-    return JSON.stringify(out);
+    return stable(out);
   };
   const result: Record<string, unknown> = { household: b.household };
   for (const [name, rows] of Object.entries(t)) {
@@ -170,6 +200,7 @@ async function counts(householdId: string) {
     vehicles: await prisma.vehicle.count({ where: { householdId } }),
     products: await prisma.product.count({ where: { householdId } }),
     listItems: await prisma.shoppingListItem.count({ where: { list: { householdId } } }),
+    pets: await prisma.pet.count({ where: { householdId } }),
   };
 }
 
@@ -195,7 +226,7 @@ async function restore(householdId: string, viewerId: string, file: Backup, allo
 }
 
 describe.skipIf(!RUN)("restore (database)", () => {
-  const ctx = {} as { h1: string; h2: string; a2: string; kept: string; B1: Backup; others: [string, string][] };
+  const ctx = {} as { h1: string; h2: string; h3: string; a2: string; kept: string; B1: Backup; others: [string, string][] };
 
   afterAll(async () => {
     await prisma.household.deleteMany({ where: { id: { in: created.households } } });
@@ -254,6 +285,10 @@ describe.skipIf(!RUN)("restore (database)", () => {
   });
 
   test("replace: junk gone, linked people kept, the matched admin keeps role, login and PIN", async () => {
+    // Phase 47: a kept person's own pet goes too (the file's pets replace every one here).
+    await prisma.pet.create({
+      data: { householdId: ctx.h2, personId: ctx.kept, name: "Junk pet", seed: "junk", state: newEgg("blob", 0), lastAdvancedAt: new Date(T) },
+    });
     const r2 = await restore(ctx.h2, ctx.a2, ctx.B1);
     if (!r2.ok) throw new Error(r2.errors.join("; "));
     expect(r2.previousBackup.vehicles.map((v) => v.name)).toContain("Junk car");
@@ -273,7 +308,65 @@ describe.skipIf(!RUN)("restore (database)", () => {
     expect((await restore(ctx.h2, ctx.a2, ctx.B1)).ok).toBe(true);
     expect(normalize(await buildBackup(ctx.h2), new Set([ctx.kept]))).toEqual(normalize(ctx.B1));
     expect((await restore(ctx.h2, ctx.a2, r2.previousBackup, true)).ok).toBe(true);
-    expect((await buildBackup(ctx.h2)).vehicles.map((v) => v.name)).toContain("Junk car");
+    const back = await buildBackup(ctx.h2);
+    expect(back.vehicles.map((v) => v.name)).toContain("Junk car");
+    expect(back.pets.map((p) => p.name)).toContain("Junk pet");
+  });
+
+  test("a pet round-trips with its state, seed, items, payouts and memories (Phase 47)", async () => {
+    const pet = await prisma.pet.findFirstOrThrow({ where: { householdId: ctx.h1 }, include: { person: { select: { firstName: true } } } });
+    expect(pet).toMatchObject({ name: "Pip", seed: "seed-1", person: { firstName: "Kid" } });
+    expect(pet.state).toMatchObject({ species: "bird", stage: "baby", bond: 4, recentSnacks: [990, 995] });
+    expect(await prisma.petItem.count({ where: { householdId: ctx.h1, personId: pet.personId } })).toBe(2);
+    expect(await prisma.petPlay.count({ where: { personId: pet.personId } })).toBe(1);
+    expect(await prisma.petMemorial.count({ where: { householdId: ctx.h1, personId: pet.personId } })).toBe(1);
+    // The present remembers its chore: the restored instance, not the file's id.
+    const gifts = await prisma.petGift.findMany({
+      where: { householdId: ctx.h1, personId: pet.personId },
+      select: { day: true, instance: { select: { dueDate: true, definition: { select: { title: true } } } } },
+      orderBy: { day: "asc" },
+    });
+    expect(gifts).toEqual([
+      { day: "2026-01-01", instance: { dueDate: new Date(T), definition: { title: "Dishes" } } },
+      { day: "2026-02-01", instance: null },
+    ]);
+    const h = await prisma.household.findUniqueOrThrow({ where: { id: ctx.h1 }, select: { petCareHours: true } });
+    expect(h.petCareHours).toEqual(fixture().household.petCareHours);
+  });
+
+  test("a pet whose state doesn't read is dropped, and the rest restores (Phase 47)", async () => {
+    ctx.h3 = await household(`e2e h3 ${tag}`);
+    const admin = await linkedPerson(ctx.h3, `h3-${tag}@example.com`, `mom-${tag}@example.com`, "ADMIN", "Third mom");
+    const file = structuredClone(ctx.B1);
+    const kid2 = file.people.find((p) => p.firstName === "Kid2")!;
+    file.pets.push({ ...file.pets[0], id: "bad-pet", personId: kid2.id, name: "Glitch", state: { species: "dragon", stage: "egg" } });
+    const preview = await previewRestore(ctx.h3, file);
+    expect(preview.ok && preview.preview.inserts.pets).toBe(1);
+    const r = await restore(ctx.h3, admin.id, file);
+    if (!r.ok) throw new Error(r.errors.join("; "));
+    expect((await prisma.pet.findMany({ where: { householdId: ctx.h3 }, select: { name: true } })).map((p) => p.name)).toEqual(["Pip"]);
+    expect(await prisma.petMemorial.count({ where: { householdId: ctx.h3 } })).toBe(1);
+  });
+
+  test("a v7 file, from before the pet, still restores and clears today's pets (Phase 47)", async () => {
+    const old = structuredClone(ctx.B1) as unknown as Record<string, unknown>;
+    old.schemaVersion = 7;
+    for (const k of ["pets", "petItems", "petPlays", "petMemorials", "petGifts"]) delete old[k];
+    delete (old.household as Record<string, unknown>).petCareHours;
+    const parsed = parseBackupFile(JSON.stringify(old));
+    if (!parsed.ok) throw new Error(parsed.errors.join("; "));
+    const admin = await prisma.person.findFirstOrThrow({ where: { householdId: ctx.h3, role: "ADMIN", authUserId: { not: null } } });
+    const preview = await previewRestore(ctx.h3, parsed.backup);
+    expect(preview.ok && preview.preview.deletes).toMatchObject({ pets: 1, "pet memories": 1 });
+    const r = await restore(ctx.h3, admin.id, parsed.backup);
+    if (!r.ok) throw new Error(r.errors.join("; "));
+    expect(r.previousBackup.pets).toHaveLength(1);
+    expect(await prisma.pet.count({ where: { householdId: ctx.h3 } })).toBe(0);
+    expect(await prisma.petItem.count({ where: { householdId: ctx.h3 } })).toBe(0);
+    expect(await prisma.petPlay.count({ where: { person: { householdId: ctx.h3 } } })).toBe(0);
+    expect(await prisma.petGift.count({ where: { householdId: ctx.h3 } })).toBe(0);
+    expect(await prisma.household.findUniqueOrThrow({ where: { id: ctx.h3 }, select: { petCareHours: true } })).toEqual({ petCareHours: null });
+    expect(await prisma.person.count({ where: { householdId: ctx.h3 } })).toBe(5);
   });
 
   test("other households are untouched", async () => {

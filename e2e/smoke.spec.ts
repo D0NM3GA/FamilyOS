@@ -148,6 +148,8 @@ const PAGES = [
     "/settings/starting-views",
     "/settings/calendar-on-home",
     "/settings/get-started",
+    // Phase 47: the pet's memory book (the pet itself is an app, above).
+    "/pet/memories",
   ]),
 ];
 

@@ -87,6 +87,9 @@ const household = z.object({
   appIcon: z.enum(AppIcon).default("BUNNY"),
   // Phase 45.4: setup steps an admin has been through; absent in older files.
   setupReviewed: z.array(text).default([]),
+  // Phase 47: when the pet is awake, as stored (JSON). Restore keeps it only if it reads as
+  // care hours (lib/pet/stored.ts); absent in older files (the default hours).
+  petCareHours: z.json().nullable().default(null),
 });
 
 const person = z.object({
@@ -406,18 +409,55 @@ const schoolAssignment = z.object({
   createdAt: iso,
 });
 
+// The digital pet (Phase 47, format v8). Everything hangs off a person, whose id restore
+// re-issues. `state` is the pet's JSON as stored; restore drops a pet whose state doesn't read
+// (lib/pet/stored.ts) rather than refusing the file. `seed` fixes its personality, so it's kept.
+const pet = z.object({
+  id,
+  personId: id,
+  name: text,
+  seed: text,
+  state: z.record(z.string(), z.json()),
+  bornAt: iso,
+  lastAdvancedAt: iso,
+  createdAt: iso,
+});
+const petItem = z.object({ id, personId: id, itemId: text, place: nullableText, createdAt: iso });
+// Composite primary key (person, game), no id of its own.
+const petPlay = z.object({ personId: id, game: text, paidAt: iso });
+const petMemorial = z.object({
+  id,
+  personId: id,
+  name: text,
+  species: text,
+  stage: text,
+  form: int,
+  cause: text,
+  ageMinutes: int,
+  favoriteToy: text,
+  bornAt: iso,
+  goneAt: iso,
+  createdAt: iso,
+});
+
+// Which chores already brought a pet present (one per chore), so a restore doesn't hand
+// them out again. instanceId is null once its chore is gone.
+const petGift = z.object({ id, personId: id, instanceId: nullableId, day: text, itemId: nullableText, grantedAt: iso, openedAt: nullableIso });
+
 export const BACKUP_FORMAT = "familyos-household-backup";
 /**
  * v2 (Phase 12.5) added the garage-supplies arrays; v3 (Phase 18) the school arrays; v4
  * (Phase 20) the Sticker Store (buckets, orders, and new reward/ledger/household fields); v5
  * (Phase 22) the groceries redesign: product sizes and section order, every list row a Pantry
  * item, and no quantity units (an older file's units are ignored); v6 (Phase 24) receipt
- * prices and learned receipt matches; v7 (Phase 28) the sealed money jars. Older
+ * prices and learned receipt matches; v7 (Phase 28) the sealed money jars; v8 (Phase 47) the
+ * digital pet (pets, their items, game payouts, chore presents, the memory book, and the household's care
+ * hours). Older
  * files still restore with the arrays they lack defaulting to empty, so restoring one
  * removes that data here (the restore preview shows those delete counts). A v1 file still restores: those arrays
  * default to empty (and the restore preview says existing supplies will be removed).
  */
-export const BACKUP_SCHEMA_VERSION = 7;
+export const BACKUP_SCHEMA_VERSION = 8;
 
 /**
  * Phase 28 (v7): the household's money jars, sealed (AES-256-GCM over gzipped JSON, see
@@ -439,7 +479,7 @@ export type SealedMoney = z.infer<typeof sealedMoneySchema>;
 
 export const backupSchema = z.object({
   format: z.literal(BACKUP_FORMAT),
-  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, BACKUP_SCHEMA_VERSION]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, BACKUP_SCHEMA_VERSION]),
   exportedAt: iso,
   /**
    * Chore/med due dates and vehicle log dates are stored as the SERVER's local midnight.
@@ -481,6 +521,11 @@ export const backupSchema = z.object({
   purchaseItems: z.array(purchaseItem),
   itemPrices: z.array(itemPrice).default([]),
   receiptAliases: z.array(receiptAlias).default([]),
+  pets: z.array(pet).default([]),
+  petItems: z.array(petItem).default([]),
+  petPlays: z.array(petPlay).default([]),
+  petMemorials: z.array(petMemorial).default([]),
+  petGifts: z.array(petGift).default([]),
   sealedMoney: sealedMoneySchema.nullable().default(null),
 });
 

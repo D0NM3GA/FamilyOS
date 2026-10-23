@@ -18,11 +18,11 @@ import {
 
 describe("the fixed app order", () => {
   it("lists the day first, people near the top, admin last", () => {
-    expect(APPS.map((a) => a.id)).toEqual(["home", "people", "calendar", "chores", "meds", "groceries", "school", "money", "store", "cars", "garage", "data", "settings"]);
+    expect(APPS.map((a) => a.id)).toEqual(["home", "people", "calendar", "chores", "meds", "groceries", "school", "money", "store", "pet", "cars", "garage", "data", "settings"]);
   });
 
   it("hides grown-up apps from kids, keeping the order", () => {
-    expect(visibleApps(false, []).map((a) => a.id)).toEqual(["home", "people", "calendar", "chores", "meds", "groceries", "school", "store"]);
+    expect(visibleApps(false, []).map((a) => a.id)).toEqual(["home", "people", "calendar", "chores", "meds", "groceries", "school", "store", "pet"]);
   });
 
   it("shows everything to adults", () => {
@@ -46,10 +46,10 @@ describe("railApps", () => {
     expect(ids(railApps(adult, "people", false).more)).toEqual([]);
   });
 
-  it("just shows a short list whole (a kid has eight apps)", () => {
+  it("just shows a short list whole (a kid has nine apps)", () => {
     const kid = railApps(visibleApps(false, []), null, false);
     expect(kid.folded).toBe(false);
-    expect(kid.first).toHaveLength(8);
+    expect(kid.first).toHaveLength(9);
     expect(kid.more).toEqual([]);
   });
 });
@@ -110,8 +110,8 @@ describe("apps on and off (Phase 36)", () => {
   });
 
   it("visibleApps leaves turned-off apps out for everyone, in order", () => {
-    expect(visibleApps(true, ["chores", "cars"]).map((a) => a.id)).toEqual(["home", "people", "calendar", "meds", "groceries", "school", "money", "store", "data", "settings"]);
-    expect(visibleApps(false, ["store", "money"]).map((a) => a.id)).toEqual(["home", "people", "calendar", "chores", "meds", "groceries", "school"]);
+    expect(visibleApps(true, ["chores", "cars"]).map((a) => a.id)).toEqual(["home", "people", "calendar", "meds", "groceries", "school", "money", "store", "pet", "data", "settings"]);
+    expect(visibleApps(false, ["store", "money"]).map((a) => a.id)).toEqual(["home", "people", "calendar", "chores", "meds", "groceries", "school", "pet"]);
     expect(visibleApps(true, [...SWITCHABLE_APPS]).map((a) => a.id)).toEqual(["home", "people", "data", "settings"]);
   });
 

@@ -9,6 +9,7 @@ import {
   planPeople,
   remapBackup,
   pantryCounts,
+  readablePets,
   timeZoneMismatch,
   type LinkedPerson,
   type PeoplePlan,
@@ -81,7 +82,7 @@ function moneyContext(backup: Backup, people: PeoplePlan, linked: LinkedPerson[]
 
 async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promise<Record<string, number>> {
   const person = { householdId };
-  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices] = await Promise.all([
+  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories] = await Promise.all([
     db.person.count({ where: { householdId, authUserId: null } }),
     db.taskInstance.count({ where: { definition: { householdId } } }),
     db.taskDefinition.count({ where: { householdId } }),
@@ -99,6 +100,8 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     db.rewardOrder.count({ where: { householdId } }),
     db.rewardBucket.count({ where: { householdId } }),
     db.itemPrice.count({ where: { householdId } }),
+    db.pet.count({ where: { householdId } }),
+    db.petMemorial.count({ where: { householdId } }),
   ]);
   return {
     "people (without their own sign-in)": people,
@@ -118,6 +121,8 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     "shopping list items": listItems,
     "shopping trips": purchases,
     "receipt prices": prices,
+    pets,
+    "pet memories": petMemories,
   };
 }
 
@@ -141,6 +146,9 @@ function insertCounts(b: Backup): Record<string, number> {
     "shopping list items": pantry.listItems,
     "shopping trips": b.purchases.length,
     "receipt prices": b.itemPrices.length,
+    // A pet whose state doesn't read is left out (readablePets), so it isn't counted.
+    pets: readablePets(b).length,
+    "pet memories": b.petMemorials.length,
   };
 }
 
@@ -246,6 +254,13 @@ export async function applyRestore(
       await tx.reward.deleteMany({ where: { householdId } });
       await tx.rewardBucket.deleteMany({ where: { householdId } });
       await tx.taskDefinition.deleteMany({ where: { householdId } }); // cascades instances, meds, assignees
+      // Phase 47: every pet row, signed-in people's included (Pet.personId is unique, and a
+      // kept person's old pet would block the file's).
+      await tx.pet.deleteMany({ where: { householdId } });
+      await tx.petItem.deleteMany({ where: { householdId } });
+      await tx.petMemorial.deleteMany({ where: { householdId } });
+      await tx.petPlay.deleteMany({ where: { person: { householdId } } });
+      await tx.petGift.deleteMany({ where: { householdId } });
       const everyone = { householdId };
       await tx.pointsLedger.deleteMany({ where: { person: everyone } });
       await tx.importantDate.deleteMany({ where: { person: everyone } });
@@ -254,7 +269,8 @@ export async function applyRestore(
       await tx.person.deleteMany({ where: { householdId, authUserId: null } });
 
       // 3. Household settings and the (kept) shopping list.
-      await tx.household.update({ where: { id: householdId }, data: normalizeHousehold(backup.household) });
+      const { petCareHours, ...settings } = normalizeHousehold(backup.household);
+      await tx.household.update({ where: { id: householdId }, data: { ...settings, petCareHours: petCareHours ?? Prisma.DbNull } });
       const list = await tx.shoppingList.upsert({ where: { householdId }, create: { householdId }, update: {} });
 
       // 4. Insert, parents before children.
@@ -298,6 +314,12 @@ export async function applyRestore(
       await createInChunks(rows.purchaseItems, (data) => tx.purchaseItem.createMany({ data }));
       await createInChunks(rows.itemPrices, (data) => tx.itemPrice.createMany({ data }));
       await createInChunks(rows.receiptAliases, (data) => tx.receiptAlias.createMany({ data }));
+      await createInChunks(rows.pets, (data) => tx.pet.createMany({ data }));
+      await createInChunks(rows.petItems, (data) => tx.petItem.createMany({ data }));
+      await createInChunks(rows.petPlays, (data) => tx.petPlay.createMany({ data }));
+      await createInChunks(rows.petMemorials, (data) => tx.petMemorial.createMany({ data }));
+      // After the chores' instances, which a present points at.
+      await createInChunks(rows.petGifts, (data) => tx.petGift.createMany({ data }));
 
       // 4b. Phase 28.5: the money jars, once the people and trips they point at exist.
       let money: { restored: MoneyRestoreCounts; previousMemberIds: string[] } | null = null;

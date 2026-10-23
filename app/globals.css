@@ -327,6 +327,157 @@ main#main,
   }
 }
 
+/* Phase 47: the pet (app/(app)/pet). Small loops that make it feel alive; the reduced-motion
+   rule below stills them all, leaving each pose as a still picture. */
+.pet-pose,
+.pet-blink,
+.pet-ear-left,
+.pet-ear-right,
+.pet-flap-left,
+.pet-flap-right {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.pet-blink {
+  transform-origin: 50% 50%;
+  animation: pet-blink 4.5s infinite;
+}
+.pet-pose-idle {
+  animation: pet-breathe 2.4s ease-in-out infinite;
+}
+.pet-pose-hop {
+  animation: pet-hop 0.5s ease-out 2;
+}
+.pet-pose-wiggle {
+  animation: pet-wiggle 0.35s ease-in-out 4;
+}
+.pet-pose-dance {
+  animation: pet-dance 0.8s ease-in-out infinite;
+}
+.pet-pose-droop {
+  transform: scaleY(0.92);
+}
+.pet-pose-lie {
+  transform: scaleY(0.8) scaleX(1.1);
+}
+.pet-pose-wobble {
+  animation: pet-wiggle 0.6s ease-in-out infinite;
+}
+.pet-ear-left,
+.pet-ear-right {
+  animation: pet-ear 3.2s ease-in-out infinite;
+}
+.pet-flap-left,
+.pet-flap-right {
+  animation: pet-ear 1.6s ease-in-out infinite;
+}
+.pet-zzz {
+  animation: float 2s ease-in-out infinite;
+}
+.pet-twinkle {
+  animation: pet-twinkle 2.5s ease-in-out infinite;
+}
+.pet-rain {
+  animation: pet-fall 0.8s linear infinite;
+}
+.pet-snow,
+.pet-leaves {
+  animation: pet-fall 3s linear infinite;
+}
+.pet-stink {
+  animation: float 1.6s ease-in-out infinite;
+}
+.pet-float-up {
+  animation: pet-float-up 1.2s ease-out forwards;
+}
+@keyframes pet-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes pet-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(1.03, 0.97);
+  }
+}
+@keyframes pet-hop {
+  0% {
+    transform: translateY(0) scale(1.1, 0.9);
+  }
+  40% {
+    transform: translateY(-14%) scale(0.95, 1.05);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+@keyframes pet-wiggle {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-7deg);
+  }
+  75% {
+    transform: rotate(7deg);
+  }
+}
+@keyframes pet-dance {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-8%) rotate(6deg);
+  }
+}
+@keyframes pet-ear {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+@keyframes pet-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+@keyframes pet-fall {
+  from {
+    transform: translateY(-12px);
+  }
+  to {
+    transform: translateY(12px);
+  }
+}
+@keyframes pet-float-up {
+  from {
+    transform: translateY(0) scale(0.6);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-60px) scale(1.2);
+    opacity: 0;
+  }
+}
+
 /* Applies globally rather than requiring every new hover/entrance/celebration animation to
    remember a motion-safe: variant. animation-delay must also be zeroed, not just duration —
    otherwise a staggered fill-mode-backwards entrance (see the profile picker) leaves tiles

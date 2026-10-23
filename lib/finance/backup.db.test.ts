@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { buildBackup } from "@/lib/backup/build";
+import { BACKUP_SCHEMA_VERSION } from "@/lib/backup/schema";
 import { backupHistory, recordBackupEvent } from "@/lib/backup/audit";
 import { buildMyMoneyBackup, sealMoney, unsealMoney } from "./backup";
 import { todayCivil } from "./budget";
@@ -76,7 +77,7 @@ describe.skipIf(!RUN)("money in backups (database)", { timeout: 60_000 }, () => 
   test("the household backup carries every jar, sealed: nothing readable in the file", async () => {
     const backup = await buildBackup(ids.h, new Date(), { sealMoney });
     const text = JSON.stringify(backup);
-    expect(backup.schemaVersion).toBe(7);
+    expect(backup.schemaVersion).toBe(BACKUP_SCHEMA_VERSION);
     expect(backup.sealedMoney?.jarCount).toBe(2);
     expect(text).not.toMatch(/LEGO|COFFEE|SECRET|Grandma's/);
     const opened = unsealMoney(backup.sealedMoney!);

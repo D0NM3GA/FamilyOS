@@ -10,11 +10,13 @@ import {
   parseBackupFile,
   pantryCounts,
   planPeople,
+  readablePets,
   remapBackup,
   timeZoneMismatch,
   type LinkedPerson,
 } from "./plan";
 import { BACKUP_FORMAT, BACKUP_SCHEMA_VERSION, type Backup } from "./schema";
+import { newEgg } from "@/lib/pet/state";
 
 const T = "2026-01-01T00:00:00.000Z";
 const SENTINEL = "SENTINEL_7f3a_do_not_leak";
@@ -51,7 +53,7 @@ function emptyBackup(): Backup {
     exportedAt: T,
     exportedTimeZone: "America/New_York",
     databaseMigration: null,
-    household: { name: "Our Family", timezone: null, latitude: null, longitude: null, familyGoalStickers: null, familyGoalTitle: null, appName: null, disabledApps: [], setupReviewed: [], ...LOOK_DEFAULTS },
+    household: { name: "Our Family", timezone: null, latitude: null, longitude: null, familyGoalStickers: null, familyGoalTitle: null, appName: null, disabledApps: [], setupReviewed: [], petCareHours: null, ...LOOK_DEFAULTS },
     people: [],
     importantDates: [],
     interactions: [],
@@ -83,6 +85,11 @@ function emptyBackup(): Backup {
     purchaseItems: [],
     itemPrices: [],
     receiptAliases: [],
+    pets: [],
+    petItems: [],
+    petPlays: [],
+    petMemorials: [],
+    petGifts: [],
     sealedMoney: null,
   };
 }
@@ -161,6 +168,13 @@ function fullBackup(): Backup {
   b.purchaseItems = [{ id: "pi1", purchaseId: "pu1", productId: "p1", description: "Eggs", quantity: 1, requestedById: "kid", kidPick: true }];
   b.itemPrices = [{ id: "ip1", productId: "p1", storeId: "s1", totalCents: 499, quantity: 1, unitCents: 499, observedAt: T }];
   b.receiptAliases = [{ id: "ra1", textKey: "lg eggs 12ct", productId: "p1" }];
+  b.pets = [{ id: "pet1", personId: "kid", name: "Pip", seed: "seed-abc", state: newEgg("blob", 100), bornAt: T, lastAdvancedAt: T, createdAt: T }];
+  b.petItems = [{ id: "pit1", personId: "kid", itemId: "ball", place: "out", createdAt: T }];
+  b.petPlays = [{ personId: "kid", game: "catch", paidAt: T }];
+  b.petMemorials = [
+    { id: "pm1", personId: "kid", name: "Old Pip", species: "bird", stage: "adult", form: 2, cause: "old-age", ageMinutes: 9000, favoriteToy: "ball", bornAt: T, goneAt: T, createdAt: T },
+  ];
+  b.petGifts = [{ id: "pg1", personId: "kid", instanceId: "ti1", day: "2026-01-01", itemId: "ball", grantedAt: T, openedAt: null }];
   return b;
 }
 
@@ -225,6 +239,16 @@ describe("checkReferences", () => {
     ]);
   });
 
+  test("pet rows must belong to someone in the file (Phase 47)", () => {
+    const b = fullBackup();
+    b.pets[0].personId = "gone";
+    b.petPlays[0].personId = "gone";
+    expect(checkReferences(b)).toEqual([
+      "pets.personId: 1 reference(s) to missing rows",
+      "petPlays.personId: 1 reference(s) to missing rows",
+    ]);
+  });
+
   test("duplicate ids in a table are rejected", () => {
     const b = fullBackup();
     b.vehicles.push({ ...b.vehicles[0], name: "Car" });
@@ -244,6 +268,21 @@ describe("checkUniques", () => {
     expect(checkUniques(b)).toEqual([
       "vehicleItemSupplies (item, supply): 1 duplicate(s)",
       "vehicleServiceSupplyUses (service, supply): 1 duplicate(s)",
+    ]);
+  });
+
+  test("one pet per person, one payout per (person, game) (Phase 47)", () => {
+    const b = fullBackup();
+    b.pets.push({ ...b.pets[0], id: "pet2" });
+    b.petPlays.push({ ...b.petPlays[0] });
+    b.petPlays.push({ ...b.petPlays[0], game: "memory" }); // another game is fine
+    b.petGifts.push({ ...b.petGifts[0], id: "pg2" });
+    b.petGifts.push({ ...b.petGifts[0], id: "pg3", instanceId: null }); // presents with no chore don't collide
+    b.petGifts.push({ ...b.petGifts[0], id: "pg4", instanceId: null });
+    expect(checkUniques(b)).toEqual([
+      "pets (one per person): 1 duplicate(s)",
+      "petPlays (person, game): 1 duplicate(s)",
+      "petGifts (one per chore): 1 duplicate(s)",
     ]);
   });
 
@@ -344,7 +383,18 @@ describe("normalizeHousehold", () => {
       disabledApps: [],
       setupReviewed: [],
       ...LOOK_DEFAULTS,
+      petCareHours: null,
     });
+  });
+
+  test("keeps care hours that read, and drops ones that don't (Phase 47)", () => {
+    const h = { name: "X", timezone: null, latitude: null, longitude: null };
+    const hours = { weekday: [{ start: 360, end: 480 }], weekend: [{ start: 540, end: 1260 }] };
+    expect(normalizeHousehold({ ...h, petCareHours: hours }).petCareHours).toEqual(hours);
+    expect(normalizeHousehold({ ...h, petCareHours: { weekday: [{ start: 365, end: 480 }], weekend: [] } }).petCareHours).toBeNull();
+    expect(normalizeHousehold({ ...h, petCareHours: "always" }).petCareHours).toBeNull();
+    expect(normalizeHousehold({ ...h, petCareHours: null }).petCareHours).toBeNull();
+    expect(normalizeHousehold(h).petCareHours).toBeNull();
   });
 
   test("rounds home to about a kilometre, and keeps only setup steps that exist (Phase 45)", () => {
@@ -447,6 +497,12 @@ describe("remapBackup", () => {
     expect(rows.itemPrices[0]).toMatchObject({ householdId: "H", productId: rows.products[0].id, storeId: rows.stores[0].id, totalCents: 499 });
     expect(rows.receiptAliases[0]).toMatchObject({ householdId: "H", productId: rows.products[0].id, textKey: "lg eggs 12ct" });
     expect(rows.shoppingListItems[0]).toMatchObject({ listId: "L", productId: rows.products[0].id, requestedById: kid });
+    expect(rows.pets[0]).toMatchObject({ householdId: "H", personId: kid, name: "Pip", seed: "seed-abc", state: { species: "blob", stage: "egg" } });
+    expect(rows.pets[0].bornAt).toBeInstanceOf(Date);
+    expect(rows.petItems[0]).toMatchObject({ householdId: "H", personId: kid, itemId: "ball", place: "out" });
+    expect(rows.petPlays[0]).toMatchObject({ personId: kid, game: "catch" });
+    expect(rows.petMemorials[0]).toMatchObject({ householdId: "H", personId: kid, name: "Old Pip", goneAt: new Date(T) });
+    expect(rows.petGifts[0]).toMatchObject({ householdId: "H", personId: kid, instanceId: rows.taskInstances[0].id, day: "2026-01-01", openedAt: null });
     // Assignment order isn't meaningful; compare as sets.
     expect(rows.assigneeConnects).toHaveLength(1);
     expect(new Set(rows.assigneeConnects[0].personIds)).toEqual(new Set([kid, "live-mom"]));
@@ -518,5 +574,63 @@ describe("older files' groceries (Phase 22)", () => {
 
   test("the restore preview counts what will really be inserted", () => {
     expect(pantryCounts(v4File())).toEqual({ products: 2, listItems: 3 });
+  });
+});
+
+describe("the digital pet (Phase 47)", () => {
+  test("a pet whose state doesn't read is dropped; its person's items and memories stay", () => {
+    const b = fullBackup();
+    b.pets.push({ ...b.pets[0], id: "pet2", personId: "mom", state: { species: "dragon" } });
+    expect(readablePets(b).map((p) => p.id)).toEqual(["pet1"]);
+    const rows = remapBackup(b, { householdId: "H", listId: "L", personMatches: new Map() });
+    expect(rows.pets).toHaveLength(1);
+    expect(rows.pets[0].name).toBe("Pip");
+    expect(rows.petItems).toHaveLength(1);
+    expect(rows.petMemorials).toHaveLength(1);
+  });
+
+  test("a present keeps its chore, or none when the chore isn't in the file", () => {
+    const b = fullBackup();
+    b.petGifts.push({ ...b.petGifts[0], id: "pg2", instanceId: "gone" }, { ...b.petGifts[0], id: "pg3", instanceId: null, openedAt: T });
+    expect(checkReferences(b)).toEqual([]);
+    const rows = remapBackup(b, { householdId: "H", listId: "L", personMatches: new Map() });
+    expect(rows.petGifts.map((g) => g.instanceId)).toEqual([rows.taskInstances[0].id, null, null]);
+    expect(rows.petGifts[2].openedAt).toEqual(new Date(T));
+  });
+
+  test("a present must belong to someone in the file", () => {
+    const b = fullBackup();
+    b.petGifts[0].personId = "gone";
+    expect(checkReferences(b)).toEqual(["petGifts.personId: 1 reference(s) to missing rows"]);
+  });
+
+  test("the kept state is the parsed one: unknown keys are left behind", () => {
+    const b = fullBackup();
+    b.pets[0].state = { ...b.pets[0].state, later: "field" };
+    const rows = remapBackup(b, { householdId: "H", listId: "L", personMatches: new Map() });
+    expect(rows.pets[0].state).not.toHaveProperty("later");
+  });
+
+  test("a v7 file without pet arrays or care hours still parses, with none", () => {
+    const b = fullBackup() as unknown as Record<string, unknown>;
+    b.schemaVersion = 7;
+    delete b.pets;
+    delete b.petItems;
+    delete b.petPlays;
+    delete b.petMemorials;
+    delete b.petGifts;
+    const { petCareHours: _drop, ...household } = b.household as Record<string, unknown>;
+    void _drop;
+    b.household = household;
+    const parsed = parseBackupFile(JSON.stringify(b));
+    if (!parsed.ok) throw new Error(parsed.errors.join("; "));
+    expect(parsed.backup).toMatchObject({ pets: [], petItems: [], petPlays: [], petMemorials: [], petGifts: [] });
+    expect(parsed.backup.household.petCareHours).toBeNull();
+  });
+
+  test("a pet's state must be an object", () => {
+    const b = fullBackup() as unknown as { pets: Record<string, unknown>[] };
+    b.pets[0].state = "hungry";
+    expect(parseBackupFile(JSON.stringify(b)).ok).toBe(false);
   });
 });

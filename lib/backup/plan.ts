@@ -8,6 +8,8 @@ import { checkRewardWords } from "@/lib/reward-words";
 import { isThemeColorId } from "@/lib/theme-colors";
 import { backupSchema, type Backup } from "./schema";
 import { productNameKey } from "@/lib/product-name";
+import { readCareHours, readPetState } from "@/lib/pet/stored";
+import { DEFAULT_CARE_HOURS, type CareHours } from "@/lib/pet/care-hours";
 
 /**
  * Restore planning (Phase 16.5): everything that can be decided WITHOUT the database, as
@@ -125,6 +127,13 @@ export function checkReferences(b: Backup): string[] {
   check("itemPrices.productId", b.itemPrices.map((r) => r.productId), products);
   check("itemPrices.storeId", b.itemPrices.map((r) => r.storeId), stores);
   check("receiptAliases.productId", b.receiptAliases.map((r) => r.productId), products);
+  check("pets.personId", b.pets.map((r) => r.personId), people);
+  check("petItems.personId", b.petItems.map((r) => r.personId), people);
+  check("petPlays.personId", b.petPlays.map((r) => r.personId), people);
+  check("petMemorials.personId", b.petMemorials.map((r) => r.personId), people);
+  check("petGifts.personId", b.petGifts.map((r) => r.personId), people);
+  // petGifts.instanceId isn't checked: a present whose chore isn't in the file keeps its
+  // place in the daily cap with no chore (remapBackup nulls it, like the database's SET NULL).
   return problems;
 }
 
@@ -158,6 +167,10 @@ function tables(b: Backup): Record<string, { id: string }[]> {
     purchaseItems: b.purchaseItems,
     itemPrices: b.itemPrices,
     receiptAliases: b.receiptAliases,
+    pets: b.pets,
+    petItems: b.petItems,
+    petMemorials: b.petMemorials,
+    petGifts: b.petGifts,
   };
 }
 
@@ -192,6 +205,9 @@ export function checkUniques(b: Backup): string[] {
   dupes("productGroups (starting section)", b.productGroups.map((r) => r.starterKey));
   dupes("products (barcode)", b.products.map((r) => r.barcode));
   dupes("receiptAliases (text)", b.receiptAliases.map((r) => r.textKey));
+  dupes("pets (one per person)", b.pets.map((r) => r.personId));
+  dupes("petPlays (person, game)", b.petPlays.map((r) => `${r.personId}|${r.game}`));
+  dupes("petGifts (one per chore)", b.petGifts.map((r) => r.instanceId));
   return problems;
 }
 
@@ -303,7 +319,8 @@ type OptionalHouseholdField =
   | "mascotName"
   | "appIcon"
   | "disabledApps"
-  | "setupReviewed";
+  | "setupReviewed"
+  | "petCareHours";
 
 /** Household settings from the file, re-validated the way the settings form validates them. */
 export function normalizeHousehold(
@@ -339,7 +356,28 @@ export function normalizeHousehold(
     mascotOn: h.mascotOn ?? true,
     mascotName: cleanMascotName(h.mascotName),
     appIcon: h.appIcon ?? "BUNNY",
+    // Phase 47: kept only if it reads as care hours. readCareHours hands back the defaults
+    // object itself when it can't, which here means "none set" (the same hours).
+    petCareHours: careHoursOrNull(h.petCareHours),
   };
+}
+
+function careHoursOrNull(json: unknown): CareHours | null {
+  if (json == null) return null;
+  const hours = readCareHours(json);
+  return hours === DEFAULT_CARE_HOURS ? null : hours;
+}
+
+/**
+ * Phase 47: the file's pets whose state reads (lib/pet/stored.ts), with it parsed. A pet that
+ * doesn't is left out of the restore rather than failing it: its person, items and memory
+ * book still come back, and they can hatch a new one.
+ */
+export function readablePets(b: Backup) {
+  return b.pets.flatMap((p) => {
+    const state = readPetState(p.state);
+    return state ? [{ ...p, state }] : [];
+  });
 }
 
 const date = (iso: string) => new Date(iso);
@@ -615,6 +653,35 @@ export function remapBackup(
       observedAt: date(r.observedAt),
     })),
     receiptAliases: b.receiptAliases.map((r) => ({ ...r, id: newId(), householdId, productId: req(products, r.productId) })),
+    pets: readablePets(b).map((r) => ({
+      ...r,
+      id: newId(),
+      householdId,
+      personId: req(people, r.personId),
+      bornAt: date(r.bornAt),
+      lastAdvancedAt: date(r.lastAdvancedAt),
+      createdAt: date(r.createdAt),
+    })),
+    petItems: b.petItems.map((r) => ({ ...r, id: newId(), householdId, personId: req(people, r.personId), createdAt: date(r.createdAt) })),
+    petPlays: b.petPlays.map((r) => ({ ...r, personId: req(people, r.personId), paidAt: date(r.paidAt) })),
+    petMemorials: b.petMemorials.map((r) => ({
+      ...r,
+      id: newId(),
+      householdId,
+      personId: req(people, r.personId),
+      bornAt: date(r.bornAt),
+      goneAt: date(r.goneAt),
+      createdAt: date(r.createdAt),
+    })),
+    petGifts: b.petGifts.map((r) => ({
+      ...r,
+      id: newId(),
+      householdId,
+      personId: req(people, r.personId),
+      instanceId: r.instanceId == null ? null : (instances.get(r.instanceId) ?? null),
+      grantedAt: date(r.grantedAt),
+      openedAt: dateOrNull(r.openedAt),
+    })),
   };
 }
 

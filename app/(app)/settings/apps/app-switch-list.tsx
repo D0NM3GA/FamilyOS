@@ -17,6 +17,7 @@ const OFF_NOTE: Record<SwitchableAppId, string> = {
   school: "Off: school calendar feeds stop syncing.",
   money: "Off: bank syncs, order emails and money alerts pause; after about 3 months off, the oldest charges can't be fetched again.",
   store: "Off: kids keep earning, with nothing to spend on until it is back.",
+  pet: "Off: the pets sleep until it is back, and wake up just as they were.",
   cars: "Off: Garage goes with it, and recall checks stop.",
 };
 
