@@ -37,7 +37,7 @@ export function FetchGame({
   return (
     <div className="space-y-3">
       <p className="text-center font-bold" aria-live="polite">
-        {flying !== null ? `${flying} m!` : distances.length >= THROWS ? `${total} m in all!` : `Throw ${distances.length + 1} of ${THROWS}`}
+        {flying !== null ? `${flying} m!` : distances.length >= THROWS ? `${total} m in all.` : `Throw ${distances.length + 1} of ${THROWS}`}
       </p>
       <div className="relative h-28 overflow-hidden rounded-2xl bg-gradient-to-b from-sky/30 to-lime/40">
         <div

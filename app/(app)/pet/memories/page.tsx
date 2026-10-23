@@ -22,7 +22,7 @@ export default async function MemoriesPage() {
       </Link>
       <h1 className={pageTitle}>Memory book</h1>
       {memories.length === 0 ? (
-        <p className="text-muted-foreground">No memories yet. Every pet you look after will have a page here.</p>
+        <p className="text-muted-foreground">No pages yet. Every pet you raise gets a page here.</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {memories.map((memory) => {

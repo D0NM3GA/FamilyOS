@@ -13,10 +13,12 @@ const STEP_MS = 650;
 export function CopyDanceGame({
   seed,
   pet,
+  name,
   onDone,
 }: {
   seed: string;
   pet: { species: Species; stage: Stage; form: number };
+  name: string;
   onDone: (score: number) => void;
 }) {
   const moves = useMemo(() => danceMoves(seed), [seed]);
@@ -24,7 +26,7 @@ export function CopyDanceGame({
   // Which move the pet is showing, while it shows the round; null when it's your turn.
   const [showing, setShowing] = useState<number | null>(0);
   const [pose, setPose] = useState<Move | null>(null);
-  const [message, setMessage] = useState("Watch closely…");
+  const [message, setMessage] = useState(`Watch ${name}…`);
 
   useEffect(() => {
     if (showing === null) return;
@@ -50,14 +52,14 @@ export function CopyDanceGame({
       setPose(move);
       window.setTimeout(() => setPose(null), 250);
       if (result === "round") {
-        setMessage(`Round ${next.round + 1}: watch…`);
+        setMessage(`Round ${next.round + 1}. Watch closely…`);
         window.setTimeout(() => setShowing(0), 600);
       } else if (result === "miss" || result === "won") {
-        setMessage(result === "won" ? "A perfect dance! 🌟" : `Oops! You copied ${next.round} ${next.round === 1 ? "dance" : "dances"}.`);
+        setMessage(result === "won" ? `A perfect dance! ${name} takes a bow.` : `Wrong move! You copied ${next.round} ${next.round === 1 ? "dance" : "dances"}.`);
         onDone(next.round);
       }
     },
-    [showing, state, moves, onDone],
+    [showing, state, moves, onDone, name],
   );
 
   useEffect(() => {

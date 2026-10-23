@@ -1,5 +1,7 @@
-import type { CareOutcome } from "./care";
+import type { Personality } from "./personality";
+import { rngFor } from "./random";
 import { hearts, type DeathCause, type PetState, type Species, type Stage } from "./state";
+import { fill, HAPPY_LINES, MOOD_LINES, pickLine } from "./voice";
 
 /**
  * Phase 47: what the pet screen says. Kid-friendly and gentle, never guilt-tripping, and never
@@ -51,47 +53,44 @@ export function cleanPetName(raw: unknown): string | null {
   return name.length > 0 ? name : null;
 }
 
-/** The pet's mood in words, for the status line and screen readers. */
-export function moodLine(name: string, state: PetState, awake: boolean, napping: boolean): string {
-  if (state.stage === "egg") return `${name} is still an egg. Something is wiggling inside!`;
-  if (!awake) return `${name} is fast asleep. Come back when it's awake.`;
-  if (state.sick) return `${name} feels poorly and needs medicine.`;
-  if (napping) return `${name} is having a little nap.`;
-  const needs: string[] = [];
-  if (hearts(state.hunger) <= 1) needs.push("hungry");
-  if (hearts(state.fun) <= 1) needs.push("bored");
-  if (state.poops > 0) needs.push("needs a clean-up");
-  if (needs.length > 0) return `${name} is ${needs.join(" and ")}.`;
-  if (state.call?.kind === "fake") return `${name} is making a fuss about something.`;
-  if (state.energy < 30) return `${name} is getting sleepy.`;
-  return `${name} is happy!`;
+/**
+ * The line under the room: what the pet is up to, in the pet's voice (lib/pet/voice.ts). The
+ * same minute gives the same line, so it doesn't change every time the page refreshes.
+ */
+export function moodLine(
+  pet: { name: string; species: Species; personality: Personality; seed: string },
+  state: PetState,
+  awake: boolean,
+  napping: boolean,
+  minute: number,
+): string {
+  const pool = (): readonly string[] => {
+    if (state.stage === "egg") return MOOD_LINES.egg;
+    if (!awake) return MOOD_LINES.asleep;
+    if (state.sick) return MOOD_LINES.sick;
+    if (napping) return MOOD_LINES.napping;
+    if (hearts(state.hunger) <= 1) return MOOD_LINES.hungry;
+    if (hearts(state.fun) <= 1) return MOOD_LINES.bored;
+    if (state.poops > 0) return MOOD_LINES.messy;
+    if (state.call?.kind === "fake") return MOOD_LINES.fussing;
+    if (state.energy < 30) return MOOD_LINES.sleepy;
+    return HAPPY_LINES[pet.personality.quirk];
+  };
+  // A new line every few minutes, not every refresh.
+  const line = pickLine(pool(), rngFor(pet.seed, "mood", Math.floor(minute / 5)));
+  return fill(line, { name: pet.name, species: pet.species, food: pet.personality.favoriteFood });
 }
 
+/** How a pet left, in gentle words. Pets come from Egg Island, and go back there. */
 export const CAUSE_WORDS: Record<DeathCause, string> = {
-  hunger: "went off to find snacks somewhere far away",
-  sickness: "got too poorly and floated off to rest",
-  "old-age": "lived a long, happy life",
+  hunger: "got too hungry and went back to Egg Island, where there's always something to eat",
+  sickness: "got too poorly and went back to Egg Island to rest",
+  "old-age": "lived a long, happy life and retired to Egg Island",
 };
 
-/** A memory-book line: "Pip lived 12 days and grew into a Splendid Sprout." */
+/** A memory-book line: "Pip lived 12 days, grew into a Splendid Sprout, and retired to…" */
 export function memoryLine(name: string, ageMinutes: number, finalForm: string, cause: DeathCause): string {
   const days = Math.max(1, Math.round(ageMinutes / (6 * 60)));
-  const grew = finalForm === "Egg" ? "" : ` and grew into a ${finalForm}`;
-  return `${name} lived ${days} ${days === 1 ? "day" : "days"}${grew}, and ${CAUSE_WORDS[cause]}.`;
+  const grew = finalForm === "Egg" ? "" : `, grew into a ${finalForm},`;
+  return `${name} lived ${days} ${days === 1 ? "day" : "days"}${grew} and ${CAUSE_WORDS[cause]}.`;
 }
-
-/** What the pet does or says after you care for it. */
-export const OUTCOME_WORDS: Record<CareOutcome, string> = {
-  ok: "",
-  "not-hatched": "The egg just wobbles.",
-  full: "Too full! Maybe later.",
-  "too-many-snacks": "Uh oh, too many snacks. A tummy ache!",
-  "nothing-to-clean": "Already spotless!",
-  "not-sick": "No medicine needed, it feels fine.",
-  "still-sick": "One more dose should do it.",
-  cured: "All better!",
-  "nothing-to-scold": "It looks at you, puzzled. It wasn't doing anything!",
-  confused: "It really needed something. Check what it's asking for.",
-  wriggled: "It wriggles away, giggling. Enough cuddles for now!",
-  "too-tired": "Too tired to play. Maybe after a nap.",
-};

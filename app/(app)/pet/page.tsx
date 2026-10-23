@@ -33,7 +33,7 @@ function toScreen(pet: PetRecord): ScreenPet {
     napping,
     awake: pet.awake,
     ageDays: Math.floor(state.ageMinutes / (6 * 60)),
-    mood: moodLine(pet.name, state, pet.awake, napping),
+    mood: moodLine({ name: pet.name, species: state.species, personality: pet.personality, seed: pet.seed }, state, pet.awake, napping, pet.minute),
     seed: pet.seed,
     personality: pet.personality,
     minute: pet.minute,

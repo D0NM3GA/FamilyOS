@@ -14,11 +14,11 @@ export type GameId = (typeof GAMES)[number];
 export type GameDef = { id: GameId; name: string; emoji: string; blurb: string; maxScore: number };
 
 export const GAME_DEFS: Record<GameId, GameDef> = {
-  "snack-catch": { id: "snack-catch", name: "Snack Catch", emoji: "🍓", blurb: "Catch the treats, dodge the broccoli.", maxScore: 20 },
-  "bubble-bath": { id: "bubble-bath", name: "Bubble Bath", emoji: "🫧", blurb: "Pop the bubbles to get squeaky clean.", maxScore: 40 },
-  "hide-seek": { id: "hide-seek", name: "Hide and Seek", emoji: "👀", blurb: "Where did it go? Tap to find it.", maxScore: 3 },
-  "copy-dance": { id: "copy-dance", name: "Copy Dance", emoji: "💃", blurb: "Watch the moves, then copy them.", maxScore: 8 },
-  fetch: { id: "fetch", name: "Fetch Far", emoji: "🥏", blurb: "Throw when the marker's in the sweet spot.", maxScore: 300 },
+  "snack-catch": { id: "snack-catch", name: "Snack Catch", emoji: "🍓", blurb: "Snacks are falling. Catch them in the bowl, and leave the broccoli.", maxScore: 20 },
+  "bubble-bath": { id: "bubble-bath", name: "Bubble Bath", emoji: "🫧", blurb: "Bath time. Pop the bubbles before they float away. Ducks count extra.", maxScore: 40 },
+  "hide-seek": { id: "hide-seek", name: "Hide and Seek", emoji: "👀", blurb: "Your pet hides somewhere in the room. Can you find it in three tries?", maxScore: 3 },
+  "copy-dance": { id: "copy-dance", name: "Copy Dance", emoji: "💃", blurb: "Your pet does a dance. You do it back, move for move.", maxScore: 8 },
+  fetch: { id: "fetch", name: "Fetch Far", emoji: "🥏", blurb: "Tap Throw when the line is in the green. Closer means farther.", maxScore: 300 },
 };
 
 /** A round pays out once per game per this many minutes. */

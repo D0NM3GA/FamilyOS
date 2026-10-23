@@ -58,11 +58,11 @@ export function openTreat(state: PetState, treat: Treat): PetState {
  * Never the word "chore" or the reward word.
  */
 const HINTS: readonly (readonly string[])[] = [
-  ["A present appeared! Where did it come from?", "Another present! Someone must really like you."],
+  ["A present by the door! Who left it?", "Another present! Nobody saw who brought it."],
   [
     "A present! It smells like a freshly made bed…",
     "A present, with a little sock stuck to it…",
-    "A present! It's suspiciously clean and shiny…",
+    "A present! It smells like clean laundry…",
   ],
   [
     "A present! Someone's been helping around the house…",

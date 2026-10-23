@@ -9,7 +9,26 @@ import type { Personality, PetSpot, Toy } from "@/lib/pet/personality";
 import { rngFor } from "@/lib/pet/random";
 import type { Season, Sky } from "@/lib/pet/room";
 import { hearts, type CallKind, type Species, type Stage } from "@/lib/pet/state";
-import { OUTCOME_WORDS, PET_NAME_MAX } from "@/lib/pet/words";
+import { PET_NAME_MAX } from "@/lib/pet/words";
+import {
+  CLEAN_LINES,
+  CURED_LINES,
+  FAVORITE_MEAL_LINES,
+  FAVORITE_SPOT_LINES,
+  FAVORITE_TOY_LINES,
+  fill,
+  MEAL_LINES,
+  MEDICINE_LINES,
+  OUTCOME_LINES,
+  PET_LINES,
+  pickLine,
+  SAY_NO_LINES,
+  serveFood,
+  SNACK_LINES,
+  STILL_SICK_LINES,
+  TOY_LINES,
+  type LineContext,
+} from "@/lib/pet/voice";
 import { GAME_DEFS, GAMES, type GameId } from "@/lib/pet/games/catalog";
 import { GameStage } from "./games/game-stage";
 import { btn, btnPrimary, card, field, fieldLabel, sectionTitle } from "@/components/styles";
@@ -160,6 +179,14 @@ export function PetScreen({
   const [look, setLook] = useState({ x: 0, y: 0 });
   const [x, setX] = useState(45);
   const tick = useRef(0);
+  // The pet's lines (lib/pet/voice.ts): never the same one twice in a row.
+  const lastLine = useRef<string | null>(null);
+  function say(pool: readonly string[], extra: Partial<LineContext> = {}): string {
+    const line = pickLine(pool, Math.random, lastLine.current);
+    lastLine.current = line;
+    return fill(line, { name: pet.name, species: pet.species, ...extra });
+  }
+
   function unwrap(presentId: string) {
     startTransition(async () => {
       const opened = await openPresent(presentId);
@@ -167,7 +194,7 @@ export function PetScreen({
         showReaction(`${opened.hint} Inside: ${opened.gift}!`, "excited", "dance");
         burst(5);
       } else if (opened.reason === "asleep") {
-        showReaction(`${pet.name} is asleep. Open it together later!`);
+        showReaction(`Shh, ${pet.name} is asleep. Open it together when it wakes up.`);
       }
       router.refresh();
     });
@@ -235,23 +262,52 @@ export function PetScreen({
     window.setTimeout(() => setHearts((current) => current.filter((id) => !ids.includes(id))), 1300);
   }
 
-  function run(action: () => Promise<CareReply & { favorite?: boolean }>, success: { text: string; mood: Mood; hearts?: number }) {
+  type Success = { lines: readonly string[]; favoriteLines?: readonly string[]; extra?: Partial<LineContext>; mood: Mood; hearts?: number };
+
+  function run(action: () => Promise<CareReply & { favorite?: boolean }>, success: Success) {
     startTransition(async () => {
       const reply = await action();
       if (reply.outcome === "ok") {
-        showReaction(reply.favorite ? `${success.text} It's ${pet.name}'s favorite!` : success.text, success.mood);
-        burst(reply.favorite ? 5 : (success.hearts ?? 2));
+        const favorite = reply.favorite && success.favoriteLines;
+        showReaction(say(favorite ? success.favoriteLines! : success.lines, success.extra), success.mood);
+        burst(favorite ? 5 : (success.hearts ?? 2));
+      } else if (reply.outcome === "cured") {
+        showReaction(say(CURED_LINES), "happy");
+        burst(3);
+      } else if (reply.outcome === "still-sick") {
+        showReaction(say(STILL_SICK_LINES), "sick", "idle");
       } else if (reply.outcome === "asleep") {
-        showReaction(`${pet.name} is asleep.`);
+        showReaction(`Shh, ${pet.name} is asleep.`);
       } else if (reply.outcome === "busy") {
         showReaction("Hang on, try that again.");
       } else if (reply.outcome === "played-recently") {
-        showReaction("That was fun!");
+        showReaction(say(success.lines, success.extra), success.mood);
       } else if (reply.outcome !== "no-pet" && reply.outcome !== "gone") {
-        showReaction(OUTCOME_WORDS[reply.outcome], reply.outcome === "too-many-snacks" ? "sick" : undefined, "wiggle");
+        showReaction(say(OUTCOME_LINES[reply.outcome]), reply.outcome === "too-many-snacks" ? "sick" : undefined, "wiggle");
       }
       router.refresh();
     });
+  }
+
+  /** What's in the bowl: often its favorite, so there's a chance to notice. */
+  function serveMeal() {
+    const food = serveFood(pet.personality.favoriteFood, Math.random);
+    const favorite = food === pet.personality.favoriteFood;
+    run(async () => ({ ...(await careForPet("meal")), favorite }), {
+      lines: MEAL_LINES,
+      favoriteLines: FAVORITE_MEAL_LINES,
+      extra: { food },
+      mood: "eating",
+    });
+  }
+
+  function petSpot(spot: PetSpot) {
+    run(() => petPet(spot), { lines: PET_LINES[spot], favoriteLines: FAVORITE_SPOT_LINES, mood: "petted", hearts: 3 });
+  }
+
+  function playToy(toy: ScreenItem) {
+    const id = toy.itemId as Toy;
+    run(() => playWithToy(toy.id), { lines: TOY_LINES[id] ?? TOY_LINES.ball, favoriteLines: FAVORITE_TOY_LINES, extra: { toy: id }, mood: "excited" });
   }
 
   function onPetDown(event: PointerEvent<HTMLDivElement>) {
@@ -270,7 +326,7 @@ export function PetScreen({
     current.y = event.clientY;
     if (current.travelled > 60 && !pending && pet.stage !== "egg" && pet.awake) {
       stroke.current = null;
-      run(() => petPet(current.spot), { text: `${pet.name} leans into it.`, mood: "petted", hearts: 3 });
+      petSpot(current.spot);
     }
   }
   function onPetUp() {
@@ -320,7 +376,7 @@ export function PetScreen({
             key={toy.id}
             type="button"
             disabled={!canCare}
-            onClick={() => run(() => playWithToy(toy.id), { text: `${pet.name} plays with the ${itemDef(toy.itemId)?.name.toLowerCase()}!`, mood: "excited" })}
+            onClick={() => playToy(toy)}
             className="absolute bottom-[6%] flex size-[9%] -translate-x-1/2 items-center justify-center rounded-full text-[clamp(1rem,4vw,2rem)] transition hover:scale-110 disabled:cursor-default"
             style={{ left: `${TOY_SPOTS[i % TOY_SPOTS.length]}%` }}
             aria-label={`Play with the ${itemDef(toy.itemId)?.name.toLowerCase()}`}
@@ -375,10 +431,10 @@ export function PetScreen({
 
       <p className="text-center text-lg font-bold" aria-live="polite">
         {pet.mood}
-        {!pet.awake && <span className="block text-sm font-normal text-muted-foreground">Awake {careHours}.</span>}
+        {!pet.awake && <span className="block text-sm font-normal text-muted-foreground">Awake {careHours} today.</span>}
         {presents.length > 0 && pet.awake && pet.stage !== "egg" && (
           <span className="block text-sm font-normal text-muted-foreground">
-            {presents.length === 1 ? "There's a present by the door!" : `There are ${presents.length} presents by the door!`}
+            {presents.length === 1 ? "There's a present by the door." : `There are ${presents.length} presents by the door.`}
           </span>
         )}
         {pet.hatchesIn != null && <span className="block text-sm font-normal text-muted-foreground">Hatching in about {Math.max(1, pet.hatchesIn)} minute{pet.hatchesIn === 1 ? "" : "s"}.</span>}
@@ -387,18 +443,18 @@ export function PetScreen({
       <div className="mx-auto grid max-w-3xl grid-cols-3 gap-2 sm:grid-cols-6">
         <BigButton emoji="🍙" label="Feed" disabled={!canCare} pressed={panel === "feed"} onClick={() => setPanel(panel === "feed" ? null : "feed")} />
         <BigButton emoji="🎾" label="Play" disabled={!canCare} pressed={panel === "play"} onClick={() => setPanel(panel === "play" ? null : "play")} />
-        <BigButton emoji="🧽" label="Clean" disabled={!canCare} onClick={() => run(() => careForPet("clean"), { text: "Sparkly clean!", mood: "happy" })} />
-        <BigButton emoji="💊" label="Medicine" disabled={!canCare} onClick={() => run(() => careForPet("medicine"), { text: "Gulp!", mood: "content" })} />
-        <BigButton emoji="✋" label="Say no" disabled={!canCare} onClick={() => run(() => careForPet("no"), { text: `${pet.name} settles down.`, mood: "content" })} />
+        <BigButton emoji="🧽" label="Clean" disabled={!canCare} onClick={() => run(() => careForPet("clean"), { lines: CLEAN_LINES, mood: "happy" })} />
+        <BigButton emoji="💊" label="Medicine" disabled={!canCare} onClick={() => run(() => careForPet("medicine"), { lines: MEDICINE_LINES, mood: "content" })} />
+        <BigButton emoji="✋" label="Say no" disabled={!canCare} onClick={() => run(() => careForPet("no"), { lines: SAY_NO_LINES, mood: "content" })} />
         <BigButton emoji="🪴" label="Room" pressed={panel === "decorate"} onClick={() => setPanel(panel === "decorate" ? null : "decorate")} />
       </div>
 
       {panel === "feed" && (
         <div className={`${card} mx-auto flex max-w-3xl flex-wrap justify-center gap-2`}>
-          <button type="button" className={btnPrimary} disabled={!canCare} onClick={() => run(() => careForPet("meal"), { text: "Yum!", mood: "eating" })}>
+          <button type="button" className={btnPrimary} disabled={!canCare} onClick={serveMeal}>
             🍚 A meal
           </button>
-          <button type="button" className={btn} disabled={!canCare} onClick={() => run(() => careForPet("snack"), { text: "A treat!", mood: "eating" })}>
+          <button type="button" className={btn} disabled={!canCare} onClick={() => run(() => careForPet("snack"), { lines: SNACK_LINES, mood: "eating" })}>
             🍪 A snack
           </button>
         </div>
@@ -408,7 +464,7 @@ export function PetScreen({
         <div className={`${card} mx-auto max-w-3xl space-y-3`}>
           <p className={sectionTitle}>Games</p>
           {pet.sick || pet.energy < 12 ? (
-            <p className="text-sm text-muted-foreground">{pet.sick ? `${pet.name} is too poorly for games right now.` : `${pet.name} is too tired for games. A nap will help.`}</p>
+            <p className="text-sm text-muted-foreground">{pet.sick ? `${pet.name} is too poorly for games. Medicine first.` : `${pet.name} is too sleepy for games. Let it nap.`}</p>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {GAMES.map((id) => (
@@ -425,7 +481,7 @@ export function PetScreen({
           <p className="text-sm text-muted-foreground">Stroke {pet.name} in the room, or pick a spot:</p>
           <div className="flex flex-wrap gap-2">
             {(["head", "cheeks", "belly", "back"] as const).map((spot) => (
-              <button key={spot} type="button" className={btn} disabled={!canCare} onClick={() => run(() => petPet(spot), { text: `${pet.name} leans into it.`, mood: "petted", hearts: 3 })}>
+              <button key={spot} type="button" className={btn} disabled={!canCare} onClick={() => petSpot(spot)}>
                 Pet its {spot}
               </button>
             ))}
@@ -433,7 +489,7 @@ export function PetScreen({
           <p className={sectionTitle}>Toys</p>
           <div className="flex flex-wrap gap-2">
             {items.filter((item) => itemDef(item.itemId)?.kind === "toy").map((toy) => (
-              <button key={toy.id} type="button" className={btn} disabled={!canCare} onClick={() => run(() => playWithToy(toy.id), { text: `${pet.name} plays with the ${itemDef(toy.itemId)?.name.toLowerCase()}!`, mood: "excited" })}>
+              <button key={toy.id} type="button" className={btn} disabled={!canCare} onClick={() => playToy(toy)}>
                 <ToyIcon id={toy.itemId} /> {itemDef(toy.itemId)?.name}
               </button>
             ))}
@@ -535,7 +591,7 @@ function RoomPanel({ items, decor }: { items: ScreenItem[]; decor: Partial<Recor
           );
         })}
       </div>
-      {decor && decorItems.length === 0 && <p className="text-sm text-muted-foreground">Decorations come as your pet grows up and gets close to you.</p>}
+      {decor && decorItems.length === 0 && <p className="text-sm text-muted-foreground">New things for the room turn up as your pet grows.</p>}
       {toys.length > 0 && (
         <div>
           <p className={sectionTitle}>Toys on the floor</p>

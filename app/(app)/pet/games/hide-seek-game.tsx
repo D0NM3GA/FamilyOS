@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { guess, hidingPlaces, ROUNDS, START, TRIES } from "@/lib/pet/games/hide-seek";
+import { fill, HIDE_SEEK_FOUND, HIDE_SEEK_MISS, pickLine } from "@/lib/pet/voice";
 import type { Species, Stage } from "@/lib/pet/state";
 import { PetSprite } from "../pet-sprite";
 
@@ -21,16 +22,19 @@ export function HideSeekGame({
   seed,
   spots,
   pet,
+  name,
   onDone,
 }: {
   seed: string;
   spots: readonly string[];
   pet: { species: Species; stage: Stage; form: number };
+  name: string;
   onDone: (score: number) => void;
 }) {
   const places = useMemo(() => hidingPlaces(seed, spots), [seed, spots]);
   const [state, setState] = useState(START);
-  const [shown, setShown] = useState<{ spot: string; found: boolean } | null>(null);
+  const [shown, setShown] = useState<{ spot: string; found: boolean; line: string } | null>(null);
+  const say = (pool: readonly string[]) => fill(pickLine(pool, Math.random), { name, species: pet.species });
   const [hint, setHint] = useState(false);
 
   // After a few seconds of looking, its tail peeks out.
@@ -46,11 +50,12 @@ export function HideSeekGame({
     const roundOver = result.state.round !== state.round;
     if (!roundOver) {
       setState(result.state);
-      setShown({ spot, found: false });
+      setShown({ spot, found: false, line: say(HIDE_SEEK_MISS) });
       window.setTimeout(() => setShown(null), 700);
       return;
     }
-    setShown({ spot: places[state.round], found: result.found });
+    const there = SPOT_LOOKS[places[state.round]]?.name ?? "there";
+    setShown({ spot: places[state.round], found: result.found, line: result.found ? say(HIDE_SEEK_FOUND) : `${name} was behind ${there}!` });
     window.setTimeout(() => {
       setShown(null);
       setHint(false);
@@ -64,14 +69,10 @@ export function HideSeekGame({
     <div className="space-y-3">
       <p className="text-center font-bold" aria-live="polite">
         {state.done
-          ? `Found ${state.found} of ${ROUNDS}!`
-          : shown?.found
-            ? "Found it! 🎉"
-            : shown && shown.spot === here
-              ? "There it was!"
-              : shown
-                ? "Not there…"
-                : `Round ${state.round + 1} of ${ROUNDS}: where's it hiding? (${TRIES - state.tries} ${TRIES - state.tries === 1 ? "try" : "tries"} left)`}
+          ? `You found ${name} ${state.found} of ${ROUNDS} times.`
+          : shown
+            ? shown.line
+            : `Round ${state.round + 1} of ${ROUNDS}. Where's ${name}? (${TRIES - state.tries} ${TRIES - state.tries === 1 ? "try" : "tries"} left)`}
       </p>
       <div className="grid grid-cols-3 gap-3">
         {spots.map((spot) => {

@@ -661,6 +661,15 @@ simulation catches the pet up whenever it's opened. Finishing a chore quietly br
 present (additive only, capped daily), kept secret from the chores side by a test. Pets are in
 household backups (format 8).
 
+**The pet's voice** (`lib/pet/voice.ts`). The pet never speaks English: each species has one
+sound ("blup", "pip", "mrrp"), the way a Pokémon says its own name, and a narrator says what it
+does ("Pip flops over for a belly rub", not "Pip is happy"). Plain words for buttons and
+settings; the play lives in the pet's lines. Its quirk changes how its happy lines sound, the way
+Animal Crossing villagers sound like their type. Lines come in pools, never the same one twice in
+a row, written for a 7-year-old to read alone. Eggs come from Egg Island and pets go back there.
+`lib/pet/voice.test.ts` keeps the style: every placeholder filled, 90 characters at most, no
+dashes, one exclamation mark at most, nothing about chores or the reward word.
+
 Departures from the plan: the pet's state is one checked JSON column rather than typed columns;
 a turned-off Pet app goes to the usual "turned off" page; clearing a memory-book page isn't built
 (each book is only its owner's); changing care hours applies to the time since a pet was last

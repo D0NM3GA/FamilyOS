@@ -2,7 +2,8 @@
 
 import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { GAME_DEFS, type GameId } from "@/lib/pet/games/catalog";
+import { GAME_DEFS, scoreShare, type GameId } from "@/lib/pet/games/catalog";
+import { fill, GAME_REPLAY_LINES, GAME_RESULT_LINES, GAME_TIRED_LINES, pickLine } from "@/lib/pet/voice";
 import { BUILT_IN_SPOTS } from "@/lib/pet/games/hide-seek";
 import type { Species, Stage } from "@/lib/pet/state";
 import { btn, btnPrimary, card } from "@/components/styles";
@@ -49,21 +50,19 @@ export function GameStage({
       setPhase("done");
       startSaving(async () => {
         const reply = await finishGame(game, score);
-        setResult(
-          reply.outcome === "ok"
-            ? `${pet.name} had a great time!`
-            : reply.outcome === "played-recently"
-              ? `That one was just for fun: ${pet.name} played it not long ago.`
-              : reply.outcome === "too-tired"
-                ? `${pet.name} is worn out now. A nap would help.`
-                : reply.outcome === "asleep"
-                  ? `${pet.name} fell asleep!`
-                  : "That was fun!",
-        );
+        const share = scoreShare(game, score);
+        const tier = share >= 0.7 ? "high" : share >= 0.3 ? "mid" : "low";
+        const pool =
+          reply.outcome === "played-recently"
+            ? GAME_REPLAY_LINES
+            : reply.outcome === "too-tired" || reply.outcome === "asleep"
+              ? GAME_TIRED_LINES
+              : GAME_RESULT_LINES[tier];
+        setResult(fill(pickLine(pool, Math.random), { name: pet.name, species: pet.species }));
         router.refresh();
       });
     },
-    [game, pet.name, router],
+    [game, pet.name, pet.species, router],
   );
 
   return (
@@ -93,9 +92,9 @@ export function GameStage({
           {game === "snack-catch" && <SnackCatchGame seed={seed} onDone={done} />}
           {game === "bubble-bath" && <BubbleBathGame seed={seed} pet={sprite} onDone={done} />}
           {game === "hide-seek" && (
-            <HideSeekGame seed={seed} spots={[...BUILT_IN_SPOTS, ...decor.filter((id) => HIDING_DECOR.includes(id))]} pet={sprite} onDone={done} />
+            <HideSeekGame seed={seed} spots={[...BUILT_IN_SPOTS, ...decor.filter((id) => HIDING_DECOR.includes(id))]} pet={sprite} name={pet.name} onDone={done} />
           )}
-          {game === "copy-dance" && <CopyDanceGame seed={seed} pet={sprite} onDone={done} />}
+          {game === "copy-dance" && <CopyDanceGame seed={seed} pet={sprite} name={pet.name} onDone={done} />}
           {game === "fetch" && <FetchGame pet={sprite} onDone={done} />}
         </div>
       )}
