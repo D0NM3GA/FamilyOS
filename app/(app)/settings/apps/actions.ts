@@ -23,7 +23,8 @@ export async function setAppSwitch(appId: string, on: boolean): Promise<SetAppRe
   return result;
 }
 
-export type CareHoursState = { saved?: boolean };
+/** Saved, and anything worth saying about what was saved. */
+export type CareHoursState = { saved?: boolean; alwaysAsleep?: boolean; leftOut?: number };
 
 /** Phase 47: when the family's pets are awake (admins only). Read leniently: lib/pet/stored.ts. */
 export async function setPetCareHours(_prev: CareHoursState, formData: FormData): Promise<CareHoursState> {
@@ -32,5 +33,8 @@ export async function setPetCareHours(_prev: CareHoursState, formData: FormData)
   await prisma.household.update({ where: { id: admin.householdId }, data: { petCareHours: careHours } });
   revalidatePath("/settings/apps");
   revalidatePath("/pet");
-  return { saved: true };
+  // Stretches someone filled in that didn't make it (ending before they start, say).
+  const filledIn = ["weekday", "weekend"].flatMap((day) => [0, 1].filter((i) => formData.get(`${day}-${i}-from`))).length;
+  const kept = careHours.weekday.length + careHours.weekend.length;
+  return { saved: true, alwaysAsleep: kept === 0, leftOut: Math.max(0, filledIn - kept) };
 }

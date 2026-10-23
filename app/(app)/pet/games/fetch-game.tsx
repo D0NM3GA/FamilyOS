@@ -62,8 +62,10 @@ export function FetchGame({
           type="button"
           onClick={throwIt}
           data-game-focus
-          disabled={flying !== null || distances.length >= THROWS}
-          className="min-h-14 rounded-2xl border-2 border-ink bg-sun px-8 text-lg font-extrabold text-ink shadow-[0_3px_0_#1f2933] active:translate-y-0.5 disabled:opacity-40"
+          // Not disabled mid-throw: a disabled button drops keyboard focus. It just waits instead.
+          aria-disabled={flying !== null || undefined}
+          disabled={distances.length >= THROWS}
+          className="min-h-14 rounded-2xl border-2 border-ink bg-sun px-8 text-lg font-extrabold text-ink shadow-[0_3px_0_#1f2933] active:translate-y-0.5 disabled:opacity-40 aria-disabled:opacity-60"
         >
           🥏 Throw!
         </button>

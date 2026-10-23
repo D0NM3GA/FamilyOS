@@ -71,6 +71,8 @@ export function PetCareHours({ careHours }: { careHours: CareHours }) {
         {state.saved && (
           <p className="text-sm font-bold" role="status">
             Saved.
+            {state.leftOut ? ` ${state.leftOut === 1 ? "One stretch ends" : `${state.leftOut} stretches end`} before ${state.leftOut === 1 ? "it starts" : "they start"}, so ${state.leftOut === 1 ? "it was" : "they were"} left out.` : ""}
+            {state.alwaysAsleep ? " With no hours set, the pets will sleep all the time." : ""}
           </p>
         )}
       </div>

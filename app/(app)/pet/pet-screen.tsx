@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
@@ -27,7 +28,6 @@ import {
   type LineContext,
 } from "@/lib/pet/voice";
 import { GAME_DEFS, GAMES, type GameId } from "@/lib/pet/games/catalog";
-import { GameStage } from "./games/game-stage";
 import { btn, btnPrimary, card, sectionTitle } from "@/components/styles";
 import { careForPet, openPresent, petPet, playWithToy, type CareReply } from "./actions";
 import { BigButton, ToyIcon } from "./pet-controls";
@@ -37,6 +37,12 @@ import { PetSprite, type Mood } from "./pet-sprite";
 import { RoomPanel } from "./room-panel";
 import { StatsPanel } from "./stats-panel";
 import { useReactions } from "./use-reactions";
+
+// The games are only fetched when one is opened: most visits are feeding and petting.
+const GameStage = dynamic(() => import("./games/game-stage").then((module) => module.GameStage), {
+  ssr: false,
+  loading: () => <p className="py-10 text-center font-bold text-muted-foreground">Getting the game ready…</p>,
+});
 
 /**
  * Phase 47: the pet screen. The room with the pet living in it, and big buttons below. The pet
