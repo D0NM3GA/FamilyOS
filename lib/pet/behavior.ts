@@ -19,22 +19,8 @@ export type RoomView = {
   weather: Weather;
 };
 
-export type BehaviorKind =
-  | "wobble"
-  | "sleep"
-  | "lie-down"
-  | "call"
-  | "wander"
-  | "sit"
-  | "look"
-  | "window"
-  | "dance"
-  | "sulk"
-  | "yawn"
-  | "hop"
-  | "peek"
-  | "play-toy"
-  | "sniff";
+export const BEHAVIOR_KINDS = ["wobble", "sleep", "lie-down", "call", "wander", "sit", "look", "window", "dance", "sulk", "yawn", "hop", "peek", "play-toy", "sniff"] as const;
+export type BehaviorKind = (typeof BEHAVIOR_KINDS)[number];
 
 export type Behavior = { kind: BehaviorKind; target?: string };
 

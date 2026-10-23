@@ -1,3 +1,4 @@
+import type { Mood, Pose } from "@/lib/pet/motion";
 import type { Species, Stage } from "@/lib/pet/state";
 
 /**
@@ -8,8 +9,6 @@ import type { Species, Stage } from "@/lib/pet/state";
  * still pose.
  */
 
-export type Mood = "happy" | "content" | "sad" | "sick" | "asleep" | "eating" | "petted" | "excited";
-export type Pose = "idle" | "hop" | "wiggle" | "dance" | "droop" | "lie" | "wobble";
 
 type Palette = { body: string; belly: string; accent: string };
 

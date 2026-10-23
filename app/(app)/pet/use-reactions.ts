@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fill, pickLine, type LineContext } from "@/lib/pet/voice";
 import type { Species } from "@/lib/pet/state";
-import type { Mood, Pose } from "./pet-sprite";
+import type { Mood, Pose } from "@/lib/pet/motion";
 
 /**
  * Phase 47: the pet's reactions: a speech line over the room, a moment's change of face and

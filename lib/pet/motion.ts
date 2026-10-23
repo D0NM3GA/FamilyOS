@@ -1,13 +1,15 @@
-import type { Behavior } from "@/lib/pet/behavior";
-import type { RoomSlot } from "@/lib/pet/items";
-import { hearts, type CallKind } from "@/lib/pet/state";
-import { ROOM_W, SLOT_ANCHORS } from "./pet-room";
-import type { Mood, Pose } from "./pet-sprite";
+import type { Behavior } from "./behavior";
+import type { RoomSlot } from "./items";
+import { ROOM_W, SLOT_ANCHORS } from "./room";
+import { hearts, type CallKind } from "./state";
 
 /**
  * Phase 47: how a behavior (lib/pet/behavior.ts) looks on screen: where the pet walks to, its
- * pose and face, and how long it keeps at it. Pure.
+ * pose and face, and how long it keeps at it. Pure and client-safe; the sprite draws these.
  */
+
+export type Mood = "happy" | "content" | "sad" | "sick" | "asleep" | "eating" | "petted" | "excited";
+export type Pose = "idle" | "hop" | "wiggle" | "dance" | "droop" | "lie" | "wobble";
 
 /** Where things stand on the floor, as a percentage across the room. */
 export const BED_X = 86;
@@ -68,3 +70,4 @@ export function durationOf(behavior: Behavior): number {
       return 3000;
   }
 }
+
