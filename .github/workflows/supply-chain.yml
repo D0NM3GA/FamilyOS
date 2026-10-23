@@ -1,0 +1,50 @@
+# Phase 41: the dependency checks (README "Dependencies"), whenever what gets installed could
+# change, and weekly, since a version that was fine can be pulled from the registry later.
+# Their own workflow: they read ~800 registry documents, which other pull requests needn't wait on.
+name: Supply chain
+
+on:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - .npmrc
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+      - .npmrc
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependencies:
+    name: Lockfile and signatures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/unused
+      NEXT_TELEMETRY_DISABLED: "1"
+      CHECKPOINT_DISABLE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      # Before installing anything: exact pins, registry + sha512, reviewed install scripts,
+      # every version at least 7 days old and still published.
+      - run: npm run deps:check
+      - run: npm ci
+      # The registry's signatures and provenance for everything installed.
+      - run: npm audit signatures

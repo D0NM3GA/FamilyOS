@@ -1,0 +1,11 @@
+# Phase 43: the production stack for the browser tests (CI, or on a Mac): the app published on
+# 127.0.0.1 so passkeys work on `localhost`, and no tunnel. Run only db, migrate and app:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.ci.yml up -d --build db migrate app
+#
+# The settings file and secrets come from FAMILYOS_ENV_FILE and FAMILYOS_SECRETS_DIR, made fresh
+# for each run (scripts/container-test.sh), never the server's.
+services:
+  app:
+    ports:
+      - "127.0.0.1:3100:3000"

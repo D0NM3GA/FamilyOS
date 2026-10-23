@@ -1,0 +1,24 @@
+# Phase 43: what never goes into an image's build context. Secrets and the family's own files
+# first; then anything rebuilt inside the image.
+.env*
+!.env.example
+!.env.lan.example
+familyos.env
+*.pem
+.git
+backups/
+node_modules/
+.next/
+app/generated/
+public/zxing/
+e2e/
+playwright-report/
+test-results/
+coverage/
+docs/
+**/*.test.ts
+**/*.db.test.ts
+tsconfig.tsbuildinfo
+.DS_Store
+.claude/
+deploy/

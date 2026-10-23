@@ -1,0 +1,356 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Hides a scroll area's bar but keeps it scrollable (the app rail). The one utility the
+   app used from the vendored shadcn stylesheet, so that file went. */
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@custom-variant dark (&:is(.dark *));
+/* Phase 19.5: styles for the "Big buttons" view (data-view="BIG" on the (app) layout root). */
+@custom-variant big (&:is([data-view="BIG"] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* Was `var(--font-sans)` — a self-referencing cycle that made this invalid, so every
+     page silently fell back to the browser's serif default. Fixed as part of wiring
+     Nunito in (Design pass, see docs/BUILD.md). */
+  --font-sans: var(--font-nunito);
+  /* Phase 19 Sticker Book: Baloo 2 for headings, Gaegu for small handwritten notes
+     (`font-hand`), Nunito stays the body face. Wired in app/layout.tsx via next/font. */
+  --font-heading: var(--font-baloo);
+  --font-hand: var(--font-gaegu);
+  /* Sticker Book palette (fixed in both themes — they're sticker colors, always paired
+     with ink text; see lib/person-color.ts for the AA check). */
+  --color-ink: #1f2933;
+  --color-ink-soft: #5b6670;
+  --color-paper: #f7f1e3;
+  --color-sun: #ffd23f;
+  --color-tomato: #ff6b57;
+  --color-sky: #4fb3ff;
+  --color-lime: #a3d95b;
+  --color-grape: #a68bff;
+  /* Chrome (top bar, rail, bottom bar) and brand (solid primary buttons, always with
+     text-white at the ~47 call sites) are reactive: ink in light mode, but ink would vanish
+     against the dark theme's cards, so dark mode swaps brand to a deep sky that still
+     clears AA with white text (5.4:1) and stands off the dark card (Phase 19 scope review).
+     Accent-on-surface text/links use --color-brand-text: deep sky in light (6.7:1 on card),
+     sunshine in dark (10:1). Ink would have erased the only link cue at ~14 call sites. */
+  --color-chrome: var(--chrome);
+  --color-chrome-hover: var(--chrome-hover);
+  --color-chrome-active: var(--chrome-active);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-text: var(--brand-text);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Phase 19 Sticker Book (light): ink text on warm card, paper as the page floor. Every
+     value here was contrast-checked in the Phase 19 scope review (see docs/BUILD.md). */
+  color-scheme: light;
+  --background: #fffdf7;
+  --foreground: #1f2933; /* ink */
+  --card: #fffdf7;
+  --card-foreground: #1f2933;
+  --popover: #fffdf7;
+  --popover-foreground: #1f2933;
+  --primary: #1f2933;
+  --primary-foreground: #ffffff;
+  /* Paper is the page floor (most routes paint bg-muted full-height); cards sit on it. */
+  --secondary: #f7f1e3;
+  --secondary-foreground: #1f2933;
+  --muted: #f7f1e3;
+  --muted-foreground: #5b6670; /* 5.2:1 on paper */
+  --accent: #f7f1e3;
+  --accent-foreground: #1f2933;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #e8dfc9;
+  --input: #d9cfba;
+  --ring: #5b6670;
+  --brand: #1f2933;
+  --brand-hover: #34424f;
+  --brand-text: #1d5f8f;
+  --chrome: #1f2933;
+  --chrome-hover: #34424f;
+  --chrome-active: #3e4c59;
+  --grid-line: #e8dfc9;
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.875rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+/* Dark theme — Phase 19 "sticker book at night": ink-blue surfaces replace the old
+   espresso. Chrome, brand and brand-text all react here (see the @theme comment above):
+   brand becomes deep sky so white-text buttons stand off dark cards, links become sun. */
+.dark {
+  color-scheme: dark;
+  /* Phase 19: "sticker book at night" — ink-blue surfaces instead of the old espresso.
+     Same elevation order as before: background < muted (page floor) < card (raised). */
+  --background: #10161c;
+  --foreground: #f7f1e3;
+  --card: #1f2a33;
+  --card-foreground: #f7f1e3;
+  --popover: #1f2a33;
+  --popover-foreground: #f7f1e3;
+  --primary: #ffd23f;
+  --primary-foreground: #1f2933;
+  --secondary: #151d24;
+  --secondary-foreground: #f7f1e3;
+  --muted: #151d24;
+  --muted-foreground: #a9b4be;
+  --accent: #151d24;
+  --accent-foreground: #f7f1e3;
+  --destructive: oklch(0.704 0.191 22.216); /* red-400 */
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: #ffd23f;
+  --brand: #2b6cb0;
+  --brand-hover: #245a94;
+  --brand-text: #ffd23f;
+  --chrome: #0b1015;
+  --chrome-hover: #1f2a33;
+  --chrome-active: #2a3742;
+  --grid-line: oklch(1 0 0 / 4%);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* Phase 44.1 (WCAG 2.4.11, focus not obscured): on a page with a panel stuck to the bottom of
+   the screen (the Shop view's, the Groceries undo bar), tabbing to a control scrolls it clear of
+   the panel instead of behind it. <main> is what scrolls. */
+main#main:has([data-covers-bottom]) {
+  scroll-padding-bottom: 11rem;
+}
+
+/* "Go all out" flourishes, dark mode only — kept to CSS (no extra markup/JS) and
+   deliberately subtle/ambient rather than interaction-gated, matching the existing
+   ambient-vs-interaction-gated lesson from the motion pass (see docs/BUILD.md's
+   "Escalation" note: a pass that's *entirely* hover/click-gated reads as not there). */
+/* Targets app/(app)/layout.tsx's <main id="main"> specifically (the pages outside the app shell,
+   sign-in, setup and the like, have a plain <main> of their own since Phase 44.1) rather than
+   `body`: body's own background
+   is never actually visible, since every route paints an opaque full-viewport bg-muted (or
+   bg-card) surface of its own directly over it. */
+/* Graph paper behind every (app) page (app/(app)/layout.tsx's <main id="main">).
+   Pages that paint their own opaque bg-muted wrapper cover it — that's how Settings/Data
+   stay plain (their layout.tsx adds a quiet wrapper). */
+main#main,
+.graph-paper {
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-attachment: local;
+}
+.dark main#main {
+  background-image:
+    radial-gradient(1100px 500px at 50% -12%, oklch(87% 0.17 92 / 7%), transparent 65%),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: auto, 22px 22px, 22px 22px;
+  background-attachment: fixed, local, local;
+}
+/* Every brand-colored button/link (bg-brand, used throughout for primary actions) gets a
+   warm glow on hover in dark mode — free app-wide via one selector instead of touching
+   every call site, and shadows (this app's usual hover cue, e.g. shadow-md) read as
+   basically invisible against a near-black surface, so this replaces that cue here. */
+.dark .bg-brand:hover {
+  box-shadow: 0 0 20px -4px var(--color-brand-hover);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Windows draws an open <select>'s list in the select's own colours. Most selects here have
+     no background of their own, so in dark mode the rows came out white under the theme's
+     light text, readable only on the hovered row. The list always gets the popover colours. */
+  select option,
+  select optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+  }
+  /* Phase 38: a submit button whose form is busy (components/submit.tsx). In the base layer so
+     a button's own disabled: utilities still win where it has them. */
+  button[aria-busy="true"] {
+    cursor: progress;
+    opacity: 0.6;
+  }
+}
+
+/* iPhone Safari zooms into any text box under 16px when it's tapped, and stays zoomed. On a
+   phone every box gets 16px whatever its classes say (unlayered, so it beats utilities);
+   bigger screens keep the compact sizes. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Phase 19.5 Bunson volume (components/bunson-moment.tsx). The (app) layout root carries
+   data-bunson-volume; a hidden moment falls back to its plain-text twin so the words stay.
+   The corner Bunson is only rendered on Chatty, where no moment is CSS-hidden, so the
+   one-Bunson-per-screen rule can simply match any moment in the DOM. */
+[data-bunson-fallback] {
+  display: none;
+}
+[data-bunson-volume="OFF"] [data-bunson-moment],
+[data-bunson-volume="CHEERS"] [data-bunson-moment="chatty"] {
+  display: none;
+}
+[data-bunson-volume="OFF"] [data-bunson-fallback],
+[data-bunson-volume="CHEERS"] [data-bunson-fallback="chatty"] {
+  display: block;
+}
+[data-app-root]:has([data-bunson-moment]) [data-bunson-corner] {
+  display: none;
+}
+
+/* Small "fun" pass keyframes — see docs/BUILD.md. Referenced via Tailwind arbitrary-value
+   utilities (e.g. animate-[pop_400ms_ease-out]) rather than registered as @theme tokens,
+   since each is used in exactly one place today. */
+
+/* A gentle continuous bob — deliberately ambient (loops on its own, no hover/click needed)
+   since the rest of this pass turned out to be entirely interaction-gated and, on first
+   pass, too subtle to register as "something moved" at a glance. Used sparingly (one or
+   two elements, not everything) so it reads as alive rather than distracting. */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Per-particle direction/distance come from the --tx/--ty custom properties set inline on
+   each particle span — see components/tasks/task-instance-card.tsx's Burst. */
+@keyframes burst-particle {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(0);
+    opacity: 0;
+  }
+}
+
+/* Applies globally rather than requiring every new hover/entrance/celebration animation to
+   remember a motion-safe: variant. animation-delay must also be zeroed, not just duration —
+   otherwise a staggered fill-mode-backwards entrance (see the profile picker) leaves tiles
+   invisible for the full delay before snapping in. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* Every /print/** page (Phase 13): a sane paper margin, and the browser's own background
+   colors kept for the tick boxes and table rules rather than dropped as "background graphics". */
+@media print {
+  @page {
+    margin: 0.5in;
+  }
+  html,
+  body {
+    background: white !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

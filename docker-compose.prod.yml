@@ -1,0 +1,146 @@
+# Phase 43: FamilyOS in production on the home server (README "Running in production").
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Settings: one host file outside the repository, never in the image: FAMILYOS_ENV_FILE
+# (default /etc/familyos/familyos.env, mode 600; see familyos.env.example). Never call it
+# .env.production: `next build` reads that name and would inline it. The database password and
+# the Cloudflare Tunnel token are files in FAMILYOS_SECRETS_DIR (default /etc/familyos/secrets).
+#
+# Sign-in rate limits live in the database (Phase 42), so a restart doesn't reset them. The dev
+# docker-compose.yml is separate and unchanged.
+name: familyos
+
+services:
+  db:
+    image: postgres:17.11@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: familyos
+      POSTGRES_DB: familyos
+      # Applies only to a fresh volume; to change it later, ALTER USER (README).
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U familyos -d familyos"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Runs `prisma migrate deploy` once, then exits; the app waits for it to succeed. A failed
+  # migration keeps the app down (README "A migration failed").
+  migrate:
+    build: { context: ., target: migrate }
+    image: familyos-migrate
+    env_file: ${FAMILYOS_ENV_FILE:-/etc/familyos/familyos.env}
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [backend]
+    restart: "no"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  app:
+    build:
+      context: .
+      target: run
+      args:
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+    image: familyos-app
+    restart: unless-stopped
+    env_file: ${FAMILYOS_ENV_FILE:-/etc/familyos/familyos.env}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    # Never published on the host: only the tunnel reaches it.
+    read_only: true
+    tmpfs:
+      - /app/.next/cache
+      - /tmp
+    volumes:
+      # Phase 42.7: the break-glass state, written only by scripts/break-glass.sh, read-only here.
+      - ${FAMILYOS_BREAK_GLASS_DIR:-/etc/familyos/break-glass}:/run/familyos/break-glass:ro
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      backend: {}
+      edge: { ipv4_address: "${FAMILYOS_APP_IP:-172.30.43.20}" }
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.1@sha256:a15a3b50b8dabd57ac2090e9484c0247dba9dfa1f0df4d298d4317f9d69eb2d5
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run", "--token-file", "/run/secrets/tunnel_token"]
+    secrets: [tunnel_token]
+    depends_on:
+      app: { condition: service_healthy }
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      # A fixed address, so TRUSTED_PROXIES can name it: sign-in rate limits then key on the
+      # real client address the tunnel forwards, not the tunnel's.
+      edge: { ipv4_address: "${FAMILYOS_TUNNEL_IP:-172.30.43.10}" }
+
+  # Phase 42.7: the break-glass entrance, off unless switched on (`sudo scripts/break-glass.sh on`).
+  # Caddy on the VM's home-network address only, for the app's own hostname.
+  breakglass:
+    image: caddy:2.11.6@sha256:3422ce6de165df66534f9b9ba50efaf457114ec961763cc52f5dbdaac2972d73
+    profiles: [breakglass]
+    restart: "no"
+    environment:
+      FAMILYOS_HOSTNAME: ${FAMILYOS_HOSTNAME:-}
+      BREAK_GLASS_SECRET: ${BREAK_GLASS_SECRET:-}
+    volumes:
+      - ./deploy/Caddyfile.break-glass:/etc/caddy/Caddyfile:ro
+      - ${FAMILYOS_BREAK_GLASS_CERTS:-/etc/familyos/break-glass-certs}:/certs:ro
+    ports:
+      - "${BREAK_GLASS_LAN_IP:-127.0.0.1}:${BREAK_GLASS_PORT:-443}:443"
+    depends_on:
+      app: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/data, /config]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    networks: [edge]
+
+  # Phase 42.7: keeps the break-glass certificate current by DNS challenge while things are
+  # normal (scripts/break-glass-cert.sh, weekly from cron), so it still works during an outage.
+  cert:
+    image: goacme/lego:v5.5.2@sha256:1944e8c36055beec47c7de6f15202b41128be75eea0ffa257f0c14d93c5155fd
+    profiles: [cert]
+    restart: "no"
+    environment:
+      CF_DNS_API_TOKEN_FILE: /run/secrets/cf_dns_token
+    secrets: [cf_dns_token]
+    volumes:
+      - ${FAMILYOS_LEGO_DIR:-/var/lib/familyos/lego}:/data
+    networks: [edge]
+
+networks:
+  # The database's network has no way out.
+  backend:
+    internal: true
+  # If 172.30.43.0/24 is already in use (the LAN, another project), set FAMILYOS_EDGE_SUBNET,
+  # FAMILYOS_APP_IP and FAMILYOS_TUNNEL_IP, and TRUSTED_PROXIES in familyos.env, together. The
+  # restore drill uses its own (scripts/restore-drill.sh), so it can run beside the real stack.
+  edge:
+    ipam:
+      config:
+        - subnet: "${FAMILYOS_EDGE_SUBNET:-172.30.43.0/24}"
+
+volumes:
+  db_data:
+
+secrets:
+  db_password:
+    file: ${FAMILYOS_SECRETS_DIR:-/etc/familyos/secrets}/db_password
+  tunnel_token:
+    file: ${FAMILYOS_SECRETS_DIR:-/etc/familyos/secrets}/tunnel_token
+  # Phase 42.7: a Cloudflare API token that can only edit DNS for the family's zone.
+  cf_dns_token:
+    file: ${FAMILYOS_SECRETS_DIR:-/etc/familyos/secrets}/cf_dns_token

@@ -1,0 +1,19 @@
+# Phase 42.7: the break-glass entrance (scripts/break-glass.sh, README "Break-glass"). Only runs
+# while switched on, on the VM's home-network address, for the app's own hostname (passkeys are
+# bound to it), with the certificate scripts/break-glass-cert.sh keeps current.
+{
+	admin off
+	auto_https off
+}
+
+https://{$FAMILYOS_HOSTNAME}:443 {
+	tls /certs/site.crt /certs/site.key
+	reverse_proxy app:3000 {
+		# The secret that lets these requests skip the Cloudflare Access check
+		# (lib/security/break-glass.ts); set here, so nothing a client sends counts.
+		header_up X-FamilyOS-Break-Glass {$BREAK_GLASS_SECRET}
+		# The client's own address, for sign-in rate limits (lib/auth.ts reads this header).
+		header_up Cf-Connecting-Ip {remote_host}
+		header_up -Cf-Access-Jwt-Assertion
+	}
+}

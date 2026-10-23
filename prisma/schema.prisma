@@ -1,0 +1,2246 @@
+// Prisma schema — FamilyOS
+// See docs/BUILD.md for the data model rationale.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Domain: household & people ----------
+
+model Household {
+  id        String   @id @default(cuid())
+  name      String
+  /// The family's own name for the app ("SmithOS"), from /settings/household. Null means the
+  /// default, FamilyOS (lib/app-name.ts). Shown in the top bar, page titles, the Home Screen
+  /// and alerts, so no family's name ever needs to live in the code.
+  appName   String?
+  /// Phase 35, the rest of Settings → Make it yours. The top bar color, a preset id from
+  /// lib/theme-colors.ts (null is Ink).
+  themeColor  String?
+  /// What kids earn and the store's name (lib/reward-words.ts). All three or none: none is
+  /// stickers and the Sticker Store.
+  rewardOne   String?
+  rewardMany  String?
+  rewardStore String?
+  /// The mascot for the whole family. Off hides him everywhere, whatever anyone's own
+  /// setting; on leaves each person's own volume as it is.
+  mascotOn    Boolean @default(true)
+  /// His name (null is Bunson).
+  mascotName  String?
+  /// The Home Screen icon (app/icon.tsx).
+  appIcon     AppIcon @default(BUNNY)
+  /// IANA zone name (e.g. "America/New_York"), set from /settings/household. Null means
+  /// "not configured yet" — callers that care fall back to the server process's own zone.
+  /// This does NOT change how "today" is computed anywhere yet (see lib/household-settings.ts's
+  /// warnIfTimezoneMismatch) — it's the value a deploy's TZ env var should match, and the
+  /// field later features (calendar write-back, weather) actually consume.
+  timezone  String?
+  /// Set together or not at all, from /settings/household (admin-only), the guided setup or the
+  /// Chores page: a phone's location or a typed ZIP code's center (Phase 45.1, lib/zip), never
+  /// typed coordinates. Rounded to 2 decimal places (about a kilometre) so no house-level point
+  /// is kept; older rows may hold 4 until next saved. lib/weather.ts's National Weather Service
+  /// client is its only consumer (Phase 11).
+  latitude  Float?
+  longitude Float?
+  /// Phase 20 family sticker sheet: this month's shared target (stickers earned by anyone)
+  /// and what the family gets for it. Both null = no goal set; the sheet still counts.
+  familyGoalStickers Int?
+  familyGoalTitle    String?
+  /// Phase 36: the apps this family turned off in Settings → Apps (ids from lib/apps.ts
+  /// SWITCHABLE_APPS). Hidden everywhere and their background work paused; nothing is
+  /// deleted. Read through lib/apps.ts cleanDisabledApps, which ignores unknown ids. NOT NULL
+  /// in the migration (a Prisma list is never null; the column now can't be either).
+  disabledApps       String[] @default([])
+  /// Phase 45.4: the setup steps that can't be worked out from data ("look", "apps"), once an
+  /// admin has been through them (the guided setup's Continue, or saving the page itself).
+  /// lib/setup-checklist.ts reads it with everything else it can infer.
+  setupReviewed      String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  people                 Person[]
+  taskDefinitions        TaskDefinition[]
+  vehicles               Vehicle[]
+  stores                 Store[]
+  productGroups          ProductGroup[]
+  products               Product[]
+  itemPrices             ItemPrice[]
+  receiptAliases         ReceiptAlias[]
+  moneyJars              MoneyJar[]
+  shoppingLists          ShoppingList[]
+  purchases              Purchase[]
+  rewards                Reward[]
+  rewardBuckets          RewardBucket[]
+  rewardOrders           RewardOrder[]
+  notifications          Notification[]
+  alerts                 HouseholdAlerts?
+  vehicleSupplies        VehicleSupply[]
+  calendarSync           CalendarSync?
+  schoolTasks            SchoolTask[]
+  schoolFeeds            SchoolFeed[]
+  backupEvents           BackupEvent[]
+  signInEvents           SignInEvent[]
+  invites                Invite[]
+  entraCheck             EntraCheck?
+
+  @@map("household")
+}
+
+/// The bunny art, or the app name's first letter on the top bar color.
+enum AppIcon {
+  BUNNY
+  LETTER
+}
+
+enum PersonRole {
+  ADULT
+  KID
+  /// Never through the People edit form (docs/BUILD.md Phase 4.5): for Microsoft people, Entra's
+  /// app-role claim (lib/active-profile.ts); for passkey people, an invite or another admin in
+  /// Settings → Sign-in (Phase 40.2b/c, lib/invites.ts, lib/sign-ins.ts).
+  ADMIN
+}
+
+/// Person is the universal entity: household members AND external contacts.
+model Person {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  firstName         String
+  lastName          String?
+  isHouseholdMember Boolean     @default(false)
+  role              PersonRole?
+
+  email String?
+  phone String?
+  notes String?
+  /// The notes above are for grown-ups only: kids don't see them on the person's page.
+  notesAdultsOnly Boolean @default(false)
+
+  /// Per-contact override for "how many days without contact before this shows up on
+  /// Home's stale-contacts card / Bunson's bubble", in lib/people.ts's pickStaleContacts.
+  /// Null means lib/people.ts's DEFAULT_CONTACT_CADENCE_DAYS — except for a household
+  /// member, where null means "excluded entirely" (see that function's doc comment for why
+  /// kids/a spouse don't belong on a "haven't talked in a while" card by default).
+  contactCadenceDays Int?
+
+  /// Links to Better Auth's User for adults who sign in via Entra SSO.
+  authUserId String? @unique
+  authUser   User?   @relation(fields: [authUserId], references: [id], onDelete: SetNull)
+
+  /// Argon2 hash for the kid profile-picker PIN. Never store PINs in plaintext.
+  pinHash           String?
+  /// Brute-force lockout for PIN verification (app/profiles/actions.ts) — reset to 0/null
+  /// on a correct PIN, incremented on a wrong one, locked for 15 minutes at 5 failures.
+  pinFailedAttempts Int       @default(0)
+  pinLockedUntil    DateTime?
+  /// Phase 40.4: Entra (Microsoft 365) stopped assigning this Microsoft-linked person to the
+  /// app (lib/entra-check.ts). Until a sign-in with an Admin/Adult role clears it, they get no
+  /// access, aren't an admin anywhere in the app, and get no alerts outside the bell.
+  entraAccessEndedAt DateTime?
+
+  lastContactedAt DateTime?
+
+  /// Phase 19: the person's sticker color (avatars, profile tiles). Null means a stable
+  /// default picked from the id — see lib/person-color.ts.
+  color PersonColor?
+  /// Phase 19.5: "Big buttons" or "Full app" for this person. Null means the role default
+  /// (kids BIG, adults FULL — lib/view-prefs.ts). A layout choice, never a permission.
+  viewMode     ViewMode?
+  /// Phase 19.5: how much Bunson this person wants (corner nook + greetings, celebrations
+  /// only, or none).
+  bunsonVolume BunsonVolume @default(CHATTY)
+
+  /// Profile photo pulled from Microsoft Graph. Never SELECT `photo` outside the
+  /// dedicated photo route — use `photoContentType != null` as the cheap "has photo" check.
+  photo            Bytes?
+  photoContentType String?
+  entraSyncedAt    DateTime?
+
+  /// Phase 45.2: the Outlook calendar this person picked for Home and Calendar (Settings →
+  /// Calendar on Home), by Graph id so a rename in Outlook doesn't break it. Null falls back
+  /// to FAMILY_CALENDAR_NAME, then their default calendar. Only meaningful for a Microsoft
+  /// sign-in; integration state, so not in backups (like CalendarSync).
+  homeCalendarId String?
+
+  /// Phase 45.4: this grown-up hid the "Finish setting up" card on Settings (until they show it
+  /// again). A display preference, like viewMode: not in backups.
+  setupCardHidden Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  importantDates     ImportantDate[]
+  calendarSyncs      CalendarSync[]
+  interactions       InteractionLog[]     @relation("PersonInteractions")
+  loggedInteractions InteractionLog[]     @relation("LoggedInteractions")
+  relationshipsFrom  PersonRelationship[] @relation("RelationshipFrom")
+  relationshipsTo    PersonRelationship[] @relation("RelationshipTo")
+
+  assignableTasks       TaskDefinition[] @relation("TaskAssignees")
+  assignedInstances     TaskInstance[]   @relation("AssignedInstances")
+  completedInstances    TaskInstance[]   @relation("CompletedInstances")
+  pointsLedger          PointsLedger[]
+  /// Phase 20: orders paid from this person's stickers, and who placed/decided/closed them.
+  rewardOrders          RewardOrder[]    @relation("OrderFor")
+  placedOrders          RewardOrder[]    @relation("OrderPlacedBy")
+  decidedOrders         RewardOrder[]    @relation("OrderDecidedBy")
+  closedOrders          RewardOrder[]    @relation("OrderClosedBy")
+  notifications         Notification[]
+  /// Phase 21: how this admin wants Sticker Store alerts delivered.
+  alertPrefs            AlertPrefs?
+  /// Phase 21.6: phones/browsers that get this person's push alerts.
+  pushSubscriptions     PushSubscription[]
+  /// Phase 21.5: who last set the family's Teams link.
+  householdAlertsSet    HouseholdAlerts[] @relation("HouseholdAlertsUpdatedBy")
+  /// Phase 20: the reward this person is saving up for (a UI preference, not backed up).
+  savingRewardId        String?
+  savingReward          Reward?          @relation("SavingFor", fields: [savingRewardId], references: [id], onDelete: SetNull)
+  prescribedMedications Medication[]     @relation("MedicationPrescriber")
+  pharmacyMedications   Medication[]     @relation("MedicationPharmacy")
+
+  addedListItems         ShoppingListItem[] @relation("ItemAddedBy")
+  requestedListItems     ShoppingListItem[] @relation("ItemRequestedBy")
+  purchases              Purchase[]
+  requestedPurchaseItems PurchaseItem[]
+
+  loggedVehicleServiceEntries VehicleServiceLog[]
+  loggedVehicleFuelEntries    VehicleFuelLog[]
+  acknowledgedVehicleRecalls  VehicleRecallAck[]
+
+  schoolProfile    SchoolProfile?
+  schoolContactFor SchoolContact[]
+  schoolTasksFor   SchoolTask[]    @relation("SchoolTaskKid")
+  schoolTasksOwned SchoolTask[]    @relation("SchoolTaskOwner")
+  schoolFeedsFor   SchoolFeed[]    @relation("SchoolFeedKid")
+
+  moneyJars          MoneyJarMember[]
+  jarConnectionsMade JarConnection[]
+  giftsMarked        FinTransaction[] @relation("GiftMarkedBy")
+  moneyAlertsSent    FinAlertSent[]
+  backupEvents       BackupEvent[]
+  signInEventsMade   SignInEvent[]    @relation("SignInEventActor")
+  signInEventsAbout  SignInEvent[]    @relation("SignInEventSubject")
+  invitesFor         Invite[]         @relation("InviteFor")
+  invitesMade        Invite[]         @relation("InviteBy")
+  mailOrderScan      MailOrderScan?
+  mailOrders         MailOrder[]
+  jarEvents          JarEvent[]
+  manualBillsAdded   ManualBill[]
+
+  @@index([householdId])
+  @@map("person")
+}
+
+/// Phase 19 sticker palette — hex values live in lib/person-color.ts.
+enum PersonColor {
+  SUN
+  TOMATO
+  SKY
+  LIME
+  GRAPE
+  PINK
+  ORANGE
+  TEAL
+}
+
+enum ViewMode {
+  BIG
+  FULL
+}
+
+enum BunsonVolume {
+  CHATTY
+  CHEERS
+  OFF
+}
+
+enum ImportantDateType {
+  BIRTHDAY
+  ANNIVERSARY
+  OTHER
+}
+
+model ImportantDate {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  type  ImportantDateType
+  label String?
+  month Int
+  day   Int
+  year  Int?
+
+  @@index([personId])
+  @@map("important_date")
+}
+
+enum InteractionType {
+  CALL
+  TEXT
+  EMAIL
+  VISIT
+  NOTE
+}
+
+model InteractionLog {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation("PersonInteractions", fields: [personId], references: [id], onDelete: Cascade)
+
+  type       InteractionType
+  occurredAt DateTime        @default(now())
+  note       String?
+  /// A grown-up marked it grown-ups only: kids don't see it on the person's page or in the
+  /// activity feed (owner's call, 2026-10-09).
+  adultsOnly Boolean         @default(false)
+  loggedById String?
+  loggedBy   Person?         @relation("LoggedInteractions", fields: [loggedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([personId, occurredAt])
+  @@map("interaction_log")
+}
+
+enum RelationshipType {
+  SPOUSE
+  PARENT
+  CHILD
+  SIBLING
+  /// `label` is required for this value (enforced at the app layer, not the schema) — e.g.
+  /// "Godparent", "Neighbor". Not required for the other values.
+  OTHER
+}
+
+/// Directional: `type` describes what `to` IS TO `from` — e.g. `{from: Alex, to: Kid, type:
+/// PARENT}` reads "Alex is Kid's parent" (NOT "Alex is a parent of toId" — read that
+/// backwards and every importer/writer gets it wrong on one side). lib/people.ts's
+/// getPersonRelationships/viewRelationship show every row from BOTH people's own
+/// perspective, translating `type` through an inverse map (PARENT<->CHILD, SPOUSE<->SPOUSE,
+/// SIBLING<->SIBLING, OTHER<->OTHER) — and OTHER's `label` too, since a label written from
+/// `from`'s perspective ("Godmother") is backwards on `to`'s page — on whichever side didn't
+/// originate the row, so a single row covers both Person pages rather than needing two.
+model PersonRelationship {
+  id     String @id @default(cuid())
+  fromId String
+  from   Person @relation("RelationshipFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId   String
+  to     Person @relation("RelationshipTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  type  RelationshipType
+  label String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([fromId, toId, type])
+  @@map("person_relationship")
+}
+
+// ---------- Domain: recurring tasks (Chores and Meds ride this; Vehicle does not — see below) ----------
+
+/// What kind of thing this recurring task tracks. CHORE and MED both ride this engine.
+/// VEHICLE is reserved but deliberately unused: vehicle maintenance is mileage-driven
+/// (see the Vehicle/VehicleMaintenanceItem models below), and this engine's recurrence is
+/// date-only (lib/tasks/schedule.ts has no mileage axis) — it can't represent "due every
+/// 5,000 miles." Don't build vehicle features on this domain value; it exists only so the
+/// enum doesn't need a breaking rename if that ever changes.
+enum TaskDomain {
+  CHORE
+  MED
+  VEHICLE
+}
+
+enum FrequencyType {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
+  INTERVAL_DAYS
+  DAYS_OF_WEEK
+}
+
+enum AssignmentStrategy {
+  FIXED
+  ROUND_ROBIN
+  LEAST_ASSIGNED
+}
+
+/// A recurring task's rule — not a specific occurrence. See lib/tasks/schedule.ts for
+/// how frequencyType + interval/daysOfWeek + startDate turn into due dates.
+model TaskDefinition {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  title  String
+  notes  String?
+  domain TaskDomain @default(CHORE)
+
+  frequencyType    FrequencyType
+  /// WEEKLY: every N weeks. MONTHLY: every N months. INTERVAL_DAYS: every N days. Unused otherwise.
+  interval         Int?
+  /// DAYS_OF_WEEK only: 0=Sunday..6=Saturday.
+  daysOfWeek       Int[]
+  /// Anchor date occurrences are computed from — also the first possible due date.
+  startDate        DateTime
+  /// "HH:mm" 24h times for domains needing multiple occurrences/day (meds dosing). Empty
+  /// (the default) means one occurrence/day at midnight — unchanged Chores behavior.
+  timesOfDay       String[]      @default([])
+  /// Chores-only flag on this shared kernel model (same nullable/defaulted-field-on-shared-
+  /// model pattern as timesOfDay above, just for Meds instead) — an outdoor chore whose
+  /// board card gets a rain-forecast flag (see lib/chores/weather-flag.ts) when
+  /// Household.latitude/longitude are set. Never auto-reschedules anything.
+  weatherSensitive Boolean       @default(false)
+
+  points             Int                @default(0)
+  assignmentStrategy AssignmentStrategy @default(FIXED)
+  /// The pool of people eligible for this task. FIXED uses assignees[0]; ROUND_ROBIN and
+  /// LEAST_ASSIGNED rotate across the whole pool.
+  assignees          Person[]           @relation("TaskAssignees")
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  instances  TaskInstance[]
+  /// Med-only extension row (quantity/dose/refill/prescriber tracking) — same
+  /// nullable-relation pattern `timesOfDay` above uses for a Meds-only field on this
+  /// shared kernel model. Created alongside every MED TaskDefinition from Phase 9 onward;
+  /// null just means "not tracked," not "broken" — see app/(app)/meds/actions.ts.
+  medication Medication?
+
+  @@index([householdId, domain, active])
+  @@map("task_definition")
+}
+
+enum TaskInstanceStatus {
+  PENDING
+  DONE
+  SKIPPED
+}
+
+/// One concrete occurrence of a TaskDefinition, due on a specific date.
+model TaskInstance {
+  id           String         @id @default(cuid())
+  definitionId String
+  definition   TaskDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  dueDate      DateTime
+  assignedToId String?
+  assignedTo   Person?  @relation("AssignedInstances", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  status        TaskInstanceStatus @default(PENDING)
+  completedAt   DateTime?
+  completedById String?
+  completedBy   Person?            @relation("CompletedInstances", fields: [completedById], references: [id], onDelete: SetNull)
+
+  /// How much of Medication.quantityOnHand this dose actually consumed, captured at
+  /// completion time — never re-derived from the definition's current doseAmount, so
+  /// undoing a dose after someone's edited doseAmount still restores the right amount.
+  /// Null for Chores (and for a Med with no quantity tracking configured).
+  quantityConsumed Float?
+
+  createdAt DateTime @default(now())
+
+  pointsLedger PointsLedger[]
+
+  @@unique([definitionId, dueDate])
+  @@index([assignedToId, dueDate])
+  @@index([completedAt])
+  @@map("task_instance")
+}
+
+model PointsLedger {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  delta      Int
+  reason     String?
+  instanceId String?
+  instance   TaskInstance? @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+  /// Phase 20: a Sticker Store purchase (-cost) or its refund/decline (+cost).
+  orderId    String?
+  order      RewardOrder?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([personId])
+  @@index([instanceId])
+  @@map("points_ledger")
+}
+
+/// A household's redeemable rewards catalog — redeeming one (see app/(app)/points/actions.ts's
+/// redeemReward) just writes a negative PointsLedger row with `reason: reward.title` and
+/// `instanceId: null`; there's no RewardId on the ledger and no separate redemption record,
+/// so "which adult approved it" isn't tracked, only that the points left. No delete — like
+/// Vehicle/VehicleMaintenanceItem, deactivate instead so past redemptions still read sensibly.
+model Reward {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  title     String
+  pointCost Int
+  active    Boolean @default(true)
+  /// Phase 20 Sticker Store fields.
+  emoji         String?
+  bucketId      String?
+  bucket        RewardBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
+  /// Null = any time; otherwise how many a person may buy in a rolling 7 days.
+  limitPerWeek  Int?
+  /// A kid's purchase waits for a grown-up's OK (stickers held meanwhile).
+  needsApproval Boolean       @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders  RewardOrder[]
+  savers  Person[]      @relation("SavingFor")
+
+  @@unique([householdId, title])
+  @@map("reward")
+}
+
+/// Phase 20: a named shelf in the Sticker Store ("Little treats", "Screen time").
+model RewardBucket {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name        String
+  emoji       String?
+  rewards     Reward[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([householdId, name])
+  @@map("reward_bucket")
+}
+
+/// WAITING_OK -> TO_DO (approve) | DECLINED (+refund); TO_DO -> DELIVERED | REFUNDED (+refund).
+enum RewardOrderStatus {
+  WAITING_OK
+  TO_DO
+  DELIVERED
+  REFUNDED
+  DECLINED
+}
+
+/// Phase 20: one Sticker Store purchase. The stickers come off at placement (a debit
+/// ledger row with this orderId), including while WAITING_OK ("held"); a decline or refund
+/// writes the matching credit. Title/emoji/cost are snapshots so history reads right after
+/// the reward changes. rewardId is NoAction (not Restrict, which fires before a household
+/// delete's cascades finish): rewards are deactivated, never deleted on their own.
+model RewardOrder {
+  id          String            @id @default(cuid())
+  householdId String
+  household   Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  rewardId    String
+  reward      Reward            @relation(fields: [rewardId], references: [id], onDelete: NoAction)
+  personId    String
+  person      Person            @relation("OrderFor", fields: [personId], references: [id], onDelete: Cascade)
+  placedById  String?
+  placedBy    Person?           @relation("OrderPlacedBy", fields: [placedById], references: [id], onDelete: SetNull)
+  title       String
+  emoji       String?
+  cost        Int
+  status      RewardOrderStatus
+  note        String?
+  decidedAt   DateTime?
+  decidedById String?
+  decidedBy   Person?           @relation("OrderDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  closedAt    DateTime?
+  closedById  String?
+  closedBy    Person?           @relation("OrderClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+
+  ledger        PointsLedger[]
+  notifications Notification[]
+
+  @@index([householdId, status])
+  @@index([personId, rewardId, createdAt])
+  @@map("reward_order")
+}
+
+enum NotificationKind {
+  ORDER_PLACED
+  ORDER_NEEDS_OK
+  /// Phase 23: a grown-up took a kid's pick off the grocery list.
+  GROCERY_NOT_THIS_TIME
+  /// Phase 27: money alerts (lib/finance/alerts.ts). Titles never carry amounts.
+  MONEY_BILL_DUE
+  MONEY_SYNC_BROKEN
+  MONEY_OVER_BUDGET
+  /// Phase 31: a regular bill now costs more (title never says how much).
+  MONEY_PRICE_UP
+  /// Phase 32: Safe to spend projects the spending accounts below the cushion before payday.
+  MONEY_LOW_BALANCE
+  /// Phase 28: someone made or restored a backup that includes you (lib/backup/audit.ts).
+  BACKUP_MADE
+  BACKUP_RESTORED
+  /// A grown-up OK'd, declined, delivered or refunded a kid's Sticker Store order (bell only).
+  ORDER_UPDATED
+  /// A grown-up gave a bonus or took stickers back (lib/store/ledger.ts; bell only).
+  STICKERS_ADJUSTED
+  /// Phase 40.2c: someone's sign-in changed (lib/sign-in-notices.ts): reset, removed, a new
+  /// role, a passkey added, an invite used.
+  SIGN_IN_CHANGED
+}
+
+enum BackupKind {
+  /// The whole-household file (an admin).
+  HOUSEHOLD_BACKUP
+  /// One person's own money jars (lib/finance/backup.ts).
+  MONEY_BACKUP
+  HOUSEHOLD_RESTORE
+}
+
+/// Phase 28: the accounting in AAA. One row per backup handed out or restore applied, written
+/// before the file leaves the server. Append-only, never in a backup, and restore leaves it
+/// alone (it isn't in restore's delete list), so the history outlives a restore. Hashes are
+/// SHA-256 of the exact bytes the browser saved.
+model BackupEvent {
+  id             String     @id @default(cuid())
+  householdId    String
+  household      Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  actorId        String?
+  actor          Person?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  kind           BackupKind
+  /// Money jars inside (sealed for a household backup, readable for the person's own).
+  includesMoney  Boolean    @default(false)
+  jarCount       Int        @default(0)
+  fileSha256     String
+  bytes          Int
+  /// A restore: the file that was applied is fileSha256 (and bytes); this is "the household
+  /// as it was", which is what includesMoney and jarCount describe (its sealed jars).
+  snapshotSha256 String?
+  /// Phase 28.5: a restore that put the file's money jars back, and how many.
+  moneyRestored    Boolean  @default(false)
+  restoredJarCount Int      @default(0)
+  /// Who was told (bell + Teams). Ids can dangle after a restore removes someone.
+  notifiedIds    String[]   @default([])
+  createdAt      DateTime   @default(now())
+
+  @@index([householdId, createdAt])
+  @@map("backup_event")
+}
+
+/// Phase 40.2: what a sign-in audit entry records (lib/sign-in-events.ts).
+enum SignInEventKind {
+  PASSKEY_ADDED
+  PASSKEY_REMOVED
+  /// 40.2b: an admin invited someone, cancelled an invite, or an invite was used.
+  INVITE_MADE
+  INVITE_CANCELLED
+  INVITE_ACCEPTED
+  /// 40.2c: an admin cleared someone's passkeys (with a one-hour link to make a new one),
+  /// took their sign-in away, or changed their role.
+  PASSKEYS_RESET
+  SIGN_IN_REMOVED
+  ROLE_CHANGED
+  /// 40.4: Entra stopped assigning someone to the app, or (at their next sign-in) started again.
+  ENTRA_ACCESS_ENDED
+  ENTRA_ACCESS_RESTORED
+  /// 42.7: the break-glass entrance was switched on, or went off (switched off or ran out).
+  BREAK_GLASS_ON
+  BREAK_GLASS_OFF
+}
+
+/// Phase 40.4: the scheduled check of who Entra assigns to the app (lib/entra-check.ts), one per
+/// household: a lease so two runs don't overlap, and how the last one went (a code, shown as
+/// fixed words in Settings → Sign-in).
+model EntraCheck {
+  householdId String    @id
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  leaseUntil  DateTime?
+  lastRunAt   DateTime?
+  /// The last run that read Entra completely and applied (or had nothing to apply).
+  lastOkAt    DateTime?
+  outcome     String?
+  updatedAt   DateTime  @updatedAt
+
+  @@map("entra_check")
+}
+
+/// Phase 40.2: the sign-in audit log (the owner's call): every change to how someone gets in.
+/// Append-only like BackupEvent: never in a backup, never deleted by restore. It keeps first
+/// names as they were, since people can be removed (and a restore re-issues PIN-only people).
+model SignInEvent {
+  id          String          @id @default(cuid())
+  householdId String
+  household   Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  kind        SignInEventKind
+  actorId     String?
+  actor       Person?         @relation("SignInEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName   String
+  subjectId   String?
+  subject     Person?         @relation("SignInEventSubject", fields: [subjectId], references: [id], onDelete: SetNull)
+  subjectName String
+  /// A passkey's label or a role, never a token or a key.
+  detail      String?
+  createdAt   DateTime        @default(now())
+
+  @@index([householdId, createdAt])
+  @@index([subjectId, createdAt])
+  @@map("sign_in_event")
+}
+
+/// Phase 40.2b: an admin's invite for a grown-up to sign in on their own with a passkey
+/// (lib/invites.ts). Single use, 48 hours. Not in a backup: a restored household invites again.
+model Invite {
+  id          String     @id @default(cuid())
+  householdId String
+  household   Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  /// SHA-256 of the link's token. The link itself is shown once, to the admin who made it.
+  tokenHash   String     @unique
+  /// Someone already in the household on a PIN; null for someone new, named below.
+  personId    String?
+  person      Person?    @relation("InviteFor", fields: [personId], references: [id], onDelete: Cascade)
+  firstName   String?
+  lastName    String?
+  /// Their sign-in's email (lowercase): the account name their device shows for the passkey.
+  email       String
+  /// ADULT or ADMIN; kids stay PIN profiles.
+  role        PersonRole
+  /// An invite is only good while whoever made it is still an admin here.
+  createdById String?
+  createdBy   Person?    @relation("InviteBy", fields: [createdById], references: [id], onDelete: SetNull)
+  expiresAt   DateTime
+  createdAt   DateTime   @default(now())
+
+  @@index([householdId, expiresAt])
+  @@index([personId])
+  @@map("invite")
+}
+
+/// Phase 20: the in-app bell's inbox (Phase 21 adds phone/Teams/email delivery). Not
+/// backed up — it's a stream of pings about live orders.
+model Notification {
+  id          String           @id @default(cuid())
+  householdId String
+  household   Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   Person           @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  kind        NotificationKind
+  title       String
+  href        String
+  orderId     String?
+  order       RewardOrder?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([recipientId, readAt])
+  @@map("notification")
+}
+
+/// A Meds-only extension of a MED-domain TaskDefinition — see that model's `medication`
+/// field doc. All fields nullable: a med can ride the plain recurring-dose engine with none
+/// of this filled in. Quantity tracking only actually decrements (see
+/// app/(app)/meds/actions.ts's completeInstance) when BOTH quantityOnHand and doseAmount
+/// are set; refillThresholdQuantity only ever matters when quantity tracking is active.
+model Medication {
+  id               String         @id @default(cuid())
+  taskDefinitionId String         @unique
+  taskDefinition   TaskDefinition @relation(fields: [taskDefinitionId], references: [id], onDelete: Cascade)
+
+  /// Current count of whatever unit doseAmount is in (pills, mL, ...) — a manual "set the
+  /// count" field, corrected via the edit form or lib/shopping-list.ts-triggered restocking
+  /// (app/(app)/meds/actions.ts's addStock), not derived from purchase history.
+  quantityOnHand          Float?
+  /// How much one taken dose consumes, in the same unit as quantityOnHand.
+  doseAmount              Float?
+  /// Requests a "Refill <title>" shopping-list item (see lib/shopping-list.ts) once
+  /// quantityOnHand drops to or below this after a completed dose. A level trigger, not an
+  /// edge trigger — it deliberately re-fires on the next dose after the list item is
+  /// bought and cleared, until quantityOnHand is raised back above it (via addStock or the
+  /// edit form) — see app/(app)/meds/actions.ts's completeInstance for the full rationale.
+  refillThresholdQuantity Float?
+
+  /// Both ordinary Person contacts (isHouseholdMember: false) — see docs/BUILD.md Phase 9
+  /// for why lib/people.ts's staleContacts excludes anyone referenced here.
+  prescriberId String?
+  prescriber   Person? @relation("MedicationPrescriber", fields: [prescriberId], references: [id], onDelete: SetNull)
+  pharmacyId   String?
+  pharmacy     Person? @relation("MedicationPharmacy", fields: [pharmacyId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("medication")
+}
+
+// ---------- Domain: vehicle maintenance (mileage-driven — bespoke, not lib/tasks/) ----------
+
+/// One household vehicle. `currentMileage` is the household's own manual odometer entry
+/// (no Smartcar/telematics integration — see docs/PLAN.md), and is what
+/// VehicleMaintenanceItem's due-by-mileage check compares against.
+model Vehicle {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  /// A nickname, not a VIN/plate — "Mom's minivan", not a formal identifier.
+  name  String
+  make  String?
+  model String?
+  year  Int?
+
+  currentMileage   Int       @default(0)
+  mileageUpdatedAt DateTime?
+
+  /// Deactivating hides a sold/retired vehicle from the board without deleting its
+  /// maintenance history — there's no vehicle delete in v1 (see docs/PLAN.md).
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  maintenanceItems VehicleMaintenanceItem[]
+  fuelLogs         VehicleFuelLog[]
+  recallAcks       VehicleRecallAck[]
+
+  @@unique([householdId, name])
+  @@map("vehicle")
+}
+
+/// A recurring maintenance job for one vehicle (e.g. "Oil change: every 5,000 mi or 6
+/// months, whichever comes first"). `lastDoneMileage`/`lastDoneAt` are denormalized from
+/// the latest VehicleServiceLog row (by `doneAt`) so due-status reads don't need to join
+/// the log on every board render — see app/(app)/vehicles/actions.ts for what keeps them in sync.
+model VehicleMaintenanceItem {
+  id        String  @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  title String
+  notes String?
+
+  /// At least one of these two is required (enforced at the app layer, not the schema —
+  /// Prisma/Postgres can't express "at least one of these columns is non-null" directly).
+  intervalMiles  Int?
+  intervalMonths Int?
+
+  /// Denormalized from the latest VehicleServiceLog row. Null means never serviced.
+  lastDoneMileage Int?
+  lastDoneAt      DateTime?
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  serviceLogs VehicleServiceLog[]
+  supplies    VehicleItemSupply[]
+
+  @@map("vehicle_maintenance_item")
+}
+
+/// Append-only service history — never overwritten or destroyed by a later "mark done",
+/// unlike this item's own lastDone* fields (which are just a denormalized cache of the
+/// latest row here). Undoing a completion deletes the latest row and recomputes the
+/// cache from what's left, rather than editing history in place.
+model VehicleServiceLog {
+  id     String                 @id @default(cuid())
+  itemId String
+  item   VehicleMaintenanceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  doneAt    DateTime
+  mileage   Int
+  notes     String?
+  /// Integer cents — the app's first money field (parsed with lib/money.ts parseMoneyInput). Null means
+  /// "cost not recorded", not $0.
+  costCents Int?
+
+  loggedById String?
+  loggedBy   Person? @relation(fields: [loggedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  supplyUses VehicleServiceSupplyUse[]
+
+  @@map("vehicle_service_log")
+}
+
+/// Garage inventory (Phase 12.5): oil, filters, wipers. Household-wide, not per vehicle
+/// (owner's call): oil is shared, and which car a part fits is encoded by which maintenance
+/// items use it. Never deleted, only deactivated (`active`): VehicleItemSupply and
+/// VehicleServiceSupplyUse cascade from it, and a delete would silently erase what past
+/// services consumed (and so what an undo restores).
+model VehicleSupply {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  name           String
+  partNumber     String?
+  /// Free text: "qt", "filter", "bottle".
+  unit           String?
+  /// Null = not tracked (no countdown, never "low").
+  quantityOnHand Float?
+  /// Low at or below this. Null = never low.
+  lowThreshold   Float?
+  notes          String?
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  usedBy VehicleItemSupply[]
+  uses   VehicleServiceSupplyUse[]
+
+  @@unique([householdId, name])
+  @@map("vehicle_supply")
+}
+
+/// What one maintenance item uses per service, e.g. an oil change uses 5 qt of oil and one
+/// filter.
+model VehicleItemSupply {
+  itemId   String
+  item     VehicleMaintenanceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  supplyId String
+  supply   VehicleSupply          @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+
+  quantity Float
+
+  @@id([itemId, supplyId])
+  @@map("vehicle_item_supply")
+}
+
+/// What a logged service actually took from stock (after clamping at zero), so undoing it
+/// puts back exactly that, whatever the item's per-service amounts say by then. Same idea as
+/// TaskInstance.quantityConsumed for meds.
+model VehicleServiceSupplyUse {
+  logId    String
+  log      VehicleServiceLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  supplyId String
+  supply   VehicleSupply     @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+
+  quantity Float
+
+  @@id([logId, supplyId])
+  @@map("vehicle_service_supply_use")
+}
+
+/// One fill-up (LubeLogger's "gas record"). Unlike VehicleServiceLog there's no
+/// denormalized cache anywhere to keep in sync, so any single row can be deleted outright.
+/// MPG is derived at read time (lib/vehicles/mpg.ts), never stored.
+model VehicleFuelLog {
+  id        String  @id @default(cuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  /// Local-midnight date, same contract as VehicleServiceLog.doneAt.
+  filledAt       DateTime
+  mileage        Int
+  /// Float, not Decimal — matches every other fractional quantity in this schema; rounded
+  /// to 3 places at write time.
+  gallons        Float
+  costCents      Int?
+  /// False = a partial fill; its gallons roll into the next full fill's MPG segment.
+  fullTank       Boolean  @default(true)
+  /// True = the fill-up before this one went unlogged, so no MPG is computed across the gap.
+  missedPrevious Boolean  @default(false)
+  notes          String?
+
+  loggedById String?
+  loggedBy   Person? @relation(fields: [loggedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId, filledAt])
+  @@map("vehicle_fuel_log")
+}
+
+/// The family's own attestation that an NHTSA recall campaign has been handled (or doesn't
+/// apply) for this vehicle — NHTSA's by-model recall list can't confirm a specific car got
+/// the remedy without a VIN, which is deferred (see docs/PLAN.md). Deleting the row
+/// un-marks it.
+model VehicleRecallAck {
+  id             String  @id @default(cuid())
+  vehicleId      String
+  vehicle        Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  campaignNumber String
+
+  acknowledgedAt   DateTime @default(now())
+  acknowledgedById String?
+  acknowledgedBy   Person?  @relation(fields: [acknowledgedById], references: [id], onDelete: SetNull)
+
+  @@unique([vehicleId, campaignNumber])
+  @@map("vehicle_recall_ack")
+}
+
+// ---------- Domain: groceries (ported from Grocy's shopping-list slice) ----------
+
+model Store {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  name      String
+  createdAt DateTime @default(now())
+
+  products Product[]
+  prices   ItemPrice[]
+
+  @@unique([householdId, name])
+  @@map("store")
+}
+
+/// A store section ("Produce", "Pet"). Distinct from Store: Store answers "which trip", a
+/// section answers "which part of the store". The list groups by Store, then orders each
+/// store's items by section `sortOrder` (lib/groceries/queries.ts's groupItemsByStore).
+/// Seeded once per household (Phase 22) with a starting set the family can change (Phase 37:
+/// the Store sections page renames, reorders, adds and removes them).
+model ProductGroup {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  name      String
+  emoji     String?
+  sortOrder Int      @default(0)
+  /// Phase 37: which starting section this is ("produce", lib/groceries/sections.ts), so a new
+  /// item's guessed section still finds it after the family renames it. Null for sections the
+  /// family added.
+  starterKey String?
+  createdAt  DateTime @default(now())
+
+  products Product[]
+
+  @@unique([householdId, name])
+  @@unique([householdId, starterKey])
+  @@map("product_group")
+}
+
+/// The household's Pantry (Phase 22): everything the family buys. Typed list entries become
+/// Products too, so every list row has one. `nameKey` (lib/shopping-list.ts's productNameKey)
+/// makes "Milk" and "milk" the same item, race-safely, via the unique index below.
+model Product {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  name     String
+  nameKey  String
+  barcode  String?
+  brand    String?
+  imageUrl String?
+
+  /// "How it comes": `31.1` `lb` `bag`. Values come from lib/groceries/size.ts's pick lists,
+  /// stored as text so a list can grow without a migration. All optional; a product with no
+  /// size shows "Needs details".
+  sizeAmount Float?
+  sizeUnit   String?
+  container  String?
+
+  defaultStoreId String?
+  defaultStore   Store?  @relation(fields: [defaultStoreId], references: [id], onDelete: SetNull)
+
+  /// Section. Suggested from the name when the product is created
+  /// (lib/groceries/sections.ts), then whatever the family sets.
+  groupId String?
+  group   ProductGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  listItems     ShoppingListItem[]
+  purchaseItems PurchaseItem[]
+  prices        ItemPrice[]
+  receiptAliases ReceiptAlias[]
+
+  @@unique([householdId, barcode])
+  @@unique([householdId, nameKey])
+  @@map("product")
+}
+
+/// One persistent running list per household — completing a trip clears its done items
+/// into a Purchase rather than closing the list out.
+model ShoppingList {
+  id          String    @id @default(cuid())
+  householdId String    @unique
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  name      String   @default("Shopping List")
+  createdAt DateTime @default(now())
+
+  items     ShoppingListItem[]
+  purchases Purchase[]
+
+  @@map("shopping_list")
+}
+
+model ShoppingListItem {
+  id     String       @id @default(cuid())
+  listId String
+  list   ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  /// Every row is a Pantry item (Phase 22 dropped free-text rows). Deleting the product
+  /// takes its list rows with it.
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// How many of the product's container ("2 bags"), not a weight.
+  quantity Float @default(1)
+
+  done      Boolean @default(false)
+  addedById String?
+  addedBy   Person? @relation("ItemAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  /// Who this item is FOR, distinct from who added it — "Kid One wants these cookies"
+  /// added by an adult. Optional; set after adding, not part of the fast-add flow.
+  requestedById String?
+  requestedBy   Person? @relation("ItemRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  /// Phase 23: a kid put this on the list themselves (tile, add box or scan), so a grown-up
+  /// may veto it. Separate from requestedBy, which anyone can set and which Meds' refill
+  /// hook also uses for a kid's own medicine.
+  kidPick Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([listId])
+  @@map("shopping_list_item")
+}
+
+/// Purchase capture stub: a manual "complete shopping trip" snapshot, not yet fed by
+/// email/receipt ingestion (see docs/PLAN.md's retailer strategy for that later phase).
+model Purchase {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  listId String?
+  list   ShoppingList? @relation(fields: [listId], references: [id], onDelete: SetNull)
+
+  purchasedAt   DateTime @default(now())
+  purchasedById String?
+  purchasedBy   Person?  @relation(fields: [purchasedById], references: [id], onDelete: SetNull)
+
+  items PurchaseItem[]
+  /// Phase 26: money rows (in jars) this trip was linked to. Never `include` this from
+  /// groceries: money is jar-private.
+  finTransactions FinTransaction[]
+
+  @@index([householdId, purchasedAt])
+  @@map("purchase")
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  /// The item's name at time of purchase — carried over from the product name so
+  /// history reads correctly even if the product is later renamed, merged or deleted.
+  description String
+
+  quantity Float @default(1)
+
+  /// Carried over from the ShoppingListItem at the moment of purchase, so a future
+  /// "notify when delivered" feature doesn't need to reconstruct who asked for what.
+  requestedById String?
+  requestedBy   Person? @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+
+  /// Carried from the list row: the kid tiles rank a kid's own past picks first.
+  kidPick Boolean @default(false)
+
+  @@index([purchaseId])
+  @@map("purchase_item")
+}
+
+/// Phase 24: what an item cost, read from a receipt photo (lib/documents). Nobody types a
+/// price. `totalCents` is the receipt line; `unitCents` is per one of the item (the
+/// receipt's own unit price, or total / a whole-number quantity) and stays null for weighed
+/// lines ("2.34 lb"), so "per bag" is never guessed from a weight.
+model ItemPrice {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storeId   String?
+  store     Store?  @relation(fields: [storeId], references: [id], onDelete: SetNull)
+
+  totalCents Int
+  quantity   Float   @default(1)
+  unitCents  Int?
+  observedAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([productId, observedAt])
+  @@index([householdId, observedAt])
+  @@map("item_price")
+}
+
+/// Phase 24: a receipt line the family matched to a Pantry item once ("KS DOG FD 31LB" ->
+/// Dog food), so the next receipt matches it on its own, like a barcode. Keyed by the
+/// line's normalized text (lib/groceries/receipt-match.ts receiptTextKey), not by store:
+/// a trip has no store of its own, and abbreviations rarely collide across stores.
+model ReceiptAlias {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  textKey   String
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([householdId, textKey])
+  @@map("receipt_alias")
+}
+
+/// School (Phase 18). A household member's school details: one per student. Teachers
+/// and the school office are People contacts linked through SchoolContact, so a phone
+/// number lives in one place.
+model SchoolProfile {
+  id       String @id @default(cuid())
+  personId String @unique
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  schoolName     String
+  /// Free text: "K", "3rd", "10".
+  grade          String?
+  /// Free text: "2026-27".
+  schoolYear     String?
+  transportNotes String?
+  lunchNotes     String?
+  scheduleNotes  String?
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts    SchoolContact[]
+  assignments SchoolAssignment[]
+
+  @@map("school_profile")
+}
+
+/// A teacher, counselor or office contact for one student, with their role.
+model SchoolContact {
+  profileId String
+  profile   SchoolProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  personId  String
+  person    Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  /// Free text: "Homeroom teacher", "Math", "Front office".
+  role      String
+
+  @@id([profileId, personId])
+  @@map("school_contact")
+}
+
+enum SchoolTaskKind {
+  FORM
+  FEE
+  SUPPLIES
+  OTHER
+}
+
+enum SchoolTaskStatus {
+  OPEN
+  DONE
+}
+
+/// Permission slips, fees, supply lists: one-off school to-dos with an adult handling them.
+/// Not the chore engine: no recurrence, has an amount and an owner (Fable's scope review).
+model SchoolTask {
+  id            String           @id @default(cuid())
+  householdId   String
+  household     Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  /// Null = for the whole family.
+  kidPersonId   String?
+  kid           Person?          @relation("SchoolTaskKid", fields: [kidPersonId], references: [id], onDelete: SetNull)
+  title         String
+  kind          SchoolTaskKind   @default(OTHER)
+  dueDate       DateTime?
+  amountCents   Int?
+  ownerPersonId String?
+  owner         Person?          @relation("SchoolTaskOwner", fields: [ownerPersonId], references: [id], onDelete: SetNull)
+  status        SchoolTaskStatus @default(OPEN)
+  doneAt        DateTime?
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([householdId, status, dueDate])
+  @@map("school_task")
+}
+
+enum AssignmentStatus {
+  TODO
+  DONE
+  /// Marked missing by the teacher. "Overdue" is derived (TODO past its due date), not stored.
+  MISSING
+}
+
+/// Homework, projects, tests. Entered by hand for now; `source`/`externalId` are for an LMS
+/// connector once the school's system is known.
+model SchoolAssignment {
+  id         String           @id @default(cuid())
+  profileId  String
+  profile    SchoolProfile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  className  String
+  title      String
+  dueDate    DateTime?
+  status     AssignmentStatus @default(TODO)
+  score      Float?
+  maxScore   Float?
+  notes      String?
+  source     String           @default("MANUAL")
+  externalId String?
+  doneAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, status, dueDate])
+  @@map("school_assignment")
+}
+
+/// A school calendar feed (Phase 18.5): an iCal subscription an admin adds. The URL is
+/// encrypted (lib/crypto, AAD "schoolfeed:<id>"): school and LMS feed links often carry a
+/// private token, sometimes in the path. Integration state, not household data: excluded
+/// from backups, re-added after a restore.
+model SchoolFeed {
+  id             String    @id @default(cuid())
+  householdId    String
+  household      Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name           String
+  /// Null = for the whole family.
+  kidPersonId    String?
+  /// Cascade, not SetNull: a feed for one child must not widen to the whole family when
+  /// that person is deleted.
+  kid            Person?   @relation("SchoolFeedKid", fields: [kidPersonId], references: [id], onDelete: Cascade)
+  keyVersion     Int       @default(1)
+  encryptedValue Bytes
+  iv             Bytes
+  authTag        Bytes
+  /// sha256 of the normalised URL, to spot a duplicate without decrypting.
+  urlHash        String
+  /// Display only (the page never shows the full URL back).
+  host           String
+  active         Boolean   @default(true)
+  lastFetchedAt  DateTime?
+  lastSuccessAt  DateTime?
+  /// Fixed text only.
+  lastError      String?
+  etag           String?
+  lastModified   String?
+  leaseUntil     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events SchoolFeedEvent[]
+
+  @@unique([householdId, urlHash])
+  @@map("school_feed")
+}
+
+/// Cache of a feed's occurrences in a window around today, replaced on every refresh.
+/// Timed events are instants; all-day events are UTC midnight of their date, end exclusive.
+model SchoolFeedEvent {
+  feedId        String
+  feed          SchoolFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  occurrenceKey String
+  uid           String
+  title         String
+  location      String?
+  startsAt      DateTime
+  endsAt        DateTime
+  allDay        Boolean
+
+  @@id([feedId, occurrenceKey])
+  @@index([feedId, startsAt])
+  @@map("school_feed_event")
+}
+
+/// Calendar write-back (Phase 17): one household's dedicated Outlook calendar, created by
+/// the app in the owner's own mailbox and shared with the family from Outlook. Only the
+/// owner's signed-in session can sync it (Graph tokens are per-session; the app stores no
+/// refresh token for background work). Integration state, not household data: excluded from
+/// backups; after a restore the next sync replaces every event.
+model CalendarSync {
+  id            String    @id @default(cuid())
+  householdId   String    @unique
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ownerPersonId String
+  owner         Person    @relation(fields: [ownerPersonId], references: [id], onDelete: Cascade)
+
+  calendarId   String
+  calendarName String
+
+  includeDates       Boolean @default(true)
+  includeVehicles    Boolean @default(true)
+  includeChores      Boolean @default(false)
+  includeMeds        Boolean @default(false)
+  /// School (Phase 18): forms & to-dos with a due date, and homework due dates.
+  includeSchoolTasks Boolean @default(true)
+  includeAssignments Boolean @default(false)
+
+  lastSyncedAt     DateTime?
+  /// Fixed text only (never event titles): it's shown on the page and may reach logs.
+  lastError        String?
+  /// "3 added, 1 updated, 0 removed" style summary of the last run.
+  lastResult       String?
+  /// A run holds this lease; a second tab or render finds it held and skips.
+  leaseUntil       DateTime?
+  /// Set from Graph's Retry-After on 429/503, so the automatic sync backs off.
+  retryAfterUntil  DateTime?
+  /// When the toggles last changed: a change newer than lastSyncedAt makes the automatic
+  /// sync due now, without hiding the last result.
+  optionsChangedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  links CalendarEventLink[]
+
+  @@map("calendar_sync")
+}
+
+/// One app-managed event: which source row it mirrors (`sourceKey`, e.g. "date:<id>"),
+/// the Graph event id, and a hash of what was last sent. The row is written BEFORE the
+/// Graph create (with its `transactionId`), so a crash in between retries the same
+/// create, which Graph de-duplicates, instead of making a second event.
+model CalendarEventLink {
+  syncId        String
+  sync          CalendarSync @relation(fields: [syncId], references: [id], onDelete: Cascade)
+  sourceKey     String
+  graphEventId  String?
+  contentHash   String
+  transactionId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([syncId, sourceKey])
+  @@map("calendar_event_link")
+}
+
+// ---------- Better Auth tables (managed by Better Auth — do not hand-edit rows) ----------
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String?  @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+  passkeys Passkey[]
+  person   Person?
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  /// Phase 40: one row per sign-in identity. Better Auth 1.7 finds an account by this pair and
+  /// refuses when two rows match, so the database makes sure they never can.
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  /// Phase 40: every passkey ceremony looks its challenge up by identifier.
+  @@index([identifier])
+  @@map("verification")
+}
+
+/// Phase 40: a grown-up's passkey (the @better-auth/passkey plugin's table; fields as it
+/// defines them). The public key only: the private key never leaves their device. Not in
+/// backups (a credential, like the account tokens).
+model Passkey {
+  id           String    @id @default(cuid())
+  /// The label the person gave it ("Phone", "Laptop").
+  name         String?
+  publicKey    String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Looked up on every passkey sign-in; unique, since one credential is one device key.
+  credentialID String    @unique
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  createdAt    DateTime? @default(now())
+  /// The authenticator model's id, if it sent one.
+  aaguid       String?
+
+  @@index([userId])
+  @@map("passkey")
+}
+
+/// Phase 21: a person's alert channels beyond the in-app bell (on/off per channel, plus the
+/// last outcome as fixed text). Any admin may switch these for any admin in the household
+/// (Phase 21.5), so a parent who never opens Settings still gets alerts. Not backed up; it
+/// survives restore anyway since restore keeps signed-in people.
+model AlertPrefs {
+  personId       String    @id
+  person         Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  teamsEnabled   Boolean   @default(false)
+  emailEnabled   Boolean   @default(false)
+  lastErrorTeams String?
+  lastErrorEmail String?
+  /// "Handed to Teams": the Workflows trigger accepted it (202). Delivery to the chat
+  /// happens inside the flow afterwards; failures there show in the flow's run history.
+  lastSentTeams  DateTime?
+  lastSentEmail  DateTime?
+  /// Phase 21.6: phone push has no on/off switch — a person's registered devices are the
+  /// switch. These are the last outcome across their devices.
+  lastErrorPush  String?
+  lastSentPush   DateTime?
+  /// Phase 40.2c: notices about other people's sign-ins (an admin's). Notices about your own
+  /// sign-in always come (the owner's call), whatever this says.
+  signInNotices  Boolean   @default(true)
+  updatedAt      DateTime  @updatedAt
+
+  @@map("alert_prefs")
+}
+
+/// Phase 21.5: the family's one Teams Workflows link. The flow posts as the Flow bot to
+/// whichever person each alert names, so nobody else has to build anything. The URL is a
+/// bearer secret (its `sig` parameter): encrypted (AAD alerts:teams:household:<id>),
+/// never sent to the browser. Only the signed-in Microsoft account of an admin may change
+/// it, and who did is kept. Not backed up; restore keeps the Household row, so it survives.
+model HouseholdAlerts {
+  householdId       String    @id
+  household         Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  teamsWebhookEnc   Bytes?
+  teamsWebhookIv    Bytes?
+  teamsWebhookTag   Bytes?
+  teamsWebhookHost  String?
+  updatedByPersonId String?
+  updatedBy         Person?   @relation("HouseholdAlertsUpdatedBy", fields: [updatedByPersonId], references: [id], onDelete: SetNull)
+  updatedAt         DateTime  @updatedAt
+
+  @@map("household_alerts")
+}
+
+/// Phase 21.6: one browser/phone's Web Push subscription. The endpoint (and keys) are a
+/// bearer capability — anyone holding them can make that phone show a notification, nothing
+/// more. Stored in plain text on purpose (the endpoint must be unique to upsert a shared
+/// family device to whoever turned it on last); kept out of backups, Sentry and the
+/// browser. A device alerts whoever registered it most recently.
+model PushSubscription {
+  id            String    @id @default(cuid())
+  personId      String
+  person        Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  createdAt     DateTime  @default(now())
+  lastSuccessAt DateTime?
+  /// Consecutive permanent-looking failures (other 4xx). Deleted at 5. Transient
+  /// failures (429, 5xx, network) don't count.
+  failureCount  Int       @default(0)
+
+  @@index([personId])
+  @@map("push_subscription")
+}
+
+// ---- Finances (Phase 25): money jars ----------------------------------------------------
+//
+// Money lives in jars, not in the household: each jar has its own members, and nobody
+// outside a jar (an admin included) can open it. Members are adults who sign in with their
+// own Microsoft account (lib/finance/access.ts requireJar), so a PIN-switched profile can't
+// stand in for one. Linked people are never deleted in the app or by restore, so a jar
+// can't lose its last eligible member that way.
+//
+// NOT in the household backup: an admin-run, household-wide file would leak other jars.
+// Bank data re-syncs and statement files can be re-imported.
+
+model MoneyJar {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name        String
+  emoji       String?
+  /// Phase 32: "keep at least $X in checking" (Safe to spend subtracts it). Null: none.
+  cushionCents Int?
+  createdAt   DateTime  @default(now())
+
+  members      MoneyJarMember[]
+  connections  JarConnection[]
+  accounts     FinAccount[]
+  transactions FinTransaction[]
+  privacy      PrivacyCharge[]
+  issues       ReconcileIssue[]
+  categories   FinCategory[]
+  rules        CategoryRule[]
+  recurring    RecurringMark[]
+  alertsSent   FinAlertSent[]
+  mailOrders   MailOrder[]
+  mailScans    MailOrderScan[]
+  events       JarEvent[]
+  chatAlerts   JarChatAlertSent[]
+  manualBills  ManualBill[]
+  holdings     FinHolding[]
+
+  /// Phase 30: one Teams group chat (a 19:…@thread.v2 conversation id) that gets this jar's
+  /// money alerts once, instead of a message to each member. Not a secret; not in backups
+  /// (paste it again after a money restore). The last send's failure, as fixed text.
+  teamsChatId    String?
+  teamsChatError String?
+
+  @@map("money_jar")
+}
+
+model MoneyJarMember {
+  jarId     String
+  jar       MoneyJar @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  personId  String
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  /// Phase 27: this member's money alerts (lib/finance/alerts.ts), each person's own.
+  alertBills      Boolean @default(true)
+  alertSync       Boolean @default(true)
+  alertOverBudget Boolean @default(false)
+  /// Phase 32: money may run short before payday. Nothing fires until spending accounts are picked.
+  alertLowBalance Boolean @default(true)
+
+  @@id([jarId, personId])
+  @@map("money_jar_member")
+}
+
+enum FinProvider {
+  SIMPLEFIN
+  PRIVACY
+}
+
+/// One bank feed (SimpleFIN access URL) or Privacy.com API key per jar, encrypted with
+/// lib/crypto.ts (AAD `jar:${jarId}:${provider}`). Never sent to the browser or logged.
+model JarConnection {
+  id             String      @id @default(cuid())
+  jarId          String
+  jar            MoneyJar    @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  provider       FinProvider
+  keyVersion     Int         @default(1)
+  encryptedValue Bytes
+  iv             Bytes
+  authTag        Bytes
+
+  /// Every attempt (rate limiting).
+  lastSyncAt      DateTime?
+  /// Only successful syncs: the next sync's window starts from here, so an outage never
+  /// leaves a gap.
+  lastSuccessAt   DateTime?
+  /// Fixed text from the app, safe to show.
+  lastError       String?
+  /// The bank's own message (SimpleFIN `errors[]`), shown only to the jar's members.
+  providerMessage String?
+  /// Sync lease (two tabs, or Sync now racing an on-visit sync) and the provider's backoff.
+  leaseUntil      DateTime?
+  retryAfterUntil DateTime?
+
+  createdById String?
+  createdBy   Person?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  /// Phase 30: HMAC of the Privacy.com key (lib/crypto.ts fingerprint), so the same account
+  /// connected in a second jar can be spotted without decrypting every key.
+  fingerprint     String?
+  /// Phase 30: bank accounts this feed returned that are already in another jar the person
+  /// who connected it is in, so they weren't imported (every charge would count twice).
+  /// The other jar's name is only ever shown to people who are in it.
+  skippedAccounts Int     @default(0)
+  skippedJarId    String?
+
+  @@unique([jarId, provider])
+  @@index([fingerprint])
+  @@map("jar_connection")
+}
+
+enum FinSource {
+  SIMPLEFIN
+  MANUAL
+}
+
+model FinAccount {
+  id         String    @id @default(cuid())
+  jarId      String
+  jar        MoneyJar  @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  source     FinSource
+  /// SimpleFIN's account id; for a MANUAL account, a random id.
+  externalId String
+  name       String
+  org        String?
+  currency   String    @default("USD")
+  balanceCents   Int?
+  availableCents Int?
+  /// The bank's "as of" time for the balance.
+  balanceAt  DateTime?
+  /// Phase 32: day-to-day spending money (checking): Safe to spend counts these balances.
+  spending   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  transactions FinTransaction[]
+  issues       ReconcileIssue[]
+  balanceDays  FinBalanceDay[]
+
+  @@unique([jarId, source, externalId])
+  @@map("fin_account")
+}
+
+enum FinTxnState {
+  ACTIVE
+  /// The same money as `duplicateOf`, from a less trusted source (or answered "Same charge").
+  DUPLICATE
+  /// A pending charge the bank no longer reports (it posted under a new id, or dropped).
+  SUPERSEDED
+  IGNORED
+}
+
+/// One movement of money. Bank feed (SIMPLEFIN) is the master source; MANUAL rows come from
+/// statement files. Negative = money out. `postedOn` is the bank's civil day, taken in UTC
+/// from the feed's epoch (bank dates are midnight UTC), so read it with UTC getters: a
+/// different rule from the app's server-local midnights (lib/tasks/schedule.ts).
+model FinTransaction {
+  id          String      @id @default(cuid())
+  jarId       String
+  jar         MoneyJar    @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  accountId   String
+  account     FinAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  source      FinSource
+  /// SimpleFIN transaction id, OFX FITID, or a stable hash for a CSV row.
+  externalId  String
+  postedOn    DateTime    @db.Date
+  amountCents Int
+  description String
+  payee       String?
+  memo        String?
+  pending     Boolean     @default(false)
+  state       FinTxnState @default(ACTIVE)
+
+  duplicateOfId String?
+  duplicateOf   FinTransaction?  @relation("Duplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates    FinTransaction[] @relation("Duplicates")
+
+  /// From a matching Privacy.com charge: the real merchant and the card's nickname.
+  merchantName    String?
+  privacyCardMemo String?
+
+  /// Phase 26: the normalized merchant (lib/finance/categories.ts merchantKeyOf), kept up to
+  /// date whenever the description, payee or Privacy merchant changes. Rules and "still
+  /// using this?" answers key on it.
+  merchantKey    String              @default("")
+  categoryId     String?
+  category       FinCategory?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  /// null = uncategorized. PERSON is never overwritten by the automatic pass.
+  categorySource FinCategorySource?
+  /// Phase 26: the grocery trip this charge paid for. A restore re-creates trips with new ids,
+  /// so links are cleared then; automatic ones come back on the next sync or import. A
+  /// pending row that posts under a new id does NOT bring its category or link along (only
+  /// a gift mark is carried, below).
+  purchaseId       String?
+  purchase         Purchase?      @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  purchaseLinkedBy FinLinkSource?
+
+  /// Phase 27: a surprise (lib/finance/gifts.ts). Hidden from the people in giftHiddenFrom
+  /// until giftRevealOn (a civil day; on that day it shows). Only the marker may change or
+  /// reveal it. The organize pass copies a mark to the same charge's other rows (its
+  /// posted row, a possible-duplicate statement row) so it can't leak through them;
+  /// giftCopiedFromId is the row a copied mark came from.
+  giftById         String?
+  giftBy           Person?   @relation("GiftMarkedBy", fields: [giftById], references: [id], onDelete: SetNull)
+  giftHiddenFrom   String[]  @default([])
+  giftRevealOn     DateTime? @db.Date
+  giftCopiedFromId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  privacyCharges PrivacyCharge[]
+  mailOrders     MailOrder[]
+  jarEvents      JarEvent[]
+  issuesA        ReconcileIssue[] @relation("IssueTxn")
+  issuesB        ReconcileIssue[] @relation("IssueOtherTxn")
+
+  @@unique([accountId, source, externalId])
+  @@index([jarId, postedOn])
+  @@index([jarId, merchantKey])
+  @@map("fin_transaction")
+}
+
+/// A Privacy.com card charge. It also shows up on the funding bank account, so it only
+/// ENRICHES that bank row (matchedTxn); it never counts as money of its own.
+model PrivacyCharge {
+  id          String   @id @default(cuid())
+  jarId       String
+  jar         MoneyJar @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  token       String
+  cardToken   String?
+  cardMemo    String?
+  cardLast4   String?
+  merchant    String
+  /// Positive, as Privacy reports it; the bank row is negative.
+  amountCents Int
+  status      String
+  occurredAt  DateTime
+
+  matchedTxnId String?
+  matchedTxn   FinTransaction? @relation(fields: [matchedTxnId], references: [id], onDelete: SetNull)
+
+  @@unique([jarId, token])
+  @@index([matchedTxnId])
+  @@map("privacy_charge")
+}
+
+enum ReconcileKind {
+  POSSIBLE_DUPLICATE
+  SYNC_ERROR
+}
+
+enum ReconcileResolution {
+  SAME
+  DIFFERENT
+  DISMISSED
+}
+
+/// "Needs a look": only what the reconciler couldn't decide. `key` is canonical
+/// (`dup:<minTxnId>:<maxTxnId>`, `sync:<connectionId>`), so an answered question is never
+/// asked again and a repeat sync never duplicates an open one.
+model ReconcileIssue {
+  id         String              @id @default(cuid())
+  jarId      String
+  jar        MoneyJar            @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  key        String
+  kind       ReconcileKind
+  txnId      String?
+  txn        FinTransaction?     @relation("IssueTxn", fields: [txnId], references: [id], onDelete: Cascade)
+  otherTxnId String?
+  otherTxn   FinTransaction?     @relation("IssueOtherTxn", fields: [otherTxnId], references: [id], onDelete: Cascade)
+  accountId  String?
+  account    FinAccount?         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt  DateTime            @default(now())
+  resolvedAt DateTime?
+  resolution ReconcileResolution?
+
+  @@unique([jarId, key])
+  @@map("reconcile_issue")
+}
+
+// ---- Finances part 2 (Phase 26): categories, budget, bills ------------------------------
+
+enum FinCategoryKind {
+  SPEND
+  INCOME
+  /// Card payments, moves between accounts: never budgeted or counted as spending.
+  TRANSFER
+}
+
+enum FinCategorySource {
+  AUTO
+  RULE
+  PERSON
+}
+
+enum FinLinkSource {
+  AUTO
+  PERSON
+}
+
+/// A jar's categories, seeded once (lib/finance/categories.ts STARTING_CATEGORIES). Logic
+/// keys on `key`; `name`/`emoji` are display only. `budgetCents` is the monthly target (null
+/// = no budget). Phase 37: members rename, add and remove them (lib/finance/category-edits.ts);
+/// an added one's key is a slug plus a random suffix, so it never collides with a starting key,
+/// and other, income and transfers can't be removed. `absorbedKeys`: the keys of categories
+/// removed into this one, so logic that keys on a starting category (guessing, Bills, grocery
+/// trips) finds this one instead (lib/finance/categories.ts isCategoryKey).
+model FinCategory {
+  id          String          @id @default(cuid())
+  jarId       String
+  jar         MoneyJar        @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  key         String
+  name        String
+  emoji       String?
+  kind        FinCategoryKind
+  sortOrder   Int             @default(0)
+  budgetCents Int?
+  /// Phase 31: leftovers roll into next month (a sinking fund). The carry is worked out from
+  /// rolloverFrom (YYYY-MM, the month it was turned on) with the current monthly budget.
+  rollover     Boolean @default(false)
+  rolloverFrom String?
+  /// Phase 31: "need $X by <month>" (YYYY-MM). Setting one turns rollover on.
+  goalCents    Int?
+  goalMonth    String?
+  absorbedKeys String[] @default([])
+  createdAt   DateTime        @default(now())
+
+  transactions FinTransaction[]
+  rules        CategoryRule[]
+
+  @@unique([jarId, key])
+  @@map("fin_category")
+}
+
+/// "Always for <merchant>": a category a person chose for every charge from one merchant key.
+model CategoryRule {
+  id         String      @id @default(cuid())
+  jarId      String
+  jar        MoneyJar    @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  key        String
+  categoryId String
+  category   FinCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime    @default(now())
+
+  @@unique([jarId, key])
+  @@map("category_rule")
+}
+
+enum RecurringStatus {
+  KEEP
+  CANCEL
+  HIDDEN
+}
+
+/// An answer on the Bills page for one recurring merchant (`key` = merchantKey, or
+/// `privacy:<cardToken>` for a Privacy.com card).
+/// Phase 27: one row per money alert sent to one member, so a background run never sends the
+/// same alert twice (written in the same transaction as the bell Notification). Not backed up.
+model FinAlertSent {
+  id       String   @id @default(cuid())
+  jarId    String
+  jar      MoneyJar @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  personId String
+  person   Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  key      String
+  sentAt   DateTime @default(now())
+
+  @@unique([jarId, personId, key])
+  @@map("fin_alert_sent")
+}
+
+enum MailRetailer {
+  AMAZON
+  APPLE
+  PUBLIX
+}
+
+/// Phase 29: one person's "read my order emails into this jar" (lib/finance/order-mail).
+/// Their own mailbox only, scanned on their own visit with their own Microsoft token. The jar
+/// is set to null (and the scan stops) if they leave it, it's deleted, or a restore replaces it.
+model MailOrderScan {
+  personId        String    @id
+  person          Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  jarId           String?
+  jar             MoneyJar? @relation(fields: [jarId], references: [id], onDelete: SetNull)
+  enabled         Boolean   @default(false)
+  /// The newest message from a direct sender (Amazon, Apple) already looked at.
+  cursor          DateTime?
+  /// Hashes of mails read but not used (unverified sender, unreadable), so they aren't fetched again.
+  skippedHashes   String[]  @default([])
+  lastScanAt      DateTime?
+  lastFound       Int       @default(0)
+  lastSkipped     Int       @default(0)
+  /// Fixed text from the app, never anything from a mail.
+  lastError       String?
+  leaseUntil      DateTime?
+  retryAfterUntil DateTime?
+
+  @@map("mail_order_scan")
+}
+
+/// Phase 29: an order read from a retailer's email: never the email itself, only these
+/// fields. Several emails about one order merge into one row. Everyone in the jar sees it,
+/// except that an order on a charge that's a surprise for someone is hidden from them with
+/// the charge. Derived from mail, so not in backups; a re-scan rebuilds it.
+model MailOrder {
+  id            String          @id @default(cuid())
+  jarId         String
+  jar           MoneyJar        @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  /// Whose mailbox it came from.
+  personId      String?
+  person        Person?         @relation(fields: [personId], references: [id], onDelete: SetNull)
+  retailer      MailRetailer
+  orderNumber   String
+  orderedOn     DateTime        @db.Date
+  totalCents    Int?
+  /// Amazon's category ("Floor Care"), or the app for Apple.
+  label         String?
+  /// [{ name, qty, priceCents | null }], at most 50.
+  items         Json            @default("[]")
+  /// sha256 of each email's Internet message id, so an email is read once.
+  sourceHashes  String[]        @default([])
+  matchedTxnId  String?
+  matchedTxn    FinTransaction? @relation(fields: [matchedTxnId], references: [id], onDelete: SetNull)
+  matchedBy     FinLinkSource?
+  matchedAt     DateTime?
+  /// A surprise before its charge arrives (owner's call, 2026-10-08), same rules as a charge's
+  /// (lib/finance/gifts.ts): hidden from giftHiddenFrom until giftRevealOn, changed only by
+  /// giftById. When the order is matched, the mark goes onto the charge. giftById is a plain
+  /// id (no relation; a second Person relation here would need the existing one renamed), so
+  /// a deleted or departed marker leaves the mark to run out on its reveal day.
+  giftById       String?
+  giftHiddenFrom String[]        @default([])
+  giftRevealOn   DateTime?       @db.Date
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([jarId, retailer, orderNumber])
+  @@index([matchedTxnId])
+  @@map("mail_order")
+}
+
+enum JarEventKind {
+  RENAMED
+  MEMBER_ADDED
+  MEMBER_REMOVED
+  CONNECTED
+  DISCONNECTED
+  IMPORTED
+  CATEGORY_SET
+  RULE_FORGOTTEN
+  BUDGET_SET
+  BILL_ANSWERED
+  TRIP_LINKED
+  TRIP_UNLINKED
+  ORDER_LINKED
+  ORDER_UNLINKED
+  SURPRISE_MARKED
+  SURPRISE_REVEALED
+  CHAT_SET
+  ROLLOVER_SET
+  GOAL_SET
+  ACCOUNTS_SET
+  CUSHION_SET
+  BILL_ADDED
+  BILL_CHANGED
+  BILL_REMOVED
+  EXPORTED
+  HOLDING_ADDED
+  HOLDING_VALUED
+  HOLDING_REMOVED
+  CATEGORY_ADDED
+  CATEGORY_RENAMED
+  CATEGORY_REMOVED
+}
+
+/// Phase 30: who changed what in a jar (lib/finance/history.ts). Person actions only, never
+/// the automatic tidy-ups. data holds what the sentence needs, captured at the time; an
+/// event about a charge (txnId) or a merchant (data.key) that's a surprise for the viewer is
+/// hidden from them. Not in backups; history starts again after a jar restore. Pruned after
+/// 400 days.
+model JarEvent {
+  id        String          @id @default(cuid())
+  jarId     String
+  jar       MoneyJar        @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     Person?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  kind      JarEventKind
+  data      Json            @default("{}")
+  txnId     String?
+  txn       FinTransaction? @relation(fields: [txnId], references: [id], onDelete: SetNull)
+  createdAt DateTime        @default(now())
+
+  @@index([jarId, createdAt])
+  @@map("jar_event")
+}
+
+/// Phase 30: one row per alert posted to a jar's shared Teams chat, so it's posted once.
+model JarChatAlertSent {
+  id     String   @id @default(cuid())
+  jarId  String
+  jar    MoneyJar @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  key    String
+  sentAt DateTime @default(now())
+
+  @@unique([jarId, key])
+  @@map("jar_chat_alert_sent")
+}
+
+model RecurringMark {
+  id         String          @id @default(cuid())
+  jarId      String
+  jar        MoneyJar        @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  key        String
+  status     RecurringStatus
+  reviewedAt DateTime        @default(now())
+
+  @@unique([jarId, key])
+  @@map("recurring_mark")
+}
+
+enum BillCadence {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  ONCE
+}
+
+/// A bill added by hand on the Bills page: school fees, car registration, anything paid by
+/// check, which finding bills from charges (lib/finance/recurring.ts) can't see. Counted in
+/// Coming up and Safe to spend like a found bill (lib/finance/manual-bills.ts). matchKey is
+/// the merchant key of the found bill it stands for (picked, or the name's own key), so a
+/// bill found from charges later is counted once, not twice. Visible to everyone in the jar
+/// (never a surprise). In both backups (lib/finance/backup.ts); who added it isn't kept.
+model ManualBill {
+  id          String      @id @default(cuid())
+  jarId       String
+  jar         MoneyJar    @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  name        String
+  /// Money out, positive.
+  amountCents Int
+  cadence     BillCadence
+  /// The first due day; later ones follow by cadence (the 31st stays the month's last day).
+  nextDue     DateTime    @db.Date
+  matchKey    String      @default("")
+  createdById String?
+  createdBy   Person?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([jarId])
+  @@map("manual_bill")
+}
+
+/// Phase 34: an account's balance, one row per civil day it was synced (the sync's own day,
+/// UTC-midnight like every finance date). Net worth's month-end bars read the last row on or
+/// before each month's end. History starts the day an account is first synced after this
+/// shipped; nothing is derived from transactions. Kept indefinitely (about 365 rows per account
+/// a year). Visible to everyone in the jar, like the balance itself. In both backups.
+model FinBalanceDay {
+  accountId    String
+  account      FinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  day          DateTime   @db.Date
+  /// As the bank gives it: a credit card or loan owed comes negative (lib/finance/net-worth.ts).
+  balanceCents Int
+
+  @@id([accountId, day])
+  @@map("fin_balance_day")
+}
+
+enum FinHoldingKind {
+  HOME
+  VEHICLE
+  OTHER_ASSET
+  /// Money owed that isn't on the bank feed (a car loan, a mortgage at another bank).
+  LOAN
+}
+
+/// Phase 34: something a jar owns or owes that the bank feed can't see (the house, the cars, a
+/// loan elsewhere), valued by hand on the Net worth tab. Removing one deletes it and its
+/// values. Visible to everyone in the jar (never a surprise). In both backups.
+model FinHolding {
+  id        String            @id @default(cuid())
+  jarId     String
+  jar       MoneyJar          @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  name      String
+  kind      FinHoldingKind
+  createdAt DateTime          @default(now())
+
+  values FinHoldingValue[]
+
+  @@index([jarId])
+  @@map("fin_holding")
+}
+
+/// What a holding was worth (or, for a LOAN, how much was owed) on a day: positive cents.
+/// Valuing it again on the same day replaces that day's value. Who set it is in the jar's
+/// history (JarEvent), not here.
+model FinHoldingValue {
+  holdingId  String
+  holding    FinHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+  valuedOn   DateTime   @db.Date
+  valueCents Int
+  createdAt  DateTime   @default(now())
+
+  @@id([holdingId, valuedOn])
+  @@map("fin_holding_value")
+}
+
+/// Phase 45.2: secrets that belong to the server itself, not to a household: the phone-alert
+/// (VAPID) key pair the server makes when `.env` has none (lib/alerts/vapid.ts). The value is
+/// encrypted with INTEGRATION_ENCRYPTION_KEY (lib/crypto.ts), its AAD the row's name. Never in
+/// a backup: a restore elsewhere makes its own pair.
+model ServerSecret {
+  name           String   @id
+  encryptedValue Bytes
+  iv             Bytes
+  authTag        Bytes
+  createdAt      DateTime @default(now())
+
+  @@map("server_secret")
+}
+
+/// Phase 42: Better Auth's request limits (lib/auth.ts, `rateLimit.storage: "database"`), so a
+/// restart doesn't reset them. One row per client address and path; Better Auth prunes old rows.
+/// The id is required: the Prisma adapter updates a row by compare-and-set on it.
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rate_limit")
+}
+
+/// Phase 42.7: each time the break-glass entrance was switched on (scripts/break-glass.sh), so
+/// every admin is told once when it starts and once when it ends (lib/break-glass-notice.ts).
+/// The id is the activation's own, from the state file; never the secret.
+model BreakGlassNotice {
+  id          String    @id
+  householdId String
+  startedAt   DateTime
+  endsAt      DateTime
+  endedAt     DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([householdId, endedAt])
+  @@map("break_glass_notice")
+}

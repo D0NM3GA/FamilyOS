@@ -1,0 +1,286 @@
+# FamilyOS plan
+
+> The public version of the project plan: where FamilyOS is going and what's decided. What
+> each phase actually built is in [docs/BUILD.md](BUILD.md). FamilyOS is a
+> non-commercial family app; each family names its own copy in Settings.
+
+## Vision
+
+A HubSpot-style "CRM for the family": one app for chores, groceries, contacts and staying in
+touch, calendars, finances, school, vehicle maintenance and medication tracking. It started
+with three modules (People, Chores, Groceries) and grew one module at a time, as smaller
+sub-apps (in the style of the Microsoft 365 admin center) that share one set of data.
+
+**Guiding principle: copy someone else's homework.** Features aren't invented from scratch.
+The app ports proven data models, recurrence logic and UX from established open-source
+projects and known-good commercial UIs, re-expressed in its own stack.
+
+## Locked decisions
+
+### Stack and design
+
+| Decision | Choice |
+|---|---|
+| Starting modules | People Hub, Chores, Groceries |
+| Stack | Next.js 16 (App Router) + TypeScript, Tailwind v4, Postgres 17 + Prisma 7, all in Docker |
+| UI reference | HubSpot CRM: top search bar, left icon rail, record pages with an info card, a tabbed activity column and a rail of related records |
+| Design direction | Warm and family-friendly (rounded type, warm grays, a terracotta accent), with motion and a small mascot; light and dark themes |
+| Chores homework source | [Donetick](https://github.com/donetick/donetick): recurrence engine, assignment rotation, points, adaptive scheduling |
+| Groceries homework source | [Grocy](https://github.com/grocy/grocy): shopping list, product, quantity unit and store data model |
+
+Grocy is PHP and Donetick is Go, so their backends can't be vendored into a Next.js app. What
+the app takes is **schemas, recurrence rules, API shapes and UX flows**, ported to TypeScript.
+
+The chore engine is deliberately generic: medication doses ride the same recurring-task engine.
+Vehicles have their own model, since mileage isn't knowable in advance the way a date is.
+
+### Security model
+
+- **Sign-in through trusted libraries, never home-made.** Better Auth handles Microsoft Entra
+  ID, any one OIDC provider, and passkeys. A first-run setup makes the first admin with a
+  passkey, since most families won't have SSO.
+- **Kids don't need accounts.** A Netflix-style profile picker with a PIN inside a grown-up's
+  household session. PINs are hashed with Argon2id (explicit settings, rehashed on login).
+- **Roles live in Entra for Microsoft users.** Entra app roles (Admin, Adult) arrive as token
+  claims and are never set in the app's own UI. Conditional Access decides who can reach the
+  app at all, so there's no app-level email allowlist. Instead of SCIM, the app asks Microsoft
+  Graph every half hour who's assigned, so a removal in Entra takes effect.
+- **A "fresh sign-in" is enforced by Entra**: a Conditional Access policy with sign-in frequency
+  "Every time" plus MFA (needs Entra ID P1). Sensitive pages (money jars, passkeys, invites)
+  ask for a sign-in from the last few minutes.
+- **Only through Cloudflare Access in production.** The app checks the Access token on every
+  request and fails closed. A break-glass local entrance, off unless switched on from the
+  server and loud when it is, covers a Cloudflare outage.
+- **Sessions last 30 days, then sign in again**, matching Access's monthly session.
+- **Secrets never in code or the database in plaintext.** Integration tokens and server keys are
+  encrypted at rest with a key from the environment; a family's private money jars are sealed.
+- **A nonce-based Content-Security-Policy**, database-backed rate limits, strict security
+  headers, and a guard test that every destructive action asks first.
+- **Least data leaves the house.** Error monitoring (Sentry) sends no PII, no replays, and an
+  opaque person id only.
+- **Kids never see money.** A family jar is shared among grown-ups by default; surprises, other
+  grown-ups' own jars and kids' data are private. Admins can back up everything, sealed jars
+  included.
+
+### Microsoft 365 integration
+
+One Microsoft Graph integration covers mail, calendar, contacts, Teams and the Entra checks.
+
+| Service | Role | Integration path |
+|---|---|---|
+| Entra ID | Grown-up SSO and roles | Better Auth's Microsoft provider, re-keyed on Entra's `oid` |
+| Exchange | Family email | Graph `Mail.Read`: recent mail on People records, order and receipt emails into money jars |
+| Outlook calendar | Family calendar | Graph read for the Home calendar (each Microsoft grown-up picks their own); a "Family" calendar the app writes dates into |
+| Teams | Alerts | Teams-first alerts, with email and phone push as other channels |
+| Google Calendar | Existing family calendar | Read through Graph only, because it is already synced into Outlook |
+| Google Voice | Family number and contacts | No official API: texting stays manual (deep links). Contacts come from Google Contacts in Phase 8.5 |
+
+### Self-hosting
+
+- **Hosted privately at home**: a Debian VM running Docker on a Proxmox host, reached from
+  anywhere through a Cloudflare Tunnel (no router ports opened) with Cloudflare Access in
+  front.
+- Settings in one locked-down host file outside the repository; nightly `pg_dump` backups kept
+  14 days on the host and copied to a NAS, with a restore drill every few months.
+- **The hostname is permanent**: passkeys are bound to it. It lives only in the host settings
+  file and Cloudflare, never in the repository.
+- Dev and production stay as close as possible: the same image runs the browser tests in CI.
+- **Nothing goes live, and no real family data goes in, until the security phase (42) is
+  done.**
+
+### How the work runs
+
+Each phase goes scope → independent scope review → build and verify → independent
+implementation review → fixes → one pull request, merged when the owner says so. A phase that
+changes what admins or the family see also updates the guides in `docs/guides/`.
+
+## Roadmap
+
+Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's call).
+
+### Foundation and first modules
+
+| Phase | What | Status |
+|---|---|---|
+| 0 | App shell, schema (household, unified person, accounts, kid profiles), sign-in | merged |
+| 1 | People Hub: record pages, index, last-contacted tracking, interaction log | merged |
+| 2 | Chores: the generic recurring-task engine, board, points ledger | merged |
+| 3 | Groceries: products, units, stores, a phone-first shopping list | merged |
+| 4 | Microsoft 365 pass: calendar on Home, recent emails on People | merged |
+| 4.5 | Foundation hardening; roles from Entra app-role claims | merged |
+| 5 | Meds on the task engine, multi-dose schedules | merged |
+| 6 | Vehicle maintenance, due by mileage or time | merged |
+| — | Dark mode | merged |
+| 7 | Cross-domain foundation: household settings, global search, activity feed | merged |
+| 8 | People: stale contacts, relationships, member summary card | merged |
+| 8.5 | Google Contacts sync, one-way pull | waiting |
+| 9 | Meds: medication stock and refills, prescriber and pharmacy, RxTerms autocomplete | merged |
+| 10 | Groceries: product groups, staples auto-suggest, barcode add | merged |
+| 10.5 | Barcode camera scanning (zxing-wasm, self-hosted) | merged |
+| 11 | Chores: weather-sensitive chores, milestones, rewards shop | merged |
+| 12 | Vehicles: fill-ups and MPG, cost of ownership, NHTSA recall alerts | merged |
+| 12.5 | Vehicle supplies catalog that counts stock down | merged |
+| 13 | Print views (shopping list, fridge chore chart, meds, people, vehicle) | merged |
+| 14 | Next.js security upgrade | merged |
+| 15 | Sentry error and performance monitoring, scrubbed | merged |
+| 16 | Exports: per-domain CSVs and a versioned household backup | merged |
+| 16.5 | Restore from backup (replace the household, admin only) | merged |
+| 17 | Calendar write-back to a "Family" Outlook calendar | merged |
+| 18 | School: student profiles, teachers, forms, homework and grades | merged |
+| 18.5 | School calendar feeds (iCal, SSRF-guarded) | merged |
+
+### The family-facing app
+
+| Phase | What | Status |
+|---|---|---|
+| 19 | Sticker Book shell: the look, navigation, the app's name | merged |
+| 19.5 | Big buttons view and mascot moments | merged |
+| 20 | Sticker Store: kids spend what they earn | merged |
+| 21–21.6 | Alert channels: Teams, email, central Teams alerts, phone push | merged |
+| 22 | Groceries: one add box, item sheet, Pantry | merged |
+| 23 | Groceries: Shop view (check-offs queue offline) and kid picks | merged |
+| 24 | Receipt prices (Azure AI Document Intelligence) | merged |
+| 25 | Money jars: accounts, bank feeds, statement import, one reconciler | merged |
+| 26 | Money jars: categories, budget, bills, grocery trips | merged |
+| 27 | Loop-closers and surprises | merged |
+| 28–28.5 | Per-person backups with sealed jars, and restoring them | merged |
+| 29 | Order emails into money jars | merged |
+| 30 | Shared-jar polish and a jar Teams chat | merged |
+| 31 | Saving up with goals, and what's coming up | merged |
+| 32 | Safe to spend until payday | merged |
+| 33 | Spending trends | merged |
+| 34 | Net worth: daily balances plus hand-entered home, car and loan values | merged |
+| 35 | Make it yours: name, colors, reward word, mascot, icon | merged |
+| 36 | Apps on and off | merged |
+| 37 | Editable store sections and money categories | merged |
+
+### Polish, sign-in and going live
+
+| Phase | What | Status |
+|---|---|---|
+| — | Privacy pass: no family details in the code; `npm run privacy:check` | merged |
+| 38 | Sharp edges: confirm in place, no double submits, a guard test | merged |
+| 39 | Performance: query counts, loading screens, icon caching | merged |
+| 40 | Sign-in: Better Auth, passkeys, invites, admin care of sign-ins, any OIDC, Entra checks | merged |
+| 41 | CI and browser tests on every pull request, weekly supply-chain checks | merged |
+| 43 | Production container and HTTPS through a tunnel | merged |
+| 42 | Security: CSP with nonces, database rate limits, Access check, restore drill, break-glass | merged |
+| 45 | Settings hub, guided setup, home location without coordinates | merged |
+| 44 | Polish: accessibility checks on every page, Shop list without signal | merged |
+| — | Kids' allowance | waiting |
+| — | Remove the dev sign-in | later |
+| — | LMS connector (Canvas or Google Classroom) | waiting |
+| — | Settings friction fixes (see Phase 45, "Not in this phase") | later |
+
+### Phases 42–45 in brief
+
+- **Phase 42 — Security.** Dependencies brought up past known critical advisories; a per-request
+  nonce Content-Security-Policy; Better Auth's rate limits moved to the database so they survive
+  a restart; the Cloudflare Access token checked on every request (fails closed); a scripted
+  restore drill into a throwaway stack; and a break-glass entrance for a Cloudflare outage.
+- **Phase 43 — Production container.** A pinned multi-stage, non-root, read-only image; a
+  production compose file (database, one-shot migrations, app, tunnel) with Docker secrets; a
+  run book for updates, rollbacks and backups; and CI that runs the browser tests against the
+  production image.
+- **Phase 44 — Polish.** WCAG 2.2 AA as the target, with axe checks on every page in both themes
+  and layouts, plus fixes (skip link, one `<main>` per page, focus handling, linked form
+  errors). The Shop list opens without signal from a cached copy that expires after 7 days and
+  is cleared on sign-out.
+- **Phase 45 — Settings hub and guided setup.** Settings as grouped tiles that show their
+  state; a walkthrough right after first-run setup and a "Finish setting up" checklist; home
+  location from the device or a ZIP code (rounded to about a kilometer, looked up offline);
+  phone-alert keys and the timezone set up without editing the server's settings.
+
+## Current state
+
+Everything through Phase 45 is merged to `main`, CI runs on every pull request, and the
+production container, the security phase and the accessibility and offline polish are done.
+The next steps are standing up the home server and entering the real family, then the items
+below. The database still holds test data only.
+
+## Open items
+
+### Waiting on a decision
+
+- **Kids' allowance:** none, an IOU ledger, or stickers that cash out (the owner's call).
+- **Google Contacts sync (Phase 8.5):** one-way pull, waiting on a Google Cloud project with a
+  published consent screen (an unpublished one issues refresh tokens that expire weekly), and
+  on which account to connect and whether to filter by label.
+- **LMS connector:** Canvas or Google Classroom, once the school's system is known. It fills
+  `SchoolAssignment` through `source` and `externalId`.
+- **Better Auth `cookieCache`:** recommended off for now.
+
+### Known limitations and later work
+
+- **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
+  with it. Removing it before going live is planned (the owner's call to keep it for now).
+- **Dates follow the server's clock** until the deployment's `TZ` matches the household's zone;
+  using the household timezone in every date calculation is later work.
+- **Teams alerts need a Power Automate flow**; a "Connect Teams" button through Graph, and
+  picking a jar's Teams chat from a list, are later work.
+- **Other setup friction, each its own phase:** finding the school calendar from the school's
+  web address, statement imports that work out their own columns, VIN entry or scanning, smoother
+  bank-feed setup, the alert mailbox set and tested in Settings, a link to Entra's role
+  assignments.
+- **Order emails:** improvements to forwarded order mail are deferred. Sam's Club orders can't
+  be priced, since its emails carry no prices.
+- **Accessibility:** a screen-reader audit by a person is worth doing once the family uses the
+  app; no translations.
+- **Offline:** only the Shop view is cached; no other page or API answer is ever served stale.
+- **Security, not in scope:** a CSP violation reporting endpoint, and Cloudflare settings (WAF,
+  bot rules) beyond Access.
+- **No container registry** or automatic image updates; rebuilding after a code change is one
+  command.
+- **Accepted audit item:** `braces` under ESLint only, re-dated in README "Dependencies".
+- **Drug interactions** are out of scope: NIH retired its interaction API in 2024.
+
+## Appendix: API integration candidates
+
+The aim is to pull in real data wherever an official, stable API exists, and to avoid building
+on unofficial ones.
+
+### Free and official
+
+| API | Module | What it gives | Status |
+|---|---|---|---|
+| Microsoft Graph | Core | Mail, calendar, contacts, Teams, Entra assignments, one OAuth | in use |
+| Google People API | People | Contacts sync | Phase 8.5 |
+| Open Food Facts | Groceries | Barcode → name, brand, image; no key | in use |
+| NHTSA vPIC + Recalls | Vehicles | VIN decode and open safety recalls | recalls in use |
+| FuelEconomy.gov | Vehicles | Official MPG and fuel-cost data | candidate |
+| openFDA + RxNorm / RxTerms (NIH) | Meds | Drug names, autocomplete, DailyMed link-out | in use |
+| NWS (weather.gov) | Chores, Home | US forecasts, no key; flags weather-sensitive chores | in use |
+| Nager.Date | Calendar | Public holidays | candidate |
+| ICS feeds | School | School and sports calendars, no auth | in use |
+| Census Gazetteer ZCTA | Settings | ZIP → rough location, bundled offline (public domain) | in use |
+| Telegram Bot API | Alerts | A family-group bot (Donetick's pattern) | not adopted: the family doesn't use Telegram; Teams, email and Web Push instead |
+
+### Official but conditional
+
+| API | Module | Condition | Status |
+|---|---|---|---|
+| SimpleFIN Bridge | Money | About $15 a year, read-only bank transactions built for personal apps | in use |
+| Privacy.com | Money | Virtual-card transactions into money jars | in use |
+| Azure AI Document Intelligence | Groceries, Money | Receipt line items and prices | in use |
+| Teller | Money | Free dev tier; reverse-engineered banks, needs a fallback | not adopted |
+| Kroger API | Groceries | Real prices and cart push, only for Kroger-banner shoppers | not adopted |
+| Smartcar | Vehicles | Odometer-driven maintenance; depends on the car and on hosting | candidate |
+| Canvas LMS / Google Classroom | School | Assignments and grades via a parent observer token | waiting on the school's system |
+| Home Assistant | Everything | Presence, NFC chore tags; only if already deployed | candidate |
+
+### Retailers without consumer APIs
+
+Amazon, Walmart and Sam's Club offer no consumer API for orders, lists or receipts (Amazon's
+product API now needs affiliate sales; Walmart's is approval-gated; Sam's Club's portal is for
+advertisers). So purchases are captured three retailer-agnostic ways:
+
+1. **Order and receipt emails** read through Graph and parsed into purchase records.
+2. **Periodic manual exports** (order-history downloads) with importers the app provides.
+3. **The bank feed** as the backstop: every retailer's total, without line items.
+
+### No official API (avoid)
+
+- **Google Voice**: manual, deep links only.
+- **Google Photos**: the Library API is limited to app-created content; no ambient sync.
+- **Alexa shopping lists, GasBuddy, Life360, GoodRx**: unofficial APIs only.
+- **Plaid**: official, but sales-led production access is the wrong fit for a family app.

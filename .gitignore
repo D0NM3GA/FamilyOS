@@ -1,0 +1,62 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+# Playwright (npm run test:e2e): results, traces and the HTML report
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+!.env.lan.example
+# Phase 43: the production settings file, if one is ever made in a checkout.
+familyos.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# prisma generated client
+/app/generated/prisma
+
+# Claude Code local tooling (worktrees, launch.json, etc.) — not project source
+/.claude/
+
+# local database backups — contain live secrets (Graph tokens, PIN hashes), never commit
+/backups
+
+# barcode decoder wasm, copied from node_modules by scripts/copy-zxing-wasm.mjs
+/public/zxing

@@ -1,0 +1,89 @@
+# Phase 43: the production image (Dockerfile, docker-compose.prod.yml), built and tested on a
+# fresh database by scripts/container-test.sh: the run image is checked (nothing secret, no
+# development tools, not root) and the browser tests run against it. A cold image build takes
+# minutes, so this runs on main and on pull requests that change what goes into the image, not
+# on every one; the CI workflow's browser tests still run everywhere. (Path-filtered, so it can't
+# be a required check: pull requests that don't touch these paths would wait for it forever.)
+#
+# Same supply-chain rules as ci.yml: actions pinned to full commit SHAs, no token kept, read-only.
+# No docker/* actions: `docker compose` is already on the runner. Each run makes its own keys.
+name: Container
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.prod.yml
+      - docker-compose.ci.yml
+      - scripts/container-test.sh
+      - scripts/break-glass*.sh
+      - deploy/**
+      - proxy.ts
+      - lib/security/**
+      - scripts/standalone-assets.mjs
+      - scripts/copy-zxing-wasm.mjs
+      - e2e/**
+      - tsconfig.json
+      - next.config.ts
+      - package.json
+      - package-lock.json
+      - .node-version
+      - .npmrc
+      - prisma/**
+      - .github/workflows/container.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  CHECKPOINT_DISABLE: "1"
+  DO_NOT_TRACK: "1"
+
+jobs:
+  container:
+    name: Production image and browser tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      # Playwright and its browser run on the runner; the app runs in the image.
+      - run: npm ci
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: npx playwright install --with-deps --no-shell chromium
+      - name: Build the image and run the browser tests against it
+        env:
+          CONTAINER_LOG: container-app.log
+        run: scripts/container-test.sh
+      # Phase 42.7: the Cloudflare Access check and the break-glass entrance, on the same image.
+      - name: Rehearse the break-glass entrance
+        run: scripts/break-glass-test.sh
+      - name: Keep the report and the app's log when something failed
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: container-report
+          path: |
+            playwright-report/
+            test-results/
+            container-app.log
+          retention-days: 7
