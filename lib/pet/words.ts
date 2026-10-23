@@ -82,7 +82,7 @@ export function moodLine(
 }
 
 /** How a pet left, in gentle words. Pets come from Egg Island, and go back there. */
-export const CAUSE_WORDS: Record<DeathCause, string> = {
+const CAUSE_WORDS: Record<DeathCause, string> = {
   hunger: "got too hungry and went back to Egg Island, where there's always something to eat",
   sickness: "got too poorly and went back to Egg Island to rest",
   "old-age": "lived a long, happy life and retired to Egg Island",

@@ -11,8 +11,8 @@ import type { Season, Sky } from "@/lib/pet/room";
  */
 
 export const ROOM_W = 400;
-export const ROOM_H = 260;
-export const FLOOR_Y = 175;
+const ROOM_H = 260;
+const FLOOR_Y = 175;
 
 /** Where each slot's item stands (its bottom center), in room units. */
 export const SLOT_ANCHORS: Record<RoomSlot, { x: number; y: number }> = {
@@ -23,7 +23,7 @@ export const SLOT_ANCHORS: Record<RoomSlot, { x: number; y: number }> = {
   "floor-right": { x: 258, y: 205 },
 };
 
-export const POOP_SPOTS = [
+const POOP_SPOTS = [
   { x: 150, y: 238 },
   { x: 182, y: 250 },
   { x: 228, y: 244 },
@@ -153,10 +153,10 @@ function Window({ sky, weather, season }: { sky: Sky; weather: Weather; season: 
             ))}
           </>
         ) : (
-          weather === "clear" && <circle cx={222} cy={46} r={10} fill="#ffd23f" className="pet-sun" />
+          weather === "clear" && <circle cx={222} cy={46} r={10} fill="#ffd23f" />
         )}
         {(weather === "cloudy" || weather === "rain" || weather === "snow") && (
-          <g fill={night ? "#5b6670" : "#ffffff"} opacity={0.9} className="pet-clouds">
+          <g fill={night ? "#5b6670" : "#ffffff"} opacity={0.9}>
             <ellipse cx={180} cy={44} rx={18} ry={9} />
             <ellipse cx={196} cy={40} rx={14} ry={10} />
             <ellipse cx={226} cy={56} rx={16} ry={8} />

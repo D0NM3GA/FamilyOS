@@ -42,7 +42,7 @@ export type Behavior = { kind: BehaviorKind; target?: string };
 export type BehaviorInput = { stage: Stage; sick: boolean; fun: number; energy: number; napping: boolean; calling: boolean };
 
 /** Decorations it would rather nap on than the bed. */
-export const NAP_SPOTS = ["cushion", "beanbag"];
+const NAP_SPOTS = ["cushion", "beanbag"];
 
 export function nextBehavior(state: BehaviorInput, personality: Personality, room: RoomView, awake: boolean, rng: Rng): Behavior {
   if (state.stage === "egg") return { kind: "wobble" };

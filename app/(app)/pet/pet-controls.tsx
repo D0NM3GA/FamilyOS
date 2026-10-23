@@ -34,7 +34,7 @@ export function BigButton({
   );
 }
 
-export const TOY_EMOJI: Record<string, string> = { ball: "⚽", plush: "🧸", bubbles: "🫧", drum: "🥁", kite: "🪁" };
+const TOY_EMOJI: Record<string, string> = { ball: "⚽", plush: "🧸", bubbles: "🫧", drum: "🥁", kite: "🪁" };
 
 export function ToyIcon({ id, wiggle = false }: { id: string; wiggle?: boolean }) {
   return (

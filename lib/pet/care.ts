@@ -26,12 +26,12 @@ export type CareOutcome =
 
 export type CareResult = { state: PetState; outcome: CareOutcome };
 
-export const MEAL_FILL = 25;
-export const SNACK_FUN = 25;
+const MEAL_FILL = 25;
+const SNACK_FUN = 25;
 export const SNACKS_BEFORE_SICK = 3;
-export const SNACK_WINDOW_MINUTES = 30;
+const SNACK_WINDOW_MINUTES = 30;
 export const PETS_PER_HOUR = 3;
-export const PET_FUN = 10;
+const PET_FUN = 10;
 const ANSWERED_BOND = 2;
 
 function addBond(state: PetState, amount: number): PetState {

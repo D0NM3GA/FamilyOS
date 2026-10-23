@@ -43,11 +43,11 @@ export type AdvanceContext = { seed: string; careHours: CareHours; timeZone: str
 /** Care-minutes to answer a call before it counts as a mistake. */
 export const CALL_WINDOW_MINUTES = 15;
 /** After a missed real call, the pet waits this long before calling again. */
-export const CALL_QUIET_MINUTES = 60;
+const CALL_QUIET_MINUTES = 60;
 /** A gap this long between awake minutes was a night's sleep: it wakes up rested. */
-export const SLEEP_GAP_MINUTES = 60;
-export const NAP_MINUTES = 30;
-export const MAX_POOPS = 4;
+const SLEEP_GAP_MINUTES = 60;
+const NAP_MINUTES = 30;
+const MAX_POOPS = 4;
 /** Care-minutes until each kind of neglect ends it. */
 export const STARVE_LIMIT_MINUTES = 6 * 60;
 export const SICK_LIMIT_MINUTES = 4 * 60;
@@ -72,7 +72,7 @@ const FORM_SCORE_LIMITS: Partial<Record<Stage, number[]>> = {
 };
 
 /** Bond gained in a stage that counts as a mistake forgiven when it grows up. */
-export const BOND_FOR_BETTER_FORM = 20;
+const BOND_FOR_BETTER_FORM = 20;
 
 /**
  * Which form a pet grows into, from how the last stage went: each missed real call counts

@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import type { DeathCause, Species, Stage } from "@/lib/pet/state";
 import { formName, memoryLine, PET_NAME_MAX, SPECIES_NAMES } from "@/lib/pet/words";
-import { HATCH_INTRO, HATCH_PENDING } from "@/lib/pet/voice";
+import { fill, GOODBYE_AFTER, HATCH_INTRO, HATCH_PENDING } from "@/lib/pet/voice";
 import { btnPrimary, card, field, fieldLabel } from "@/components/styles";
 import { SubmitButton } from "@/components/submit";
 import { hatchPet, type HatchState } from "./actions";
@@ -37,7 +37,7 @@ export function HatchPanel({ goodbye }: { goodbye: Goodbye | null }) {
             <p className="mt-1">
               {memoryLine(goodbye.name, goodbye.ageMinutes, formName(goodbye.species as Species, goodbye.stage as Stage, goodbye.form), goodbye.cause as DeathCause)}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">{goodbye.name}&apos;s page is in your memory book. A new egg came over from Egg Island.</p>
+            <p className="mt-1 text-sm text-muted-foreground">{fill(GOODBYE_AFTER, { name: goodbye.name, species: goodbye.species as Species })}</p>
           </div>
         </section>
       )}

@@ -77,7 +77,7 @@ const STAGE_UNLOCKS: Partial<Record<Stage, readonly string[]>> = {
 };
 
 /** What bond brings, in order: one every so often, for care and play of any kind. */
-export const BOND_UNLOCKS: readonly (readonly [number, string])[] = [
+const BOND_UNLOCKS: readonly (readonly [number, string])[] = [
   [15, "party-hat"],
   [30, "fishbowl"],
   [50, "flowers"],

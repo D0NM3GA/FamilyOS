@@ -8,7 +8,7 @@ import { rngFor } from "../random";
 
 export const SNACK_CATCH_MS = 30_000;
 export const BOWL_Y = 0.86;
-export const BOWL_HALF_WIDTH = 0.11;
+const BOWL_HALF_WIDTH = 0.11;
 const DROPS = 30;
 
 export type Drop = { id: number; x: number; spawnAt: number; speed: number; broccoli: boolean };

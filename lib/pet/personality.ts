@@ -15,7 +15,7 @@ export type Food = (typeof FOODS)[number];
 export const PET_SPOTS = ["head", "cheeks", "belly", "back"] as const;
 export type PetSpot = (typeof PET_SPOTS)[number];
 
-export const QUIRKS = ["sleepy", "bouncy", "shy", "show-off"] as const;
+const QUIRKS = ["sleepy", "bouncy", "shy", "show-off"] as const;
 export type Quirk = (typeof QUIRKS)[number];
 
 export type Personality = { favoriteToy: Toy; favoriteFood: Food; favoriteSpot: PetSpot; quirk: Quirk };

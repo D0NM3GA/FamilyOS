@@ -8,7 +8,7 @@ export const SWEET_SPOT = 0.75;
 export const SWEET_HALF_WIDTH = 0.06;
 
 /** How long one sweep there and back takes for a throw. */
-export function sweepMs(throwIndex: number): number {
+function sweepMs(throwIndex: number): number {
   return 1800 - throwIndex * 300;
 }
 

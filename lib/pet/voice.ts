@@ -21,9 +21,9 @@ import type { Species } from "./state";
  * Placeholders: {name}, {sound}, {Sound} (capitalized), {food}, {toy}. Pure and client-safe.
  */
 
-export const SOUNDS: Record<Species, string> = { blob: "blup", bird: "pip", critter: "mrrp" };
+const SOUNDS: Record<Species, string> = { blob: "blup", bird: "pip", critter: "mrrp" };
 
-export const FOOD_NAMES: Record<Food, string> = {
+const FOOD_NAMES: Record<Food, string> = {
   berries: "berries",
   "rice-ball": "a rice ball",
   pancake: "a pancake",
@@ -31,7 +31,7 @@ export const FOOD_NAMES: Record<Food, string> = {
   fish: "a fish stick",
 };
 
-export const TOY_NAMES: Record<Toy, string> = { ball: "ball", plush: "plush", bubbles: "bubbles", drum: "drum", kite: "kite" };
+const TOY_NAMES: Record<Toy, string> = { ball: "ball", plush: "plush", bubbles: "bubbles", drum: "drum", kite: "kite" };
 
 export type LineContext = { name: string; species: Species; food?: Food; toy?: Toy };
 
@@ -153,7 +153,6 @@ export const HAPPY_LINES: Record<Quirk, readonly string[]> = {
 export const HATCH_INTRO = "Three eggs came over from Egg Island. Which one is yours?";
 export const HATCH_PENDING = "Keeping it warm…";
 
-export const GOODBYE_INTRO = "{name} has gone back to Egg Island.";
 export const GOODBYE_AFTER = "{name}'s page is in your memory book. A new egg is waiting.";
 
 /* Mini-games: how a round went, by how well it went. */

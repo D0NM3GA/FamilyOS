@@ -17,7 +17,7 @@ export function hashString(text: string): number {
 }
 
 /** Mulberry32: small, fast and good enough for a pet. Returns numbers in [0, 1). */
-export function mulberry32(seed: number): Rng {
+function mulberry32(seed: number): Rng {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
