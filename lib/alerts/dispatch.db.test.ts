@@ -20,7 +20,8 @@ describe.skipIf(!RUN)("alert delivery (database)", () => {
   beforeAll(async () => {
     // The family's Teams app needs Microsoft sign-in configured (lib/teams/family-app.ts).
     Object.assign(process.env, { MICROSOFT_CLIENT_ID: "app-id", MICROSOFT_TENANT_ID: "tenant-id", MICROSOFT_CLIENT_SECRET: "secret" });
-    const h = await prisma.household.create({ data: { name: tag } });
+    // Phase 53: the family's own alert mailbox (the server's ALERT_MAILBOX is only the fallback).
+    const h = await prisma.household.create({ data: { name: tag, alertMailbox: "alerts@example.com" } });
     const other = await prisma.household.create({ data: { name: `${tag}-other` } });
     const user = (email: string) =>
       prisma.user.create({ data: { id: `${tag}-${email}`, name: email, email, emailVerified: true } });
@@ -92,6 +93,7 @@ describe.skipIf(!RUN)("alert delivery (database)", () => {
     ]);
     // Email prefers the sign-in address too.
     expect((senders.email.mock.calls[0] as unknown[])[0]).toBe(`mom-${tag}@example.com`);
+    expect((senders.email.mock.calls[0] as unknown[])[5]).toBe("alerts@example.com");
 
     // Dad's personal profile email is never used for Teams.
     const dad = await prisma.alertPrefs.findUniqueOrThrow({ where: { personId: ids.dad } });

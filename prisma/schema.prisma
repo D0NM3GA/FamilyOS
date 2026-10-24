@@ -689,6 +689,8 @@ enum SignInEventKind {
   /// 42.7: the break-glass entrance was switched on, or went off (switched off or ran out).
   BREAK_GLASS_ON
   BREAK_GLASS_OFF
+  /// 53: an admin set or cleared the mailbox alert email comes from (detail: the address).
+  ALERT_MAILBOX_SET
 }
 
 /// Phase 40.4: the scheduled check of who Entra assigns to the app (lib/entra-check.ts), one per

@@ -5,6 +5,7 @@ import { microsoftConfigFrom } from "@/lib/microsoft-config";
 import { captureError } from "@/lib/observability";
 import { workingAdmins } from "@/lib/sign-ins";
 import { EntraGraphError, readEntraAssignments, type EntraRole } from "@/lib/entra-graph";
+import { isGuid } from "@/lib/microsoft-admin";
 import { decodeIdTokenClaims, ENTRA, mapEntraRoleClaim } from "@/lib/entra-claims";
 
 /**
@@ -85,19 +86,26 @@ class Refused extends Error {
  */
 export async function runEntraCheck(
   householdId: string,
-  { readAssignments = readEntraAssignments, now = new Date() }: { readAssignments?: () => Promise<Map<string, EntraRole>>; now?: Date } = {},
+  {
+    readAssignments = (seen) => readEntraAssignments({}, seen),
+    now = new Date(),
+  }: { readAssignments?: (seen: (servicePrincipalId: string) => void) => Promise<Map<string, EntraRole>>; now?: Date } = {},
 ): Promise<EntraRunResult> {
   const none = (outcome: EntraOutcome): EntraRunResult => ({ outcome, changed: 0, ended: 0, notices: [] });
   if (!(await claimLease(householdId, now))) return none("busy");
 
   let assigned: Map<string, EntraRole>;
+  let servicePrincipalId: string | null = null;
   try {
-    assigned = await readAssignments();
+    assigned = await readAssignments((id) => {
+      servicePrincipalId = isGuid(id) ? id.toLowerCase() : null;
+    });
   } catch (e) {
     const outcome = e instanceof EntraGraphError ? e.code : "unexpected";
     await release(householdId, now, outcome);
     return none(outcome);
   }
+  if (servicePrincipalId) await prisma.entraCheck.update({ where: { householdId }, data: { servicePrincipalId } });
   if (assigned.size === 0) {
     await release(householdId, now, "empty");
     return none("empty");
@@ -182,7 +190,7 @@ export async function entraCheckNowAllowed(householdId: string, now: Date = new 
 
 /** Settings → Sign-in's status: when the last run was and how it went. */
 export function entraCheckStatus(householdId: string) {
-  return prisma.entraCheck.findUnique({ where: { householdId }, select: { lastRunAt: true, outcome: true } });
+  return prisma.entraCheck.findUnique({ where: { householdId }, select: { lastRunAt: true, outcome: true, servicePrincipalId: true } });
 }
 
 /** Delivers a run's notices (after it has committed). */

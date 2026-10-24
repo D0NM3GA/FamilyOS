@@ -91,5 +91,7 @@ export function describeSignInEvent(e: SignInEventRow, you: string): string {
       return `Emergency local access was switched on on the server${e.detail ? `, until ${e.detail}` : ""}`;
     case "BREAK_GLASS_OFF":
       return "Emergency local access went off";
+    case "ALERT_MAILBOX_SET":
+      return e.detail ? `${actor} set the alert mailbox to ${e.detail}` : `${actor} cleared the alert mailbox (the server's setting applies)`;
   }
 }

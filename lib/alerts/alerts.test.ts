@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { plainCardText, teamsActivity } from "./teams";
-import { alertMailbox, emailPayload, sendEmail } from "./email";
+import { emailPayload, mailError, pickAlertMailbox, sendEmail, serverAlertMailbox, type MailError } from "./email";
 import { getAppGraphToken, resetAppTokenCache } from "@/lib/graph/app-token";
 import { isPrivateOutgoingRequest } from "@/lib/observability/options";
 
@@ -51,20 +51,31 @@ describe("email", () => {
     vi.stubEnv("MICROSOFT_CLIENT_SECRET", "");
     vi.stubEnv("MICROSOFT_TENANT_ID", "");
     process.env.ALERT_MAILBOX = "familyos@example.com";
-    expect(alertMailbox()).toBeNull();
+    expect(pickAlertMailbox("alerts@example.com")).toBeNull();
+    expect(serverAlertMailbox()).toBeNull();
   });
 
   it("only uses a well-formed mailbox", () => {
     process.env.ALERT_MAILBOX = "nope";
-    expect(alertMailbox()).toBeNull();
+    expect(serverAlertMailbox()).toBeNull();
     process.env.ALERT_MAILBOX = " familyos@example.com ";
-    expect(alertMailbox()).toBe("familyos@example.com");
+    expect(serverAlertMailbox()).toBe("familyos@example.com");
+  });
+
+  it("Phase 53: the family's mailbox wins; the server's is the fallback", () => {
+    process.env.ALERT_MAILBOX = "familyos@example.com";
+    expect(pickAlertMailbox("alerts@example.com")).toBe("alerts@example.com");
+    expect(pickAlertMailbox(null)).toBe("familyos@example.com");
+    expect(pickAlertMailbox("  ")).toBe("familyos@example.com");
+    expect(pickAlertMailbox("not an address")).toBe("familyos@example.com");
+    delete process.env.ALERT_MAILBOX;
+    expect(pickAlertMailbox("alerts@example.com")).toBe("alerts@example.com");
+    expect(pickAlertMailbox(null)).toBeNull();
   });
 
   it("sends from the mailbox with a plain-text message", async () => {
-    process.env.ALERT_MAILBOX = "familyos@example.com";
     const fetchFn = vi.fn(async () => new Response(null, { status: 202 }));
-    await sendEmail("mom@example.com", "Ivy bought DJ", "https://x/points", "SmithOS", {
+    await sendEmail("familyos@example.com", "mom@example.com", "Ivy bought DJ", "https://x/points", "SmithOS", {
       fetchFn: fetchFn as unknown as typeof fetch,
       token: async () => "TOKEN",
     });
@@ -74,16 +85,30 @@ describe("email", () => {
     expect(JSON.parse(init.body as string)).toEqual(emailPayload("mom@example.com", "Ivy bought DJ", "https://x/points", "SmithOS"));
   });
 
-  it("explains a permission problem without leaking anything", async () => {
-    process.env.ALERT_MAILBOX = "familyos@example.com";
-    const fetchFn = vi.fn(async () => new Response("{\"error\":\"secret details\"}", { status: 403 }));
-    await expect(
-      sendEmail("a@b.co", "t", "l", "FamilyOS", { fetchFn: fetchFn as unknown as typeof fetch, token: async () => "T" }),
-    ).rejects.toThrow("mailbox permission");
+  it("Phase 53: tells Microsoft's failures apart by its error code, without leaking its message", async () => {
+    const send = (status: number, body: unknown) =>
+      sendEmail("familyos@example.com", "a@b.co", "t", "l", "FamilyOS", {
+        fetchFn: (async () => Response.json(body, { status })) as unknown as typeof fetch,
+        token: async () => "T",
+      }).then(
+        () => null,
+        (e: MailError) => ({ problem: e.problem, message: e.message }),
+      );
+    const err = (code: string) => ({ error: { code, message: "secret details" } });
+    expect(await send(404, err("ErrorInvalidUser"))).toMatchObject({ problem: "noMailbox" });
+    expect(await send(400, err("MailboxNotEnabledForRESTAPI"))).toMatchObject({ problem: "notReady" });
+    expect(await send(403, err("ErrorAccessDenied"))).toMatchObject({ problem: "access" });
+    expect(await send(403, "not json")).toMatchObject({ problem: "access" });
+    expect(await send(401, err("InvalidAuthenticationToken"))).toMatchObject({ problem: "signIn" });
+    expect(await send(500, err("ErrorInternalServerError"))).toMatchObject({ problem: "failed", message: "Microsoft couldn't send the email (500)." });
+    for (const [status, code] of [[404, "ErrorInvalidUser"], [403, "ErrorAccessDenied"], [500, "x"]] as const) {
+      expect((await send(status, err(code)))?.message).not.toContain("secret");
+    }
   });
 
-  it("refuses when the mailbox isn't configured", async () => {
-    await expect(sendEmail("a@b.co", "t", "l", "FamilyOS", { token: async () => "T" })).rejects.toThrow("isn't set up");
+  it("a code that isn't one of Microsoft's shapes is ignored", () => {
+    expect(mailError(403, null, "familyos@example.com").problem).toBe("access");
+    expect(mailError(404, null, "familyos@example.com").problem).toBe("noMailbox");
   });
 });
 
