@@ -43,7 +43,7 @@ export function FindCalendarsForm({
           The app looks at the site and its calendar pages for calendars you can subscribe to, and checks each one.
         </p>
         <button type="submit" disabled={pending} className={btnPrimary}>
-          {pending ? "Looking… (up to half a minute)" : "Find calendars"}
+          {pending ? "Looking… (it can take up to a minute)" : "Find calendars"}
         </button>
       </form>
       <div aria-live="polite" className="space-y-3">
@@ -104,8 +104,8 @@ function AddFound({
       </p>
       {calendar.next.length > 0 && (
         <ul className="list-inside list-disc text-xs text-muted-foreground">
-          {calendar.next.map((e) => (
-            <li key={e}>{e}</li>
+          {calendar.next.map((e, i) => (
+            <li key={i}>{e}</li>
           ))}
         </ul>
       )}

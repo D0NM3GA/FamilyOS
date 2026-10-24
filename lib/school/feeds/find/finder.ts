@@ -57,10 +57,22 @@ export function schoolSiteUrl(raw: string): URL | null {
   }
 }
 
-/** A page that only says to turn on JavaScript, or checks the browser first (a bot challenge). */
+/**
+ * A page that's only a browser check (a bot challenge) or a "turn on JavaScript" notice: small,
+ * saying so near the top, and with few links. A normal page that merely mentions a captcha form
+ * or has a noscript footer isn't one (Fable's implementation review).
+ */
 export function isBrowserCheck(body: string): boolean {
   if (body.length > 20_000) return false;
-  return /client challenge|checking your browser|enable javascript|javascript is (disabled|required)|captcha|just a moment/i.test(body);
+  const title = /<title[^>]{0,100}>([^<]{0,200})/i.exec(body)?.[1] ?? "";
+  if (/client challenge|just a moment|checking your browser|attention required|verify you are human/i.test(title)) return true;
+  // Otherwise only a page that's next to nothing but that notice.
+  const text = body
+    .replace(/<(script|style)[\s\S]{0,20000}?<\/\1>/gi, " ")
+    .replace(/<[^>]{0,2000}>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length < 300 && /enable javascript|javascript is (disabled|required)/i.test(text);
 }
 
 const refused = (r: FetchResult) => r.status === "error" && (r.httpStatus === 403 || r.httpStatus === 429 || r.httpStatus === 503);
@@ -84,7 +96,6 @@ export async function findCalendars(site: URL, deps: FindDeps): Promise<FindResu
   fetches++;
   if (first.status === "error") return refused(first) ? { status: "blocked" } : { status: "error", reason: first.reason };
   if (first.status !== "ok") return { status: "none" };
-  if (isBrowserCheck(first.body)) return { status: "blocked" };
 
   const home = first.finalUrl ?? site;
   const homeSite = siteOf(home.hostname);
@@ -98,7 +109,9 @@ export async function findCalendars(site: URL, deps: FindDeps): Promise<FindResu
   const scanned = scanPage(first.body, home);
   take(scanned.candidates);
 
-  let blockedPages = 0;
+  // Scanned all the same: a feed link on it still counts, and "blocked" is only the answer
+  // when nothing readable turns up.
+  let blockedPages = isBrowserCheck(first.body) ? 1 : 0;
   for (const page of calendarPages(scanned.links, home, MAX_PAGES - 1)) {
     if (!canFetch()) break;
     const r = await getPage(page);

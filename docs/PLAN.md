@@ -1060,11 +1060,11 @@ finding one is common, so that answer has to be honest and specific.
   calendar the app can read. Each result shows its name (`X-WR-CALNAME`, else the link text), the
   host it's on, how many events in the next 4 months, and the next three (the household's zone,
   the same window the add form uses).
-- **Blocked sites are told apart:** a 403 or 429, or a tiny page that only says JavaScript is
-  needed, gives "That site only opens in a full browser. Open its calendar page and copy the
+- **Blocked sites are told apart:** a 403, 429 or 503, or a small page that is only a browser
+  check or a "turn on JavaScript" notice, gives "That site only opens in a full browser. Open its calendar page and copy the
   Subscribe or iCal link into the box below" instead of "nothing found".
 - **Limits:** 10 seconds and 2 MB per page or feed (a per-call deadline across its redirects),
-  12 fetches and 30 seconds per search, and one search at a time per household (a lock in the
+  12 fetches per search, and no new fetch after 30 seconds, and one search at a time per household (a lock in the
   database, as feed refreshes use).
 
 ### 51.2 — Safety

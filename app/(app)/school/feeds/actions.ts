@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { captureError } from "@/lib/observability";
 import { requireAdmin } from "@/lib/authz";
 import { encryptSecret } from "@/lib/crypto";
 import { fetchFeed } from "@/lib/school/feeds/fetch";
@@ -140,7 +141,10 @@ export async function findSchoolCalendars(_prev: FindState, fd: FormData): Promi
       },
       { timeout: 45_000, maxWait: 5_000 },
     )
-    .catch(() => null);
+    .catch((err: unknown) => {
+      captureError(err);
+      return null;
+    });
   if (result === "busy") return { error: "A search is already running. Try again in a moment." };
   if (!result) return { error: "The search didn't finish. Try again." };
   if (result.status === "error") return { error: result.reason };

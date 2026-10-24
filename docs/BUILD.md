@@ -882,8 +882,10 @@ each, and lists the ones it can read with the next few events, ready to add.
 - **The finder** (`find/finder.ts`) reads the page and up to 3 calendar-looking pages on the same
   site (an approximation of the registrable domain, checked after redirects), tries at most 8
   candidates on any https host (calendars often live on Google, Outlook or an athletics site), 12
-  fetches and 30 seconds in all. A 403/429/503 or a tiny "enable JavaScript" page is reported as a
-  site that only opens in a full browser, not as "nothing found".
+  fetches and 30 seconds in all. A 403/429/503, a browser-check page (by its title) or a page that's
+  nothing but a "turn on JavaScript" notice is reported as a site that only opens in a full
+  browser, not as "nothing found"; such a page is still scanned, and a feed on it still counts
+  (Fable's implementation review: a captcha form or a noscript footer on a normal page isn't one).
 - **Safety:** every fetch, page or feed, goes through the Phase 18.5 guard (now parameterised for
   HTML or iCalendar). Found addresses never reach the browser in the clear: the list goes back
   sealed (`find/bundle.ts`, bound to the admin, the household and 15 minutes), so nothing is kept

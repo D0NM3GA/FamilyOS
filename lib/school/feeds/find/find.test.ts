@@ -31,6 +31,11 @@ describe("reading a page for calendars", () => {
     expect(named?.label).toBe("District calendar");
   });
 
+  it("keeps resolving against the page when <base href> isn't https, and follows one that points elsewhere", () => {
+    expect(urls(`<base href="http://insecure.example/"><a href="a.ics">a</a>`)).toEqual(["https://www.lincoln-elementary.example/a.ics"]);
+    expect(urls(`<base href="https://cdn.lincoln-elementary.example/"><a href="a.ics">a</a>`)).toEqual(["https://cdn.lincoln-elementary.example/a.ics"]);
+  });
+
   it("decodes entities and honours <base href>", () => {
     expect(decodeEntities("a&amp;b&#39;c&#x41;&nbsp;")).toBe("a&b'cA ");
     expect(urls(`<base href="https://www.lincoln-elementary.example/news/"><a href="feed.ics?x=1&amp;y=2">x</a>`)).toEqual([
@@ -175,6 +180,15 @@ describe("findCalendars", () => {
     expect(await findCalendars(PAGE, challenge)).toEqual({ status: "blocked" });
     const refused = site({ "https://www.lincoln-elementary.example/": { status: "error", reason: "x", httpStatus: 403 } }, {});
     expect(await findCalendars(PAGE, refused)).toEqual({ status: "blocked" });
+    // A page that only mentions a captcha form or has a noscript footer isn't a browser check.
+    const news = "<p>Welcome back! Picture day is next week, and the book fair runs all week in the library. Lunch menus are posted on the cafeteria page.</p>".repeat(3);
+    expect(isBrowserCheck(`<title>Lincoln Elementary</title>${news}<form class="g-recaptcha"></form><noscript>Please enable JavaScript to view the comments</noscript>`)).toBe(false);
+    // A browser-check page with a feed link on it still offers the feed.
+    const withFeed = site(
+      { "https://www.lincoln-elementary.example/": ok(`<title>Just a moment</title><a href="/district.ics">Calendar</a>`) },
+      { "https://www.lincoln-elementary.example/district.ics": ok(ics("Lincoln Elementary")) },
+    );
+    expect((await findCalendars(PAGE, withFeed)).status).toBe("found");
     const gone = site({ "https://www.lincoln-elementary.example/": { status: "error", reason: "Couldn't reach the feed." } }, {});
     expect(await findCalendars(PAGE, gone)).toEqual({ status: "error", reason: "Couldn't reach the feed." });
   });
