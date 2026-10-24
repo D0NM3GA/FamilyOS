@@ -305,7 +305,7 @@ export function guessChoices(sheet: Sheet, fallbackOrder: DateOrder): Guess {
   if (amount != null && type == null) {
     const values = sample.map((r) => centsOf(r[amount], decimalComma)).filter((c): c is number => c != null && c !== 0);
     const positive = values.filter((c) => c > 0).length;
-    suggestFlip = values.length >= 5 && positive / values.length >= 0.85 && positive < values.length;
+    suggestFlip = values.length >= 5 && positive / values.length >= 0.8 && positive < values.length;
   }
   return { choices, suggestFlip, dateOrderFrom: hints.length ? "file" : "setting" };
 }
