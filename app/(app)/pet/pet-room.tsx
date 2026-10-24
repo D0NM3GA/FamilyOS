@@ -314,14 +314,15 @@ export const PetRoom = memo(function PetRoom({
       ))}
 
       {POOP_SPOTS.slice(0, poops).map(({ x, y }) => (
-        <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
+        <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} pointerEvents="none">
           <path d="M -9 0 Q -10 -6 -4 -7 Q -6 -13 0 -14 Q 6 -13 4 -7 Q 10 -6 9 0 Z" fill="#8a5a3b" {...ink} strokeWidth={1.5} />
           <path d="M -3 -18 q 2 -3 0 -6 M 3 -19 q 2 -3 0 -6" stroke="#5b6670" strokeWidth="1.2" fill="none" className="pet-stink" />
         </g>
       ))}
 
-      {!awake && <rect width={ROOM_W} height={ROOM_H} fill="#141a33" opacity={0.5} />}
-      {!awake && lamp && <circle cx={lamp.x} cy={lamp.y - 30} r={70} fill="#ffd23f" opacity={0.18} />}
+      {/* Night is only a look: it mustn't stop a decoration being picked up through it. */}
+      {!awake && <rect width={ROOM_W} height={ROOM_H} fill="#141a33" opacity={0.5} pointerEvents="none" />}
+      {!awake && lamp && <circle cx={lamp.x} cy={lamp.y - 30} r={70} fill="#ffd23f" opacity={0.18} pointerEvents="none" />}
     </svg>
   );
 });
