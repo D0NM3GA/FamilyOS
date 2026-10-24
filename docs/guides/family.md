@@ -317,6 +317,13 @@ Inside a jar:
 A jar's Settings connects the bank feed, imports statements and sets your own **Alerts for me**
 (bills due, a broken bank feed, over budget, running low). Alerts never include amounts.
 
+**Connecting the bank feed** takes three steps, shown on the page: sign in at SimpleFIN Bridge and
+link your banks, make a setup token, paste it. If a bank needs you to sign in again, the page says
+so with a link straight to SimpleFIN Bridge. An account that doesn't belong in the jar (say,
+Grandma's own card on the same login) can be **left out**: its charges stay in Activity, marked
+"left out", but don't count in any total, and nothing new comes from it. **Bring it back**
+whenever you like.
+
 **Importing a statement file**: download it from the bank or card website (OFX or QFX if it
 offers one, else CSV), choose it under **Import a statement**, and press **Check it**. For a CSV,
 the app shows what it understood on a few rows: check the dates, the words and whether each
@@ -338,6 +345,11 @@ they'd see the alerts too.
 Each car's maintenance by miles and/or date (oil changes, tires, registration…), with the service
 history and costs, fill-ups and miles per gallon, and recall alerts. **+ New vehicle**, then **+ Add
 item** or **Start from common items**. Logging a service resets its countdown.
+
+**The VIN** (optional) is on the driver's door frame, the corner of the windshield, or the
+insurance card. Type it, or **Scan the VIN** with the phone's camera, then **Look it up**: the make,
+model and year fill in (change any of them if you like). A car with a VIN gets **Check this VIN at
+NHTSA** on its recall card, with a button to copy the VIN, to see recalls for that exact car.
 
 The **Garage** keeps count of supplies (oil, filters, wiper blades): link one to a maintenance
 item and logging that service counts it down.

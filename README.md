@@ -54,7 +54,7 @@ owner is docs/PLAN.md ("Current state" and "Open items").
 | **Groceries (Phase 22)** | One add box (type, pick, or scan; typed items become Pantry items), item sheet with "How it comes" sizes ("31.1 lb bag") and where we buy it, sections suggested from the name, usual amounts learned from trips, −/+ on each row, "who's it for" tags; the Pantry tidy-up page with "Needs details" and grown-up "Same as…" merge. **Shop view (Phase 23):** big rows by store and section, check-offs that work with no signal and sync later, and **the list itself opens with no signal (Phase 44)**, screen kept on, "In the cart", undo, Finish trip carries leftovers over. Kids get picture tiles that add straight to the list; grown-ups can say "Not this time" and the kid gets a kind note in their bell. Barcodes look up Open Food Facts (food, pet food, household goods) **Receipt prices (Phase 24):** snap the receipt after a trip; Azure AI Document Intelligence reads it, lines are matched to what you bought (and remembered), and grown-ups see "Last paid" on items. **Store sections (Phase 37):** grown-ups rename, reorder (the way you walk the store), add and remove sections from the Pantry page; a removed section's items move where you say, and new items are still guessed into a renamed section. |
 | **Make it yours (Phase 35)** | Each family's own app name (they type the name, the app adds OS), top bar color, reward word (stickers, stars, points, coins, gems or their own), mascot on/off and name, and Home Screen icon, in Settings → Make it yours |
 | **Money jars (Phases 25–34)** | Finances in private jars (only a jar's members see it, admins included, on their own Microsoft sign-in); bank feed via SimpleFIN, Privacy.com charges named with the real store, OFX/QFX/CSV statement import, and a reconciler that folds duplicates and asks only about the unsure ones ("Needs a look"). **Phase 26:** categories that learn ("always for this merchant"), a monthly budget per category, Bills & subscriptions ("still using this?"), and grocery trips linked to the card charge. **Phase 27:** 🎁 surprises (a charge hidden from chosen jar members until a reveal day, while totals stay whole), money alerts to Teams first (bill due, sync broken, over budget; each member's own switches), quarterly and yearly bills, background syncs. **Phase 28:** backups by the person themselves after a fresh sign-in, jars sealed in the household backup (and put back on restore, Phase 28.5), your own readable copy, and a backup history announced in Teams. **Phase 29:** order emails (Amazon, Apple, Publix) read from your own mailbox onto the charges that paid for them. **Phase 30:** who changed what in a shared jar, the same bank or Privacy.com account kept out of a second jar, and one Teams group chat per jar for its alerts. **Phase 31:** saving up (leftovers roll over, goals like "$400 by August"), the next 30 days of bills with a total, and bills that went up. **Phase 32:** safe to spend until payday, with its lowest point and a heads-up when checking may run low. **Phase 33:** Trends, money out month by month and where each month went. **Phase 34:** Net worth, bank balances plus the house, cars and loans typed in, month by month. **Phase 37:** each jar's own categories, renamed, added and removed (charges, rules and budget move along) |
-| **Vehicles** | Bespoke mileage-and/or-date maintenance tracking (not the task engine), append-only service history with costs, fill-up log + MPG, cost of ownership, NHTSA recall alerts, maintenance templates, print view, no points; grown-ups only |
+| **Vehicles** | Bespoke mileage-and/or-date maintenance tracking (not the task engine), append-only service history with costs, fill-up log + MPG, cost of ownership, NHTSA recall alerts, maintenance templates, print view, no points; grown-ups only. **Phase 53:** a car's VIN, typed or scanned, fills in its make, model and year from NHTSA's free decoder, and its recall card links to NHTSA's check by VIN |
 | **Microsoft Graph** | Dashboard calendar widget, per-contact recent-emails card, profile enrichment (photo/name/phone) |
 
 The database currently holds **test data only** — it's meant to be wiped before real use.
@@ -126,7 +126,7 @@ machine too; what matters is in docs/PLAN.md and docs/BUILD.md.
 | `MICROSOFT_CLIENT_ID` / `_SECRET` / `_TENANT_ID` | Optional: from the Entra app registration, for Microsoft sign-in and the Microsoft 365 features. All three or none (a partial set stops the app at start) |
 | `TZ` | Optional: the time zone used until the household has one. Since Phase 49 the app keeps the household's time zone (Settings → Household) itself, whatever this says |
 | `FAMILY_CALENDAR_NAME` | Optional default: the exact name of the calendar Home shows, e.g. a synced Google Calendar, for anyone who hasn't picked one in Settings → Calendar on Home (each Microsoft grown-up can). Unset → their main Outlook calendar |
-| `ALERT_MAILBOX` | Shared mailbox Sticker Store alert emails come from (see Alerts). Empty → email alerts unavailable |
+| `ALERT_MAILBOX` | Fallback for the shared mailbox alert emails come from (see Alerts); the mailbox set in Settings → Alerts → Email wins. Neither → email alerts unavailable |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Optional phone push keys (`node scripts/generate-vapid.mjs`) and contact. Empty → the server makes and keeps its own, with `CONTACT_EMAIL` or the `https://` `BETTER_AUTH_URL` as the contact (see Alerts) |
 | `DOCINTEL_ENDPOINT` | Azure AI Document Intelligence custom-subdomain endpoint for receipt prices (see Receipts). Empty → "Snap the receipt" explains it isn't set up |
 | `DEV_AUTH` | **Temporary, local only.** `1` shows the dev test sign-in on localhost (docs/BUILD.md "Dev sign-in"); never set in production |
@@ -730,9 +730,15 @@ application permission in Entra: Entra and Exchange grants add up, so an org-wid
    ```
 
    The test should show `Application Mail.Send` as **InScope: True** for the mailbox. Changes
-   can take 30 minutes to 2 hours to apply.
-3. Set `ALERT_MAILBOX="familyos@example.com"` in `.env` and restart.
-4. On the Alerts page, turn on Email and press **Send a test**. Emails go to the address
+   can take 30 minutes to 2 hours to apply. Settings → Alerts → Email shows these commands with
+   the ids and the mailbox filled in, ready to copy, once the app has checked Entra.
+3. Type the mailbox in Settings → Alerts → **Email** (an admin on their own sign-in; it's logged
+   in Settings → Sign-in → Recent changes). `ALERT_MAILBOX` in `.env` is the fallback when it's
+   left empty. Changing it here is safe: Exchange only lets the app send as the mailbox it was
+   scoped to, so a different one just fails its test.
+4. On the Alerts page, turn on Email and press **Send a test**. A failure says which: no such
+   mailbox, a new mailbox that isn't ready yet, or Exchange not letting the app send from it
+   (then run the commands above). Emails go to the address
    you sign in with (or the email on your People profile).
 
 Alerts go to people with the **Admin** app role in Entra. Give both parents that role.
@@ -797,6 +803,13 @@ database or the Microsoft tenant can still read the data.
    `INTEGRATION_ENCRYPTION_KEY`.
 3. It syncs about once an hour at most (SimpleFIN allows ~24 reads a day): when you open the
    jar and it's over 6 hours old, or with Sync now.
+4. **An account that doesn't belong in this jar** (someone's own card, say): Bank feed →
+   Accounts from the feed → **Leave out** (asked first). Its rows already here stay in Activity,
+   marked "left out", but leave every total, Safe to spend and Net worth, and the sync brings
+   nothing more from it. **Bring it back** undoes that and catches up at the next sync (Phase 53).
+
+A bank that needs signing in again says so in words, with a link to SimpleFIN Bridge (SimpleFIN's
+structured errors, Phase 53).
 
 ### Privacy.com (optional)
 
@@ -1193,7 +1206,8 @@ can be changed). Taking someone's app role away in Entra cuts them off (Phase 40
 Entra" below).
 
 **Checking Entra (Phase 40.4).** With Microsoft on, the app asks Entra every half hour (and when
-an admin presses **Check now** in Settings → Sign-in) who is assigned to it, with its own Graph
+an admin presses **Check now** in Settings → Sign-in, beside **Change roles in Entra**, which opens
+the app's Users and groups page in the Entra admin center) who is assigned to it, with its own Graph
 access: grant the app registration the **application** permissions `Application.Read.All` and
 `GroupMember.ReadBasic.All` and give **admin consent** (Entra admin center → App registrations →
 the app → API permissions). `Application.Read.All` lets it read every app registration's

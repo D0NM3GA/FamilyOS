@@ -33,20 +33,31 @@ export async function RecallsSection({
     </>
   ) : null;
 
+  // Phase 53: the VIN check doesn't need the model list, so it shows whatever NHTSA said.
+  const withVin = (note: React.ReactNode) =>
+    vehicle.vin ? (
+      <div className="space-y-3">
+        {note}
+        <VinRecallCheck vin={vehicle.vin} />
+      </div>
+    ) : (
+      note
+    );
+
   switch (recalls.status) {
     case "not-configured":
-      return <Note>Add the year, make, and model to check for NHTSA safety recalls.{editLink}</Note>;
+      return withVin(<Note>Add the year, make, and model to check for NHTSA safety recalls.{editLink}</Note>);
     case "unavailable":
-      return <Note>Couldn&apos;t reach NHTSA to check recalls right now — try again later.</Note>;
+      return withVin(<Note>Couldn&apos;t reach NHTSA to check recalls right now — try again later.</Note>);
     case "unknown-make":
-      return (
+      return withVin(
         <Note tone="warn">
           NHTSA doesn&apos;t recognize the make &ldquo;{vehicle.make}&rdquo; for {vehicle.year}, so recalls
           couldn&apos;t be checked.{editLink}
-        </Note>
+        </Note>,
       );
     case "unknown-model":
-      return (
+      return withVin(
         <Note tone="warn">
           NHTSA doesn&apos;t list a {vehicle.year} {vehicle.make} &ldquo;{vehicle.model}&rdquo;, so recalls
           couldn&apos;t be checked — NHTSA uses its own model names.
@@ -54,7 +65,7 @@ export async function RecallsSection({
             <> Did you mean: {recalls.suggestions.map((s) => `“${s}”`).join(", ")}?</>
           )}
           {editLink}
-        </Note>
+        </Note>,
       );
   }
 

@@ -179,7 +179,7 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 50 | Teams without Power Automate: the app's own Teams bot, a jar chat picked from a list | merged |
 | 51 | Find the school calendar from the school's web address | merged |
 | 52 | Statement imports that work out their own columns | merged |
-| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | next |
+| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | built |
 | 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | built |
 | 55 | The pet's daily surprises and sound | next |
 
@@ -219,10 +219,8 @@ Tunnel and Access, the pinned version, backups and break-glass, following
 `docs/guides/admin.md`, then entering the real family) and, with it, removing the dev sign-in.
 The database still holds test data only.
 
-**Next, the remaining engineering work, in this order** (each its own phase and pull request;
-the owner's questions are asked at each scope):
-1. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
-   alert mailbox set and tested in Settings, a link to Entra's role assignments.
+**The remaining engineering work:** Phase 53 (smaller setup fixes) was the last on the list.
+What's left waits on a decision (below) or on going live; the pet's Phase 55 is its own track.
 
 The decisions waiting on the owner are under "Open items".
 
@@ -1219,6 +1217,7 @@ against real bank and card export layouts and is folded in.
 3. **Ambiguous dates:** the household location's standard (month first in the US) by default, as
    a setting an admin can change (Settings → Household).
 4. **Remove this import** for recent imports.
+
 ## Phase 53 — scope (smaller setup fixes, 2026-10-24)
 
 Four small things that still send an admin to a manual or a terminal. Each is its own part and
@@ -1242,8 +1241,8 @@ commit series; one pull request. Fable's scope review (2026-10-24) checked the o
   data), so the car's recall card gets **Check this VIN at NHTSA** (nhtsa.gov/recalls, where the
   VIN box is) with a copy button for the VIN, beside the by-model list it shows now.
 - **Stored on `Vehicle.vin`** (question 1): in backups (and their coverage test) and the vehicle
-  CSV, shown only to grown-ups (the Garage is open to kids; a test holds it), never in logs or
-  error reports.
+  CSV, shown only to grown-ups (Cars, and the Garage with it, is already grown-ups only on the
+  server; corrected while building), never in logs or error reports.
 
 ### 53.2 — A smoother bank feed
 
@@ -1332,8 +1331,6 @@ shows on the card, connecting starts a sync, and accounts have their Spending sw
 
 - **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
   with it. Removing it before going live is planned (the owner's call to keep it for now).
-- **Other setup friction:** VIN entry or scanning, smoother bank-feed setup, the alert mailbox set
-  and tested in Settings, and a link to Entra's role assignments (Phase 53).
 - **Order emails:** improvements to forwarded order mail are deferred. Sam's Club orders can't
   be priced, since its emails carry no prices.
 - **Accessibility:** a screen-reader audit by a person is worth doing once the family uses the
