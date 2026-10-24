@@ -18,12 +18,25 @@ import { isBlockedAddress, literalAddress } from "./url";
  */
 
 export type FetchResult =
-  | { status: "ok"; body: string; etag: string | null; lastModified: string | null }
+  | { status: "ok"; body: string; etag: string | null; lastModified: string | null; finalUrl?: URL }
   | { status: "unchanged" }
-  | { status: "error"; reason: string };
+  /** `httpStatus`: the server's own refusal (Phase 51 tells a blocked site from a missing one). */
+  | { status: "error"; reason: string; httpStatus?: number };
+
+/**
+ * Phase 51: what's fetched. A feed (the default) must be an iCalendar file; a page (the school's
+ * own website, read by the calendar finder) must be HTML. The guard is the same for both.
+ */
+export type FetchKind = { accept: string; wanted: (body: string) => boolean; notWanted: string; timeoutMs: number };
+
+export const PAGE_KIND: FetchKind = {
+  accept: "text/html, application/xhtml+xml;q=0.9, */*;q=0.5",
+  wanted: (body) => /<(!doctype html|html|head|body|a\s|div|link)\b/i.test(body.slice(0, 65_536)),
+  notWanted: "That address isn't a web page.",
+  timeoutMs: 10_000,
+};
 
 const MAX_BYTES = 2 * 1024 * 1024;
-const TIMEOUT_MS = 10_000;
 const MAX_REDIRECTS = 3;
 const USER_AGENT = `${PRODUCT_NAME} family calendar (school feed)`;
 
@@ -35,6 +48,13 @@ export const FEED_ERRORS = {
   notCalendar: "That address didn't return a calendar feed.",
   redirects: "The feed redirected too many times.",
   timeout: "The feed took too long to answer.",
+};
+
+export const FEED_KIND: FetchKind = {
+  accept: "text/calendar, text/plain;q=0.8, */*;q=0.5",
+  wanted: (body) => /^\s*BEGIN:VCALENDAR/i.test(body),
+  notWanted: FEED_ERRORS.notCalendar,
+  timeoutMs: 10_000,
 };
 
 type Resolve = (host: string, cb: (err: Error | null, addresses: LookupAddress[]) => void) => void;
@@ -68,7 +88,7 @@ export function nextLocation(current: URL, location: string | undefined): URL | 
 
 type Conditional = { etag?: string | null; lastModified?: string | null };
 
-function once(url: URL, conditional: Conditional, resolve: Resolve, deadline: number): Promise<
+function once(url: URL, conditional: Conditional, resolve: Resolve, deadline: number, kind: FetchKind): Promise<
   | { kind: "redirect"; location: string | undefined }
   | { kind: "done"; result: FetchResult }
 > {
@@ -93,7 +113,7 @@ function once(url: URL, conditional: Conditional, resolve: Resolve, deadline: nu
         timeout: remaining,
         headers: {
           "User-Agent": USER_AGENT,
-          Accept: "text/calendar, text/plain;q=0.8, */*;q=0.5",
+          Accept: kind.accept,
           "Accept-Encoding": "identity",
           ...(conditional.etag ? { "If-None-Match": conditional.etag } : {}),
           ...(conditional.lastModified ? { "If-Modified-Since": conditional.lastModified } : {}),
@@ -111,14 +131,14 @@ function once(url: URL, conditional: Conditional, resolve: Resolve, deadline: nu
         }
         if (status < 200 || status >= 300) {
           res.resume();
-          return done({ kind: "done", result: { status: "error", reason: FEED_ERRORS.status } });
+          return done({ kind: "done", result: { status: "error", reason: FEED_ERRORS.status, httpStatus: status } });
         }
         // Asked for no compression; a server that compresses anyway isn't decoded (the
         // 2 MB cap would then be meaningless), and gets an honest message.
         const encoding = String(res.headers["content-encoding"] ?? "identity").toLowerCase();
         if (encoding !== "identity") {
           res.resume();
-          return done({ kind: "done", result: { status: "error", reason: FEED_ERRORS.notCalendar } });
+          return done({ kind: "done", result: { status: "error", reason: kind.notWanted } });
         }
         const chunks: Buffer[] = [];
         let size = 0;
@@ -132,7 +152,7 @@ function once(url: URL, conditional: Conditional, resolve: Resolve, deadline: nu
         });
         res.on("end", () => {
           const body = Buffer.concat(chunks).toString("utf8").replace(/^\uFEFF/, "");
-          if (!/^\s*BEGIN:VCALENDAR/i.test(body)) return done({ kind: "done", result: { status: "error", reason: FEED_ERRORS.notCalendar } });
+          if (!kind.wanted(body)) return done({ kind: "done", result: { status: "error", reason: kind.notWanted } });
           done({
             kind: "done",
             result: {
@@ -140,6 +160,7 @@ function once(url: URL, conditional: Conditional, resolve: Resolve, deadline: nu
               body,
               etag: typeof res.headers.etag === "string" ? res.headers.etag : null,
               lastModified: typeof res.headers["last-modified"] === "string" ? res.headers["last-modified"] : null,
+              finalUrl: url,
             },
           });
         });
@@ -158,12 +179,13 @@ function once(url: URL, conditional: Conditional, resolve: Resolve, deadline: nu
   });
 }
 
-export async function fetchFeed(url: URL, conditional: Conditional = {}, deps: { resolve?: Resolve } = {}): Promise<FetchResult> {
+export async function fetchFeed(url: URL, conditional: Conditional = {}, deps: { resolve?: Resolve; kind?: FetchKind } = {}): Promise<FetchResult> {
   const resolve = deps.resolve ?? systemResolve;
-  const deadline = Date.now() + TIMEOUT_MS;
+  const kind = deps.kind ?? FEED_KIND;
+  const deadline = Date.now() + kind.timeoutMs;
   let current = url;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const outcome = await once(current, conditional, resolve, deadline);
+    const outcome = await once(current, conditional, resolve, deadline, kind);
     if (outcome.kind === "done") return outcome.result;
     const next = nextLocation(current, outcome.location);
     if (!next) return { status: "error", reason: FEED_ERRORS.unreachable };
