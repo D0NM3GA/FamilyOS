@@ -2,9 +2,10 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { eligibleMemberWhere, requireJar } from "@/lib/finance/access";
-import { addMember, allowChatList, connectPrivacy, checkStatement, connectSimpleFin, deleteJar, disconnect, importStatement, removeStatementImport, removeMember, renameJar, scanOrdersNow, setCushion, setJarChat, setMyAlerts, setOrderMail, setSpendingAccounts, stopJarChat, testJarChat } from "../../actions";
+import { addMember, allowChatList, connectPrivacy, checkStatement, connectSimpleFin, deleteJar, disconnect, importStatement, removeStatementImport, removeMember, renameJar, scanOrdersNow, setCushion, setJarChat, setMyAlerts, setLeftOut, setOrderMail, setSpendingAccounts, stopJarChat, testJarChat } from "../../actions";
 import { chatLabel, myGroupChats } from "@/lib/teams/jar-chat";
 import { recentImports } from "@/lib/finance/statement-import";
+import { leftOutAccountIds } from "@/lib/finance/left-out";
 import { StatementImport } from "./statement-import";
 import { ActionForm, ConfirmSubmit, Submit, SyncButton } from "../../forms";
 import { backLink, btn, card, field } from "@/components/styles";
@@ -15,6 +16,7 @@ import { SubmitButton } from "@/components/submit";
 export const metadata: Metadata = { title: "Jar settings" };
 
 /** A checkbox and its words: the whole row is the thumb target, not just the little box. */
+const SIMPLEFIN_BRIDGE = "https://bridge.simplefin.org/";
 const checkRow = "flex min-h-11 cursor-pointer items-center gap-2 sm:min-h-9";
 const checkbox = "size-5 shrink-0";
 
@@ -52,7 +54,8 @@ export default async function JarSettingsPage({
     prisma.householdAlerts.findUnique({ where: { householdId: viewer.householdId }, select: { teamsAppId: true } }),
     prisma.moneyJar.findUniqueOrThrow({ where: { id: jar.id }, select: { teamsChatId: true, teamsChatName: true, teamsChatError: true, cushionCents: true } }),
   ]);
-  const recent = await recentImports(jar.id);
+  const [recent, leftOut] = await Promise.all([recentImports(jar.id), leftOutAccountIds(jar.id)]);
+  const feedAccounts = accounts.filter((a) => a.source === "SIMPLEFIN");
   const memberIds = new Set(members.map((m) => m.person.id));
   const addable = eligible.filter((p) => !memberIds.has(p.id));
   const conn = (p: "SIMPLEFIN" | "PRIVACY") => connections.find((c) => c.provider === p);
@@ -272,34 +275,87 @@ export default async function JarSettingsPage({
       <section className={card}>
         <h2 className="font-extrabold">🏦 Bank feed (SimpleFIN)</h2>
         {sf ? (
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span className="min-w-0 break-words">
-              Connected · last sync {when(sf.lastSyncAt)}
-              {sf.lastError && <span className="block font-semibold text-tomato">{sf.lastError}</span>}
-              {sf.providerMessage && <span className="block text-muted-foreground">Your bank says: {sf.providerMessage}</span>}
-              {sf.skippedAccounts > 0 && (
-                <span className="block font-semibold">
-                  {sf.skippedAccounts} account{sf.skippedAccounts === 1 ? " is" : "s are"} left out: {sf.skippedAccounts === 1 ? "it's" : "they're"} already in {skippedWhere}, and
-                  bringing {sf.skippedAccounts === 1 ? "it" : "them"} in here too would count every charge twice.
-                </span>
-              )}
-            </span>
-            <form action={disconnect.bind(null, jar.id, "SIMPLEFIN")}>
-              <ConfirmSubmit
-                className={btn}
-                question="Disconnect the bank feed? What's already here stays, but nothing new comes in, and you'll need a new SimpleFIN setup token to reconnect."
-                yes="Yes, disconnect"
-              >
-                Disconnect
-              </ConfirmSubmit>
-            </form>
-          </div>
+          <>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="min-w-0 break-words">
+                Connected · last sync {when(sf.lastSyncAt)}
+                {sf.lastError && <span className="block font-semibold text-tomato">{sf.lastError}</span>}
+                {sf.providerMessage && (
+                  <span className="block text-muted-foreground">
+                    Your bank says: {sf.providerMessage}{" "}
+                    <a href={SIMPLEFIN_BRIDGE} target="_blank" rel="noopener noreferrer" className="underline">
+                      Open SimpleFIN Bridge
+                    </a>
+                  </span>
+                )}
+                {sf.skippedAccounts > 0 && (
+                  <span className="block font-semibold">
+                    {sf.skippedAccounts} account{sf.skippedAccounts === 1 ? " is" : "s are"} left out: {sf.skippedAccounts === 1 ? "it's" : "they're"} already in {skippedWhere}, and
+                    bringing {sf.skippedAccounts === 1 ? "it" : "them"} in here too would count every charge twice.
+                  </span>
+                )}
+              </span>
+              <form action={disconnect.bind(null, jar.id, "SIMPLEFIN")}>
+                <ConfirmSubmit
+                  className={btn}
+                  question="Disconnect the bank feed? What's already here stays, but nothing new comes in, and you'll need a new SimpleFIN setup token to reconnect."
+                  yes="Yes, disconnect"
+                >
+                  Disconnect
+                </ConfirmSubmit>
+              </form>
+            </div>
+            {feedAccounts.length > 0 && (
+              <div className="mt-3">
+                <h3 className="text-sm font-bold">Accounts from the feed</h3>
+                <p className="text-xs text-muted-foreground">
+                  Leave out one that doesn&apos;t belong in this jar (someone&apos;s own card, say): what it already brought stays, marked,
+                  but leaves every total, and nothing new comes in from it.
+                </p>
+                <ul className="mt-1.5 flex flex-col gap-1.5">
+                  {feedAccounts.map((a) => {
+                    const out = leftOut.has(a.id);
+                    return (
+                      <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span className="min-w-0 break-words">
+                          <span className="font-bold">{a.name}</span>
+                          {a.org && <span className="text-xs text-muted-foreground"> · {a.org}</span>}
+                          {out && <span className="text-xs font-semibold text-muted-foreground"> · left out</span>}
+                        </span>
+                        <form action={setLeftOut.bind(null, jar.id, a.id, !out)}>
+                          {out ? (
+                            <SubmitButton className={btn}>Bring it back</SubmitButton>
+                          ) : (
+                            <ConfirmSubmit
+                              className={btn}
+                              question={`Leave ${a.name} out of this jar? Its charges stay listed, marked, but come out of every total, and Safe to spend stops counting it. You can bring it back.`}
+                              yes="Yes, leave it out"
+                            >
+                              Leave out
+                            </ConfirmSubmit>
+                          )}
+                        </form>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </>
         ) : (
           <>
-            <p className="mt-1 text-sm text-muted-foreground">
-              At SimpleFIN Bridge, link your banks, then make a setup token and paste it here. It works once; the app keeps the
-              connection encrypted and reads your accounts about once an hour at most.
-            </p>
+            <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sm text-muted-foreground">
+              <li>
+                Sign in at{" "}
+                <a href={SIMPLEFIN_BRIDGE} target="_blank" rel="noopener noreferrer" className="underline">
+                  SimpleFIN Bridge
+                </a>{" "}
+                and link your banks there.
+              </li>
+              <li>Make a new setup token for the app and copy it.</li>
+              <li>Paste it here. It works once: if it&apos;s been used already, make another.</li>
+            </ol>
+            <p className="mt-1 text-xs text-muted-foreground">The app keeps the connection encrypted and reads your accounts about once an hour at most.</p>
             <ActionForm action={connectSimpleFin.bind(null, jar.id)} className="mt-2 flex flex-col gap-2" resetOnSuccess>
               <input name="token" type="password" autoComplete="new-password" required maxLength={2048} placeholder="Setup token" aria-label="SimpleFIN setup token" className={field} />
               <Submit pendingText="Connecting…">Connect</Submit>

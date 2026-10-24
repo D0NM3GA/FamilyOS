@@ -186,6 +186,10 @@ async function finish(
  * to people who are in it.
  */
 async function guardAccounts(connectionId: string, jarId: string, createdById: string | null, accounts: SfAccount[]): Promise<SfAccount[]> {
+  // Phase 53: accounts a member left out of this jar aren't brought in at all.
+  const { excludedExternalIds } = await prisma.jarConnection.findUniqueOrThrow({ where: { id: connectionId }, select: { excludedExternalIds: true } });
+  const leftOut = new Set(excludedExternalIds);
+  accounts = accounts.filter((a) => !leftOut.has(a.id));
   const ids = accounts.map((a) => a.id);
   const jar = await prisma.moneyJar.findUnique({ where: { id: jarId }, select: { householdId: true } });
   const [here, elsewhere] = await Promise.all([

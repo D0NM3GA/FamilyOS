@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { checkAccessUrl, claimSetupToken, claimUrlFromToken, fetchAccounts, parseAccounts, utcDay } from "./simplefin";
+import { checkAccessUrl, claimSetupToken, claimUrlFromToken, errlistWords, fetchAccounts, parseAccounts, utcDay } from "./simplefin";
 import { parsePage } from "./privacy";
 import { parseCsv, parseOfx, parseStatement, splitCsv } from "./importers";
 import { dupKey, findDuplicates, matchPrivacy, supersededPending } from "./reconcile";
@@ -68,6 +68,26 @@ describe("SimpleFIN", () => {
       { id: "T1", postedOn: "2025-10-05", amountCents: -5499, description: "PWP*NETFLIX.COM PRIVACY.COM", payee: null, memo: null, pending: false },
       { id: "T2", postedOn: utcDay(1759660000), amountCents: -450, description: "COFFEE", payee: null, memo: null, pending: true },
     ]);
+  });
+});
+
+describe("SimpleFIN structured errors (Phase 53)", () => {
+  it("puts known codes in words and falls back to the prefix, then SimpleFIN's own message", () => {
+    expect(errlistWords("con.auth", "x")).toMatch(/sign in again/);
+    expect(errlistWords(" GEN.AUTH ", "")).toMatch(/new setup token/);
+    expect(errlistWords("act.timeout", "")).toMatch(/update an account/);
+    expect(errlistWords("con.unavailable", "")).toMatch(/reach a bank/);
+    expect(errlistWords("xyz", "  Something odd  ")).toBe("Something odd");
+    expect(errlistWords("", "")).toBe("SimpleFIN reported a problem.");
+    expect(errlistWords("", "y".repeat(300))).toHaveLength(200);
+  });
+
+  it("reads errlist alongside the older errors list, once each", () => {
+    const { messages } = parseAccounts(
+      { errors: ["A bank needs you to sign in again at SimpleFIN Bridge.", "Old style"], errlist: [{ code: "con.auth", msg: "Sign in", conn_id: "c1" }], accounts: [] },
+      new Date("2026-10-05T12:00:00Z"),
+    );
+    expect(messages).toEqual(["A bank needs you to sign in again at SimpleFIN Bridge.", "Old style"]);
   });
 });
 

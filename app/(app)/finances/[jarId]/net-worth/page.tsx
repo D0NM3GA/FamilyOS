@@ -1,3 +1,4 @@
+import { leftOutAccountIds } from "@/lib/finance/left-out";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
@@ -56,14 +57,17 @@ export default async function NetWorthPage({ params }: { params: Promise<{ jarId
   const current = today.slice(0, 7);
   const months = worthWindow(today);
 
-  const [accounts, holdings] = await Promise.all([
+  const [listed, holdings, leftOut] = await Promise.all([
     prisma.finAccount.findMany({
       where: { jarId: jar.id },
       orderBy: [{ name: "asc" }, { id: "asc" }],
       select: { id: true, name: true, org: true, source: true, currency: true, balanceCents: true, balanceAt: true },
     }),
     readHoldings(prisma, jar.id),
+    leftOutAccountIds(jar.id),
   ]);
+  // An account left out of the jar (Phase 53) isn't part of what the family is worth here.
+  const accounts = listed.filter((a) => !leftOut.has(a.id));
   const usd = accounts.filter((a) => a.currency === "USD");
   const foreign = accounts.length - usd.length;
   const days = await readBalanceDays(prisma, usd.map((a) => a.id), `${months[0]}-01`);
@@ -121,6 +125,11 @@ export default async function NetWorthPage({ params }: { params: Promise<{ jarId
         </>
       )}
       {foreign > 0 && <p className="mt-1 text-xs text-muted-foreground">Only US-dollar accounts are counted here.</p>}
+      {leftOut.size > 0 && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {leftOut.size === 1 ? "One account is" : `${leftOut.size} accounts are`} left out of this jar, so not counted here.
+        </p>
+      )}
       {noBalance > 0 && (
         <p className="mt-1 text-xs text-muted-foreground">
           {noBalance === 1 ? "One account has" : `${noBalance} accounts have`} no balance (statement files don&apos;t carry one), so{" "}

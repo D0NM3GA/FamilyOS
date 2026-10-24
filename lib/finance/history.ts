@@ -46,6 +46,7 @@ export const EVENT_DATA = {
   CHAT_SET: z.object({ on: z.boolean() }),
   ROLLOVER_SET: z.object({ category: label, on: z.boolean() }),
   ACCOUNTS_SET: z.object({ count: z.number().int().nonnegative() }),
+  ACCOUNT_LEFT_OUT: z.object({ name, out: z.boolean() }),
   CUSHION_SET: z.object({ cents: z.number().int().nullable() }),
   GOAL_SET: z.object({ category: label, cents: z.number().int().nullable(), month: z.string().regex(/^\d{4}-\d{2}$/).nullable() }),
   // Bills added by hand (lib/finance/manual-bills.ts): never a surprise, so no merchant key here.
@@ -151,6 +152,8 @@ export function describeEvent(kind: JarEventKind, raw: unknown, actor: string): 
       return d.count === 0
         ? `${actor} cleared the spending accounts`
         : `${actor} picked ${d.count} spending account${d.count === 1 ? "" : "s"} for Safe to spend`;
+    case "ACCOUNT_LEFT_OUT":
+      return d.out ? `${actor} left ${d.name} out of the jar` : `${actor} brought ${d.name} back into the jar`;
     case "CUSHION_SET":
       return d.cents == null ? `${actor} took the cushion off` : `${actor} set the cushion to ${formatMoney(d.cents as number)}`;
     case "GOAL_SET":
