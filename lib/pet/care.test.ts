@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clean, feedMeal, feedSnack, giveMedicine, petIt, play, PETS_PER_HOUR, sayNo, SNACKS_BEFORE_SICK } from "./care";
+import { clean, crackEgg, feedMeal, feedSnack, giveMedicine, petIt, play, PETS_PER_HOUR, sayNo, SNACKS_BEFORE_SICK } from "./care";
 import { newEgg, type PetState } from "./state";
 
 const pet = (overrides: Partial<PetState> = {}): PetState => ({ ...newEgg("blob", 0), stage: "child", ...overrides });
@@ -7,6 +7,11 @@ const pet = (overrides: Partial<PetState> = {}): PetState => ({ ...newEgg("blob"
 describe("care", () => {
   it("can't care for an egg yet", () => {
     expect(feedMeal(newEgg("blob", 0)).outcome).toBe("not-hatched");
+  });
+
+  it("cracks an egg open when it's tapped enough", () => {
+    expect(crackEgg(newEgg("blob", 0), 3)).toMatchObject({ outcome: "ok", state: { stage: "baby" } });
+    expect(crackEgg(pet(), 3).state.stage).toBe("child");
   });
 
   it("feeds a hungry pet and answers its call with extra bond", () => {

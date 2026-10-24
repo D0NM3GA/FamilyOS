@@ -1,4 +1,4 @@
-import { neededCall } from "./sim";
+import { hatchNow, neededCall } from "./sim";
 import { clampMeter, isHatched, METER_MAX, type PetState } from "./state";
 
 /**
@@ -46,6 +46,11 @@ function answer(before: PetState, after: PetState): PetState {
 
 function unhatched(state: PetState): CareResult | null {
   return isHatched(state) ? null : { state, outcome: "not-hatched" };
+}
+
+/** Phase 56: the last tap on the egg cracks it open. An egg that already hatched stays as it is. */
+export function crackEgg(state: PetState, minute: number): CareResult {
+  return { state: hatchNow(state, minute).state, outcome: "ok" };
 }
 
 export function feedMeal(state: PetState): CareResult {

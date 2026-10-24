@@ -70,6 +70,9 @@ export type PetState = {
 
 export const METER_MAX = 100;
 
+/** Phase 56: taps that crack an egg open, so a new pet is a few taps away, not a wait. */
+export const EGG_TAPS = 5;
+
 export const STAGE_MINUTES: Record<"egg" | "baby" | "child" | "teen", number> = {
   egg: 5,
   baby: 60,

@@ -144,7 +144,10 @@ function Hat({ hat }: { hat: string | null }) {
   }
 }
 
-function Egg({ species }: { species: Species }) {
+/** Phase 56: the crack grows a piece with each tap, left to right across the egg. */
+const EGG_CRACKS = ["M -25 2 l 6 -5 l 4 6", "M -15 3 l 5 -7 l 5 6", "M -5 2 l 5 -6 l 4 5", "M 4 1 l 5 -6 l 5 7", "M 14 2 l 5 -5 l 6 4"];
+
+function Egg({ species, cracks }: { species: Species; cracks: number }) {
   const { body, accent } = PALETTES[species][0];
   return (
     <g>
@@ -152,6 +155,9 @@ function Egg({ species }: { species: Species }) {
       <circle cx={-10} cy={-8} r={5} fill={body} />
       <circle cx={9} cy={4} r={7} fill={accent} opacity={0.7} />
       <circle cx={-4} cy={18} r={4} fill={body} />
+      {EGG_CRACKS.slice(0, cracks).map((d) => (
+        <path key={d} d={d} fill="none" stroke="#1f2933" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      ))}
     </g>
   );
 }
@@ -203,6 +209,7 @@ export function PetSprite({
   pose,
   hat = null,
   look = { x: 0, y: 0 },
+  cracks = 0,
   className,
 }: {
   species: Species;
@@ -212,6 +219,8 @@ export function PetSprite({
   pose: Pose;
   hat?: string | null;
   look?: { x: number; y: number };
+  /** How far an egg has cracked (Phase 56), 0 for a whole one. */
+  cracks?: number;
   className?: string;
 }) {
   const scale = STAGE_SCALE[stage];
@@ -223,7 +232,7 @@ export function PetSprite({
       <g className={`pet-pose pet-pose-${pose}`}>
         <g transform={`translate(0 ${(1 - scale) * 34}) scale(${scale})`}>
           {stage === "egg" ? (
-            <Egg species={species} />
+            <Egg species={species} cracks={cracks} />
           ) : (
             <>
               <Body species={species} palette={palette} scruffy={scruffy} />

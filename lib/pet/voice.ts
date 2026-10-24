@@ -153,6 +153,10 @@ export const HAPPY_LINES: Record<Quirk, readonly string[]> = {
 
 /* Eggs, goodbyes and the memory book. Pets come from Egg Island and go back there. */
 
+/** Phase 56: a line for each tap on the egg, first to last; the last one cracks it open. */
+export const EGG_TAP_LINES = ["Tap. The egg wobbles.", "Tap tap. Something taps back!", "Crack! A little line appears.", "Crack crack! It's really wiggling now.", "One more…"] as const;
+export const EGG_HATCH_LINE = "CRACK! Hello, {name}!";
+
 export const HATCH_INTRO = "Three eggs came over from Egg Island. Which one is yours?";
 export const HATCH_PENDING = "Keeping it warm…";
 
