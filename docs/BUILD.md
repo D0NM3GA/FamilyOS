@@ -941,13 +941,18 @@ Four things that sent an admin to a manual or a terminal.
   whatever the by-model list says.
 - **Bank feed.** SimpleFIN's `errlist` (protocol 2.0) is read beside the older `errors`, codes in
   words (`errlistWords`): `con.auth` says to sign in again at SimpleFIN Bridge. **Leave out** an
-  account (`lib/finance/left-out.ts`, the owner's answer 2): its provider id goes on
-  `JarConnection.excludedExternalIds` (the sync skips it), it stops counting as spending money,
-  and its ACTIVE rows become IGNORED, a state every total already leaves out. Activity alone asks
-  for IGNORED rows too (`activityWhere`'s `leftOut`) and marks them; the spreadsheet doesn't. Net
-  worth leaves the account out and says how many. **Bring it back** turns IGNORED rows back to
-  ACTIVE (only this feature makes IGNORED) and syncs. Logged in the jar's history
-  (`ACCOUNT_LEFT_OUT`). The connect card is three numbered steps with a link to SimpleFIN Bridge.
+  account (`lib/finance/left-out.ts`, the owner's answer 2): `FinAccount.leftOut` (on the account,
+  not the connection, so backups carry it; Fable's review) makes the sync skip it, both before
+  the sync and again inside each account's transaction, under that row's lock, for one left out
+  mid-sync. It stops counting as spending money, and its ACTIVE rows become IGNORED, a state
+  every total already leaves out. Activity alone asks for IGNORED rows too (`activityWhere`'s
+  `leftOut`) and marks them; the spreadsheet doesn't. Net worth and the "not in US dollars" counts
+  leave the account out. A statement can't be imported into it (its rows would count). Its
+  orders and grocery trips stay linked (only DUPLICATE and SUPERSEDED rows let an order go).
+  **Bring it back** turns IGNORED rows back to ACTIVE (only this feature makes IGNORED) and
+  syncs; Safe to spend stays off until it's ticked again, which the question says. Logged in the
+  jar's history (`ACCOUNT_LEFT_OUT`). The connect card is three numbered steps with a link to
+  SimpleFIN Bridge.
 - **The alert mailbox in Settings** (the owner's answer 3): `Household.alertMailbox` wins,
   `ALERT_MAILBOX` is the fallback (`pickAlertMailbox`), and the page says so once. Set by an admin
   on their own sign-in, logged as a sign-in event (`ALERT_MAILBOX_SET`, Recent changes). Kept out

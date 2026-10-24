@@ -130,7 +130,7 @@ export default async function JarPage({
           householdId: viewer.householdId,
           purchasedById: { in: members.map((m) => m.personId) },
           // Not a trip another charge in this jar already has.
-          finTransactions: { none: { jarId: jar.id, state: "ACTIVE" } },
+          finTransactions: { none: { jarId: jar.id, state: { in: ["ACTIVE", "IGNORED"] } } },
           purchasedAt: {
             gte: new Date(Math.min(...needsTrip.map((t) => t.postedOn.getTime())) - 7 * DAY),
             lte: new Date(Math.max(...needsTrip.map((t) => t.postedOn.getTime())) + 7 * DAY),

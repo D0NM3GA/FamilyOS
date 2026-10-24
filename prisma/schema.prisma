@@ -1757,9 +1757,6 @@ model JarConnection {
   /// The other jar's name is only ever shown to people who are in it.
   skippedAccounts Int     @default(0)
   skippedJarId    String?
-  /// Phase 53: the feed's accounts a member left out of this jar (the provider's account ids).
-  /// The sync doesn't bring them in; rows already here stay but leave the totals.
-  excludedExternalIds String[] @default([])
 
   @@unique([jarId, provider])
   @@index([fingerprint])
@@ -1787,6 +1784,9 @@ model FinAccount {
   balanceAt  DateTime?
   /// Phase 32: day-to-day spending money (checking): Safe to spend counts these balances.
   spending   Boolean   @default(false)
+  /// Phase 53: left out of this jar by a member (lib/finance/left-out.ts): the sync brings
+  /// nothing more from it, and its rows (IGNORED) stay but leave the totals. In backups.
+  leftOut    Boolean   @default(false)
   /// Phase 52: the column choices a person confirmed for this account's statement files, keyed
   /// by the file's layout (lib/finance/statement-columns.ts layoutKey). Not money: not in backups.
   importLayouts Json   @default("{}")

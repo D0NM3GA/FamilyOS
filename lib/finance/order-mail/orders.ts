@@ -110,9 +110,10 @@ export async function recordOrder(db: Db, jarId: string, personId: string, o: Pa
  */
 export async function matchJarOrders(db: Db, jarId: string, now: Date = new Date()): Promise<number> {
   // The charge was replaced (posted under a new id, or folded into the bank's row): the
-  // order goes back to be matched again, whoever linked it.
+  // order goes back to be matched again, whoever linked it. A left-out account's charge
+  // (IGNORED, Phase 53) keeps its order: it's still listed, and may come back.
   await db.mailOrder.updateMany({
-    where: { jarId, matchedTxn: { state: { not: "ACTIVE" } } },
+    where: { jarId, matchedTxn: { state: { in: ["DUPLICATE", "SUPERSEDED"] } } },
     data: { matchedTxnId: null, matchedBy: null, matchedAt: null },
   });
   const orders = await db.mailOrder.findMany({

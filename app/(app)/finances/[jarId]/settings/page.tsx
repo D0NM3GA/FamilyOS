@@ -328,7 +328,7 @@ export default async function JarSettingsPage({
                           ) : (
                             <ConfirmSubmit
                               className={btn}
-                              question={`Leave ${a.name} out of this jar? Its charges stay listed, marked, but come out of every total, and Safe to spend stops counting it. You can bring it back.`}
+                              question={`Leave ${a.name} out of this jar? Its charges stay listed, marked, but come out of every total, and Safe to spend stops counting it. You can bring it back (then tick it again under Safe to spend if it's checking).`}
                               yes="Yes, leave it out"
                             >
                               Leave out
@@ -447,7 +447,7 @@ export default async function JarSettingsPage({
           twice adds nothing; rows the bank feed already has are folded in; an import can be removed again.
         </p>
         <StatementImport
-          accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
+          accounts={accounts.filter((a) => !leftOut.has(a.id)).map((a) => ({ id: a.id, name: a.name }))}
           recent={recent.map((r) => ({ id: r.id, when: when(r.createdAt), added: r.added, account: r.account.name, by: r.by?.firstName ?? null }))}
           check={checkStatement.bind(null, jar.id)}
           importFile={importStatement.bind(null, jar.id)}

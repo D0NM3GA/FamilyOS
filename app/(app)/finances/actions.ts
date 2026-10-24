@@ -211,7 +211,8 @@ export async function checkStatement(jarId: string, formData: FormData): Promise
   const bytes = await statementBytes(formData);
   if (typeof bytes === "string") return { kind: "error", error: bytes };
   const accountId = String(formData.get("accountId") ?? "");
-  const account = accountId ? await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id }, select: { id: true } }) : null;
+  const account = accountId ? await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id }, select: { id: true, leftOut: true } }) : null;
+  if (account?.leftOut) return { kind: "error", error: "That account is left out of this jar. Bring it back first (Bank feed, above)." };
   return checkStatementFile(jar.householdId, account?.id ?? null, bytes, sentChoices(formData));
 }
 
@@ -223,8 +224,10 @@ export async function importStatement(jarId: string, formData: FormData): Promis
 
   let accountId = String(formData.get("accountId") ?? "");
   if (accountId) {
-    const account = await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id }, select: { id: true } });
+    const account = await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id }, select: { id: true, leftOut: true } });
     if (!account) return { error: "Pick one of this jar's accounts." };
+    // Phase 53: its rows would count while the account doesn't.
+    if (account.leftOut) return { error: "That account is left out of this jar. Bring it back first (Bank feed, above)." };
   } else {
     const name = nameSchema.safeParse(formData.get("newAccount"));
     if (!name.success) return { error: "Pick an account, or name a new one." };

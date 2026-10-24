@@ -111,6 +111,7 @@ describe("sealed money", () => {
       availableCents: null,
       balanceAt: null,
       spending: false,
+      leftOut: false,
       createdAt: "2026-10-01T00:00:00.000Z",
     });
     expect(unsealMoney(sealSection(long)).jars[0].accounts[0].currency).toHaveLength(64);
@@ -181,7 +182,7 @@ describe("Phase 28.5: planMoneyRestore", () => {
     ...over,
   });
   const member = (personId: string, signInEmail: string | null = `${personId}@x.example`) => ({ personId, signInEmail, createdAt: T, alertBills: true, alertSync: true, alertOverBudget: false, alertLowBalance: true });
-  const account = { id: "a1", source: "SIMPLEFIN" as const, externalId: "acct", name: "Checking", org: null, currency: "USD", balanceCents: 0, availableCents: null, balanceAt: null, spending: false, createdAt: T };
+  const account = { id: "a1", source: "SIMPLEFIN" as const, externalId: "acct", name: "Checking", org: null, currency: "USD", balanceCents: 0, availableCents: null, balanceAt: null, spending: false, leftOut: false, createdAt: T };
   const sec = (): MoneySection => ({
     version: 3,
     peopleDigest: peopleDigest(people),
@@ -271,6 +272,17 @@ describe("Phase 28.5: planMoneyRestore", () => {
     expect(r.rows.jars[0].cushionCents).toBe(25000);
     expect(r.rows.accounts[0]).toMatchObject({ name: "Checking", spending: true });
     expect(r.rows.members.find((m) => m.personId === "live-dad")?.alertLowBalance).toBe(false);
+  });
+
+  it("Phase 53: an account left out of the jar stays left out, and an older backup has none", () => {
+    const s = sec();
+    s.jars[0].accounts[0].leftOut = true;
+    const r = planMoneyRestore(s, ctx(), { householdId: "h", newId: () => `id${++n}` });
+    if (!r.ok) throw new Error(r.errors.join());
+    expect(r.rows.accounts[0]).toMatchObject({ name: "Checking", leftOut: true });
+    const older: Partial<typeof account> = { ...account };
+    delete older.leftOut;
+    expect(moneySectionSchema.parse({ ...sec(), jars: [{ ...sec().jars[0], accounts: [older] }] }).jars[0].accounts[0].leftOut).toBe(false);
   });
 
   it("Phase 34: balance days and things valued by hand come back, pointing at the new ids", () => {

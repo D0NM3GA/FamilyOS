@@ -806,7 +806,8 @@ database or the Microsoft tenant can still read the data.
 4. **An account that doesn't belong in this jar** (someone's own card, say): Bank feed →
    Accounts from the feed → **Leave out** (asked first). Its rows already here stay in Activity,
    marked "left out", but leave every total, Safe to spend and Net worth, and the sync brings
-   nothing more from it. **Bring it back** undoes that and catches up at the next sync (Phase 53).
+   nothing more from it, and no statement can be imported into it. **Bring it back** undoes that
+   and catches up at the next sync; tick it again under Safe to spend if it's checking (Phase 53).
 
 A bank that needs signing in again says so in words, with a link to SimpleFIN Bridge (SimpleFIN's
 structured errors, Phase 53).

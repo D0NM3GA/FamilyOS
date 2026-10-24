@@ -1256,7 +1256,7 @@ shows on the card, connecting starts a sync, and accounts have their Spending sw
   signing in again (`con.auth`) says so in words with a link to fix it at SimpleFIN Bridge; a
   temporary failure says to try later; the old `errors` list is still read.
 - **Leave an account out of this jar**: a switch per account (asked first, since it hides money),
-  kept on the connection (`JarConnection.excludedExternalIds`). The sync stops bringing it in;
+  kept on the account (`FinAccount.leftOut`, so backups carry it). The sync stops bringing it in;
   rows it already brought stay but leave the totals and Safe to spend (question 2); switching it
   back brings it in again from the next sync.
 

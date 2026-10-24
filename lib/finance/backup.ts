@@ -79,6 +79,8 @@ export const moneySectionSchema = z.object({
           availableCents: z.number().int().nullable(),
           balanceAt: iso.nullable(),
           spending: z.boolean().default(false),
+          // Phase 53; older backups have none.
+          leftOut: z.boolean().default(false),
           createdAt: iso,
         }),
       ),
@@ -213,6 +215,7 @@ export async function readHouseholdMoney(tx: Tx | typeof prisma, householdId: st
           availableCents: true,
           balanceAt: true,
           spending: true,
+          leftOut: true,
           createdAt: true,
         },
       },

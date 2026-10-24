@@ -58,7 +58,7 @@ describe.skipIf(!RUN)("left-out accounts (database)", { timeout: 60_000 }, () =>
     expect([...(await leftOutAccountIds(ids.jar))]).toEqual([a2.id]);
     // Twice is the same as once.
     await setAccountLeftOut(ids.jar, a2.id, true);
-    expect((await prisma.jarConnection.findUniqueOrThrow({ where: { id: ids.conn } })).excludedExternalIds).toEqual(["A2"]);
+    expect((await card()).leftOut).toBe(true);
 
     // Activity lists it, marked; the spreadsheet and the counts don't.
     const listed = (leftOut: boolean) => prisma.finTransaction.count({ where: activityWhere(ids.jar, ids.dad, "2025-10-06", { month: "2025-10", leftOut }) });
@@ -76,6 +76,8 @@ describe.skipIf(!RUN)("left-out accounts (database)", { timeout: 60_000 }, () =>
     expect(await setAccountLeftOut(ids.jar, (await card()).id, false)).toBe(true);
     expect(await states()).toEqual(["C1:ACTIVE", "T1:ACTIVE"]);
     expect((await leftOutAccountIds(ids.jar)).size).toBe(0);
+    // Safe to spend stays off until someone ticks it again (the page says so).
+    expect((await card()).spending).toBe(false);
     await syncConnection(ids.conn, { fetchFn, now });
     expect(await states()).toEqual(["C1:ACTIVE", "C2:ACTIVE", "T1:ACTIVE"]);
   });

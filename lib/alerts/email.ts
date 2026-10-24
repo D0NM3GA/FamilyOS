@@ -9,7 +9,9 @@ import { prisma } from "@/lib/prisma";
  * (`Household.alertMailbox`); `ALERT_MAILBOX` in `.env` is the fallback.
  */
 
-const MAILBOX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// No quotes or shell characters: the address also goes into the Exchange PowerShell the page
+// shows (lib/microsoft-admin.ts, the same rule), so one that's saved can always be shown.
+const MAILBOX = /^[^@\s'"`$;|&<>()]+@[^@\s'"`$;|&<>()]+\.[^@\s'"`$;|&<>()]+$/;
 export const isMailboxAddress = (m: string) => m.length <= 254 && MAILBOX.test(m);
 
 /** The mailbox to send from: the family's setting, else the server's; none without Microsoft. */

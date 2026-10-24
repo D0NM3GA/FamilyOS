@@ -322,7 +322,7 @@ link your banks, make a setup token, paste it. If a bank needs you to sign in ag
 so with a link straight to SimpleFIN Bridge. An account that doesn't belong in the jar (say,
 Grandma's own card on the same login) can be **left out**: its charges stay in Activity, marked
 "left out", but don't count in any total, and nothing new comes from it. **Bring it back**
-whenever you like.
+whenever you like (then tick it again under Safe to spend if it's your checking account).
 
 **Importing a statement file**: download it from the bank or card website (OFX or QFX if it
 offers one, else CSV), choose it under **Import a statement**, and press **Check it**. For a CSV,
