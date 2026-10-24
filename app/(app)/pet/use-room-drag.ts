@@ -69,6 +69,9 @@ export function useRoomDrag(room: RefObject<HTMLElement | null>, onDrop: (dragge
   const start = useCallback(
     (event: ReactPointerEvent<Element>, item: Dragged, grab: Grab = { dx: 0, dy: 0 }) => {
       if (event.button !== 0) return;
+      // A press that might be a drag neither starts selecting text nor moves focus (to the page's
+      // main area, the nearest focusable thing around a picture in the toy box).
+      event.preventDefault();
       stop.current();
       const standsAt = (x: number, y: number) => {
         const point = inRoom(x, y);

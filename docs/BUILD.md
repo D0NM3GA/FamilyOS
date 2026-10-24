@@ -1014,8 +1014,14 @@ drawings, the boxes were the right size; four other things made picking up feel 
 - **Inside the border.** Drag positions are measured inside the room's 2px border, where the
   drawing is.
 
+- **Night and mess don't get in the way.** The asleep room's dark layer, the lamp's glow and
+  poop are drawn over the decorations; they no longer take a press, so decorating works after
+  bedtime too. CI caught this, running after the pet's bedtime. A press that starts a drag also
+  doesn't move focus or start selecting text.
+
 The rectangles stay, for the keyboard and screen readers only. The browser test now drags a
-plant from the toy box onto the shelf and, by the plant itself, down onto the floor.
+plant from the toy box onto the shelf and, by the plant itself, down onto the floor; it passes
+by day and by night (`TZ=UTC` puts its room after bedtime).
 
 ## Dev sign-in (temporary, remove before shipping)
 
