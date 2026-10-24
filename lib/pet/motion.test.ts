@@ -6,10 +6,10 @@ const calm = { sick: false, call: null, hunger: 80, fun: 80 };
 
 describe("how behaviors look", () => {
   it("stands beside a floor decoration and under one up high, never off the floor's ends", () => {
-    expect(spotOfDecor({ "floor-left": "cushion" }, "cushion")).toBeGreaterThan(15);
-    expect(spotOfDecor({ sill: "plant" }, "plant")).toBe(50);
-    expect(spotOfDecor({ shelf: "lamp" }, "lamp")).toBeLessThanOrEqual(80);
-    expect(spotOfDecor({}, "nowhere")).toBe(45);
+    expect(spotOfDecor([{ itemId: "cushion", surface: "floor", x: 62, y: 228 }], "cushion")).toBeGreaterThan(15);
+    expect(spotOfDecor([{ itemId: "plant", surface: "sill", x: 200, y: 104 }], "plant")).toBe(50);
+    expect(spotOfDecor([{ itemId: "lamp", surface: "shelf", x: 360, y: 93 }], "lamp")).toBeLessThanOrEqual(80);
+    expect(spotOfDecor([], "nowhere")).toBe(45);
   });
 
   it("gives every behavior a pose and a duration", () => {

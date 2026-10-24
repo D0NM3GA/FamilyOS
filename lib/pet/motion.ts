@@ -1,6 +1,5 @@
 import type { Behavior } from "./behavior";
-import type { RoomSlot } from "./items";
-import { ROOM_W, SLOT_ANCHORS } from "./room";
+import { ROOM_W, type RoomDecor } from "./room";
 import { hearts, type CallKind } from "./state";
 
 /**
@@ -20,11 +19,10 @@ export const TOY_SPOTS = [40, 56, 30, 70, 47];
 const pct = (x: number) => (x / ROOM_W) * 100;
 
 /** Where to stand to see a decoration: beside it on the floor, or under it if it's up high. */
-export function spotOfDecor(decor: Partial<Record<RoomSlot, string>>, id: string): number {
-  const slot = (Object.keys(decor) as RoomSlot[]).find((s) => decor[s] === id);
-  if (!slot) return 45;
-  const anchor = SLOT_ANCHORS[slot];
-  return Math.min(80, Math.max(15, pct(anchor.x) + (slot.startsWith("floor") ? 10 : 0)));
+export function spotOfDecor(decor: readonly RoomDecor[], id: string): number {
+  const found = decor.find((item) => item.itemId === id);
+  if (!found) return 45;
+  return Math.min(80, Math.max(15, pct(found.x) + (found.surface === "floor" ? 10 : 0)));
 }
 
 export function poseFor(behavior: Behavior): Pose {

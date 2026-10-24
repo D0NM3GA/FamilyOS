@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { fitsPlace, isToy, itemDef, ITEMS, unlockedItems } from "./items";
+import { fitsPlace, isToy, itemDef, ITEMS, readPlace, unlockedItems } from "./items";
 
 describe("pet items", () => {
   it("only puts things where they belong", () => {
     expect(fitsPlace("ball", "out")).toBe(true);
     expect(fitsPlace("ball", "wall")).toBe(false);
     expect(fitsPlace("poster", "wall")).toBe(true);
-    expect(fitsPlace("poster", "floor-left")).toBe(false);
+    expect(fitsPlace("poster", "floor")).toBe(false);
+    expect(fitsPlace("cushion", "floor")).toBe(true);
     expect(fitsPlace("crown", "worn")).toBe(true);
     expect(fitsPlace("plant", "worn")).toBe(false);
     expect(fitsPlace("anything", null)).toBe(false);
@@ -14,7 +15,7 @@ describe("pet items", () => {
   });
 
   it("gives every decoration somewhere to go", () => {
-    for (const item of ITEMS.filter((i) => i.kind === "decor")) expect(item.slots?.length).toBeGreaterThan(0);
+    for (const item of ITEMS.filter((i) => i.kind === "decor")) expect(item.surfaces?.length).toBeGreaterThan(0);
   });
 
   it("unlocks more as the pet grows and bonds, never a present-only keepsake", () => {
@@ -27,6 +28,14 @@ describe("pet items", () => {
       expect(itemDef(id)?.giftOnly, id).toBeFalsy();
     }
     expect(new Set(adult).size).toBe(adult.length);
+  });
+
+  it("reads the old floor slots as spots on the floor, and anything unknown as the toy box", () => {
+    expect(readPlace("floor-left", { x: null, y: null })).toEqual({ place: "floor", x: 62, y: 228 });
+    expect(readPlace("floor-right", { x: null, y: null })).toEqual({ place: "floor", x: 258, y: 205 });
+    expect(readPlace("shelf", { x: 320, y: null })).toEqual({ place: "shelf", x: 320, y: null });
+    expect(readPlace("out", { x: null, y: null })).toEqual({ place: "out", x: null, y: null });
+    expect(readPlace("ceiling", { x: 5, y: 5 })).toEqual({ place: null, x: null, y: null });
   });
 
   it("knows its toys", () => {

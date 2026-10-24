@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { appOn } from "@/lib/app-switches";
-import { clean, feedMeal, feedSnack, giveMedicine, petIt, play, sayNo, type CareOutcome } from "@/lib/pet/care";
-import { isToy, ROOM_SLOTS, type Place } from "@/lib/pet/items";
+import { clean, crackEgg, feedMeal, feedSnack, giveMedicine, petIt, play, sayNo, type CareOutcome } from "@/lib/pet/care";
+import { isToy, SURFACES } from "@/lib/pet/items";
+import { ROOM_W } from "@/lib/pet/room";
 import { PET_SPOTS } from "@/lib/pet/personality";
 import { isGame } from "@/lib/pet/games/catalog";
 import { changeMyPet, finishMyGame, getMyItem, hatchEgg, markSeen, openMyPresent, placeMyItem, renameMyPet, type ChangeResult, type OpenedPresent } from "@/lib/pet/queries";
@@ -112,6 +113,12 @@ export async function seeGrowth(): Promise<{ ok: boolean }> {
   return { ok };
 }
 
+/** Phase 56: the egg was tapped open. Counting the taps is the screen's; this hatches it. */
+export async function crackEggOpen(): Promise<CareReply> {
+  const profile = await petProfile();
+  return reply(await changeMyPet(profile, (state, minute) => crackEgg(state, minute)));
+}
+
 const hatchForm = z.object({ species: z.enum(SPECIES), name: z.string() });
 
 export type HatchState = { error?: string };
@@ -136,15 +143,18 @@ export async function renamePet(_prev: HatchState, formData: FormData): Promise<
   return {};
 }
 
-const placeInput = z.enum([...ROOM_SLOTS, "out", "worn", "box"]);
+const placeInput = z.enum([...SURFACES, "out", "worn", "box"]);
+/** A spot in the room (lib/pet/room.ts); anything off it is kept on its surface by the query. */
+const spotInput = z.number().int().min(0).max(ROOM_W).nullable();
 
-/** Puts an item somewhere: a room slot, out on the floor, worn, or back in the toy box. */
-export async function placeItem(itemRowId: string, place: string): Promise<{ ok: boolean }> {
+/** Puts an item somewhere: on a surface at a spot, out on the floor, worn, or back in the toy box. */
+export async function placeItem(itemRowId: string, place: string, x: number | null = null, y: number | null = null): Promise<{ ok: boolean }> {
   const profile = await petProfile();
   const id = rowId.safeParse(itemRowId);
   const parsed = placeInput.safeParse(place);
-  if (!id.success || !parsed.success) return { ok: false };
-  const ok = await placeMyItem(profile, id.data, parsed.data === "box" ? null : (parsed.data as Place));
+  const spot = z.object({ x: spotInput, y: spotInput }).safeParse({ x, y });
+  if (!id.success || !parsed.success || !spot.success) return { ok: false };
+  const ok = await placeMyItem(profile, id.data, parsed.data === "box" ? null : parsed.data, spot.data);
   revalidatePath("/pet");
   return { ok };
 }

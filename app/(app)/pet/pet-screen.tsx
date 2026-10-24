@@ -3,16 +3,18 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition, type PointerEvent } from "react";
+import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition, type KeyboardEvent, type PointerEvent } from "react";
+import { createPortal } from "react-dom";
 import { nextBehavior, type Behavior, type BehaviorInput, type RoomView, type Weather } from "@/lib/pet/behavior";
-import { itemDef, ROOM_SLOTS, type Place, type RoomSlot } from "@/lib/pet/items";
+import { isSurface, itemDef, type Place, type Spot } from "@/lib/pet/items";
 import type { Food, Personality, PetSpot, Toy } from "@/lib/pet/personality";
 import { rngFor } from "@/lib/pet/random";
-import type { Season, Sky } from "@/lib/pet/room";
-import type { CallKind, Species, Stage } from "@/lib/pet/state";
+import { DECOR_BOX, dropAt, ROOM_H, ROOM_W, standOn, type RoomDecor, type Season, type Sky } from "@/lib/pet/room";
+import { EGG_TAPS, type CallKind, type Species, type Stage } from "@/lib/pet/state";
 import {
   CLEAN_LINES,
   CURED_LINES,
+  EGG_TAP_LINES,
   FAVORITE_MEAL_LINES,
   FAVORITE_SPOT_LINES,
   FAVORITE_TOY_LINES,
@@ -31,12 +33,13 @@ import {
 } from "@/lib/pet/voice";
 import { GAME_DEFS, GAMES, type GameId } from "@/lib/pet/games/catalog";
 import { btn, btnPrimary, card, sectionTitle } from "@/components/styles";
-import { careForPet, openPresent, petPet, playWithToy, seeGrowth, type CareReply } from "./actions";
+import { careForPet, crackEggOpen, openPresent, petPet, placeItem, playWithToy, seeGrowth, type CareReply } from "./actions";
 import { BigButton, ToyIcon } from "./pet-controls";
 import { BED_X, durationOf, moodFor, poseFor, spotOfDecor, TOY_SPOTS, WINDOW_X, type Mood } from "@/lib/pet/motion";
-import { PetRoom } from "./pet-room";
+import { DecorationPicture, PetRoom } from "./pet-room";
 import { PetSprite } from "./pet-sprite";
-import { RoomPanel } from "./room-panel";
+import { RoomPanel, SURFACE_NAMES } from "./room-panel";
+import { useRoomDrag, type Dragged } from "./use-room-drag";
 import { StatsPanel } from "./stats-panel";
 import { useReactions } from "./use-reactions";
 import { EffectLayer, roomPoint } from "./effects";
@@ -84,13 +87,29 @@ export type ScreenPet = {
   hatchesIn: number | null;
 };
 
-export type ScreenItem = { id: string; itemId: string; place: Place };
+export type ScreenItem = { id: string; itemId: string; place: Place } & Spot;
+
+type Move = { rowId: string; place: Place } & Spot;
+
+/** An item moved, as the screen shows it until the saved page comes back. One hat at a time. */
+function moved(items: ScreenItem[], move: Move): ScreenItem[] {
+  return items.map((item) =>
+    item.id === move.rowId
+      ? { ...item, place: move.place, x: move.x, y: move.y }
+      : move.place === "worn" && item.place === "worn"
+        ? { ...item, place: null }
+        : item,
+  );
+}
+
+/** How far one arrow key slides a decoration, in room units. */
+const NUDGE = 12;
 
 type Panel = "feed" | "play" | "decorate" | "stats" | null;
 
 export function PetScreen({
   pet,
-  items,
+  items: savedItems,
   presents,
   sky,
   weather,
@@ -160,18 +179,72 @@ export function PetScreen({
     });
   }
 
+  // Phase 56: taps on the egg, counted here; the last one asks the server to hatch it.
+  const [taps, setTaps] = useState(0);
+  function tapEgg() {
+    if (pending || taps >= EGG_TAPS) return;
+    const next = taps + 1;
+    setTaps(next);
+    flashPose("content", "wobble", 400);
+    burst("crumb", petMiddle, next);
+    if (next < EGG_TAPS) {
+      showReaction(EGG_TAP_LINES[next - 1]);
+      return;
+    }
+    startTransition(async () => {
+      const reply = await crackEggOpen();
+      // The fresh page brings the baby and its hatching reveal; a miss leaves one tap to go.
+      if (reply.outcome === "ok") burst("sparkle", petMiddle, 10);
+      else {
+        setTaps(EGG_TAPS - 1);
+        showReaction("Hang on, tap it again.");
+      }
+    });
+  }
+
   // Petting: a stroke across the pet (not just a tap) counts, by where it started.
   const stroke = useRef<{ x: number; y: number; travelled: number; spot: PetSpot } | null>(null);
 
-  const decor = useMemo(() => {
-    const placed: Partial<Record<RoomSlot, string>> = {};
-    for (const item of items) if (item.place && ROOM_SLOTS.includes(item.place as RoomSlot)) placed[item.place as RoomSlot] = item.itemId;
-    return placed;
-  }, [items]);
+  // Phase 56: moving things around. The room shows a move straight away; the saved page follows.
+  const [, startMoving] = useTransition();
+  const [items, showMove] = useOptimistic(savedItems, moved);
+  const roomRef = useRef<HTMLDivElement>(null);
+  function move(rowId: string, place: Place | "box", spot: Spot = { x: null, y: null }) {
+    const where = place === "box" ? null : place;
+    startMoving(async () => {
+      showMove({ rowId, place: where, ...spot });
+      const saved = await placeItem(rowId, place ?? "box", spot.x, spot.y);
+      if (!saved.ok) showReaction("That didn't fit there. Try somewhere else.");
+    });
+  }
+  const { drag, start: startDrag } = useRoomDrag(roomRef, (dragged: Dragged, point) => {
+    const kind = itemDef(dragged.itemId)?.kind;
+    const before = items.find((item) => item.id === dragged.rowId);
+    if (kind === "decor") {
+      const spot = point && dropAt(dragged.itemId, point);
+      if (spot) move(dragged.rowId, spot.surface, spot);
+      else if (!point && before?.place) move(dragged.rowId, "box");
+    } else if (point && kind) {
+      move(dragged.rowId, kind === "toy" ? "out" : "worn");
+    }
+  });
+
+  const decor: RoomDecor[] = useMemo(
+    () => items.flatMap((item) => (item.place && isSurface(item.place) ? [standOn(item.itemId, item.place, item.x, item.y)] : [])),
+    [items],
+  );
+  // While a decoration is dragged over the room, it shows where it would land if let go now.
+  const dragKind = drag ? itemDef(drag.itemId)?.kind : undefined;
+  const preview = drag && dragKind === "decor" && drag.point ? dropAt(drag.itemId, drag.point) : null;
+  const shownDecor = useMemo(
+    () => (drag && dragKind === "decor" ? [...decor.filter((item) => item.itemId !== drag.itemId), ...(preview ? [preview] : [])] : decor),
+    [decor, drag, dragKind, preview],
+  );
+  const glow = useMemo(() => (drag && dragKind === "decor" ? (itemDef(drag.itemId)?.surfaces ?? []) : []), [drag, dragKind]);
   const toysOut = useMemo(() => items.filter((item) => item.place === "out"), [items]);
   const hat = items.find((item) => item.place === "worn")?.itemId ?? null;
   const room: RoomView = useMemo(
-    () => ({ toysOut: toysOut.map((toy) => toy.itemId as Toy), decor: Object.values(decor), weather }),
+    () => ({ toysOut: toysOut.map((toy) => toy.itemId as Toy), decor: decor.map((item) => item.itemId), weather }),
     [toysOut, decor, weather],
   );
 
@@ -325,8 +398,9 @@ export function PetScreen({
   }
   function onPetUp() {
     if (stroke.current && stroke.current.travelled < 10) {
-      // A tap: it notices you.
-      flashPose(pet.stage === "egg" ? "content" : "happy", pet.stage === "egg" ? "wobble" : "squash", 400);
+      // A tap: an egg cracks a little more, a pet notices you.
+      if (pet.stage === "egg") tapEgg();
+      else flashPose("happy", "squash", 400);
     }
     stroke.current = null;
   }
@@ -355,7 +429,7 @@ export function PetScreen({
       <GameStage
         game={game}
         pet={{ name: pet.name, species: pet.species, stage: pet.stage, form: pet.form }}
-        decor={Object.values(decor)}
+        decor={decor.map((item) => item.itemId)}
         onClose={() => {
           setGame(null);
           // Back where they left off: on the Play button.
@@ -372,13 +446,14 @@ export function PetScreen({
   return (
     <div className="space-y-4">
       <div
+        ref={roomRef}
         className="relative mx-auto aspect-[40/26] w-full max-w-3xl touch-pan-y select-none overflow-hidden rounded-3xl border-2 border-ink shadow-[0_4px_0_#1f2933] [container-type:size] dark:border-white/20"
         onPointerMove={onRoomMove}
       >
         {/* While the reveal is up, everything else is out of reach (it really is modal), so a care
             tap can't change what Yay! saves as seen. */}
         <div inert={revealing} className="contents">
-        <PetRoom sky={sky} weather={weather} season={season} awake={pet.awake} decor={decor} poops={pet.poops} />
+        <PetRoom sky={sky} weather={weather} season={season} awake={pet.awake} decor={shownDecor} poops={pet.poops} glow={glow} />
 
         {toysOut.map((toy, i) => (
           <button
@@ -411,20 +486,67 @@ export function PetScreen({
         ))}
 
         <div
-          className="absolute bottom-[8%] w-[24%] -translate-x-1/2 cursor-grab transition-[left] duration-[1800ms] ease-in-out active:cursor-grabbing"
+          className={`absolute bottom-[8%] w-[24%] -translate-x-1/2 transition-[left] duration-[1800ms] ease-in-out ${pet.stage === "egg" ? "cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring" : "cursor-grab active:cursor-grabbing"}`}
           style={{ left: `${x}%` }}
           onPointerDown={onPetDown}
           onPointerMove={onPetMove}
           onPointerUp={onPetUp}
           onPointerCancel={() => (stroke.current = null)}
-          role="img"
-          aria-label={`${pet.name} the ${pet.formName}`}
+          {...(pet.stage === "egg"
+            ? {
+                role: "button",
+                tabIndex: 0,
+                "aria-label": `Tap the egg to help it hatch, ${EGG_TAPS - taps} more`,
+                onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  tapEgg();
+                },
+              }
+            : { role: "img", "aria-label": `${pet.name} the ${pet.formName}` })}
         >
-          <PetSprite species={pet.species} stage={pet.stage} form={pet.form} mood={mood} pose={pose} hat={hat} look={look} className="w-full overflow-visible" />
+          <PetSprite species={pet.species} stage={pet.stage} form={pet.form} mood={mood} pose={pose} hat={hat} look={look} cracks={taps} className="w-full overflow-visible" />
           {behavior.kind === "call" && !flash && (
             <span className="absolute -top-2 right-2 rounded-full border-2 border-ink bg-sun px-2 text-lg font-black text-ink">!</span>
           )}
         </div>
+
+        {panel === "decorate" &&
+          decor.map((item) => {
+            const [half, top, bottom = 0] = DECOR_BOX[item.itemId] ?? [20, 40];
+            const row = items.find((owned) => owned.itemId === item.itemId);
+            if (!row) return null;
+            const nudge = (dx: number, dy: number) => move(row.id, item.surface, { x: item.x + dx, y: item.y + dy });
+            return (
+              <button
+                key={item.itemId}
+                type="button"
+                className={`absolute cursor-grab touch-none rounded-xl outline-2 outline-offset-2 outline-white/70 [outline-style:dashed] focus-visible:outline-ink active:cursor-grabbing ${drag?.itemId === item.itemId ? "opacity-0" : ""}`}
+                style={{
+                  left: `${((item.x - half) / ROOM_W) * 100}%`,
+                  top: `${((item.y - top) / ROOM_H) * 100}%`,
+                  width: `${((half * 2) / ROOM_W) * 100}%`,
+                  height: `${((top - bottom) / ROOM_H) * 100}%`,
+                }}
+                aria-label={`${itemDef(item.itemId)?.name}, ${SURFACE_NAMES[item.surface].toLowerCase()}. Drag it, or slide it with the arrow keys. Delete puts it away.`}
+                onPointerDown={(event) => startDrag(event, { rowId: row.id, itemId: item.itemId })}
+                onKeyDown={(event) => {
+                  const keys: Record<string, () => void> = {
+                    ArrowLeft: () => nudge(-NUDGE, 0),
+                    ArrowRight: () => nudge(NUDGE, 0),
+                    ArrowUp: () => nudge(0, -NUDGE / 2),
+                    ArrowDown: () => nudge(0, NUDGE / 2),
+                    Delete: () => move(row.id, "box"),
+                    Backspace: () => move(row.id, "box"),
+                  };
+                  const run = keys[event.key];
+                  if (!run) return;
+                  event.preventDefault();
+                  run();
+                }}
+              />
+            );
+          })}
 
         </div>
         <EffectLayer effects={effects} />
@@ -446,7 +568,11 @@ export function PetScreen({
             {presents.length === 1 ? "There's a present by the door." : `There are ${presents.length} presents by the door.`}
           </span>
         )}
-        {pet.hatchesIn != null && <span className="block text-sm font-normal text-muted-foreground">Hatching in about {Math.max(1, pet.hatchesIn)} minute{pet.hatchesIn === 1 ? "" : "s"}.</span>}
+        {pet.stage === "egg" && (
+          <span className="block text-sm font-normal text-muted-foreground">
+            {taps === 0 ? "Tap the egg to help it hatch!" : taps < EGG_TAPS ? `Keep tapping! ${EGG_TAPS - taps} more.` : "Here it comes…"}
+          </span>
+        )}
       </p>
 
       <div className="mx-auto grid max-w-3xl grid-cols-3 gap-2 sm:grid-cols-6">
@@ -527,7 +653,27 @@ export function PetScreen({
         </div>
       )}
 
-      {panel === "decorate" && <RoomPanel items={items} />}
+      {panel === "decorate" && <RoomPanel items={items} onMove={(rowId, place) => move(rowId, place)} onDragStart={startDrag} />}
+      {drag &&
+        !preview &&
+        createPortal(
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed z-50 flex size-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center drop-shadow-lg"
+            style={{ left: drag.client.x, top: drag.client.y }}
+          >
+            {dragKind === "decor" ? (
+              <DecorationPicture id={drag.itemId} className="size-full" />
+            ) : dragKind === "toy" ? (
+              <span className="text-5xl">
+                <ToyIcon id={drag.itemId} />
+              </span>
+            ) : (
+              <span className="rounded-xl border-2 border-ink bg-card px-2 py-1 text-sm font-bold">{itemDef(drag.itemId)?.name}</span>
+            )}
+          </div>,
+          document.body,
+        )}
 
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2">
         <button type="button" className={btn} aria-pressed={panel === "stats"} onClick={() => setPanel(panel === "stats" ? null : "stats")}>

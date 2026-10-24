@@ -1,12 +1,12 @@
 import { memo } from "react";
 import type { Weather } from "@/lib/pet/behavior";
-import type { RoomSlot } from "@/lib/pet/items";
-import { POOP_SPOTS, ROOM_H, ROOM_W, SLOT_ANCHORS, type Season, type Sky } from "@/lib/pet/room";
+import type { Surface } from "@/lib/pet/items";
+import { DECOR_BOX, inDrawingOrder, POOP_SPOTS, ROOM_H, ROOM_W, SURFACE_SPANS, type RoomDecor, type Season, type Sky } from "@/lib/pet/room";
 
 /**
  * Phase 47: the pet's room, side on: a wall with a window onto the real sky and weather, a
  * shelf, a wooden floor, the bed, food bowl and toy box that every room has, and whatever
- * decorations are in its slots. The pet, toys and buttons sit on top (pet-screen.tsx), placed
+ * decorations stand on its surfaces (Phase 56: wherever along them they were dragged). The pet, toys and buttons sit on top (pet-screen.tsx), placed
  * in the same 400 × 260 frame as percentages. Drawn in-house; swappable like the pet.
  */
 
@@ -22,7 +22,7 @@ const SKY: Record<Sky, [string, string]> = {
 
 const ink = { stroke: "#1f2933", strokeWidth: 2, strokeLinejoin: "round" as const };
 
-function Decoration({ id }: { id: string }) {
+export function Decoration({ id }: { id: string }) {
   switch (id) {
     case "plant":
       return (
@@ -185,6 +185,42 @@ function Window({ sky, weather, season }: { sky: Sky; weather: Weather; season: 
   );
 }
 
+/**
+ * Phase 56: one decoration on its own, for the toy box tray and the one being dragged. Framed
+ * around its own outline so every item shows at a similar size.
+ */
+export function DecorationPicture({ id, className }: { id: string; className?: string }) {
+  const [half, top] = DECOR_BOX[id] ?? [20, 40];
+  const size = Math.max(half * 2, top) + 8;
+  return (
+    <svg viewBox={`${-size / 2} ${-size + 4} ${size} ${size}`} className={className} aria-hidden="true">
+      <Decoration id={id} />
+    </svg>
+  );
+}
+
+/** While something is being dragged, the surfaces it can go on light up. */
+function SurfaceGlow({ surface }: { surface: Surface }) {
+  const span = SURFACE_SPANS[surface];
+  const top = surface === "floor" ? span.y - 14 : span.y - 58;
+  const bottom = (span.front ?? span.y) + 6;
+  return (
+    <rect
+      x={span.from}
+      y={top}
+      width={span.to - span.from}
+      height={bottom - top}
+      rx={8}
+      fill="#ffd23f"
+      fillOpacity={0.25}
+      stroke="#f2a93b"
+      strokeWidth={2}
+      strokeDasharray="6 5"
+      className="pet-twinkle"
+    />
+  );
+}
+
 /** Memoized: the room only changes with its own props, not when the pet moves or looks around. */
 export const PetRoom = memo(function PetRoom({
   sky,
@@ -193,15 +229,18 @@ export const PetRoom = memo(function PetRoom({
   awake,
   decor,
   poops,
+  glow = [],
 }: {
   sky: Sky;
   weather: Weather;
   season: Season;
   awake: boolean;
-  decor: Partial<Record<RoomSlot, string>>;
+  decor: readonly RoomDecor[];
   poops: number;
+  /** Surfaces to light up: where the thing being dragged can go. */
+  glow?: readonly Surface[];
 }) {
-  const lampSlot = (Object.keys(decor) as RoomSlot[]).find((slot) => decor[slot] === "lamp");
+  const lamp = decor.find((item) => item.itemId === "lamp");
   return (
     <svg viewBox={`0 0 ${ROOM_W} ${ROOM_H}`} className="absolute inset-0 size-full" aria-hidden="true">
       {/* Wall, with soft stripes, and the floor. */}
@@ -239,14 +278,15 @@ export const PetRoom = memo(function PetRoom({
         <ellipse cx={-22} cy={-26} rx={14} ry={7} fill="#fffaf0" {...ink} strokeWidth={1.5} />
       </g>
 
-      {Object.entries(decor).map(([slot, id]) => {
-        const anchor = SLOT_ANCHORS[slot as RoomSlot];
-        return anchor && id ? (
-          <g key={slot} transform={`translate(${anchor.x} ${anchor.y})`}>
-            <Decoration id={id} />
-          </g>
-        ) : null;
-      })}
+      {glow.map((surface) => (
+        <SurfaceGlow key={surface} surface={surface} />
+      ))}
+
+      {inDrawingOrder(decor).map((item) => (
+        <g key={item.itemId} transform={`translate(${item.x} ${item.y})`}>
+          <Decoration id={item.itemId} />
+        </g>
+      ))}
 
       {POOP_SPOTS.slice(0, poops).map(({ x, y }) => (
         <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
@@ -256,9 +296,7 @@ export const PetRoom = memo(function PetRoom({
       ))}
 
       {!awake && <rect width={ROOM_W} height={ROOM_H} fill="#141a33" opacity={0.5} />}
-      {!awake && lampSlot && (
-        <circle cx={SLOT_ANCHORS[lampSlot].x} cy={SLOT_ANCHORS[lampSlot].y - 30} r={70} fill="#ffd23f" opacity={0.18} />
-      )}
+      {!awake && lamp && <circle cx={lamp.x} cy={lamp.y - 30} r={70} fill="#ffd23f" opacity={0.18} />}
     </svg>
   );
 });

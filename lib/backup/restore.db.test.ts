@@ -111,8 +111,8 @@ function fixture(): Backup {
     receiptAliases: [{ id: "ra1", textKey: `ppr twl ${tag}`, productId: "p2" }],
     pets: [{ id: "pet1", personId: "Kid", name: "Pip", seed: "seed-1", state: { ...newEgg("bird", 1000), stage: "baby", bond: 4, recentSnacks: [990, 995] }, bornAt: T, lastAdvancedAt: T2, createdAt: T }],
     petItems: [
-      { id: "pit1", personId: "Kid", itemId: "ball", place: "out", createdAt: T },
-      { id: "pit2", personId: "Kid", itemId: "party-hat", place: null, createdAt: T2 },
+      { id: "pit1", personId: "Kid", itemId: "ball", place: "out", x: null, y: null, createdAt: T },
+      { id: "pit2", personId: "Kid", itemId: "cushion", place: "floor", x: 120, y: 220, createdAt: T2 },
     ],
     petPlays: [{ personId: "Kid", game: "catch", paidAt: T2 }],
     petMemorials: [

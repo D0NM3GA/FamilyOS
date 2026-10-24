@@ -433,7 +433,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     }),
     tx.petItem.findMany({
       where: { householdId },
-      select: { id: true, personId: true, itemId: true, place: true, createdAt: true },
+      select: { id: true, personId: true, itemId: true, place: true, x: true, y: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     }),
     tx.petPlay.findMany({ where: { person: { householdId } }, select: { personId: true, game: true, paidAt: true } }),
