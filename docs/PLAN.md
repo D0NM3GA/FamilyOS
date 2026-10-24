@@ -1009,6 +1009,110 @@ advice. Same rules as Phase 47 and 54. To be re-scoped against the code once Pha
 - The family guide (daily moments, the sound switch), the admin guide (sound follows the
   mascot setting), `docs/BUILD.md` and this plan.
 
+## Phase 51 — scope (find the school calendar from the school's web address, 2026-10-23)
+
+Adding a school calendar today means finding its subscribe link on the school's site and pasting
+it (School → Calendars; Phase 18.5). Families know the school's web address, not where its iCal
+link hides. The aim: type the school's address, and the app finds the calendars the site offers,
+checks each one, and lets an admin add the right one in a tap. Fable's scope review (2026-10-23)
+measured real district sites and is folded in.
+
+**What school sites do (researched 2026-10-23):** there's no common format.
+- **Plain links work** on sites that embed a Google Calendar (its public feed is
+  `calendar.google.com/calendar/ical/<id>/public/basic.ics`; newer embeds carry the id
+  base64-encoded) and on WordPress sites with The Events Calendar (a
+  `<link rel="alternate" type="text/calendar">`).
+- **Finalsite**, the most common K-12 platform, builds its Subscribe button with a script, so a
+  plain scan finds nothing. But its calendar element names the calendars
+  (`data-calendar-ids=…`), and `/fs/calendar-manager/events.ics?calendar_ids[]=<id>` on the same
+  site returns the feed.
+- **SchoolMessenger Presence** builds its iCal link in a script too; some of its sites link
+  Google embeds as well.
+- **Some platforms** (Apptegy among them) answer a plain fetch with a "check your browser" page
+  or a 403, so nothing on them can be read without a real browser.
+
+Expected: about a third of schools with the generic scan; over half with the Finalsite rule. Not
+finding one is common, so that answer has to be honest and specific.
+
+### 51.1 — The finder
+
+- **Input:** the school's web address (`lincoln-elementary.example` or a full https address).
+- **Pages it reads** (at most 4): that page, then up to 3 links on the same school site (the same
+  registrable domain, so `www.` and the apex, a district and its schools' subdomains) that look
+  like a calendar ("calendar", "events", "iCal", "subscribe" in the link text or address). The
+  same-site rule is checked on the address after redirects, and `<base href>` is honoured.
+- **What it looks for** on each page:
+  - Links and `<link rel="alternate" type="text/calendar">` ending in `.ics`, with `?ical=1`, or
+    starting `webcal://`, on any https host (calendars often live on another host: Google,
+    Outlook, an athletics site).
+  - Google Calendar embeds and links (`src=` ids, plain, `%40`-encoded or base64; also in
+    `data-src`): each becomes its public `basic.ics`, on `calendar.google.com` or the older
+    `www.google.com/calendar/ical/…`.
+  - Outlook published calendars (an `.html` link with a matching `.ics`).
+  - **Finalsite:** `data-calendar-ids` on a calendar element → that site's
+    `/fs/calendar-manager/events.ics?calendar_ids[]=<id>` for each id.
+  - iCal addresses written inside `onclick` handlers or inline scripts (a cheap extra for
+    platforms that build the link in a script).
+- **The scanner** is one linear pass over the HTML (tags and attribute values, quoted or not,
+  entities like `&amp;` decoded, relative and protocol-relative links resolved); no regex runs
+  over the whole page, no scripts run, no new dependency.
+- **Each candidate is tried** with the guarded feed fetch (at most 8), and kept only if it's a
+  calendar the app can read. Each result shows its name (`X-WR-CALNAME`, else the link text), the
+  host it's on, how many events in the next 4 months, and the next three (the household's zone,
+  the same window the add form uses).
+- **Blocked sites are told apart:** a 403 or 429, or a tiny page that only says JavaScript is
+  needed, gives "That site only opens in a full browser. Open its calendar page and copy the
+  Subscribe or iCal link into the box below" instead of "nothing found".
+- **Limits:** 10 seconds and 2 MB per page or feed (a per-call deadline across its redirects),
+  12 fetches and 30 seconds per search, and one search at a time per household (a lock in the
+  database, as feed refreshes use).
+
+### 51.2 — Safety
+
+- Every fetch, page or feed, goes through the Phase 18.5 guard: every resolved address checked and
+  pinned, no private or local networks, redirects followed by hand through the same guard, https
+  only (a `webcal://` link is read as https), no compressed answers. The fetch is parameterised
+  (deadline, `Accept`, the body check: HTML for a page, iCalendar for a feed); the guard is shared.
+- Admins only, as adding a feed is today (it makes the server fetch an address).
+- Errors are fixed text, never an address (feed addresses can carry tokens). The found addresses
+  never reach the browser: the result list goes back as one encrypted, signed bundle (bound to the
+  admin, the household and a 15-minute expiry), and **Add** opens it and takes the chosen entry.
+  Nothing is kept in server memory, so a restart or a second app instance doesn't matter. The
+  feed is stored encrypted when added, as today.
+
+### 51.3 — The screens
+
+- **School → Calendars:** "Find it from the school's website" above the existing form: the address,
+  **Find calendars**, then the list, each with **Add** (name prefilled and editable, and who it's
+  for). Nothing found, or a blocked site: the honest line above, with the existing tips and the
+  paste box below as the fallback.
+- The guided setup's school step links to this (see question 1).
+
+### Tests
+
+- Unit: the scanner (quoted and unquoted values, entities, relative, protocol-relative and
+  `<base>` links, `webcal://`), Google ids (plain, encoded, base64, several on a page), Outlook
+  links, Finalsite ids, script-embedded addresses, link scoring, the same-site rule after
+  redirects, the limits, blocked-site detection, the bundle (tampered, expired, another admin).
+- The finder takes its page and feed fetchers as arguments, so the fake-site cases are real unit
+  tests: a home page linking a calendar page linking an `.ics`; a Google embed; a Finalsite page; a
+  site with nothing; a challenge page; a candidate that isn't a calendar (dropped). Fixtures use
+  made-up hosts and ids only.
+- The guard itself keeps its Phase 18.5 tests; the browser test covers the finder's screens with
+  a refused private address (a local fixture site can't be reached, by design).
+
+### Not in this phase
+
+- Running a page's scripts (a headless browser) for sites that need one.
+- Platform rules beyond Finalsite; more can be added the same way when one is seen in the wild.
+- LMS connectors (Canvas, Google Classroom), still waiting on the owner.
+
+### The owner's answers (2026-10-23)
+
+1. **School → Calendars**, with a link from the guided setup's school step.
+2. **Include the Finalsite rule.**
+3. **When nothing is found:** the honest line and the paste box; no email draft.
+
 ## Open items
 
 ### Waiting on a decision
