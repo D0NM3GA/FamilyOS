@@ -993,6 +993,30 @@ lists didn't feel like decorating. Same rules as Phase 47 and 54.
   **Where** list, and in the room the arrow keys slide a focused decoration (up and down on the
   floor) and Delete puts it away.
 
+## Phase 56.1 — Tighter hitboxes for decorating
+
+The owner's call (2026-10-24), after "the hitboxes seem a bit off". Measured against the
+drawings, the boxes were the right size; four other things made picking up feel off, all fixed:
+
+- **What's drawn takes the press.** While decorating, the room's SVG decorations take the
+  pointer themselves (`pointer-events: visiblePainted`), so empty space beside a plant's leaves
+  or inside the fairy lights' band no longer picks anything up. The rectangles over them had
+  been stacked in the order the items were found, not drawing order, so where two overlapped
+  the one behind could be picked up; now what's drawn in front wins.
+- **A band for small fingers.** Under every decoration, a copy drawn with a 20 screen-pixel
+  stroke (`.pet-hit`, `vector-effect: non-scaling-stroke`) catches near misses, so a lamp or
+  fishbowl (about 25px across on a phone) is about 45px to press. The bands sit under all the
+  drawings, so they only take presses nothing drawn takes. Faintly visible, which also says
+  "you can move these".
+- **Held where it's held.** A drag keeps the gap between the pointer and where the decoration
+  stands (`Grab` in `use-room-drag.ts`), so it no longer jumps to put its base under the
+  pointer; one from the toy box is held by its middle (`heldByMiddle`), as its picture is.
+- **Inside the border.** Drag positions are measured inside the room's 2px border, where the
+  drawing is.
+
+The rectangles stay, for the keyboard and screen readers only. The browser test now drags a
+plant from the toy box onto the shelf and, by the plant itself, down onto the floor.
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with
