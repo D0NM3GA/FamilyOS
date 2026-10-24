@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type PointerEvent } from "react";
 import type { Weather } from "@/lib/pet/behavior";
 import type { Surface } from "@/lib/pet/items";
 import { DECOR_BOX, inDrawingOrder, POOP_SPOTS, ROOM_H, ROOM_W, SURFACE_SPANS, type RoomDecor, type Season, type Sky } from "@/lib/pet/room";
@@ -230,6 +230,7 @@ export const PetRoom = memo(function PetRoom({
   decor,
   poops,
   glow = [],
+  onGrab,
 }: {
   sky: Sky;
   weather: Weather;
@@ -239,6 +240,12 @@ export const PetRoom = memo(function PetRoom({
   poops: number;
   /** Surfaces to light up: where the thing being dragged can go. */
   glow?: readonly Surface[];
+  /**
+   * Phase 56.1: while decorating, a press on a decoration picks it up. The drawing itself
+   * takes the press (nothing outside what's drawn), with a band around it for small fingers;
+   * a decoration drawn in front is picked up first, and the bands only take what's left.
+   */
+  onGrab?: (event: PointerEvent<SVGGElement>, item: RoomDecor) => void;
 }) {
   const lamp = decor.find((item) => item.itemId === "lamp");
   return (
@@ -282,8 +289,26 @@ export const PetRoom = memo(function PetRoom({
         <SurfaceGlow key={surface} surface={surface} />
       ))}
 
+      {onGrab &&
+        inDrawingOrder(decor).map((item) => (
+          <g
+            key={item.itemId}
+            transform={`translate(${item.x} ${item.y})`}
+            className="pet-hit cursor-grab touch-none"
+            pointerEvents="visiblePainted"
+            onPointerDown={(event) => onGrab(event, item)}
+          >
+            <Decoration id={item.itemId} />
+          </g>
+        ))}
       {inDrawingOrder(decor).map((item) => (
-        <g key={item.itemId} transform={`translate(${item.x} ${item.y})`}>
+        <g
+          key={item.itemId}
+          transform={`translate(${item.x} ${item.y})`}
+          className={onGrab ? "cursor-grab touch-none" : undefined}
+          pointerEvents={onGrab ? "visiblePainted" : "none"}
+          onPointerDown={onGrab && ((event) => onGrab(event, item))}
+        >
           <Decoration id={item.itemId} />
         </g>
       ))}

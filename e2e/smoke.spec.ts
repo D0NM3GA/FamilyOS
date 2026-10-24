@@ -227,7 +227,26 @@ test("an egg is tapped open in the pet room, and the room and its panels are acc
       const where = `${scheme} at ${size.width}px`;
       await expectAccessible(page, `the pet room, ${where}`);
       await page.getByRole("button", { name: "Room" }).click();
-      await expect(page.getByRole("combobox", { name: /Potted plant/ })).toBeVisible();
+      const plant = page.getByRole("combobox", { name: /Potted plant/ });
+      await expect(plant).toBeVisible();
+      if (scheme === "light") {
+        // Phase 56.1: a real drag, by the pointer, from the toy box onto the shelf, then by the
+        // plant itself in the room down onto the floor.
+        const room = (await page.locator('svg[viewBox="0 0 400 260"]').boundingBox())!;
+        const at = (x: number, y: number) => [room.x + (x / 400) * room.width, room.y + (y / 260) * room.height] as const;
+        const tray = (await page.getByTitle("Drag the potted plant into the room").boundingBox())!;
+        await page.mouse.move(tray.x + tray.width / 2, tray.y + tray.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(...at(330, 60), { steps: 8 });
+        await page.mouse.up();
+        await expect(plant).toHaveValue("shelf");
+        // The pot's middle, on the shelf (it stands at y 93; the pot is its bottom 16).
+        await page.mouse.move(...at(335, 85));
+        await page.mouse.down();
+        await page.mouse.move(...at(120, 220), { steps: 8 });
+        await page.mouse.up();
+        await expect(plant).toHaveValue("floor");
+      }
       await expectAccessible(page, `the pet room's decorating panel, ${where}`);
       await page.getByRole("button", { name: "About Pip" }).click();
       await expect(page.getByLabel("Rename")).toBeVisible();

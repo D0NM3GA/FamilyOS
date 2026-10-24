@@ -568,6 +568,17 @@ main#main,
 .pet-twinkle {
   animation: pet-twinkle 2.5s ease-in-out infinite;
 }
+/* Phase 56.1: while decorating, a soft band around each decoration that also takes a press, so
+   a small one is still easy to pick up on a phone. In screen pixels, whatever the room's size. */
+.pet-hit,
+.pet-hit * {
+  fill: transparent;
+  stroke: rgb(255 255 255 / 0.45);
+  stroke-width: 20px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
 .pet-rain {
   animation: pet-fall 0.8s linear infinite;
 }
