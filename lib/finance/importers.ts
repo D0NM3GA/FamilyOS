@@ -61,8 +61,8 @@ export function parseOfx(text: string): ImportResult {
   return rows.length ? { ok: true, rows, format: "ofx", skipped } : { ok: false, error: "Couldn't read any transactions in that file." };
 }
 
-/** RFC 4180-ish: quoted fields, doubled quotes, commas and newlines inside quotes. */
-export function splitCsv(text: string): string[][] {
+/** RFC 4180-ish: quoted fields, doubled quotes, separators and newlines inside quotes. Phase 52: any one-character separator. */
+export function splitCsv(text: string, separator = ","): string[][] {
   const out: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -76,7 +76,7 @@ export function splitCsv(text: string): string[][] {
       } else if (c === '"') quoted = false;
       else field += c;
     } else if (c === '"') quoted = true;
-    else if (c === ",") {
+    else if (c === separator) {
       row.push(field);
       field = "";
     } else if (c === "\n" || c === "\r") {
