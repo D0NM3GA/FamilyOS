@@ -89,6 +89,8 @@ export function isPrivateOutgoingRequest(url: string): boolean {
     return false;
   }
   if (host === "smba.trafficmanager.net") return true;
+  // Phase 53: a VIN decode's address carries the VIN.
+  if (host === "vpic.nhtsa.dot.gov") return true;
   if (host === "graph.microsoft.com" && /\/(teamwork|chats|appCatalogs)\b|\/me\/chats/.test(new URL(url).pathname)) return true;
   // Phase 24: Document Intelligence requests carry receipt photos and results.
   if (host.endsWith(".cognitiveservices.azure.com")) return true;

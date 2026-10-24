@@ -4,7 +4,8 @@ import { useCallback, useEffect, useId, useRef, useState, useTransition } from "
 import { Camera, Plus } from "lucide-react";
 import { btn, btnPrimary, field } from "@/components/styles";
 import { addItem, addItemByBarcode, searchProductsAutocomplete, type BarcodeAddResult } from "./actions";
-import { BarcodeScanner, useCameraSupported } from "./barcode-scanner";
+import { BarcodeScanner } from "./barcode-scanner";
+import { useCameraSupported } from "@/components/camera";
 import { useAppName } from "@/components/family-look";
 
 type Suggestion = { id: string; name: string; detail: string | null };

@@ -4,8 +4,9 @@ import { formatFullDate, formatISODate } from "@/lib/vehicles/format";
 import type { Recall } from "@/lib/vehicles/nhtsa";
 import { acknowledgeRecall, unacknowledgeRecall } from "@/app/(app)/vehicles/actions";
 import { SmallActionButton } from "./small-action-button";
+import { VinRecallCheck } from "./vin-recall-check";
 
-type Vehicle = { id: string; householdId: string; year: number | null; make: string | null; model: string | null };
+type Vehicle = { id: string; householdId: string; year: number | null; make: string | null; model: string | null; vin?: string | null };
 
 /**
  * The detail page's NHTSA recalls section — async, rendered inside <Suspense> so the rest
@@ -110,6 +111,7 @@ export async function RecallsSection({
         Recalls are listed by model, not by your specific car — &ldquo;Mark handled&rdquo; is the family&apos;s own
         note that it&apos;s been fixed or doesn&apos;t apply. Source: NHTSA.
       </p>
+      {vehicle.vin && <VinRecallCheck vin={vehicle.vin} />}
     </div>
   );
 }
