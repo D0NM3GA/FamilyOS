@@ -257,11 +257,15 @@ async function Step({ step, profile }: { step: StepId; profile: Profile }) {
     }
 
     case "done": {
-      const [left, members, fresh, signIn] = await Promise.all([
+      const [left, members, fresh, signIn, schoolCalendar] = await Promise.all([
         loadSetupChecklist(profile).then((items) => items.filter((i) => !i.done)),
         invitableMembers(profile.householdId),
         signedInWithin(NEW_WAY_IN_SECONDS),
         profile.authUserId ? backupSignInState(profile) : null,
+        // Phase 51: with School on and no school calendar yet, a pointer to the finder.
+        getDisabledApps(profile.householdId).then(async (d) =>
+          isAppOn(d, "school") && (await prisma.schoolFeed.count({ where: { householdId: profile.householdId } })) === 0,
+        ),
       ]);
       return (
         <div className="space-y-6">
@@ -281,6 +285,17 @@ async function Step({ step, profile }: { step: StepId; profile: Profile }) {
                   <SignInAgain callbackURL={`${SETUP_PATH}?step=done`} loginHint={signIn.email} dev={signIn.dev} microsoft={signIn.microsoft} passkey={signIn.passkey} oidc={signIn.oidc} />
                 </>
               ) : null}
+            </section>
+          )}
+          {schoolCalendar && (
+            <section className="space-y-2">
+              <h2 className="text-lg font-extrabold text-foreground">Kids in school?</h2>
+              <p className="text-sm text-muted-foreground">
+                Type the school&apos;s website and the app finds its calendar, so no-school days and events show on School and Home.
+              </p>
+              <Link href="/school/feeds#find" className={btn}>
+                Add the school&apos;s calendar
+              </Link>
             </section>
           )}
           {left.length > 0 && (
