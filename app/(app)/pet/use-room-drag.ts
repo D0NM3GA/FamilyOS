@@ -53,6 +53,11 @@ export function useRoomDrag(room: RefObject<HTMLElement | null>, onDrop: (dragge
         const current = press.current;
         if (!current) return;
         if (!current.moved && Math.hypot(e.clientX - current.startX, e.clientY - current.startY) < DRAG_START_PX) return;
+        if (!current.moved) {
+          // No text selection under a drag that started over words.
+          window.getSelection()?.removeAllRanges();
+          document.body.style.userSelect = "none";
+        }
         current.moved = true;
         setDrag({ ...current.item, client: { x: e.clientX, y: e.clientY }, point: inRoom(e.clientX, e.clientY) });
       };
@@ -80,6 +85,7 @@ export function useRoomDrag(room: RefObject<HTMLElement | null>, onDrop: (dragge
         window.removeEventListener("pointerup", up);
         window.removeEventListener("pointercancel", cancel);
         press.current = null;
+        document.body.style.userSelect = "";
         setDrag(null);
       };
     },

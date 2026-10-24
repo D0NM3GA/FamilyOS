@@ -36,7 +36,7 @@ export function RoomPanel({
   const grab = (item: ScreenItem) => (event: PointerEvent<HTMLElement>) => onDragStart(event, { rowId: item.id, itemId: item.itemId });
 
   return (
-    <div className={`${card} mx-auto max-w-3xl space-y-4`}>
+    <div className={`${card} mx-auto max-w-3xl select-none space-y-4`}>
       <p className="text-sm text-muted-foreground">
         Drag things up into the room, and slide them along the wall, shelf, windowsill or floor. Drag one out of the room to put it back in the toy box.
       </p>
