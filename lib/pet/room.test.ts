@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ITEMS } from "./items";
-import { DECOR_BOX, dropAt, inDrawingOrder, standOn, SURFACE_SPANS } from "./room";
+import { DECOR_BOX, dropAt, heldByMiddle, inDrawingOrder, standOn, SURFACE_SPANS } from "./room";
 
 describe("decorations on the room's surfaces", () => {
   it("keeps the whole of a decoration on its surface, however far it's pushed", () => {
@@ -41,5 +41,14 @@ describe("decorations on the room's surfaces", () => {
     const far = standOn("beanbag", "floor", 100, 205);
     const wall = standOn("poster", "wall", null, null);
     expect(inDrawingOrder([near, far, wall]).map((item) => item.itemId)).toEqual(["poster", "beanbag", "cushion"]);
+  });
+
+  it("holds a decoration from the toy box by its middle, so it lands where it was shown", () => {
+    // A poster's middle is halfway up its 56 height; fairy lights hang high, so theirs is higher.
+    expect(heldByMiddle("poster")).toEqual({ dx: 0, dy: 28 });
+    expect(heldByMiddle("fairy-lights")).toEqual({ dx: 0, dy: 54 });
+    const pointer = { x: 60, y: 60 };
+    const { dx, dy } = heldByMiddle("poster");
+    expect(dropAt("poster", { x: pointer.x + dx, y: pointer.y + dy })).toMatchObject({ surface: "wall", x: 60, y: 100 });
   });
 });
