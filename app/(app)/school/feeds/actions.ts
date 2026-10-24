@@ -4,12 +4,15 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { captureError } from "@/lib/observability";
 import { requireAdmin } from "@/lib/authz";
 import { encryptSecret } from "@/lib/crypto";
 import { fetchFeed } from "@/lib/school/feeds/fetch";
 import { expandFeed } from "@/lib/school/feeds/parse";
 import { feedAad, refreshFeed } from "@/lib/school/feeds/refresh";
 import { feedUrlHash, normalizeFeedUrl } from "@/lib/school/feeds/url";
+import { findCalendars, FINDER_ERRORS, schoolSiteUrl } from "@/lib/school/feeds/find/finder";
+import { openFound, sealFound } from "@/lib/school/feeds/find/bundle";
 
 /**
  * School calendar feeds (Phase 18.5). Admin-only, every action: adding a feed makes the
@@ -27,11 +30,15 @@ const nameSchema = z.string().trim().min(1, "Give the feed a name, like \"Lincol
 
 export async function addFeed(_prev: FeedFormState, fd: FormData): Promise<FeedFormState> {
   const admin = await requireAdmin();
-  const name = nameSchema.safeParse(String(fd.get("name") ?? ""));
+  return saveFeed(admin, String(fd.get("name") ?? ""), String(fd.get("url") ?? ""), String(fd.get("kidPersonId") ?? "") || null);
+}
+
+/** Adding a feed, pasted or found (Phase 51): checked, tried, stored encrypted with its events. */
+async function saveFeed(admin: { householdId: string }, rawName: string, rawUrl: string, kidPersonId: string | null): Promise<FeedFormState> {
+  const name = nameSchema.safeParse(rawName);
   if (!name.success) return { error: name.error.issues[0]?.message ?? "Invalid name" };
-  const url = normalizeFeedUrl(String(fd.get("url") ?? ""));
+  const url = normalizeFeedUrl(rawUrl);
   if (!url.ok) return { error: url.error };
-  const kidPersonId = String(fd.get("kidPersonId") ?? "") || null;
   if (kidPersonId) {
     const kid = await prisma.person.findFirst({ where: { id: kidPersonId, householdId: admin.householdId, isHouseholdMember: true }, select: { id: true } });
     if (!kid) return { error: "That family member wasn't found." };
@@ -101,4 +108,61 @@ export async function removeFeed(feedId: string) {
   const admin = await requireAdmin();
   await prisma.schoolFeed.deleteMany({ where: { id: feedId, householdId: admin.householdId } });
   revalidateFeeds();
+}
+
+// ---------- Phase 51: find the calendar from the school's website ----------
+
+export type FindState = {
+  error?: string;
+  /** "none" and "blocked" say why nothing is listed. */
+  outcome?: "found" | "none" | "blocked";
+  calendars?: { name: string; host: string; upcoming: number; next: string[] }[];
+  /** The found addresses, sealed for this admin (lib/school/feeds/find/bundle.ts). */
+  sealed?: string;
+};
+
+/**
+ * Reads the school's site for calendar feeds and tries each (lib/school/feeds/find). Admin-only,
+ * like adding a feed: it makes the server fetch addresses. One search at a time per household (a
+ * database lock held for the search, so a second app instance waits its turn too).
+ */
+export async function findSchoolCalendars(_prev: FindState, fd: FormData): Promise<FindState> {
+  const admin = await requireAdmin();
+  const site = schoolSiteUrl(String(fd.get("site") ?? ""));
+  if (!site) return { error: FINDER_ERRORS.address };
+  const household = await prisma.household.findUniqueOrThrow({ where: { id: admin.householdId }, select: { timezone: true } });
+  const zone = household.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const result = await prisma
+    .$transaction(
+      async (tx) => {
+        const [{ locked }] = await tx.$queryRaw<{ locked: boolean }[]>`SELECT pg_try_advisory_xact_lock(hashtext(${`schoolfinder:${admin.householdId}`})) AS locked`;
+        if (!locked) return "busy" as const;
+        return findCalendars(site, { zone });
+      },
+      { timeout: 45_000, maxWait: 5_000 },
+    )
+    .catch((err: unknown) => {
+      captureError(err);
+      return null;
+    });
+  if (result === "busy") return { error: "A search is already running. Try again in a moment." };
+  if (!result) return { error: "The search didn't finish. Try again." };
+  if (result.status === "error") return { error: result.reason };
+  if (result.status !== "found") return { outcome: result.status };
+  return {
+    outcome: "found",
+    calendars: result.calendars.map(({ name, host, upcoming, next }) => ({ name, host, upcoming, next })),
+    sealed: sealFound(
+      result.calendars.map((c) => ({ url: c.url.toString(), name: c.name })),
+      { householdId: admin.householdId, personId: admin.id },
+    ),
+  };
+}
+
+/** Adds one found calendar: the address comes out of the sealed list, never from the browser. */
+export async function addFoundCalendar(_prev: FeedFormState, fd: FormData): Promise<FeedFormState> {
+  const admin = await requireAdmin();
+  const entry = openFound(String(fd.get("sealed") ?? ""), Number(fd.get("index")), { householdId: admin.householdId, personId: admin.id });
+  if (!entry) return { error: "That search has expired. Find the calendars again." };
+  return saveFeed(admin, String(fd.get("name") ?? "") || entry.name, entry.url, String(fd.get("kidPersonId") ?? "") || null);
 }

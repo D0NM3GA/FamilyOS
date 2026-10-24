@@ -7,7 +7,8 @@ import { listStudents } from "@/lib/school/queries";
 import { PageHeader } from "@/components/page-header";
 import { backLink, card } from "@/components/styles";
 import { ConfirmSubmit } from "@/components/submit";
-import { addFeed, refreshFeedNow, removeFeed } from "./actions";
+import { addFeed, addFoundCalendar, findSchoolCalendars, refreshFeedNow, removeFeed } from "./actions";
+import { FindCalendarsForm } from "./find-calendars-form";
 import { AddFeedForm } from "./add-feed-form";
 import { RefreshButton } from "./refresh-button";
 import { requireAppOn } from "@/lib/app-guard";
@@ -85,8 +86,15 @@ export default async function SchoolFeedsPage() {
         </ul>
       )}
 
+      <section id="find" className={`mt-6 max-w-2xl ${card}`}>
+        <h2 className="text-lg font-extrabold text-foreground">Find it from the school&apos;s website</h2>
+        <div className="mt-3">
+          <FindCalendarsForm find={findSchoolCalendars} add={addFoundCalendar} students={students.map((s) => ({ id: s.id, name: s.firstName }))} />
+        </div>
+      </section>
+
       <section className={`mt-6 max-w-2xl ${card}`}>
-        <h2 className="text-lg font-extrabold text-foreground">Add a calendar</h2>
+        <h2 className="text-lg font-extrabold text-foreground">Or paste its link</h2>
         <div className="mt-3">
           <AddFeedForm action={addFeed} students={students.map((s) => ({ id: s.id, name: s.firstName }))} />
         </div>

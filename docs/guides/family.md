@@ -291,8 +291,9 @@ For each kid: **Homework & tests** (tick them off when they're done), **Recent g
 **Averages**, **Teachers & contacts**, and the **School calendar, next two weeks**. Grown-ups also
 see **Forms & to-dos** (things to sign, pay or buy) and who's handling each.
 
-Kids see their own. Grown-ups set up each kid's school details, add homework, and add the school's
-calendar feed under **Calendars** (admins). **Print a fridge card** makes a one-page summary.
+Kids see their own. Grown-ups set up each kid's school details and add homework. Admins add the
+school's calendar under **Calendars**: type the school's website and the app finds its calendar
+(or paste the calendar's subscribe link). **Print a fridge card** makes a one-page summary.
 
 <!-- screenshot: a kid's school page -->
 

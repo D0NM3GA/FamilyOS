@@ -410,6 +410,20 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
   problems.expectNone();
 });
 
+test("the school calendar finder refuses a private address and says why", async () => {
+  // Phase 51: a real school site can't be reached from the tests, and a local one is refused by
+  // design (the same guard as feeds), so this covers the screen and the refusal.
+  await page.goto("/school/feeds");
+  await expect(page.getByRole("heading", { name: "Find it from the school's website" })).toBeVisible();
+  await page.getByLabel("The school's website").fill("127.0.0.1");
+  await page.getByRole("button", { name: "Find calendars" }).click();
+  await expect(page.getByText("That address points at a private or local network, so the app won't fetch it.")).toBeVisible();
+  await page.getByLabel("The school's website").fill("not a site");
+  await page.getByRole("button", { name: "Find calendars" }).click();
+  await expect(page.getByText(/That doesn't look like a web address/)).toBeVisible();
+  problems.expectNone();
+});
+
 test("signing out, and back in with the passkey", async () => {
   await page.goto("/profiles");
   await page.getByRole("button", { name: "Not Dad? Sign out" }).click();
