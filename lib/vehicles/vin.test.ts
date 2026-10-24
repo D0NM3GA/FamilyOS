@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { checkVin, cleanVin, tidyVin } from "./vin";
+import { checkVin, cleanVin, tidyVin } from "@/lib/vin";
 import { decodeVin, readDecode, resetVpic } from "./vpic";
 
 /** Phase 53: a car from its VIN. Made-up VINs only (a valid check digit, no real car). */

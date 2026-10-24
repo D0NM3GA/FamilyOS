@@ -1,4 +1,4 @@
-import { cleanVin } from "@/lib/vehicles/vin";
+import { cleanVin } from "@/lib/vin";
 import { createHash, randomUUID } from "node:crypto";
 import { canonicalizeTimeZone } from "@/lib/household-settings";
 import { APP_NAME_MAX, appNameLength, cleanAppName } from "@/lib/app-name";

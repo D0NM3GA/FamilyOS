@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { checkVin } from "@/lib/vehicles/vin";
+import { checkVin } from "@/lib/vin";
 import { decodeVin, type VinDecode } from "@/lib/vehicles/vpic";
 import { requireAdult } from "@/lib/authz";
 import { atMidnight } from "@/lib/tasks/schedule";

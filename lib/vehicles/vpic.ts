@@ -1,4 +1,4 @@
-import { checkVin } from "./vin";
+import { checkVin } from "@/lib/vin";
 
 /**
  * Phase 53: a VIN decoded by NHTSA's vPIC (free, no key):

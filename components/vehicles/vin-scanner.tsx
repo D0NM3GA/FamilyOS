@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { btn } from "@/components/styles";
 import { cameraError } from "@/components/camera";
-import { checkVin } from "@/lib/vehicles/vin";
+import { checkVin } from "@/lib/vin";
 
 // Door jambs carry a Code 39 (sometimes Code 128) barcode; windshield stickers a Data Matrix or QR.
 const FORMATS = ["code_39", "code_128", "data_matrix", "qr_code"] as const;
