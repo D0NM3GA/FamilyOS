@@ -2383,6 +2383,10 @@ model PetItem {
   person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
   itemId      String
   place       String?
+  /// Phase 56: where along its surface a decoration stands, and how far forward on the floor
+  /// (room units, lib/pet/room.ts). Null is the surface's usual spot.
+  x           Int?
+  y           Int?
   createdAt   DateTime  @default(now())
 
   /// One of each: two requests granting the same thing at once can't make a second.

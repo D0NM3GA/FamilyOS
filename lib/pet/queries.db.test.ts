@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { feedMeal } from "./care";
+import { crackEgg, feedMeal } from "./care";
 import { GIFTS_PER_DAY } from "./gifts";
-import { changeMyPet, finishMyGame, getMyDiscoveries, getMyPet, hatchEgg, markSeen, openMyPresent, placeMyItem } from "./queries";
+import { changeMyPet, finishMyGame, getMyDiscoveries, getMyItems, getMyPet, hatchEgg, markSeen, openMyPresent, placeMyItem } from "./queries";
 import { newEgg, STAGE_MINUTES } from "./state";
 
 /**
@@ -101,6 +101,19 @@ describe.skipIf(!RUN)("the pet (database)", () => {
     expect(mine.items.map((item) => item.itemId).sort()).toEqual(["ball", "plant"]);
   });
 
+  test("an egg tapped open hatches now, and its first toys arrive", async () => {
+    await prisma.pet.deleteMany({ where: { personId: who.ivy.id } });
+    const start = new Date();
+    await hatchEgg(who.ivy, "bird", "Pip", start);
+    const tapped = new Date(start.getTime() + MINUTE);
+    const result = await changeMyPet(who.ivy, (state, minute) => crackEgg(state, minute), tapped);
+    expect(result.ok && result.result.state.stage).toBe("baby");
+    const mine = await getMyPet(who.ivy, tapped);
+    expect(mine.pet?.state.stage).toBe("baby");
+    expect(mine.reveal).toEqual({ from: null, to: { stage: "baby", form: 0 } });
+    expect(mine.items.map((item) => item.itemId).sort()).toEqual(["ball", "plant"]);
+  });
+
   test("care reaches only your own pet, and never touches points", async () => {
     await freshPet(who.ivy.id);
     await freshPet(who.max.id);
@@ -153,6 +166,28 @@ describe.skipIf(!RUN)("the pet (database)", () => {
     expect(await placeMyItem(who.ivy, maxBall.id, "out")).toBe(false);
     expect(await placeMyItem(who.max, maxBall.id, "out")).toBe(true);
     expect(await placeMyItem(who.max, maxBall.id, "wall")).toBe(false);
+  });
+
+  test("decorations share a surface, each at its own spot kept on it", async () => {
+    await freshPet(who.max.id);
+    const make = (itemId: string) => prisma.petItem.create({ data: { householdId: h.id, personId: who.max.id, itemId } });
+    const [cushion, beanbag, poster] = await Promise.all([make("cushion"), make("beanbag"), make("poster")]);
+    expect(await placeMyItem(who.max, cushion.id, "floor", { x: 40, y: 230 })).toBe(true);
+    expect(await placeMyItem(who.max, beanbag.id, "floor", { x: 9999, y: -5 })).toBe(true);
+    expect(await placeMyItem(who.max, poster.id, "wall", { x: 80, y: 230 })).toBe(true);
+    const items = await getMyItems(who.max.id);
+    const spot = (id: string) => items.find((item) => item.id === id);
+    expect(spot(cushion.id)).toMatchObject({ place: "floor", x: 40, y: 230 });
+    // Pushed past the end, it stops where the whole of it still fits; the wall keeps no depth.
+    expect(spot(beanbag.id)).toMatchObject({ place: "floor", x: 268, y: 205 });
+    expect(spot(poster.id)).toMatchObject({ place: "wall", x: 80, y: null });
+    expect(await placeMyItem(who.max, poster.id, null)).toBe(true);
+    expect((await getMyItems(who.max.id)).find((item) => item.id === poster.id)).toMatchObject({ place: null, x: null, y: null });
+  });
+
+  test("a decoration from the old floor slots stands where it did", async () => {
+    await prisma.petItem.create({ data: { householdId: h.id, personId: who.max.id, itemId: "cushion", place: "floor-right" } });
+    expect((await getMyItems(who.max.id)).find((item) => item.itemId === "cushion")).toMatchObject({ place: "floor", x: 258, y: 205 });
   });
 
   test("a finished chore brings a present, once", async () => {

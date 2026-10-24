@@ -965,6 +965,34 @@ Four things that sent an admin to a manual or a terminal.
   (`EntraCheck.servicePrincipalId`, a GUID only, written each run) so Settings → Sign-in links to
   the app's Users and groups page without calling Graph to draw it.
 
+## Phase 56 — Tap the egg open, drag things around the room
+
+The owner's call (2026-10-24): waiting five minutes for an egg was boring, and the Room panel's
+lists didn't feel like decorating. Same rules as Phase 47 and 54.
+
+- **Tap to hatch.** Five taps crack the egg open (`EGG_TAPS`), a little more of the crack drawn
+  each time, with a wobble, shell crumbs and a line per tap. The screen counts the taps; the last
+  one calls `crackEggOpen`, which hatches it on the server (`hatchNow` in `lib/pet/sim.ts`, the
+  same step the clock uses) and the page comes back with the baby and its hatching reveal. The
+  egg is a real button there, so Enter or Space taps it too. An egg left alone still hatches on
+  its own after five minutes, so one picked at bedtime is a baby by morning. Skipping the taps
+  by calling the action directly only skips four taps.
+- **Surfaces, not slots.** The room's five one-thing slots became four surfaces (wall, shelf,
+  windowsill, floor) that hold as many decorations as fit, each at its own spot (`PetItem.x`,
+  and `y` for how far forward on the floor). `lib/pet/room.ts` says where each surface is, keeps
+  the whole of a decoration on it (`standOn`), and picks where a drop lands: the nearest surface
+  the item fits (`dropAt`), so a poster dropped on the floor still goes up on the wall. The
+  migration turns the two floor slots into spots on the floor where they stood, and
+  `readPlace` does the same for a backup from before. Backups carry the spot.
+- **Drag and drop** (`use-room-drag.ts`). With **Room** open, decorations are dragged from the
+  panel into the room and slid around in it; the surfaces they fit light up, and the decoration
+  shows where it will land before it's let go. Dragged out of the room, it goes back in the toy
+  box. Toys and hats can be dragged in too (out on the floor, worn). A move shows straight away
+  (`useOptimistic`) and the saved page follows. A press that barely moves isn't a drag, and the
+  click after a drag is swallowed, so taps still work. Without a pointer: each decoration's
+  **Where** list, and in the room the arrow keys slide a focused decoration (up and down on the
+  floor) and Delete puts it away.
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with

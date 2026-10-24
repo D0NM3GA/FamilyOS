@@ -8,7 +8,8 @@ import { epochMinute, isCareMinute, MINUTE_MS, type CareHours } from "./care-hou
 import { play, type CareResult } from "./care";
 import { effectOf, PAYOUT_MINUTES, type GameId } from "./games/catalog";
 import { giftHint, isTreat, openTreat, pickGift, TREAT_NAMES, withinDailyCap } from "./gifts";
-import { fitsPlace, ITEMS, itemDef, unlockedItems, type Place } from "./items";
+import { fitsPlace, isSurface, ITEMS, itemDef, readPlace, unlockedItems, type Place, type Spot } from "./items";
+import { standOn } from "./room";
 import { personalityFromSeed, type Personality } from "./personality";
 import { advance, type AdvanceContext, type PetEvent } from "./sim";
 import { isAlive, newEgg, STAGES, type PetState, type Species, type Stage } from "./state";
@@ -43,7 +44,7 @@ export type PetRecord = {
 /** Phase 54: the growing-up reveal waiting to be seen (from null: a hatching). */
 export type Reveal = { from: { stage: Stage; form: number } | null; to: { stage: Stage; form: number } } | null;
 
-export type PetItemRecord = { id: string; itemId: string; place: Place };
+export type PetItemRecord = { id: string; itemId: string; place: Place } & Spot;
 
 export type Goodbye = { name: string; species: string; stage: string; form: number; cause: string; ageMinutes: number };
 
@@ -360,19 +361,21 @@ async function lastGoodbye(personId: string): Promise<Goodbye | null> {
   });
 }
 
+const itemColumns = { id: true, itemId: true, place: true, x: true, y: true } as const;
+
+function toItem(row: { id: string; itemId: string; place: string | null; x: number | null; y: number | null }): PetItemRecord {
+  return { id: row.id, itemId: row.itemId, ...readPlace(row.place, { x: row.x, y: row.y }) };
+}
+
 /** One of this person's items by its row id, or null if it isn't theirs. */
 export async function getMyItem(personId: string, itemRowId: string): Promise<PetItemRecord | null> {
-  const row = await prisma.petItem.findFirst({ where: { id: itemRowId, personId }, select: { id: true, itemId: true, place: true } });
-  return row && itemDef(row.itemId) ? { ...row, place: row.place as Place } : null;
+  const row = await prisma.petItem.findFirst({ where: { id: itemRowId, personId }, select: itemColumns });
+  return row && itemDef(row.itemId) ? toItem(row) : null;
 }
 
 export async function getMyItems(personId: string): Promise<PetItemRecord[]> {
-  const rows = await prisma.petItem.findMany({
-    where: { personId },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, itemId: true, place: true },
-  });
-  return rows.filter((row) => itemDef(row.itemId)).map((row) => ({ ...row, place: row.place as Place }));
+  const rows = await prisma.petItem.findMany({ where: { personId }, orderBy: { createdAt: "asc" }, select: itemColumns });
+  return rows.filter((row) => itemDef(row.itemId)).map(toItem);
 }
 
 export type ChangeResult =
@@ -503,18 +506,19 @@ export async function hatchEgg(profile: Profile, species: Species, name: string,
 }
 
 /**
- * Moves one of this person's items. Whatever was in that slot (or worn) goes back to the toy
- * box, so a slot holds one thing and the pet wears one hat. False if they don't own it or it
- * doesn't fit there.
+ * Moves one of this person's items. A decoration goes on its surface at `spot`, kept on it
+ * (lib/pet/room.ts), alongside whatever else is there. Whatever was worn goes back to the toy
+ * box, so the pet wears one hat. False if they don't own it or it doesn't fit there.
  */
-export async function placeMyItem(profile: Profile, itemRowId: string, place: Place): Promise<boolean> {
+export async function placeMyItem(profile: Profile, itemRowId: string, place: Place, spot: Spot = { x: null, y: null }): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
     const item = await tx.petItem.findFirst({ where: { id: itemRowId, personId: profile.id } });
     if (!item || !fitsPlace(item.itemId, place)) return false;
-    if (place !== null && place !== "out") {
+    if (place === "worn") {
       await tx.petItem.updateMany({ where: { personId: profile.id, place, NOT: { id: item.id } }, data: { place: null } });
     }
-    await tx.petItem.update({ where: { id: item.id }, data: { place } });
+    const stands = place !== null && isSurface(place) ? standOn(item.itemId, place, spot.x, spot.y) : null;
+    await tx.petItem.update({ where: { id: item.id }, data: { place, x: stands?.x ?? null, y: stands?.surface === "floor" ? stands.y : null } });
     return true;
   });
 }

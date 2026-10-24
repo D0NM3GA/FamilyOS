@@ -20,8 +20,8 @@ import {
  *
  * Classic Tamagotchi rules, tuned for a pet that's only awake in care hours: meters drain,
  * poop and sickness come and go, calls missed for 15 minutes are care mistakes, mistakes pick
- * the grown-up form, and long neglect or old age ends it. An egg hatches on wall-clock time,
- * so a kid who sets one up at bedtime still finds a baby in the morning.
+ * the grown-up form, and long neglect or old age ends it. An egg hatches when it's tapped
+ * open (`hatchNow`), or on wall-clock time if it's left alone.
  */
 
 export type PetEventKind =
@@ -211,6 +211,22 @@ function tick(state: PetState, minute: number, seed: string, events: PetEvent[])
   return next;
 }
 
+function hatchAt(state: PetState, minute: number, events: PetEvent[]): PetState {
+  // A fresh baby is wide awake and hasn't slept yet.
+  const baby = grow({ ...state, stage: "egg" }, minute, events);
+  return { ...baby, lastAwakeMinute: minute, napUntil: minute, quietUntil: Math.max(baby.quietUntil, minute) };
+}
+
+/**
+ * Phase 56: tapping the egg open hatches it at `minute` instead of on the clock. An egg left
+ * alone still hatches by itself (`advance`), so one set up at bedtime is a baby by morning.
+ */
+export function hatchNow(state: PetState, minute: number): { state: PetState; events: PetEvent[] } {
+  const events: PetEvent[] = [];
+  if (state.stage !== "egg" || !isAlive(state)) return { state, events };
+  return { state: hatchAt(state, minute, events), events };
+}
+
 /** Plays the pet forward from `fromMs` to `toMs`. Times before `fromMs` are never replayed. */
 export function advance(
   state: PetState,
@@ -230,9 +246,7 @@ export function advance(
       return { state: { ...next, stageMinutes: next.stageMinutes + toMinute - fromMinute }, events };
     }
     fromMinute += toHatch;
-    // A fresh baby is wide awake and hasn't slept yet.
-    next = { ...grow({ ...next, stage: "egg" }, fromMinute, events), lastAwakeMinute: fromMinute, napUntil: fromMinute };
-    next = { ...next, quietUntil: Math.max(next.quietUntil, fromMinute) };
+    next = hatchAt(next, fromMinute, events);
   }
 
   for (const minute of careMinutes(fromMinute, toMinute, context.careHours, context.timeZone)) {

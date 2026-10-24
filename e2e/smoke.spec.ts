@@ -201,16 +201,21 @@ test("every page is accessible, light at desktop width and dark at phone width",
 });
 
 // Phase 47: the pet room, which the every-page pass above only sees as the egg picker. Picking
-// an egg puts the room, the care buttons and its panels on screen; axe checks each. (Hatching
-// takes five minutes of wall time, so the hatched pet itself stays a manual check.)
-test("an egg goes into the pet room, and the room and its panels are accessible", async () => {
+// an egg puts the room, the care buttons and its panels on screen; axe checks each. Phase 56:
+// a few taps hatch the egg, so the hatched pet and its first decoration get checked too.
+test("an egg is tapped open in the pet room, and the room and its panels are accessible", async () => {
   const desktop = page.viewportSize()!;
   try {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/pet");
     await page.getByLabel("Name it").fill("Pip");
     await page.getByRole("button", { name: "This one!" }).click();
-    await expect(page.getByRole("img", { name: /^Pip the Egg$/ })).toBeVisible();
+    await expectAccessible(page, "the pet room with an egg");
+    for (let left = 5; left > 0; left--) {
+      await page.getByRole("button", { name: `Tap the egg to help it hatch, ${left} more` }).click();
+    }
+    await page.getByRole("button", { name: "Yay!" }).click();
+    await expect(page.getByRole("img", { name: /^Pip the / })).toBeVisible();
     // The same two passes as every page above: light at desktop width, dark at phone width.
     for (const [scheme, size] of [
       ["light", desktop],
@@ -220,9 +225,9 @@ test("an egg goes into the pet room, and the room and its panels are accessible"
       await page.setViewportSize(size);
       await page.goto("/pet");
       const where = `${scheme} at ${size.width}px`;
-      await expectAccessible(page, `the pet room with an egg, ${where}`);
+      await expectAccessible(page, `the pet room, ${where}`);
       await page.getByRole("button", { name: "Room" }).click();
-      await expect(page.getByLabel("On the wall")).toBeVisible();
+      await expect(page.getByRole("combobox", { name: /Potted plant/ })).toBeVisible();
       await expectAccessible(page, `the pet room's decorating panel, ${where}`);
       await page.getByRole("button", { name: "About Pip" }).click();
       await expect(page.getByLabel("Rename")).toBeVisible();

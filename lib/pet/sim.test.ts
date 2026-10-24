@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MINUTE_MS, type CareHours } from "./care-hours";
-import { advance, CALL_WINDOW_MINUTES, pickForm, SICK_LIMIT_MINUTES, STARVE_LIMIT_MINUTES, type AdvanceContext } from "./sim";
+import { advance, CALL_WINDOW_MINUTES, hatchNow, pickForm, SICK_LIMIT_MINUTES, STARVE_LIMIT_MINUTES, type AdvanceContext } from "./sim";
 import { ADULT_LIFESPAN_MINUTES, newEgg, STAGE_MINUTES, type PetState } from "./state";
 
 const ALWAYS: CareHours = { weekday: [{ start: 0, end: 1440 }], weekend: [{ start: 0, end: 1440 }] };
@@ -21,6 +21,22 @@ describe("advance", () => {
     const { state, events } = advance(newEgg("bird", startMinute), at(0), at(STAGE_MINUTES.egg), ctx(NEVER));
     expect(state.stage).toBe("baby");
     expect(events.map((event) => event.kind)).toEqual(["hatched"]);
+  });
+
+  it("hatches an egg tapped open straight away, a fresh baby that's wide awake", () => {
+    const { state, events } = hatchNow(newEgg("critter", startMinute), startMinute + 1);
+    expect(state).toMatchObject({ stage: "baby", stageMinutes: 0, napUntil: startMinute + 1, lastAwakeMinute: startMinute + 1 });
+    expect(events).toEqual([{ minute: startMinute + 1, kind: "hatched", stage: "baby", form: 0 }]);
+    // Then it lives on from there like any other baby, never hatching twice.
+    const later = advance(state, at(1), at(10), ctx());
+    expect(later.events.some((event) => event.kind === "hatched")).toBe(false);
+    expect(later.state.stage).toBe("baby");
+  });
+
+  it("leaves a pet that already hatched as it is", () => {
+    const already = baby();
+    expect(hatchNow(already, startMinute).state).toBe(already);
+    expect(hatchNow({ ...newEgg("blob", startMinute), cause: "hunger" }, startMinute).state.stage).toBe("egg");
   });
 
   it("keeps an egg an egg until its time", () => {

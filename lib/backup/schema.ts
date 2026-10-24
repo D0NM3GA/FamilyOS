@@ -426,7 +426,8 @@ const pet = z.object({
   lastAdvancedAt: iso,
   createdAt: iso,
 });
-const petItem = z.object({ id, personId: id, itemId: text, place: nullableText, createdAt: iso });
+// Phase 56 added the spot; a backup from before then has none (the surface's usual spot).
+const petItem = z.object({ id, personId: id, itemId: text, place: nullableText, x: z.number().int().nullish(), y: z.number().int().nullish(), createdAt: iso });
 // Composite primary key (person, game), no id of its own.
 const petPlay = z.object({ personId: id, game: text, paidAt: iso });
 const petMemorial = z.object({
