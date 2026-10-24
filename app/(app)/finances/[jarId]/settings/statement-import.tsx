@@ -36,6 +36,8 @@ export function StatementImport({
   // A changed choice shows at once while the rows are read again with it.
   const [draft, setDraft] = useState<Choices | null>(null);
   const [message, setMessage] = useState<FormState>({});
+  // Kept here, not in the list: removing the last import empties the list, and its answer stays.
+  const [removed, setRemoved] = useState<FormState>({});
   const [pending, start] = useTransition();
   // Bumped after an import, so the file field starts empty for the next statement.
   const [fileKey, setFileKey] = useState(0);
@@ -149,7 +151,11 @@ export function StatementImport({
         </div>
       </div>
 
-      {recent.length > 0 && <RecentImports recent={recent} removeImport={removeImport} />}
+      {recent.length > 0 && <RecentImports recent={recent} removeImport={removeImport} onDone={setRemoved} />}
+      <div aria-live="polite">
+        {removed.error && <p className="text-sm font-semibold text-tomato">{removed.error}</p>}
+        {removed.ok && <p className="text-sm font-semibold">{removed.ok}</p>}
+      </div>
     </div>
   );
 }
@@ -284,9 +290,16 @@ function CsvCheck({
   );
 }
 
-function RecentImports({ recent, removeImport }: { recent: RecentImport[]; removeImport: (importId: string) => Promise<FormState> }) {
+function RecentImports({
+  recent,
+  removeImport,
+  onDone,
+}: {
+  recent: RecentImport[];
+  removeImport: (importId: string) => Promise<FormState>;
+  onDone: (outcome: FormState) => void;
+}) {
   const [pending, start] = useTransition();
-  const [message, setMessage] = useState<FormState>({});
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-extrabold">Recent imports</h3>
@@ -301,7 +314,7 @@ function RecentImports({ recent, removeImport }: { recent: RecentImport[]; remov
               question={`Remove the ${r.added} transaction${r.added === 1 ? "" : "s"} this import added to ${r.account}?`}
               yes="Remove"
               pending={pending}
-              onConfirm={() => start(async () => setMessage(await removeImport(r.id)))}
+              onConfirm={() => start(async () => onDone(await removeImport(r.id)))}
               className={btn}
             >
               Remove this import
@@ -309,8 +322,6 @@ function RecentImports({ recent, removeImport }: { recent: RecentImport[]; remov
           </li>
         ))}
       </ul>
-      {message.error && <p className="text-sm font-semibold text-tomato">{message.error}</p>}
-      {message.ok && <p className="text-sm font-semibold">{message.ok}</p>}
     </div>
   );
 }
