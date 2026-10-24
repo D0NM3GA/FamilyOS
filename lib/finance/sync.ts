@@ -358,12 +358,18 @@ export async function enrichPrivacy(db: Tx | typeof prisma, jarId: string, now: 
   }
 }
 
-/** A statement file into one account. Re-importing the same file adds nothing. */
-export async function importRows(jarId: string, accountId: string, rows: ImportedRow[]): Promise<{ added: number; already: number }> {
+/**
+ * A statement file into one account. Re-importing the same file adds nothing. Phase 52: a row
+ * another import already brought under a different id (an OFX and a CSV of the same month) is
+ * folded in rather than added twice, and the new rows remember their import (`importId`), so
+ * the whole file can be removed again.
+ */
+export async function importRows(jarId: string, accountId: string, rows: ImportedRow[], opts: { importId?: string } = {}): Promise<{ added: number; already: number }> {
   return prisma.$transaction(
     async (tx) => {
+      const fresh = await notAlreadyHere(tx, accountId, rows);
       const { count } = await tx.finTransaction.createMany({
-        data: rows.map((r) => ({
+        data: fresh.map((r) => ({
           jarId,
           accountId,
           source: "MANUAL" as const,
@@ -373,6 +379,7 @@ export async function importRows(jarId: string, accountId: string, rows: Importe
           description: r.description,
           memo: r.memo,
           merchantKey: merchantKeyOf(r) || "-",
+          importId: opts.importId ?? null,
         })),
         skipDuplicates: true,
       });
@@ -384,6 +391,36 @@ export async function importRows(jarId: string, accountId: string, rows: Importe
   ).then(async (result) => {
     await organizeSafely(jarId);
     return result;
+  });
+}
+
+/** Same day, same amount, same words: the same charge, whichever file or reader brought it. */
+const rowKey = (day: string, cents: number, description: string) => `${day}|${cents}|${description.trim().toLowerCase().replace(/\s+/g, " ")}`;
+
+/** The rows not in this account yet, by their id or, under another id, by day, amount and words. */
+async function notAlreadyHere(tx: Tx, accountId: string, rows: ImportedRow[]): Promise<ImportedRow[]> {
+  if (!rows.length) return rows;
+  const days = rows.map((r) => r.postedOn).sort();
+  const existing = await tx.finTransaction.findMany({
+    where: { accountId, source: "MANUAL", state: "ACTIVE", postedOn: { gte: asDate(days[0]), lte: asDate(days[days.length - 1]) } },
+    select: { externalId: true, postedOn: true, amountCents: true, description: true },
+  });
+  const newIds = new Set(rows.map((r) => r.externalId));
+  const known = new Set(existing.map((e) => e.externalId));
+  // How many rows like this are here under ids this file doesn't have: each takes one new row.
+  const others = new Map<string, number>();
+  for (const e of existing) {
+    if (newIds.has(e.externalId)) continue;
+    const key = rowKey(day(e.postedOn), e.amountCents, e.description);
+    others.set(key, (others.get(key) ?? 0) + 1);
+  }
+  return rows.filter((r) => {
+    if (known.has(r.externalId)) return true; // skipDuplicates counts it as already here
+    const key = rowKey(r.postedOn, r.amountCents, r.description);
+    const left = others.get(key) ?? 0;
+    if (left === 0) return true;
+    others.set(key, left - 1);
+    return false;
   });
 }
 

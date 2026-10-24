@@ -2117,6 +2117,8 @@ enum JarEventKind {
   CONNECTED
   DISCONNECTED
   IMPORTED
+  /// Phase 52: a statement import removed again.
+  IMPORT_REMOVED
   CATEGORY_SET
   RULE_FORGOTTEN
   BUDGET_SET
