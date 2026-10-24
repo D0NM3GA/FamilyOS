@@ -73,7 +73,7 @@ function fixture(): Backup {
         note: null, decidedAt: T2, decidedById: "Mom", closedAt: T2, closedById: "Mom", createdAt: T2 },
     ],
     medications: [{ id: "m1", taskDefinitionId: "def2", quantityOnHand: 28.5, doseAmount: 1.5, refillThresholdQuantity: 5, prescriberId: "Doc", pharmacyId: "Pharm" }],
-    vehicles: [{ id: "v1", name: "Van", make: "Honda", model: "Odyssey", year: 2019, currentMileage: 50000, mileageUpdatedAt: T2, active: true, createdAt: T }],
+    vehicles: [{ id: "v1", name: "Van", make: "Honda", model: "Odyssey", year: 2019, vin: "1EXAMPLE0PARKER17", currentMileage: 50000, mileageUpdatedAt: T2, active: true, createdAt: T }],
     maintenanceItems: [{ id: "mi1", vehicleId: "v1", title: "Oil", notes: null, intervalMiles: 5000, intervalMonths: 6, lastDoneMileage: 48000, lastDoneAt: T, active: true, createdAt: T }],
     serviceLogs: [{ id: "sl1", itemId: "mi1", doneAt: T, mileage: 48000, notes: "Jiffy", costCents: 5999, loggedById: "Mom", createdAt: T }],
     fuelLogs: [{ id: "f1", vehicleId: "v1", filledAt: T2, mileage: 50000, gallons: 15.2, costCents: 4500, fullTank: true, missedPrevious: false, notes: null, loggedById: "Kid", createdAt: T2 }],

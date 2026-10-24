@@ -37,6 +37,9 @@ model Household {
   /// Phase 52: how a statement file's ambiguous dates (03/10/2026) are read when the file itself
   /// can't tell: AUTO follows where the household is (month first in the US). Admins change it.
   statementDateOrder StatementDateOrder @default(AUTO)
+  /// Phase 53: the shared mailbox alert emails come from, set in Settings → Alerts. Overrides
+  /// ALERT_MAILBOX, which stays the fallback. Exchange RBAC limits the app to that mailbox.
+  alertMailbox String?
   /// IANA zone name (e.g. "America/New_York"), set at setup and in /settings/household. Phase
   /// 49: the server process runs in this zone (lib/household-zone.ts), so "today", due dates and
   /// every date the server prints follow it. Null means not set yet: the deploy's TZ is used.
@@ -699,6 +702,9 @@ model EntraCheck {
   /// The last run that read Entra completely and applied (or had nothing to apply).
   lastOkAt    DateTime?
   outcome     String?
+  /// Phase 53: the app's service principal (its enterprise app's object id), kept by each run,
+  /// for the "Change roles in Entra" link and the Exchange setup commands.
+  servicePrincipalId String?
   updatedAt   DateTime  @updatedAt
 
   @@map("entra_check")
@@ -821,11 +827,15 @@ model Vehicle {
   householdId String
   household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  /// A nickname, not a VIN/plate — "Mom's minivan", not a formal identifier.
+  /// A nickname, not a plate — "Mom's minivan", not a formal identifier.
   name  String
   make  String?
   model String?
   year  Int?
+  /// Phase 53: the Vehicle Identification Number (17 characters, upper case), typed or scanned;
+  /// decoded by NHTSA's vPIC to fill make, model and year. Personal: shown to grown-ups only,
+  /// never logged. In backups and the vehicle export.
+  vin   String?
 
   currentMileage   Int       @default(0)
   mileageUpdatedAt DateTime?
@@ -1745,6 +1755,9 @@ model JarConnection {
   /// The other jar's name is only ever shown to people who are in it.
   skippedAccounts Int     @default(0)
   skippedJarId    String?
+  /// Phase 53: the feed's accounts a member left out of this jar (the provider's account ids).
+  /// The sync doesn't bring them in; rows already here stay but leave the totals.
+  excludedExternalIds String[] @default([])
 
   @@unique([jarId, provider])
   @@index([fingerprint])

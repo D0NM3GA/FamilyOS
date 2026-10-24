@@ -63,7 +63,9 @@ type Scope = "householdId";
 
 const checks = {
   // Phase 49: dayZone is the file's exportedTimeZone; a restore moves the days and sets it.
-  household: true satisfies Covered<HouseholdModel, Backup["household"], "id" | "createdAt" | "updatedAt" | "dayZone">,
+  // Phase 53: the alert mailbox is an alert setting, like the rest never in backups (a restore
+  // keeps the Household row, so it survives).
+  household: true satisfies Covered<HouseholdModel, Backup["household"], "id" | "createdAt" | "updatedAt" | "dayZone" | "alertMailbox">,
   // Security / sign-in / M365-owned columns never leave; see schema.ts's header.
   person: true satisfies Covered<
     PersonModel,
