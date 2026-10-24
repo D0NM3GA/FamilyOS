@@ -863,6 +863,34 @@ family's existing app registration, an **Add to Teams** button, and the Workflow
 - **Removed:** the Workflows link, its URL checks and the Sentry rule for its hosts. Bot Connector
   and the app's Graph install and chat calls are private to Sentry instead.
 
+## Phase 51 — Find the school calendar from the school's website
+
+Adding a school calendar meant finding its subscribe link on the school's site. Now an admin types
+the school's website on School → Calendars and the app finds the calendars the site offers, tries
+each, and lists the ones it can read with the next few events, ready to add.
+
+- **What school sites do (researched; Fable measured real district sites):** no common format.
+  Google Calendar embeds and WordPress sites expose a feed; Finalsite, the most common K-12
+  platform, builds its Subscribe button with a script but names its calendars in
+  `data-calendar-ids`, which map to `/fs/calendar-manager/events.ics?calendar_ids[]=…` on the same
+  site (the owner's call: include that rule). Some platforms answer a plain fetch with a browser
+  check. Expected: roughly half of schools.
+- **The scanner** (`lib/school/feeds/find/scan.ts`) is one linear pass over the HTML: quoted and
+  unquoted attributes, entities, relative and protocol-relative links, `<base href>`; Google ids
+  plain, encoded or base64 (newer embeds); Outlook `.html` → `.ics`; addresses in `onclick` and
+  inline scripts. No scripts run, no new dependency.
+- **The finder** (`find/finder.ts`) reads the page and up to 3 calendar-looking pages on the same
+  site (an approximation of the registrable domain, checked after redirects), tries at most 8
+  candidates on any https host (calendars often live on Google, Outlook or an athletics site), 12
+  fetches and 30 seconds in all. A 403/429/503 or a tiny "enable JavaScript" page is reported as a
+  site that only opens in a full browser, not as "nothing found".
+- **Safety:** every fetch, page or feed, goes through the Phase 18.5 guard (now parameterised for
+  HTML or iCalendar). Found addresses never reach the browser in the clear: the list goes back
+  sealed (`find/bundle.ts`, bound to the admin, the household and 15 minutes), so nothing is kept
+  in server memory. One search at a time per household, under a database lock.
+- **The guided setup** has no school step, so its last step ("All set") points to the finder when
+  School is on and no calendar is added yet (the owner chose a link from setup).
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with

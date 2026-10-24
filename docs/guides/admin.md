@@ -254,7 +254,7 @@ already keeps strangers away, but don't leave it waiting.)
    - **Pick your apps:** turn off what you won't use.
    - **Phone and safety:** alerts on this phone, a PIN to lock your own tile, a spare passkey.
    - **All set:** the invite links for the grown-ups you added (it may ask you to sign in again
-     first).
+     first), and, with School on, a pointer to adding the school's calendar.
 3. Anything skipped waits under **Finish setting up** at the top of Settings.
 
 Then, in Settings → Household, check the time zone is home's, and set a PIN for each kid.
@@ -264,6 +264,15 @@ shows follow it, wherever the server runs. Changing it later (the family moves) 
 already saved on its date and clock time: a chore due Tuesday stays due Tuesday, an 8:00 AM dose
 stays at 8:00 AM. A restore from a backup made in another zone does the same, and its preview says
 so.
+
+**The school's calendar** (School → Calendars, admins): type the school's website and press
+**Find calendars**. The app reads the site and up to three of its calendar pages for calendars you
+can subscribe to (plain feed links, Google Calendar embeds, Outlook calendars, and Finalsite
+schools' calendars), checks each one, and lists what it found with the next few events; **Add**
+the right one, for the whole family or one kid. It finds one on roughly half of school sites. Some
+sites only open in a full browser; the app says so, and then you copy the site's "Subscribe" or
+"iCal" link into **Or paste its link** below, as before. It never fetches anything on a private
+or home network.
 
 ## 9. People and sign-in
 

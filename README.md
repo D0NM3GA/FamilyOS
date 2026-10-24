@@ -18,7 +18,7 @@ pass (see docs/BUILD.md).
 
 ## Status
 
-Everything through **Phase 46**, and Phases 48 to 50, is merged to `main` (2026-10-23): the
+Everything through **Phase 46**, and Phases 48 to 51, is merged to `main` (2026-10-23): the
 money jars (Phases 25–34), the security, dependency and nav passes, the **full review of
 2026-10-09**, the **privacy pass (2026-10-12)** that renamed the app FamilyOS and took every
 real personal detail out of the code and docs, the customization phases (35–37), and the polish
@@ -28,12 +28,13 @@ first-visitor setup, invites, any OIDC provider, Microsoft optional and checked 
 (43)** behind a Cloudflare Tunnel; **accessibility and the Shop list without signal (44)**; a
 **Settings hub with a guided setup (45)**; and **published, signed images (46)** that the server
 pulls by a pinned version, with a migrate image cut down to Prisma's CLI (48); the **household's
-timezone everywhere (49)**, with both times shown away from home; and **Teams through the
-family's own Teams app (50)**, no Power Automate. Since 2026-10-23 the project lives in this
-public repository, started from one clean commit (the earlier history is archived privately);
-`main` takes changes only through pull requests whose required checks pass, and they merge
-themselves. The phase-by-phase log is docs/BUILD.md; what's next and what's waiting on the owner
-is docs/PLAN.md ("Current state" and "Open items").
+timezone everywhere (49)**, with both times shown away from home; **Teams through the family's
+own Teams app (50)**, no Power Automate; and **finding the school calendar from its website
+(51)**. Since 2026-10-23 the project lives in this public repository, started from one clean
+commit (the earlier history is archived privately); `main` takes changes only through pull
+requests whose required checks pass, and they merge themselves. The phase-by-phase log is
+docs/BUILD.md; what's next and what's waiting on the owner is docs/PLAN.md ("Current state" and
+"Open items").
 
 | Area | What's there |
 |---|---|
