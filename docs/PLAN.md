@@ -1006,6 +1006,13 @@ advice. Same rules as Phase 47 and 54. To be re-scoped against the code once Pha
 - The family guide (daily moments, the sound switch), the admin guide (sound follows the
   mascot setting), `docs/BUILD.md` and this plan.
 
+## Phase 56 — scope (tap the egg open, drag things around the room, 2026-10-24)
+
+**The owner's call (2026-10-24):** a new egg hatches with a few taps instead of a five-minute
+wait, and decorating is drag and drop. Asked how free placing should be, the owner chose
+"slide along surfaces": anything goes anywhere along the surface it belongs on, several things
+per surface (over snapping to the five old slots, or dropping anywhere at all). See BUILD.md.
+
 ## Phase 51 — scope (find the school calendar from the school's web address, 2026-10-23)
 
 Adding a school calendar today means finding its subscribe link on the school's site and pasting

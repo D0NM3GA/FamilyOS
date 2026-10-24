@@ -208,7 +208,8 @@ take some back from a kid's sticker history. Grown-ups can see everyone's wallet
 ## Pet
 
 Everyone can look after a little digital pet. Pick an egg (a Blob, a Birdie or a Critter), give
-it a name, and in a few minutes it hatches.
+it a name, then tap the egg a few times to crack it open. (Left alone, it hatches by itself in a
+few minutes.)
 
 - **Look after it** with the big buttons: **Feed** (a meal, or a snack, but not too many),
   **Clean** up after it, **Medicine** when it's poorly, and **Say no** when it's making a fuss
@@ -216,8 +217,11 @@ it a name, and in a few minutes it hatches.
 - **Play** together: stroke it in the room (it has a favorite spot), play with its toys, or
   pick one of five short games: Snack Catch, Bubble Bath, Hide and Seek, Copy Dance and Fetch
   Far. Games tire it out, so it may want a nap.
-- **Room** decorates its room and dresses it up. New toys, decorations and hats come as it
-  grows up and the two of you get closer.
+- **Room** decorates its room and dresses it up: drag decorations into the room and slide them
+  along the wall, the shelf, the windowsill or the floor. The places they fit light up while you
+  drag. Drag one out of the room to put it back in the toy box, or use its **Where** list. Toys
+  and hats can be dragged into the room too. New toys, decorations and hats come as it grows up
+  and the two of you get closer.
 - It grows from a baby into a grown-up, and how well it's looked after decides what it grows
   into. Each time it grows (or learns a trick), the room stops for a moment to show you; tap
   **Yay!** to carry on. The **Collection book** keeps every form your pets have grown into, with
