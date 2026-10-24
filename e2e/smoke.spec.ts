@@ -423,7 +423,8 @@ test("a card statement CSV is checked on a few rows, imported, and removed again
     "10/03/2026,10/04/2026,Bookstore Example,18.00,Shopping",
     "10/04/2026,10/05/2026,Gas Station Example,30.00,Transport",
     "10/05/2026,10/06/2026,Pizza Place Example,22.40,Dining",
-    "10/07/2026,10/08/2026,Payment Thank You,-100.00,Payment",
+    // A day past the 12th settles the date order for the whole file, whatever the household's zone.
+    "10/15/2026,10/16/2026,Payment Thank You,-100.00,Payment",
   ].join("\n");
   await page.getByLabel("Statement file").setInputFiles({ name: "card.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
   await page.getByLabel("New account name").fill("Card");
@@ -433,7 +434,11 @@ test("a card statement CSV is checked on a few rows, imported, and removed again
   await expect(page.getByLabel("Date", { exact: true })).toHaveValue("1");
   await page.getByLabel(/Money out shows as a positive number/).check();
   await expect(page.getByRole("cell", { name: "$45.20 out" })).toBeVisible();
+  // Once the rows are read again with the new choice (the buttons are dimmed meanwhile).
+  await expect(page.getByRole("button", { name: "Import", exact: true })).toBeEnabled();
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await expectAccessible(page, "statement check");
+  await page.emulateMedia({ reducedMotion: null });
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await expect(page.getByText("Added 6 transactions.")).toBeVisible();
 
