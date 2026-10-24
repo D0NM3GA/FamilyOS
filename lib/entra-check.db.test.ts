@@ -152,6 +152,21 @@ describe.skipIf(!RUN)("checking Entra (database)", () => {
     expect(senders.email).toHaveBeenCalledTimes(1);
   });
 
+  test("Phase 53: a run keeps the app's enterprise app id, for the Entra link (a GUID only)", async () => {
+    const sp = "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE";
+    const withSp = (id: string) =>
+      runEntraCheck(ids.h, {
+        readAssignments: async (seen) => {
+          seen(id);
+          return new Map([[oid.mom.toLowerCase(), "ADULT" as const]]);
+        },
+      });
+    expect(await withSp(sp)).toMatchObject({ outcome: "ok", changed: 0, ended: 0 });
+    expect((await prisma.entraCheck.findUniqueOrThrow({ where: { householdId: ids.h } })).servicePrincipalId).toBe(sp.toLowerCase());
+    await withSp("not-a-guid");
+    expect((await prisma.entraCheck.findUniqueOrThrow({ where: { householdId: ids.h } })).servicePrincipalId).toBe(sp.toLowerCase());
+  });
+
   test("a run that would leave no admin who can sign in is refused whole", async () => {
     // Grandpa back, Dad no longer an admin: Grandpa is the only admin who can sign in.
     await prisma.person.update({ where: { id: ids.grandpa }, data: { entraAccessEndedAt: null } });

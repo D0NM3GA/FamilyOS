@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
-import { updateVehicle } from "../../actions";
+import { lookUpVin, updateVehicle } from "../../actions";
 import { VehicleForm } from "../../vehicle-form";
 import { requireAppOn } from "@/lib/app-guard";
 
@@ -24,11 +24,13 @@ export default async function EditVehiclePage({ params }: { params: Promise<{ id
           action={updateVehicle.bind(null, vehicle.id)}
           submitLabel="Save changes"
           cancelHref="/vehicles/manage"
+          lookUpVin={lookUpVin}
           defaults={{
             name: vehicle.name,
             make: vehicle.make,
             model: vehicle.model,
             year: vehicle.year,
+            vin: vehicle.vin,
             currentMileage: vehicle.currentMileage,
           }}
         />

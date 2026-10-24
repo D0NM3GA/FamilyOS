@@ -1,3 +1,4 @@
+import { cleanVin } from "@/lib/vin";
 import { createHash, randomUUID } from "node:crypto";
 import { canonicalizeTimeZone } from "@/lib/household-settings";
 import { APP_NAME_MAX, appNameLength, cleanAppName } from "@/lib/app-name";
@@ -579,6 +580,8 @@ export function remapBackup(
       ...r,
       id: req(vehicles, r.id),
       householdId,
+      // Phase 53: only a VIN that still reads as one.
+      vin: cleanVin(r.vin),
       mileageUpdatedAt: dateOrNull(r.mileageUpdatedAt),
       createdAt: date(r.createdAt),
     })),

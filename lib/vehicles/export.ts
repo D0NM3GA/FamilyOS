@@ -16,6 +16,8 @@ export const VEHICLE_EXPORTS: Record<string, CsvExport> = {
           { header: "Year", value: (r) => r.year },
           { header: "Make", value: (r) => r.make, freeText: true },
           { header: "Model", value: (r) => r.model, freeText: true },
+          // Phase 53. Exports are grown-ups' downloads (the Cars app is closed to kids).
+          { header: "VIN", value: (r) => r.vin },
           { header: "Odometer (mi)", value: (r) => r.currentMileage },
           { header: "Odometer updated", value: (r) => csvDateTime(r.mileageUpdatedAt) },
           { header: "Active", value: (r) => r.active },

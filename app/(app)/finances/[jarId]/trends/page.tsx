@@ -61,7 +61,7 @@ export default async function TrendsPage({ params, searchParams }: { params: Pro
     }),
     // Money from before the year shown: then its quiet first months are real, not "before the jar started".
     prisma.finTransaction.findFirst({ where: { ...usd, postedOn: { lt: from } }, select: { id: true } }),
-    prisma.finAccount.count({ where: { jarId: jar.id, NOT: { currency: "USD" } } }),
+    prisma.finAccount.count({ where: { jarId: jar.id, leftOut: false, NOT: { currency: "USD" } } }),
   ]);
   const shaped = rows.map((r) => ({
     amountCents: r.amountCents,

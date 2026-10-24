@@ -62,7 +62,7 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
           select: BUDGET_ROW,
         })
       : Promise.resolve([]),
-    prisma.finAccount.count({ where: { jarId: jar.id, NOT: { currency: "USD" } } }),
+    prisma.finAccount.count({ where: { jarId: jar.id, leftOut: false, NOT: { currency: "USD" } } }),
     from
       ? prisma.finTransaction.findMany({
           where: { jarId: jar.id, state: "ACTIVE", categoryId: { in: rolling }, postedOn: { gte: monthRange(from).gte, lt: monthRange(month).gte }, account: { currency: "USD" } },

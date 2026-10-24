@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { captureError } from "@/lib/observability";
 import { getAppName } from "@/lib/household-settings";
-import { alertMailbox, sendEmail } from "./email";
+import { alertMailbox, MailError, sendEmail } from "./email";
 import { teamsActivity, type TeamsCard } from "./teams";
 import { familyTeamsAppId, sendToPerson as sendTeamsToPerson } from "@/lib/teams/family-app";
 import { TeamsError } from "@/lib/teams/microsoft";
@@ -33,13 +33,13 @@ export type TeamsTo = { personId: string; aadObjectId: string };
 
 export type Senders = {
   teams: (teamsAppId: string, to: TeamsTo, title: string, link: string, card?: TeamsCard) => Promise<void>;
-  email: (to: string, title: string, link: string, appName: string, linkText?: string) => Promise<void>;
+  email: (to: string, title: string, link: string, appName: string, linkText: string | undefined, from: string) => Promise<void>;
   push: (sub: PushTarget, payload: PushPayload, vapid: Vapid) => Promise<PushOutcome>;
 };
 
 const defaultSenders: Senders = {
   teams: (appId, to, t, l, card) => sendTeamsToPerson(to.personId, to.aadObjectId, appId, teamsActivity(t, l, card)),
-  email: (to, t, l, appName, linkText) => sendEmail(to, t, l, appName, {}, linkText),
+  email: (to, t, l, appName, linkText, from) => sendEmail(from, to, t, l, appName, {}, linkText),
   push: (sub, payload, vapid) => sendPush(sub, payload, { vapid }),
 };
 
@@ -151,6 +151,7 @@ async function sendToPerson(
   r: Recipient,
   channels: Channel[],
   teamsAppId: string | null,
+  mailbox: string | null,
   title: string,
   path: string,
   appName: string,
@@ -172,7 +173,8 @@ async function sendToPerson(
         } else if (channel === "email") {
           const to = recipientEmail(r);
           if (!to) throw new ConfigError(`There's no email address for ${r.firstName}.`);
-          await senders.email(to, title, link, appName, card?.linkText);
+          if (!mailbox) throw new ConfigError("The alert mailbox isn't set up yet.");
+          await senders.email(to, title, link, appName, card?.linkText, mailbox);
         } else {
           await pushToDevices(r, { title: appName, body: title, path }, senders);
         }
@@ -180,7 +182,7 @@ async function sendToPerson(
         // Every sender throws fixed text only (never a URL, token or secret).
         error = message(err);
         // A Teams setup problem (a policy, an app not published yet) is the admins' to fix, not a fault.
-        const setup = err instanceof ConfigError || (err instanceof TeamsError && err.kind !== "failed");
+        const setup = err instanceof ConfigError || (err instanceof TeamsError && err.kind !== "failed") || (err instanceof MailError && err.problem !== "failed");
         if (!setup) captureError(new Error(`Alert delivery failed (${channel}): ${error}`));
       }
       out[channel] = error;
@@ -237,6 +239,7 @@ export async function deliverNotifications(where: Prisma.NotificationWhereInput,
     const keys = await getVapidState();
     const teamsAppId = await familyTeamsAppId(notes[0].householdId);
     const appName = await getAppName(notes[0].householdId);
+    const mailbox = await alertMailbox(notes[0].householdId);
 
     await Promise.allSettled(
       notes.map(async (n) => {
@@ -250,10 +253,10 @@ export async function deliverNotifications(where: Prisma.NotificationWhereInput,
         if (hasPhones && !keys.ok) await record(n.recipient.id, "push", pushProblem(keys));
         const channels: Channel[] = [];
         if (wantsTeams && teamsAppId) channels.push("teams");
-        if ((opts.channels === "prefs" && p?.emailEnabled) || (opts.alsoEmail && alertMailbox() !== null)) channels.push("email");
+        if ((opts.channels === "prefs" && p?.emailEnabled) || (opts.alsoEmail && mailbox !== null)) channels.push("email");
         if (hasPhones && keys.ok) channels.push("push");
         if (channels.length === 0) return Promise.resolve();
-        return sendToPerson(n.recipient, channels, teamsAppId, n.title, n.href, appName, senders, opts.card);
+        return sendToPerson(n.recipient, channels, teamsAppId, mailbox, n.title, n.href, appName, senders, opts.card);
       }),
     );
   } catch {
@@ -266,6 +269,7 @@ export async function sendTest(householdId: string, personId: string, channel: C
   const r = await prisma.person.findFirstOrThrow({ where: { id: personId, householdId }, select: recipientSelect });
   const teamsAppId = channel === "teams" ? await familyTeamsAppId(householdId) : null;
   const appName = await getAppName(householdId);
-  const out = await sendToPerson(r, [channel], teamsAppId, `Test from ${appName} — alerts are working! 🎉`, "/points#orders", appName, senders);
+  const mailbox = channel === "email" ? await alertMailbox(householdId) : null;
+  const out = await sendToPerson(r, [channel], teamsAppId, mailbox, `Test from ${appName} — alerts are working! 🎉`, "/points#orders", appName, senders);
   return out[channel] ?? null;
 }

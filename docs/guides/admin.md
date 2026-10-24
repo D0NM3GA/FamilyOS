@@ -116,7 +116,7 @@ image.
 | `BREAK_GLASS_LAN_IP` | The VM's home-network address | Section 14 |
 | `MICROSOFT_CLIENT_ID`, `_SECRET`, `_TENANT_ID` | From the Entra app registration | Optional; all three or none (a partial set stops the app at start) |
 | `OIDC_DISCOVERY_URL`, `_CLIENT_ID`, `_CLIENT_SECRET`, `_NAME` (and optional `OIDC_SCOPES`) | Your own identity provider | Optional; all four or none. Redirect address `<BETTER_AUTH_URL>/api/auth/callback/oidc` |
-| `ALERT_MAILBOX` | The shared mailbox alert emails come from | Optional (section 11) |
+| `ALERT_MAILBOX` | The shared mailbox alert emails come from, if it isn't set in Settings → Alerts | Optional (section 11) |
 | `FAMILY_CALENDAR_NAME` | The exact name of a calendar Home shows by default | Optional; each Microsoft grown-up can pick their own in Settings → Calendar on Home |
 | `DOCINTEL_ENDPOINT` | Azure Document Intelligence custom-subdomain endpoint | Optional, for receipt prices (README "Receipts") |
 | `BACKGROUND_JOBS` | Leave unset | On in production. `0` turns money syncs and alerts off |
@@ -195,7 +195,8 @@ Skip this whole section if the family signs in with passkeys only. Everything he
    `Application.Read.All` and `GroupMember.ReadBasic.All`, with admin consent. The app then asks
    Entra every half hour who's assigned: roles follow Entra, and someone taken off is signed out
    everywhere on the next check. Only a group's direct members count. Settings → Sign-in → **Check
-   now** runs it on demand.
+   now** runs it on demand, and **Change roles in Entra** (there after the first check) opens the
+   app's Users and groups page in the Entra admin center, where roles are given out.
 5. **Sign in every time** (recommended, needs Entra ID P1): a Conditional Access policy on the app
    with MFA and sign-in frequency **Every time**, so a "fresh sign-in" (needed for backups, PINs
    and invites) really asks for a password. Exact steps: README "Sign in every time".
@@ -320,7 +321,8 @@ On Settings → Sign-in, for each grown-up who signs in with a passkey (or OIDC)
 
 The app always keeps at least one admin who can sign in. Each change is logged, the person is
 always told, and other admins are told unless they switch that off in My notifications.
-Microsoft people are added, removed and given roles in Entra, not here.
+Microsoft people are added, removed and given roles in Entra, not here: **Change roles in Entra**
+on Settings → Sign-in goes straight to the right page, and changes show here at the next check.
 
 ### PINs
 
@@ -407,8 +409,12 @@ notifications** on their own phone.
   once. A money jar can pick one of a member's own group chats instead. Exact steps and
   troubleshooting: README "Teams".
 - **Email:** a shared mailbox and Exchange **RBAC for Applications** limiting the app to that one
-  mailbox (never the Graph `Mail.Send` application permission). Then `ALERT_MAILBOX` in
-  `familyos.env` (restart, section 15) and **Send a test**. Exact steps: README "Email".
+  mailbox (never the Graph `Mail.Send` application permission). Type the mailbox in Settings →
+  Alerts → **Email** (on your own sign-in; `ALERT_MAILBOX` in `familyos.env` is the fallback
+  when it's empty), then **Send a test**. Under **Let the app send from…** the page has the
+  Exchange PowerShell with your ids and the mailbox filled in, ready to copy. A failed test says
+  which problem it is: no such mailbox, a new mailbox that isn't ready yet, or Exchange not
+  letting the app send from it yet. Exact steps: README "Email".
 
 Money jars have their own alerts, which each member switches in the jar's Settings → Alerts for
 me. They never include amounts.

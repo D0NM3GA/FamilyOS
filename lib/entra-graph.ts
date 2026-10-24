@@ -81,13 +81,15 @@ const better = (a: EntraRole | undefined, b: EntraRole): EntraRole => (a === "AD
  * Entra object id (lowercase) → the best app role it gets (Admin over Adult). Kid, disabled
  * roles, the default-access role and anything unknown give nothing. Throws EntraGraphError.
  */
-export async function readEntraAssignments(deps: Deps = {}): Promise<Map<string, EntraRole>> {
+export async function readEntraAssignments(deps: Deps = {}, seen?: (servicePrincipalId: string) => void): Promise<Map<string, EntraRole>> {
   const d = { fetchFn: deps.fetchFn ?? fetch, token: deps.token ?? (() => getAppGraphToken()) };
   const clientId = deps.clientId ?? process.env.MICROSOFT_CLIENT_ID?.trim();
   if (!clientId || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(clientId)) throw new EntraGraphError("config");
 
   const sp = await get(`${GRAPH}/servicePrincipals(appId='${clientId}')?$select=id,appRoles`, d);
   if (typeof sp.id !== "string" || !Array.isArray(sp.appRoles)) throw new EntraGraphError("unexpected");
+  // Phase 53: the enterprise app's object id, kept for the Entra link and the mailbox steps.
+  seen?.(sp.id);
   const roleById = new Map<string, EntraRole>();
   for (const r of sp.appRoles as { id?: unknown; value?: unknown; isEnabled?: unknown }[]) {
     if (typeof r.id !== "string" || r.isEnabled === false) continue;

@@ -3,7 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { btnDanger } from "@/components/styles";
 import { ConfirmAction } from "@/components/submit";
-import { allowTeamsPublishing, disconnectTeams, publishTeamsApp, removeDevice, resetPhoneAlertKeys, sendTestAlert, setChannel, type AlertFormState } from "./actions";
+import { allowTeamsPublishing, disconnectTeams, publishTeamsApp, removeDevice, resetPhoneAlertKeys, sendTestAlert, setAlertMailbox, setChannel, type AlertFormState } from "./actions";
 
 const btn = "inline-flex min-h-11 items-center rounded-md px-3 py-1.5 text-sm font-medium ring-1 ring-input hover:bg-muted disabled:opacity-50 sm:min-h-9";
 
@@ -215,6 +215,59 @@ export function ResetPhoneKeysButton() {
         Make new phone-alert keys
       </ConfirmAction>
       <Messages state={msg} />
+    </div>
+  );
+}
+
+/** Phase 53: the mailbox alert email comes from. Empty uses the server's setting. */
+export function MailboxForm({ saved, fallback }: { saved: string | null; fallback: string | null }) {
+  const [state, action, pending] = useActionState<AlertFormState, FormData>(setAlertMailbox, {});
+  return (
+    <form action={action} className="space-y-2">
+      <label className="block text-sm">
+        <span className="font-medium text-foreground">Send alert email from</span>
+        <span className="mt-1 flex flex-wrap gap-2">
+          <input
+            name="mailbox"
+            type="email"
+            defaultValue={saved ?? ""}
+            placeholder={fallback ?? "alerts@example.com"}
+            maxLength={254}
+            autoComplete="off"
+            spellCheck={false}
+            className="min-h-11 min-w-0 flex-1 rounded-md bg-background px-3 py-1.5 text-sm ring-1 ring-input sm:min-h-9"
+          />
+          <button type="submit" disabled={pending} className={btn}>
+            {pending ? "Saving…" : "Save"}
+          </button>
+        </span>
+      </label>
+      <Messages state={state} />
+    </form>
+  );
+}
+
+/** The Exchange PowerShell, filled in, with a copy button. */
+export function CopyCommands({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="space-y-2">
+      <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs text-foreground">{text}</pre>
+      <button
+        type="button"
+        className={btn}
+        onClick={() =>
+          navigator.clipboard?.writeText(text).then(
+            () => setCopied(true),
+            () => setCopied(false),
+          )
+        }
+      >
+        {copied ? "Copied" : "Copy the commands"}
+      </button>
+      <span role="status" className="sr-only">
+        {copied ? "The commands are copied." : ""}
+      </span>
     </div>
   );
 }

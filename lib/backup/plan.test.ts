@@ -134,7 +134,7 @@ function fullBackup(): Backup {
   b.medications = [
     { id: "m1", taskDefinitionId: "def1", quantityOnHand: 30, doseAmount: 1, refillThresholdQuantity: 5, prescriberId: "doc", pharmacyId: null },
   ];
-  b.vehicles = [{ id: "v1", name: "Van", make: null, model: null, year: null, currentMileage: 100, mileageUpdatedAt: T, active: true, createdAt: T }];
+  b.vehicles = [{ id: "v1", name: "Van", make: null, model: null, year: null, vin: null, currentMileage: 100, mileageUpdatedAt: T, active: true, createdAt: T }];
   b.maintenanceItems = [
     { id: "mi1", vehicleId: "v1", title: "Oil", notes: null, intervalMiles: 5000, intervalMonths: null, lastDoneMileage: null, lastDoneAt: null, active: true, createdAt: T },
   ];

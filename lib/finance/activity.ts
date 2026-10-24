@@ -56,16 +56,20 @@ export function monthSteps(month: string, today: string): { older: string | null
   };
 }
 
-/** The rows the viewer may see in this jar under these filters (a null month: every month). */
+/**
+ * The rows the viewer may see in this jar under these filters (a null month: every month).
+ * `leftOut` also lists the rows of accounts left out of the jar (IGNORED, Phase 53): the page
+ * shows them, marked; the spreadsheet and the counts behind totals don't.
+ */
 export function activityWhere(
   jarId: string,
   viewerId: string,
   today: string,
-  f: { month: string | null; account?: string | null; category?: string | null },
+  f: { month: string | null; account?: string | null; category?: string | null; leftOut?: boolean },
 ): Prisma.FinTransactionWhereInput {
   return {
     jarId,
-    state: "ACTIVE",
+    state: f.leftOut ? { in: ["ACTIVE", "IGNORED"] } : "ACTIVE",
     ...visibleToWhere(viewerId, today),
     ...(f.account ? { accountId: f.account } : {}),
     ...(f.category === "none" ? { categoryId: null } : f.category ? { categoryId: f.category } : {}),

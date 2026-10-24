@@ -4,8 +4,9 @@ import { formatFullDate, formatISODate } from "@/lib/vehicles/format";
 import type { Recall } from "@/lib/vehicles/nhtsa";
 import { acknowledgeRecall, unacknowledgeRecall } from "@/app/(app)/vehicles/actions";
 import { SmallActionButton } from "./small-action-button";
+import { VinRecallCheck } from "./vin-recall-check";
 
-type Vehicle = { id: string; householdId: string; year: number | null; make: string | null; model: string | null };
+type Vehicle = { id: string; householdId: string; year: number | null; make: string | null; model: string | null; vin?: string | null };
 
 /**
  * The detail page's NHTSA recalls section — async, rendered inside <Suspense> so the rest
@@ -32,20 +33,31 @@ export async function RecallsSection({
     </>
   ) : null;
 
+  // Phase 53: the VIN check doesn't need the model list, so it shows whatever NHTSA said.
+  const withVin = (note: React.ReactNode) =>
+    vehicle.vin ? (
+      <div className="space-y-3">
+        {note}
+        <VinRecallCheck vin={vehicle.vin} />
+      </div>
+    ) : (
+      note
+    );
+
   switch (recalls.status) {
     case "not-configured":
-      return <Note>Add the year, make, and model to check for NHTSA safety recalls.{editLink}</Note>;
+      return withVin(<Note>Add the year, make, and model to check for NHTSA safety recalls.{editLink}</Note>);
     case "unavailable":
-      return <Note>Couldn&apos;t reach NHTSA to check recalls right now — try again later.</Note>;
+      return withVin(<Note>Couldn&apos;t reach NHTSA to check recalls right now — try again later.</Note>);
     case "unknown-make":
-      return (
+      return withVin(
         <Note tone="warn">
           NHTSA doesn&apos;t recognize the make &ldquo;{vehicle.make}&rdquo; for {vehicle.year}, so recalls
           couldn&apos;t be checked.{editLink}
-        </Note>
+        </Note>,
       );
     case "unknown-model":
-      return (
+      return withVin(
         <Note tone="warn">
           NHTSA doesn&apos;t list a {vehicle.year} {vehicle.make} &ldquo;{vehicle.model}&rdquo;, so recalls
           couldn&apos;t be checked — NHTSA uses its own model names.
@@ -53,7 +65,7 @@ export async function RecallsSection({
             <> Did you mean: {recalls.suggestions.map((s) => `“${s}”`).join(", ")}?</>
           )}
           {editLink}
-        </Note>
+        </Note>,
       );
   }
 
@@ -110,6 +122,7 @@ export async function RecallsSection({
         Recalls are listed by model, not by your specific car — &ldquo;Mark handled&rdquo; is the family&apos;s own
         note that it&apos;s been fixed or doesn&apos;t apply. Source: NHTSA.
       </p>
+      {vehicle.vin && <VinRecallCheck vin={vehicle.vin} />}
     </div>
   );
 }

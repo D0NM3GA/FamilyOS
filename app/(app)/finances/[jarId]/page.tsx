@@ -7,6 +7,7 @@ import { ensureCategories, organizeJar } from "@/lib/finance/organize";
 import { formatMoney } from "@/lib/money";
 import { todayCivil } from "@/lib/finance/budget";
 import { findCategoryByKey } from "@/lib/finance/categories";
+import { leftOutAccountIds } from "@/lib/finance/left-out";
 import { ACTIVITY_MONTH_LIMIT, activityFilters, activityHref, activityWhere, monthSteps } from "@/lib/finance/activity";
 import { isUnrevealed, MAX_REVEAL_DAYS, visibleIssueWhere } from "@/lib/finance/gifts";
 import { orderItems, ordersOnCharges, RETAILER_NAME, unmatchedOrders, type OrderView } from "@/lib/finance/order-mail/orders";
@@ -62,12 +63,13 @@ export default async function JarPage({
   // Rows from before categories existed get tidied once (later rows are tidied on arrival).
   if (await prisma.finTransaction.count({ where: { jarId: jar.id, merchantKey: "" } })) await organizeJar(jar.id);
 
-  const [accounts, issues, connections, categories, members] = await Promise.all([
+  const [accounts, issues, connections, categories, members, leftOut] = await Promise.all([
     prisma.finAccount.findMany({ where: { jarId: jar.id }, orderBy: [{ source: "asc" }, { name: "asc" }] }),
     prisma.reconcileIssue.count({ where: { jarId: jar.id, resolvedAt: null, ...visibleIssueWhere(viewer.id, today) } }),
     prisma.jarConnection.findMany({ where: { jarId: jar.id }, select: { lastError: true } }),
     prisma.finCategory.findMany({ where: { jarId: jar.id }, orderBy: { sortOrder: "asc" }, select: { id: true, key: true, absorbedKeys: true, name: true, emoji: true } }),
     prisma.moneyJarMember.findMany({ where: { jarId: jar.id }, select: { personId: true, person: { select: { firstName: true } } } }),
+    leftOutAccountIds(jar.id),
   ]);
   const shownAccount = accounts.find((a) => a.id === asked.account) ?? null;
   const shownCategory = asked.category === "none" ? "none" : (categories.find((c) => c.id === asked.category) ?? null);
@@ -80,7 +82,7 @@ export default async function JarPage({
 
   const [found, counts] = await Promise.all([
     prisma.finTransaction.findMany({
-      where: activityWhere(jar.id, viewer.id, today, filters),
+      where: activityWhere(jar.id, viewer.id, today, { ...filters, leftOut: true }),
       orderBy: [{ postedOn: "desc" }, { createdAt: "desc" }],
       take: ACTIVITY_MONTH_LIMIT + 1,
       select: {
@@ -94,6 +96,7 @@ export default async function JarPage({
         memo: true,
         privacyCardMemo: true,
         pending: true,
+        state: true,
         categoryId: true,
         categorySource: true,
         purchaseId: true,
@@ -107,7 +110,7 @@ export default async function JarPage({
     // How many rows each category has this month (under the account filter), for the chips.
     prisma.finTransaction.groupBy({
       by: ["categoryId"],
-      where: activityWhere(jar.id, viewer.id, today, { month: filters.month, account: filters.account }),
+      where: activityWhere(jar.id, viewer.id, today, { month: filters.month, account: filters.account, leftOut: true }),
       _count: { _all: true },
     }),
   ]);
@@ -127,7 +130,7 @@ export default async function JarPage({
           householdId: viewer.householdId,
           purchasedById: { in: members.map((m) => m.personId) },
           // Not a trip another charge in this jar already has.
-          finTransactions: { none: { jarId: jar.id, state: "ACTIVE" } },
+          finTransactions: { none: { jarId: jar.id, state: { in: ["ACTIVE", "IGNORED"] } } },
           purchasedAt: {
             gte: new Date(Math.min(...needsTrip.map((t) => t.postedOn.getTime())) - 7 * DAY),
             lte: new Date(Math.max(...needsTrip.map((t) => t.postedOn.getTime())) + 7 * DAY),
@@ -192,6 +195,7 @@ export default async function JarPage({
                   {a.source === "MANUAL" ? "from statements" : "bank feed"}
                 </span>
                 <span className="font-extrabold break-words">{a.name}</span>
+                {leftOut.has(a.id) && <span className="text-xs font-bold text-muted-foreground">Left out of the totals</span>}
                 <span className="text-2xl font-extrabold">{a.balanceCents != null ? formatMoney(a.balanceCents, a.currency) : "—"}</span>
                 {a.balanceAt && <span className="text-xs text-muted-foreground">as of {a.balanceAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
               </Link>
@@ -265,11 +269,11 @@ export default async function JarPage({
               groceries && t.categoryId === groceries.id && !t.purchaseId && t.amountCents < 0
                 ? trips.filter((p) => Math.abs(p.purchasedAt.getTime() - t.postedOn.getTime()) <= 7 * DAY)
                 : [];
-            const meta = [t.pending ? "pending" : null, shownAccount ? null : t.account.name].filter(Boolean).join(" · ");
+            const meta = [t.state === "IGNORED" ? "left out" : null, t.pending ? "pending" : null, shownAccount ? null : t.account.name].filter(Boolean).join(" · ");
             return (
               <li key={t.id}>
                 <TxnSheet
-                  label={`${utcDay(t.postedOn)}, ${name}, ${amount}, ${cat ? cat.name : "no category"}${t.pending ? ", pending" : ""}${surprise ? ", a surprise" : ""}`}
+                  label={`${utcDay(t.postedOn)}, ${name}, ${amount}, ${cat ? cat.name : "no category"}${t.pending ? ", pending" : ""}${t.state === "IGNORED" ? ", left out" : ""}${surprise ? ", a surprise" : ""}`}
                   title={name}
                   summary={
                     <>
@@ -305,6 +309,7 @@ export default async function JarPage({
                       {longDay(t.postedOn)} · {t.account.name}
                       {t.pending && " · pending"}
                     </p>
+                    {t.state === "IGNORED" && <p className="text-xs text-muted-foreground">Its account is left out of this jar, so it isn&apos;t in any total.</p>}
                     {t.privacyCardMemo && <p className="break-words">🔒 Privacy.com card: {t.privacyCardMemo}</p>}
                     {t.description !== name && <p className="text-xs break-words text-muted-foreground">The bank says: {t.description}</p>}
                     {t.memo && <p className="text-xs break-words text-muted-foreground">Memo: {t.memo}</p>}

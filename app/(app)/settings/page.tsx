@@ -84,7 +84,7 @@ export default async function SettingsPage() {
     look: look ? { appName: look.appName, rewardMany: look.reward.many, mascot: look.mascot.on ? look.mascot.name : null } : { appName: "", rewardMany: "", mascot: null },
     appsHidden: household ? cleanDisabledApps(household.disabledApps).length : 0,
     alertsTeams: Boolean(alerts?.teamsAppId) && alertChannels.some((p) => p.teamsEnabled),
-    alertsEmail: Boolean(alertMailbox()) && alertChannels.some((p) => p.emailEnabled),
+    alertsEmail: Boolean(await alertMailbox(profile.householdId)) && alertChannels.some((p) => p.emailEnabled),
     outlookOn: adult && calendarOn && microsoftEnabled(),
     outlookSync: outlookSync ? { error: Boolean(outlookSync.lastError) } : null,
     lastBackup: lastBackup ? { at: lastBackup.createdAt, label: formatRelative(lastBackup.createdAt) } : null,

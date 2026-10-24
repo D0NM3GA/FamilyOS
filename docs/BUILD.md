@@ -923,6 +923,48 @@ shows its guess on 5 rows before anything is saved (the owner's call: every CSV,
   still makes new ids (the hash includes the amount and day), which the undo covers.
 - Row ids are the same as Phase 25's CSV reader, so a file imported before adds nothing now.
 
+## Phase 53 — Smaller setup fixes
+
+Four things that sent an admin to a manual or a terminal.
+
+- **A car from its VIN.** `lib/vin.ts` (shared, so the backup restore may use it) checks the
+  shape, and the check digit only for North American VINs (first character 1 to 5).
+  `lib/vehicles/vpic.ts` decodes with NHTSA's vPIC (`DecodeVinValues`, no key, a 4 s timeout, ten
+  minutes without trying after a failure, never cached since the VIN is in the address, which
+  Sentry treats as private). `ErrorCode` is read as a list: "0" alone is clean, a make with other
+  codes is partial (said in words), no make is unreadable. The scanner reads Code 39, Code 128,
+  Data Matrix and QR with the Groceries decoder, and takes a VIN read the same twice in a row; the
+  camera helpers moved to `components/camera.ts` (the domain-boundary rule). `Vehicle.vin` is in
+  backups and the vehicle CSV. Cars is grown-ups only on the server already (`lib/apps.ts`), so
+  the scope's note that the Garage is open to kids was wrong: no extra rule was needed. NHTSA has
+  no API for open recalls by VIN, so the recall card copies the VIN and links to NHTSA's page,
+  whatever the by-model list says.
+- **Bank feed.** SimpleFIN's `errlist` (protocol 2.0) is read beside the older `errors`, codes in
+  words (`errlistWords`): `con.auth` says to sign in again at SimpleFIN Bridge. **Leave out** an
+  account (`lib/finance/left-out.ts`, the owner's answer 2): `FinAccount.leftOut` (on the account,
+  not the connection, so backups carry it; Fable's review) makes the sync skip it, both before
+  the sync and again inside each account's transaction, under that row's lock, for one left out
+  mid-sync. It stops counting as spending money, and its ACTIVE rows become IGNORED, a state
+  every total already leaves out. Activity alone asks for IGNORED rows too (`activityWhere`'s
+  `leftOut`) and marks them; the spreadsheet doesn't. Net worth and the "not in US dollars" counts
+  leave the account out. A statement can't be imported into it (its rows would count). Its
+  orders and grocery trips stay linked (only DUPLICATE and SUPERSEDED rows let an order go).
+  **Bring it back** turns IGNORED rows back to ACTIVE (only this feature makes IGNORED) and
+  syncs; Safe to spend stays off until it's ticked again, which the question says. Logged in the
+  jar's history (`ACCOUNT_LEFT_OUT`). The connect card is three numbered steps with a link to
+  SimpleFIN Bridge.
+- **The alert mailbox in Settings** (the owner's answer 3): `Household.alertMailbox` wins,
+  `ALERT_MAILBOX` is the fallback (`pickAlertMailbox`), and the page says so once. Set by an admin
+  on their own sign-in, logged as a sign-in event (`ALERT_MAILBOX_SET`, Recent changes). Kept out
+  of household backups: it's install wiring, like the env value, and a restore onto another
+  tenant shouldn't send from the old mailbox. sendMail failures are told apart by Graph's error
+  code (`MailError`): no mailbox, not ready yet, sign-in, Exchange access; setup problems aren't
+  reported to Sentry. The page shows the Exchange PowerShell filled in (`lib/microsoft-admin.ts`;
+  only GUIDs and a plain address go into it).
+- **Entra link.** The Entra check keeps the app's enterprise app object id
+  (`EntraCheck.servicePrincipalId`, a GUID only, written each run) so Settings → Sign-in links to
+  the app's Users and groups page without calling Graph to draw it.
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with

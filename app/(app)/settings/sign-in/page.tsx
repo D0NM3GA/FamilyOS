@@ -16,6 +16,7 @@ import { InviteForm } from "./invite-form";
 import { ResetPasskeys } from "./reset-passkeys";
 import { changeRoleAction, checkEntraNow, removeSignInAction, resetPasskeysAction, revokeInviteAction } from "./actions";
 import { ENTRA_OUTCOME_WORDS, entraCheckStatus } from "@/lib/entra-check";
+import { entraUsersAndGroupsUrl } from "@/lib/microsoft-admin";
 import { SubmitButton } from "@/components/submit";
 import { btn } from "@/components/styles";
 
@@ -72,6 +73,8 @@ export default async function SignInSettingsPage({ searchParams }: { searchParam
   // "Check now" asks for a sign-in from the last 15 minutes, like its action (it ends no new way in).
   const recent = entra !== null && (await signedInRecently());
   const microsoft = microsoftEnabled();
+  // Phase 53: straight to where the app's roles are given out (its id kept by the last check).
+  const rolesUrl = entra ? entraUsersAndGroupsUrl(entra.servicePrincipalId, process.env.MICROSOFT_CLIENT_ID?.trim()) : null;
   // Phase 40.3: the ways in, in a sentence (the owner's call: providers live in .env).
   const ways = [microsoft ? "Microsoft" : null, provider?.name ?? null, "a passkey"].filter(Boolean) as string[];
   const waysText = ways.length === 1 ? ways[0] : `${ways.slice(0, -1).join(", ")} or ${ways.at(-1)}`;
@@ -106,14 +109,22 @@ export default async function SignInSettingsPage({ searchParams }: { searchParam
               : "Entra hasn't been checked yet."}{" "}
             Every half hour the app asks Entra who&apos;s assigned to it: roles follow Entra, and anyone no longer assigned is
             signed out until Entra gives them a role again.
+            {rolesUrl && " Change who has which role in Entra; it shows here at the next check."}
           </p>
-          {recent && (
-            <form action={checkEntraNow}>
-              <SubmitButton className={btn} pendingText="Checking…">
-                Check now
-              </SubmitButton>
-            </form>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {rolesUrl && (
+              <a href={rolesUrl} target="_blank" rel="noopener noreferrer" className={btn}>
+                Change roles in Entra ↗
+              </a>
+            )}
+            {recent && (
+              <form action={checkEntraNow}>
+                <SubmitButton className={btn} pendingText="Checking…">
+                  Check now
+                </SubmitButton>
+              </form>
+            )}
+          </div>
         </section>
       )}
 

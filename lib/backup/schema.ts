@@ -234,6 +234,8 @@ const vehicle = z.object({
   make: nullableText,
   model: nullableText,
   year: int.nullable(),
+  // Phase 53: absent in older files.
+  vin: nullableText.default(null),
   currentMileage: int,
   mileageUpdatedAt: nullableIso,
   active: z.boolean(),

@@ -72,7 +72,8 @@ export async function claimSetupToken(token: string, fetchFn: typeof fetch = fet
   }
   if (res.status === 403) {
     void res.body?.cancel().catch(() => {});
-    throw new SimpleFinError("That setup token has already been used. Make a new one at SimpleFIN.", "used");
+    // Phase 53: SimpleFIN's advice: a token you didn't use yourself may have been seen by someone.
+    throw new SimpleFinError("That setup token has already been used. If you didn't use it yourself, someone else may have: make a new one at SimpleFIN Bridge and check your connections there.", "used");
   }
   if (!res.ok) {
     void res.body?.cancel().catch(() => {});
@@ -115,6 +116,12 @@ const accountSchema = z.object({
 
 const responseSchema = z.object({
   errors: z.array(z.string().transform((s) => s.slice(0, 200))).optional().default([]),
+  // Phase 53: protocol 2.0's structured errors (the `errors` list above is the older form).
+  errlist: z
+    .array(z.object({ code: z.string().max(40).optional().default(""), msg: z.string().optional().default("") }).passthrough())
+    .max(50)
+    .optional()
+    .default([]),
   accounts: z.array(accountSchema).max(200).optional().default([]),
 });
 
@@ -143,6 +150,19 @@ export type SfAccount = {
 /** UTC civil day of an epoch-seconds timestamp. Bank dates are midnight UTC. */
 export function utcDay(epochSeconds: number): string {
   return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * Phase 53: one of SimpleFIN's structured errors in words. Codes are dotted, most specific last
+ * (`con.auth`); an unknown one falls back to its prefix, then to SimpleFIN's own message.
+ */
+export function errlistWords(code: string, msg: string): string {
+  const c = code.trim().toLowerCase();
+  if (c === "con.auth") return "A bank needs you to sign in again at SimpleFIN Bridge.";
+  if (c === "gen.auth") return "SimpleFIN didn't accept this connection. Connect it again with a new setup token.";
+  if (c.startsWith("act.")) return "SimpleFIN couldn't update an account just now; it'll try again.";
+  if (c.startsWith("con.")) return "SimpleFIN couldn't reach a bank just now; it'll try again.";
+  return (msg.trim() || "SimpleFIN reported a problem.").slice(0, 200);
 }
 
 /** Validates and normalizes a /accounts response. Rows with an unusable amount are dropped. */
@@ -176,7 +196,8 @@ export function parseAccounts(json: unknown, now: Date = new Date()): { accounts
       ];
     }),
   }));
-  return { accounts, messages: parsed.data.errors.map((e) => e.slice(0, 200)) };
+  const structured = parsed.data.errlist.map((e) => errlistWords(e.code, e.msg));
+  return { accounts, messages: [...new Set([...structured, ...parsed.data.errors.map((e) => e.slice(0, 200))])] };
 }
 
 /** GET /accounts for a window (≤ 90 days, SimpleFIN's limit), pending included. */

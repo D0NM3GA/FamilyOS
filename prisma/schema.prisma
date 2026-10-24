@@ -37,6 +37,9 @@ model Household {
   /// Phase 52: how a statement file's ambiguous dates (03/10/2026) are read when the file itself
   /// can't tell: AUTO follows where the household is (month first in the US). Admins change it.
   statementDateOrder StatementDateOrder @default(AUTO)
+  /// Phase 53: the shared mailbox alert emails come from, set in Settings → Alerts. Overrides
+  /// ALERT_MAILBOX, which stays the fallback. Exchange RBAC limits the app to that mailbox.
+  alertMailbox String?
   /// IANA zone name (e.g. "America/New_York"), set at setup and in /settings/household. Phase
   /// 49: the server process runs in this zone (lib/household-zone.ts), so "today", due dates and
   /// every date the server prints follow it. Null means not set yet: the deploy's TZ is used.
@@ -686,6 +689,8 @@ enum SignInEventKind {
   /// 42.7: the break-glass entrance was switched on, or went off (switched off or ran out).
   BREAK_GLASS_ON
   BREAK_GLASS_OFF
+  /// 53: an admin set or cleared the mailbox alert email comes from (detail: the address).
+  ALERT_MAILBOX_SET
 }
 
 /// Phase 40.4: the scheduled check of who Entra assigns to the app (lib/entra-check.ts), one per
@@ -699,6 +704,9 @@ model EntraCheck {
   /// The last run that read Entra completely and applied (or had nothing to apply).
   lastOkAt    DateTime?
   outcome     String?
+  /// Phase 53: the app's service principal (its enterprise app's object id), kept by each run,
+  /// for the "Change roles in Entra" link and the Exchange setup commands.
+  servicePrincipalId String?
   updatedAt   DateTime  @updatedAt
 
   @@map("entra_check")
@@ -821,11 +829,15 @@ model Vehicle {
   householdId String
   household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  /// A nickname, not a VIN/plate — "Mom's minivan", not a formal identifier.
+  /// A nickname, not a plate — "Mom's minivan", not a formal identifier.
   name  String
   make  String?
   model String?
   year  Int?
+  /// Phase 53: the Vehicle Identification Number (17 characters, upper case), typed or scanned;
+  /// decoded by NHTSA's vPIC to fill make, model and year. Personal: shown to grown-ups only,
+  /// never logged. In backups and the vehicle export.
+  vin   String?
 
   currentMileage   Int       @default(0)
   mileageUpdatedAt DateTime?
@@ -1772,6 +1784,9 @@ model FinAccount {
   balanceAt  DateTime?
   /// Phase 32: day-to-day spending money (checking): Safe to spend counts these balances.
   spending   Boolean   @default(false)
+  /// Phase 53: left out of this jar by a member (lib/finance/left-out.ts): the sync brings
+  /// nothing more from it, and its rows (IGNORED) stay but leave the totals. In backups.
+  leftOut    Boolean   @default(false)
   /// Phase 52: the column choices a person confirmed for this account's statement files, keyed
   /// by the file's layout (lib/finance/statement-columns.ts layoutKey). Not money: not in backups.
   importLayouts Json   @default("{}")
@@ -2133,6 +2148,7 @@ enum JarEventKind {
   ROLLOVER_SET
   GOAL_SET
   ACCOUNTS_SET
+  ACCOUNT_LEFT_OUT
   CUSHION_SET
   BILL_ADDED
   BILL_CHANGED

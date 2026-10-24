@@ -11,6 +11,7 @@ import { verifyKey, PrivacyError } from "@/lib/finance/privacy";
 import { checkStatement as checkStatementFile, importStatementFile, removeImport, type StatementCheck } from "@/lib/finance/statement-import";
 import { resolveIssue, saveConnection } from "@/lib/finance/sync";
 import { scheduleJarSync } from "@/lib/finance/schedule";
+import { setAccountLeftOut } from "@/lib/finance/left-out";
 import { organizeJar } from "@/lib/finance/organize";
 import { civilDate, giftGroup, isUnrevealed, parseGiftForm, spreadGiftMarks, visibleOrderWhere, visibleToWhere } from "@/lib/finance/gifts";
 import { shiftMonth, todayCivil } from "@/lib/finance/budget";
@@ -210,7 +211,8 @@ export async function checkStatement(jarId: string, formData: FormData): Promise
   const bytes = await statementBytes(formData);
   if (typeof bytes === "string") return { kind: "error", error: bytes };
   const accountId = String(formData.get("accountId") ?? "");
-  const account = accountId ? await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id }, select: { id: true } }) : null;
+  const account = accountId ? await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id }, select: { id: true, leftOut: true } }) : null;
+  if (account?.leftOut) return { kind: "error", error: "That account is left out of this jar. Bring it back first (Bank feed, above)." };
   return checkStatementFile(jar.householdId, account?.id ?? null, bytes, sentChoices(formData));
 }
 
@@ -222,8 +224,10 @@ export async function importStatement(jarId: string, formData: FormData): Promis
 
   let accountId = String(formData.get("accountId") ?? "");
   if (accountId) {
-    const account = await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id }, select: { id: true } });
+    const account = await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id }, select: { id: true, leftOut: true } });
     if (!account) return { error: "Pick one of this jar's accounts." };
+    // Phase 53: its rows would count while the account doesn't.
+    if (account.leftOut) return { error: "That account is left out of this jar. Bring it back first (Bank feed, above)." };
   } else {
     const name = nameSchema.safeParse(formData.get("newAccount"));
     if (!name.success) return { error: "Pick an account, or name a new one." };
@@ -689,6 +693,20 @@ export async function setSpendingAccounts(jarId: string, _prev: FormState, formD
   await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "ACCOUNTS_SET", data: { count: ids.length } });
   revalidatePath(jarPath(jar.id), "layout");
   return { ok: ids.length ? "Saved. Safe to spend is on the Bills tab." : "Saved. No spending accounts: Safe to spend is off." };
+}
+
+/**
+ * Phase 53: leave a bank-feed account out of the jar, or bring it back (lib/finance/left-out.ts).
+ * The page asks first: leaving it out takes its rows out of every total.
+ */
+export async function setLeftOut(jarId: string, accountId: string, out: boolean): Promise<void> {
+  const { jar, viewer } = await requireJar(jarId);
+  const account = await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id, source: "SIMPLEFIN" }, select: { name: true } });
+  if (!account || !(await setAccountLeftOut(jar.id, accountId, out))) return;
+  await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "ACCOUNT_LEFT_OUT", data: { name: account.name.slice(0, 60), out } });
+  revalidatePath(jarPath(jar.id), "layout");
+  // Bringing it back: the next sync fills in what came while it was out.
+  if (!out) await scheduleJarSync(jar.id, { force: true });
 }
 
 /** "Keep at least $X in checking": Safe to spend leaves it alone. Empty or 0 takes it off. */

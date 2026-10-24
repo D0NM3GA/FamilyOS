@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { checkVin } from "@/lib/vin";
+import { decodeVin, type VinDecode } from "@/lib/vehicles/vpic";
 import { requireAdult } from "@/lib/authz";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { parseLocalDate } from "@/lib/vehicles/dates";
@@ -49,6 +51,10 @@ const vehicleSchema = z.object({
 });
 
 function parseVehicleForm(formData: FormData) {
+  // Phase 53: a VIN is optional; one that's there must read as a VIN.
+  const vinRaw = String(formData.get("vin") ?? "").trim().slice(0, 40);
+  const vin = vinRaw ? checkVin(vinRaw) : null;
+  if (vin && !vin.ok) return { error: vin.error } as const;
   const yearRaw = String(formData.get("year") ?? "").trim();
   const makeRaw = String(formData.get("make") ?? "").trim();
   const modelRaw = String(formData.get("model") ?? "").trim();
@@ -65,7 +71,7 @@ function parseVehicleForm(formData: FormData) {
   }
 
   const { make, model, year, ...rest } = parsed.data;
-  return { fields: { ...rest, make: make ?? null, model: model ?? null, year: year ?? null } } as const;
+  return { fields: { ...rest, make: make ?? null, model: model ?? null, year: year ?? null, vin: vin?.ok ? vin.vin : null } } as const;
 }
 
 export async function createVehicle(
@@ -639,4 +645,13 @@ export async function unacknowledgeRecall(vehicleId: string, campaignNumber: str
 
   revalidatePath("/(app)/vehicles", "layout");
   revalidatePath("/");
+}
+
+/**
+ * Phase 53: "Look it up": the VIN decoded by NHTSA's vPIC, for the form to fill in (each field
+ * stays editable). Grown-ups only, like the form; the VIN is never logged.
+ */
+export async function lookUpVin(vin: string): Promise<VinDecode> {
+  await requireAdult();
+  return decodeVin(typeof vin === "string" ? vin.slice(0, 40) : "");
 }

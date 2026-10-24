@@ -2,12 +2,13 @@ import Link from "next/link";
 import { isSessionOwner, requireActiveProfile } from "@/lib/active-profile";
 import { isAdmin } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
-import { alertMailbox } from "@/lib/alerts/email";
+import { pickAlertMailbox, serverAlertMailbox } from "@/lib/alerts/email";
+import { mailboxPowerShell } from "@/lib/microsoft-admin";
 import { pushProblem, recipientEmail, teamsRecipient } from "@/lib/alerts/dispatch";
 import { familyTeamsApp, teamsBotAppId } from "@/lib/teams/family-app";
 import { listAlertTargets } from "@/lib/alerts/targets";
 import { formatRelative } from "@/lib/format";
-import { DisconnectTeamsButton, PersonChannel, PersonPhones, ResetPhoneKeysButton, TeamsAppButtons } from "./controls";
+import { CopyCommands, DisconnectTeamsButton, MailboxForm, PersonChannel, PersonPhones, ResetPhoneKeysButton, TeamsAppButtons } from "./controls";
 import { ThisDevice } from "./this-device";
 import { getVapidState } from "@/lib/alerts/vapid";
 import { RewardWord } from "@/components/family-look";
@@ -26,16 +27,21 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
   if (!isAdmin(profile)) {
     return <p className="p-4 text-muted-foreground sm:p-6">Only admins can change the family&apos;s alerts.</p>;
   }
-  const [link, people, owner] = await Promise.all([
+  const [link, people, owner, household, entra] = await Promise.all([
     prisma.householdAlerts.findUnique({
       where: { householdId: profile.householdId },
       select: { updatedBy: { select: { firstName: true } } },
     }),
     listAlertTargets(profile.householdId),
     isSessionOwner(profile),
+    prisma.household.findUniqueOrThrow({ where: { id: profile.householdId }, select: { alertMailbox: true } }),
+    prisma.entraCheck.findUnique({ where: { householdId: profile.householdId }, select: { servicePrincipalId: true } }),
   ]);
   // Null without Microsoft too (Phase 40.1b): alert email goes through its app registration.
-  const mailbox = alertMailbox();
+  const mailbox = pickAlertMailbox(household.alertMailbox);
+  const fallback = serverAlertMailbox();
+  // Phase 53: the Exchange steps, filled in once the Entra check has seen the app's object id.
+  const commands = mailbox ? mailboxPowerShell(process.env.MICROSOFT_CLIENT_ID?.trim(), entra?.servicePrincipalId, mailbox) : null;
   // Only the public key goes to the browser (it's what subscriptions are made with).
   // Phase 45.2: the server's own keys unless `.env` has some; a problem is said in words here.
   const keys = await getVapidState();
@@ -109,13 +115,46 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
         )}
       </section>
 
+      {microsoftEnabled() && (
+        <section className="space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+          <h2 className="text-base font-semibold">Email</h2>
+          <p className="text-sm text-muted-foreground">
+            Alert email comes from a shared mailbox in your Microsoft 365, which Exchange lets the app send from and nothing else.
+            {fallback ? ` Leave it empty to use the server's setting (${fallback}).` : ""}
+          </p>
+          {owner ? (
+            <MailboxForm saved={household.alertMailbox} fallback={fallback} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {mailbox ? `Emails come from ${mailbox}. ` : ""}Use the app on your own sign-in to change the mailbox.
+            </p>
+          )}
+          {mailbox && (
+            <details className="text-sm">
+              <summary className="cursor-pointer font-medium text-foreground">Let the app send from {mailbox}</summary>
+              <div className="mt-2 space-y-2 text-muted-foreground">
+                <p>
+                  Once, by a Microsoft 365 admin: in Exchange Online PowerShell, run these. The last line should show Application
+                  Mail.Send as InScope: True. Exchange can take up to two hours to apply them; then Send a test below.
+                </p>
+                {commands ? (
+                  <CopyCommands text={commands} />
+                ) : (
+                  <p>The commands appear here once the app has checked Entra (Settings → Sign-in → Check now). README, Alerts, has them too.</p>
+                )}
+              </div>
+            </details>
+          )}
+        </section>
+      )}
+
       <section className="space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
         <h2 className="text-base font-semibold">Who gets alerts</h2>
         <p className="text-sm text-muted-foreground">
           {mailbox
             ? `Emails come from ${mailbox}.`
             : microsoftEnabled()
-              ? "Email isn't available yet: the alert mailbox needs setting up (README, Alerts)."
+              ? "Email isn't available yet: set the alert mailbox under Email above."
               : "Email alerts need Microsoft 365, which isn't set up on this install."}
         </p>
         <ul className="divide-y divide-border">

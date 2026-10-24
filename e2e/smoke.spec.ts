@@ -436,6 +436,10 @@ test("a card statement CSV is checked on a few rows, imported, and removed again
   await expect(page.getByRole("cell", { name: "$45.20 out" })).toBeVisible();
   // Once the rows are read again with the new choice (the buttons are dimmed meanwhile).
   await expect(page.getByRole("button", { name: "Import", exact: true })).toBeEnabled();
+  // The re-check is a server action: until it answers the buttons are dimmed, and axe would
+  // judge their contrast mid-change (a flake seen in Phase 53's run).
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("button", { name: "Import", exact: true })).toBeEnabled();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expectAccessible(page, "statement check");
   await page.emulateMedia({ reducedMotion: null });
@@ -464,6 +468,25 @@ test("the school calendar finder refuses a private address and says why", async 
   await page.getByLabel("The school's website").fill("not a site");
   await page.getByRole("button", { name: "Find calendars" }).click();
   await expect(page.getByText(/That doesn't look like a web address/)).toBeVisible();
+  problems.expectNone();
+});
+
+test("a car's VIN is checked before anything is looked up, and kept on the car", async () => {
+  // Phase 53: the made-up VIN has a valid North American check digit; the lookup itself calls
+  // NHTSA, which the tests never reach, so only the check (in the server action, before any
+  // fetch) and the saved VIN are covered here.
+  await page.goto("/vehicles/new");
+  await page.getByLabel("Name", { exact: true }).fill("Family van");
+  await page.getByLabel("VIN (optional)").fill("1example0parker18");
+  await expect(page.getByLabel("VIN (optional)")).toHaveValue("1EXAMPLE0PARKER18");
+  await page.getByRole("button", { name: "Look it up" }).click();
+  await expect(page.getByText("That VIN doesn't add up (its check digit is off). Look again at each character.")).toBeVisible();
+  await page.getByLabel("VIN (optional)").fill("1EXAMPLE0PARKER17");
+  await page.getByRole("button", { name: "Add vehicle" }).click();
+  await expect(page).toHaveURL(/\/vehicles\/[^/]+\/items\/templates$/);
+  await page.goto(page.url().replace(/\/items\/templates$/, ""));
+  await expect(page.getByText("1EXAMPLE0PARKER17")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy the VIN" })).toBeVisible();
   problems.expectNone();
 });
 

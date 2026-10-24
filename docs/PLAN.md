@@ -179,7 +179,7 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 50 | Teams without Power Automate: the app's own Teams bot, a jar chat picked from a list | merged |
 | 51 | Find the school calendar from the school's web address | merged |
 | 52 | Statement imports that work out their own columns | merged |
-| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | next |
+| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | built |
 | 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | built |
 | 55 | The pet's daily surprises and sound | next |
 
@@ -219,10 +219,8 @@ Tunnel and Access, the pinned version, backups and break-glass, following
 `docs/guides/admin.md`, then entering the real family) and, with it, removing the dev sign-in.
 The database still holds test data only.
 
-**Next, the remaining engineering work, in this order** (each its own phase and pull request;
-the owner's questions are asked at each scope):
-1. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
-   alert mailbox set and tested in Settings, a link to Entra's role assignments.
+**The remaining engineering work:** Phase 53 (smaller setup fixes) was the last on the list.
+What's left waits on a decision (below) or on going live; the pet's Phase 55 is its own track.
 
 The decisions waiting on the owner are under "Open items".
 
@@ -1220,6 +1218,103 @@ against real bank and card export layouts and is folded in.
    a setting an admin can change (Settings → Household).
 4. **Remove this import** for recent imports.
 
+## Phase 53 — scope (smaller setup fixes, 2026-10-24)
+
+Four small things that still send an admin to a manual or a terminal. Each is its own part and
+commit series; one pull request. Fable's scope review (2026-10-24) checked the outside facts
+(NHTSA, SimpleFIN, Exchange, Entra) and what already exists, and is folded in.
+
+### 53.1 — A car from its VIN
+
+- **Type or scan the VIN** on a car's form. The camera scanner the Groceries barcode add uses
+  (zxing-wasm, self-hosted) gets a `formats` setting and its own code handler, so for a VIN it
+  reads Code 39, Code 128 and Data Matrix (door jambs and windshield stickers); a leading `I`
+  (an import marker) is dropped. A VIN is 17 characters without I, O or Q. Its check digit is
+  checked only for North American VINs (first character 1 to 5, where position 9 is one); any
+  other is accepted.
+- **Decoded by NHTSA's vPIC** on the server (free, no key; `DecodeVinValues`, with the same
+  timeout and short cache of failures as the recall check): make, model, year, trim and engine
+  (litres to one place) fill the form, each still editable. vPIC's `ErrorCode` is a list: `0` is
+  a clean decode; a make with other codes is a partial decode (said in words); no make means it
+  couldn't be read. The recall check (Phase 12) then has the exact make, model and year.
+- **Recalls for this car:** NHTSA has no public API for open recalls by VIN (it's manufacturer
+  data), so the car's recall card gets **Check this VIN at NHTSA** (nhtsa.gov/recalls, where the
+  VIN box is) with a copy button for the VIN, beside the by-model list it shows now.
+- **Stored on `Vehicle.vin`** (question 1): in backups (and their coverage test) and the vehicle
+  CSV, shown only to grown-ups (Cars, and the Garage with it, is already grown-ups only on the
+  server; corrected while building), never in logs or error reports.
+
+### 53.2 — A smoother bank feed
+
+What's already there stays: the setup token is checked before it's spent, the bank's own message
+shows on the card, connecting starts a sync, and accounts have their Spending switches. New:
+
+- **Step by step** on the Bank feed card: link the banks at SimpleFIN Bridge (a direct link), make
+  a setup token, paste it. A token SimpleFIN refuses as used also says it may have been seen by
+  someone else, and to make a new one (SimpleFIN's own advice).
+- **SimpleFIN's structured errors** (protocol 2.0's `errlist`, with codes): a bank that needs
+  signing in again (`con.auth`) says so in words with a link to fix it at SimpleFIN Bridge; a
+  temporary failure says to try later; the old `errors` list is still read.
+- **Leave an account out of this jar**: a switch per account (asked first, since it hides money),
+  kept on the account (`FinAccount.leftOut`, so backups carry it). The sync stops bringing it in;
+  rows it already brought stay but leave the totals and Safe to spend (question 2); switching it
+  back brings it in again from the next sync.
+
+### 53.3 — The alert mailbox, set and tested in Settings
+
+- Settings → Alerts → **Email**: the mailbox address is typed there (a household setting,
+  overriding `ALERT_MAILBOX`, which stays the fallback; question 3), by an admin on their own
+  sign-in, logged in Recent changes, with **Send a test** to yourself. The page says once that the
+  server setting is the fallback.
+- **The test tells the failures apart by Microsoft's own error code**, in fixed words: Microsoft
+  sign-in isn't set up on the server; the mailbox doesn't exist (`ErrorInvalidUser`); it isn't
+  ready for mail yet (`MailboxNotEnabledForRESTAPI`, common for a few minutes after a shared
+  mailbox is made); Exchange hasn't given the app access (`ErrorAccessDenied`). For the last, the
+  page shows the Exchange PowerShell (RBAC for Applications, scoped to that one mailbox:
+  `New-ServicePrincipal`, `New-ManagementScope`, `New-ManagementRoleAssignment`, then
+  `Test-ServicePrincipalAuthorization`) with the app's client id, its enterprise app's object id
+  and the mailbox filled in, ready to copy.
+- Safe to set in the app: the RBAC scope only lets the app send as that one mailbox, so a changed
+  address just fails its test (the README already warns never to grant tenant-wide `Mail.Send`).
+
+### 53.4 — A link to Entra's role assignments
+
+- The Entra check (Phase 40.4) already reads the app's service principal; it now keeps its id
+  (`EntraCheck.servicePrincipalId`, written each run), so the page never calls Graph to draw a
+  link.
+- Settings → Sign-in, for admins when Microsoft sign-in is on: **Change roles in Entra** opens the
+  app's Users and groups page in the Entra admin center
+  (`…/ManagedAppMenuBlade/~/UsersAndGroups/objectId/<sp id>/appId/<client id>`; the owner
+  confirms the page in the tenant, else it opens the app's Overview), beside the existing **Check
+  now**, with a line that changes show here on the next check.
+
+### Tests
+
+- Unit: VIN shape, the North American check digit and a non-North American VIN accepted; the
+  vPIC answer read into the form (a fake fetch: clean, partial, unreadable, and a long
+  displacement); the scanner's formats and the import marker; `errlist` codes mapped to words (and
+  the old `errors`); sendMail's error codes; the PowerShell text (ids and mailbox in, nothing
+  else); the Entra link.
+- Database: the VIN in a backup round trip and hidden from a kid; the mailbox setting and its
+  fallback; an account left out stays out on the next sync and its rows leave the totals; the
+  service principal id kept by the check.
+- Browser: a car's VIN typed in (the decode faked), and the pages pass axe. No live NHTSA,
+  SimpleFIN or Microsoft call in CI.
+- Guides: `docs/guides/admin.md` (mailbox, Entra link, bank feed) and `docs/guides/family.md`
+  (VIN on a car).
+
+### Not in this phase
+
+- Open recalls by VIN inside the app (no public API).
+- Changing Entra roles from inside the app (it would need a write permission on the directory).
+
+### The owner's answers (2026-10-24)
+
+1. **Keep the VIN** on the car (grown-ups only, in backups and the vehicle export).
+2. **An account left out of a jar:** its rows already here stay but leave the totals and Safe to
+   spend.
+3. **The alert mailbox in Settings** overrides `ALERT_MAILBOX`, which stays the fallback.
+
 ## Open items
 
 ### Waiting on a decision
@@ -1236,8 +1331,6 @@ against real bank and card export layouts and is folded in.
 
 - **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
   with it. Removing it before going live is planned (the owner's call to keep it for now).
-- **Other setup friction:** VIN entry or scanning, smoother bank-feed setup, the alert mailbox set
-  and tested in Settings, and a link to Entra's role assignments (Phase 53).
 - **Order emails:** improvements to forwarded order mail are deferred. Sam's Club orders can't
   be priced, since its emails carry no prices.
 - **Accessibility:** a screen-reader audit by a person is worth doing once the family uses the

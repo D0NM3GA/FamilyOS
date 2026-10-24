@@ -186,6 +186,11 @@ async function finish(
  * to people who are in it.
  */
 async function guardAccounts(connectionId: string, jarId: string, createdById: string | null, accounts: SfAccount[]): Promise<SfAccount[]> {
+  // Phase 53: accounts a member left out of this jar aren't brought in at all (and the
+  // per-account transaction checks again, for one left out while this sync runs).
+  const out = await prisma.finAccount.findMany({ where: { jarId, source: "SIMPLEFIN", leftOut: true }, select: { externalId: true } });
+  const leftOut = new Set(out.map((a) => a.externalId));
+  accounts = accounts.filter((a) => !leftOut.has(a.id));
   const ids = accounts.map((a) => a.id);
   const jar = await prisma.moneyJar.findUnique({ where: { id: jarId }, select: { householdId: true } });
   const [here, elsewhere] = await Promise.all([
@@ -211,6 +216,10 @@ async function applySimpleFin(jarId: string, accounts: SfAccount[], windowStartD
   for (const a of accounts) {
     await prisma.$transaction(
       async (tx) => {
+        // Left out after this sync began: leave it be (the lock is the row's own, taken here).
+        const [held] = await tx.$queryRaw<{ leftOut: boolean }[]>`
+          SELECT "leftOut" FROM "fin_account" WHERE "jarId" = ${jarId} AND "source" = 'SIMPLEFIN' AND "externalId" = ${a.id} FOR UPDATE`;
+        if (held?.leftOut) return;
         const account = await tx.finAccount.upsert({
           where: { jarId_source_externalId: { jarId, source: "SIMPLEFIN", externalId: a.id } },
           create: { jarId, source: "SIMPLEFIN", externalId: a.id, name: a.name, org: a.org, currency: a.currency, balanceCents: a.balanceCents, availableCents: a.availableCents, balanceAt: a.balanceAt },

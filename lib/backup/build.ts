@@ -140,6 +140,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
         select: {
           id: true,
           name: true,
+          vin: true,
           make: true,
           model: true,
           year: true,

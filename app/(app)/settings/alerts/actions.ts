@@ -12,7 +12,8 @@ import { captureError } from "@/lib/observability";
 import { getGraphToken, GraphAuthError } from "@/lib/graph/client";
 import { buildFamilyPackage, familyTeamsAppId, recordPublished } from "@/lib/teams/family-app";
 import { publishPackage, TeamsError } from "@/lib/teams/microsoft";
-import { alertMailbox } from "@/lib/alerts/email";
+import { alertMailbox, isMailboxAddress } from "@/lib/alerts/email";
+import { recordSignInEvent } from "@/lib/sign-in-events";
 import { recipientEmail, sendTest, teamsRecipient, type Channel } from "@/lib/alerts/dispatch";
 import { findAlertTarget } from "@/lib/alerts/targets";
 import { isAllowedPushEndpoint, isValidUaPublicKey } from "@/lib/alerts/webpush";
@@ -98,6 +99,30 @@ export async function disconnectTeams(): Promise<AlertFormState> {
   return { ok: "Teams is disconnected for the family." };
 }
 
+/**
+ * Phase 53: the mailbox alert email comes from, for the family (empty: the server's
+ * ALERT_MAILBOX). An admin on their own sign-in; logged in Settings → Sign-in's Recent changes.
+ * Safe to change here: Exchange only lets the app send as the mailbox it was scoped to, so a
+ * different address just fails its test.
+ */
+export async function setAlertMailbox(_prev: AlertFormState, formData: FormData): Promise<AlertFormState> {
+  const { profile, error } = await requireLinkOwner();
+  if (error) return { error: "Use the app on your own sign-in to change the alert mailbox." };
+  const raw = String(formData.get("mailbox") ?? "").trim().toLowerCase();
+  if (raw && !isMailboxAddress(raw)) return { error: "That doesn't look like an email address." };
+  const next = raw || null;
+  const before = await prisma.household.findUniqueOrThrow({ where: { id: profile.householdId }, select: { alertMailbox: true } });
+  if (before.alertMailbox === next) return { ok: "No change." };
+  await prisma.$transaction(async (tx) => {
+    await tx.household.update({ where: { id: profile.householdId }, data: { alertMailbox: next } });
+    const me = { id: profile.id, firstName: profile.firstName };
+    await recordSignInEvent(tx, { householdId: profile.householdId, kind: "ALERT_MAILBOX_SET", actor: me, subject: me, detail: next });
+  });
+  done();
+  revalidatePath("/settings/sign-in");
+  return { ok: next ? `Saved. Send yourself a test below to check ${next} works.` : "Cleared: the server's setting applies." };
+}
+
 const channel = z.enum(["teams", "email"]);
 const testChannel = z.enum(["teams", "email", "push"]);
 const id = z.string().min(1).max(64);
@@ -110,7 +135,7 @@ export async function setChannel(personId: string, ch: Channel, enabled: boolean
   if (!target) return { error: "Only admins in this family get store alerts." };
 
   if (input.data.enabled && input.data.ch === "email") {
-    if (!alertMailbox()) return { error: "The alert mailbox isn't set up yet." };
+    if (!(await alertMailbox(profile.householdId))) return { error: "The alert mailbox isn't set up yet." };
     if (!recipientEmail(target)) return { error: `There's no email address for ${target.firstName}.` };
   }
   if (input.data.enabled && input.data.ch === "teams") {
