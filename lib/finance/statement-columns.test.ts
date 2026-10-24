@@ -33,6 +33,17 @@ describe("reading the file", () => {
     expect(summary(rows)).toEqual(["2026-10-03 -4520 Corner Grocery", "2026-10-04 120000 Paycheck Example Co", "2026-10-05 -3000 Gas Station Example"]);
   });
 
+  it("skips two-field details lines above the header too", () => {
+    const { sheet, rows } = read(["Account Name:,Checking", "Account Number:,XXXX0000", "", "Date,Description,Amount", "10/03/2026,Coffee Example,-4.50", "10/04/2026,Bakery Example,-6.50", "10/05/2026,Bookstore Example,-18.00"].join("\n"));
+    expect(sheet.header).toEqual(["Date", "Description", "Amount"]);
+    expect(rows).toHaveLength(3);
+  });
+
+  it("still offers an amount column to fix when nothing reads as money", () => {
+    const { guess } = read("Date,Description,Value\n10/03/2026,A,-0.5\n10/04/2026,B,3\n10/05/2026,C,-1.5");
+    expect(guess.choices.amount).toBe(2);
+  });
+
   it("reads a file with no header by its contents", () => {
     const { sheet, guess, rows } = read(['"10/03/2026","-45.20","*","","CORNER GROCERY"', '"10/04/2026","1200.00","*","","PAYCHECK EXAMPLE CO"', '"10/05/2026","-30.00","*","","GAS STATION EXAMPLE"'].join("\n"));
     expect(sheet.header).toBeNull();

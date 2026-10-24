@@ -33,8 +33,12 @@ export function StatementImport({
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [newAccount, setNewAccount] = useState("");
   const [result, setResult] = useState<StatementCheck | null>(null);
+  // A changed choice shows at once while the rows are read again with it.
+  const [draft, setDraft] = useState<Choices | null>(null);
   const [message, setMessage] = useState<FormState>({});
   const [pending, start] = useTransition();
+  // Bumped after an import, so the file field starts empty for the next statement.
+  const [fileKey, setFileKey] = useState(0);
   const ids = { file: useId(), account: useId(), name: useId() };
 
   const form = (choices?: Choices) => {
@@ -45,16 +49,23 @@ export function StatementImport({
     if (choices) fd.set("choices", JSON.stringify(choices));
     return fd;
   };
-  const runCheck = (choices?: Choices) =>
+  const runCheck = (choices?: Choices) => {
+    setDraft(choices ?? null);
     start(async () => {
       setMessage({});
       setResult(await check(form(choices)));
+      setDraft(null);
     });
+  };
   const runImport = () =>
     start(async () => {
       const outcome = await importFile(form(result?.kind === "csv" ? result.choices : undefined));
       setMessage(outcome);
-      if (outcome.ok) setResult(null);
+      if (outcome.ok) {
+        setResult(null);
+        setFile(null);
+        setFileKey((k) => k + 1);
+      }
     });
 
   return (
@@ -63,6 +74,7 @@ export function StatementImport({
         Statement file
       </label>
       <input
+        key={fileKey}
         id={ids.file}
         type="file"
         accept=".ofx,.qfx,.csv,.txt,text/csv"
@@ -79,7 +91,14 @@ export function StatementImport({
             <label htmlFor={ids.account} className="sr-only">
               Into account
             </label>
-            <select id={ids.account} value={accountId} onChange={(e) => setAccountId(e.target.value)} className={`${field} max-w-full min-w-0`}>
+            <select
+              id={ids.account}
+              value={accountId}
+              onChange={(e) => {
+                // Another account may remember other choices for this file: check again.
+                setAccountId(e.target.value);
+                setResult(null);
+              }} className={`${field} max-w-full min-w-0`}>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -104,14 +123,16 @@ export function StatementImport({
         </button>
       )}
 
-      <div aria-live="polite" className="flex flex-col gap-3">
-        {result?.kind === "error" && <p className="text-sm font-semibold text-tomato">{result.error}</p>}
-        {result?.kind === "ofx" && (
-          <p className="text-sm">
-            {result.rows} transaction{result.rows === 1 ? "" : "s"} in that file, each with the bank&apos;s own id.
-          </p>
-        )}
-        {result?.kind === "csv" && <CsvCheck result={result} pending={pending} onChange={runCheck} />}
+      <div className="flex flex-col gap-3">
+        <div aria-live="polite">
+          {result?.kind === "error" && <p className="text-sm font-semibold text-tomato">{result.error}</p>}
+          {result?.kind === "ofx" && (
+            <p className="text-sm">
+              {result.rows} transaction{result.rows === 1 ? "" : "s"} in that file, each with the bank&apos;s own id.
+            </p>
+          )}
+        </div>
+        {result?.kind === "csv" && <CsvCheck result={result} choices={draft ?? result.choices} pending={pending} onChange={runCheck} />}
         {result && result.kind !== "error" && (
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btnPrimary} disabled={pending || (result.kind === "csv" && result.willAdd === 0)} onClick={runImport}>
@@ -122,8 +143,10 @@ export function StatementImport({
             </button>
           </div>
         )}
-        {message.error && <p className="text-sm font-semibold text-tomato">{message.error}</p>}
-        {message.ok && <p className="text-sm font-semibold">{message.ok}</p>}
+        <div aria-live="polite">
+          {message.error && <p className="text-sm font-semibold text-tomato">{message.error}</p>}
+          {message.ok && <p className="text-sm font-semibold">{message.ok}</p>}
+        </div>
       </div>
 
       {recent.length > 0 && <RecentImports recent={recent} removeImport={removeImport} />}
@@ -131,11 +154,20 @@ export function StatementImport({
   );
 }
 
-function CsvCheck({ result, pending, onChange }: { result: Extract<StatementCheck, { kind: "csv" }>; pending: boolean; onChange: (c: Choices) => void }) {
-  const c = result.choices;
+function CsvCheck({
+  result,
+  choices: c,
+  pending,
+  onChange,
+}: {
+  result: Extract<StatementCheck, { kind: "csv" }>;
+  choices: Choices;
+  pending: boolean;
+  onChange: (c: Choices) => void;
+}) {
   const set = (patch: Partial<Choices>) => onChange({ ...c, ...patch });
   const id = useId();
-  const columnSelect = (key: "date" | "description" | "memo" | "amount" | "debit" | "credit", label: string, optional = false) => (
+  const columnSelect = (key: "date" | "description" | "memo" | "amount" | "debit" | "credit" | "type", label: string, optional = false) => (
     <div className="flex flex-col gap-1">
       <label htmlFor={`${id}-${key}`} className="text-xs font-semibold">
         {label}
@@ -192,7 +224,10 @@ function CsvCheck({ result, pending, onChange }: { result: Extract<StatementChec
             {columnSelect("credit", "Money in")}
           </>
         ) : (
-          columnSelect("amount", "Amount")
+          <>
+            {columnSelect("amount", "Amount")}
+            {columnSelect("type", "Debit or credit column (optional)", true)}
+          </>
         )}
         <div className="flex flex-col gap-1">
           <label htmlFor={`${id}-order`} className="text-xs font-semibold">
@@ -219,9 +254,9 @@ function CsvCheck({ result, pending, onChange }: { result: Extract<StatementChec
       {result.suggestFlip && (
         <p className="text-sm font-semibold">Nearly every amount here is positive, which is how some card statements show charges. If these are charges, tick the box above.</p>
       )}
-      <table className="w-full text-left text-sm">
+      <table aria-live="polite" className="w-full text-left text-sm">
         <caption className="text-left text-xs text-muted-foreground">
-          The first {result.preview.length} of {result.willAdd} transactions as they&apos;d be saved
+          The first {result.preview.length} of {result.willAdd} transactions read from the file, as they&apos;d be saved (any already here are folded in)
           {result.skipped ? `; ${result.skipped} row${result.skipped === 1 ? "" : "s"} can't be read and will be skipped` : ""}.
         </caption>
         <thead>

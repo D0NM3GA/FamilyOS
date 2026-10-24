@@ -66,6 +66,7 @@ export async function checkStatement(householdId: string, accountId: string | nu
   }
   const sheet = readSheet(text);
   if (sheet.rows.length === 0 || sheet.columns < 2) return { kind: "error", error: "That file has no rows the app can read." };
+  if (sheet.columns < 3) return { kind: "error", error: "That file needs a date, a description and an amount column; this one has only two columns." };
   const guess = guessChoices(sheet, await fallbackOrder(householdId));
   const fromPerson = chosen ? checkChoices(chosen, sheet) : null;
   const fromMemory = !fromPerson ? checkChoices(await rememberedFor(accountId, layoutKey(sheet)), sheet) : null;
@@ -118,10 +119,21 @@ export async function importStatementFile(
     if (!rows.length) return { ok: false, error: "With those choices no row reads. Check the columns and try again." };
     const account = await prisma.finAccount.findUniqueOrThrow({ where: { id: accountId }, select: { importLayouts: true } });
     const layouts = account.importLayouts && typeof account.importLayouts === "object" && !Array.isArray(account.importLayouts) ? (account.importLayouts as Record<string, unknown>) : {};
-    await prisma.finAccount.update({ where: { id: accountId }, data: { importLayouts: { ...layouts, [layoutKey(sheet)]: choices } as Prisma.InputJsonObject } });
+    // The newest 20 layouts per account are plenty (a bank changes its export now and then).
+    const key = layoutKey(sheet);
+    const kept = Object.entries(layouts).filter(([k]) => k !== key).slice(-19);
+    await prisma.finAccount.update({ where: { id: accountId }, data: { importLayouts: Object.fromEntries([...kept, [key, choices]]) as Prisma.InputJsonObject } });
   }
   const record = await prisma.finImport.create({ data: { jarId: jar.id, accountId, byPersonId: personId, format, added: 0 }, select: { id: true } });
-  const { added, already } = await importRows(jar.id, accountId, rows, { importId: record.id });
+  let result: { added: number; already: number };
+  try {
+    result = await importRows(jar.id, accountId, rows, { importId: record.id });
+  } catch (err) {
+    // No "0 into …" record left behind when the import itself failed.
+    await prisma.finImport.deleteMany({ where: { id: record.id } });
+    throw err;
+  }
+  const { added, already } = result;
   if (added === 0) await prisma.finImport.delete({ where: { id: record.id } });
   else await prisma.finImport.update({ where: { id: record.id }, data: { added } });
   return { ok: true, added, already, skipped };

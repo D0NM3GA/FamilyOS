@@ -76,7 +76,9 @@ export function sniffSeparator(text: string): string {
 export function readSheet(text: string): Sheet {
   const separator = sniffSeparator(text);
   const all = splitCsv(text, separator).slice(0, MAX_ROWS + 30);
-  const dataLike = (r: string[] | undefined) => Boolean(r && r.some((c) => dateOf(c, "MONTH_FIRST", true)) && r.some((c) => looksLikeMoney(c)));
+  // A data row: a date and a number (any number: "-0.5" isn't money-shaped but is still a row).
+  const numberish = (c: string) => looksLikeMoney(c) || /^[-+(\u2212]?[$€£]?\d[\d.,]{0,15}\)?$/.test(c.trim());
+  const dataLike = (r: string[] | undefined) => Boolean(r && r.some((c) => dateOf(c, "MONTH_FIRST", true)) && r.some((c) => numberish(c) && !dateOf(c, "MONTH_FIRST", true)));
   for (let i = 0; i < Math.min(all.length, 30); i++) {
     const row = all[i];
     if (row.length < 2) continue;
@@ -85,7 +87,11 @@ export function readSheet(text: string): Sheet {
       return { separator, header: null, rows: all.slice(i, i + MAX_ROWS), columns: row.length };
     }
     const words = row.filter((c) => /[a-z]/i.test(c) && !dateOf(c, "MONTH_FIRST", true) && !looksLikeMoney(c)).length;
-    if (words >= 2 && next.length > 0 && next.every((r) => r.length >= row.length - 1 && r.length <= row.length + 1) && next.some(dataLike)) {
+    // A header is followed straight away by data rows its width (an empty last field aside), so a
+    // two-field details line above it ("Account Name:,Checking") isn't taken for it.
+    const width = (r: string[]) => (r.length > 1 && !r[r.length - 1].trim() ? r.length - 1 : r.length);
+    const sameWidth = (r: string[]) => Math.abs(width(r) - width(row)) <= 1 && r.length >= row.length - 1;
+    if (words >= 2 && next.length > 0 && dataLike(next[0]) && next.every(sameWidth)) {
       return { separator, header: row.map((h) => h.trim()), rows: all.slice(i + 1, i + 1 + MAX_ROWS), columns: row.length };
     }
   }
@@ -232,7 +238,7 @@ function isRunningBalance(rows: string[][], col: number, amountCol: number, deci
     const a = centsOf(rows[i - 1][col], decimalComma);
     const b = centsOf(rows[i][col], decimalComma);
     const amt = [centsOf(rows[i][amountCol], decimalComma), centsOf(rows[i - 1][amountCol], decimalComma)];
-    if (a == null || b == null || amt[0] == null) continue;
+    if (a == null || b == null || (amt[0] == null && amt[1] == null)) continue;
     checked++;
     if (amt.some((x) => x != null && (b - a === x || a - b === x))) matched++;
   }
@@ -283,6 +289,8 @@ export function guessChoices(sheet: Sheet, fallbackOrder: DateOrder): Guess {
       }
     }
   }
+  // Nothing reads as money: still pick one (the first column left), so the check shows a choice to fix.
+  if (amount == null && (debit == null || credit == null)) amount = cols.find((i) => !used.has(i)) ?? null;
   for (const i of [amount, debit, credit]) if (i != null) used.add(i);
 
   // The description: by name, else the wordiest varied column (a category or status repeats).
@@ -353,10 +361,10 @@ export function applyChoices(sheet: Sheet, c: Choices): { rows: ImportedRow[]; s
 export function checkChoices(raw: unknown, sheet: Sheet): Choices | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  const col = (v: unknown) => (Number.isInteger(v) && (v as number) >= 0 && (v as number) < sheet.columns ? (v as number) : null);
-  const opt = (v: unknown) => (v == null || v === "" ? null : col(Number(v)));
-  const date = col(Number(r.date));
-  const description = col(Number(r.description));
+  const col = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 0 && v < sheet.columns ? v : null);
+  const opt = (v: unknown) => (v == null || v === "" ? null : col(v));
+  const date = col(r.date);
+  const description = col(r.description);
   const amount = opt(r.amount);
   const debit = opt(r.debit);
   const credit = opt(r.credit);
