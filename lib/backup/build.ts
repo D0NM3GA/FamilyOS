@@ -78,7 +78,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     await Promise.all([
       tx.household.findUniqueOrThrow({
         where: { id: householdId },
-        select: { name: true, timezone: true, dayZone: true, latitude: true, longitude: true, familyGoalStickers: true, familyGoalTitle: true, disabledApps: true, setupReviewed: true, petCareHours: true, ...LOOK_SELECT },
+        select: { name: true, timezone: true, dayZone: true, latitude: true, longitude: true, familyGoalStickers: true, familyGoalTitle: true, disabledApps: true, setupReviewed: true, petCareHours: true, statementDateOrder: true, ...LOOK_SELECT },
       }),
       tx.person.findMany({
         where: { householdId },

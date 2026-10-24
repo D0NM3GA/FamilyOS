@@ -33,12 +33,14 @@ const checks = {
   // Phase 30: the shared Teams chat is a setting, not money: pasted again after a restore.
   jar: true satisfies Covered<MoneyJarModel, Jar, "householdId" | "teamsChatId" | "teamsChatName" | "teamsChatError">,
   member: true satisfies Covered<MoneyJarMemberModel, Of<"members">, "jarId">,
-  account: true satisfies Covered<FinAccountModel, Of<"accounts">, "jarId">,
+  // Phase 52: a statement file's remembered columns are a setting, chosen again after a restore.
+  account: true satisfies Covered<FinAccountModel, Of<"accounts">, "jarId" | "importLayouts">,
   category: true satisfies Covered<FinCategoryModel, Of<"categories">, "jarId">,
   rule: true satisfies Covered<CategoryRuleModel, Of<"rules">, "jarId">,
   recurring: true satisfies Covered<RecurringMarkModel, Of<"recurring">, "jarId">,
   // updatedAt is bookkeeping; jarId is implied by nesting.
-  transaction: true satisfies Covered<FinTransactionModel, Of<"transactions">, "jarId" | "updatedAt">,
+  // Phase 52: which import brought a row is only for undoing it, which a restore doesn't carry.
+  transaction: true satisfies Covered<FinTransactionModel, Of<"transactions">, "jarId" | "updatedAt" | "importId">,
   privacy: true satisfies Covered<PrivacyChargeModel, Of<"privacyCharges">, "jarId">,
   // Who added a bill isn't kept (people are remapped on restore and it only labels the row).
   manualBill: true satisfies Covered<ManualBillModel, Of<"manualBills">, "jarId" | "createdById" | "updatedAt">,

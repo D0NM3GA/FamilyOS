@@ -29,6 +29,7 @@ function fixture(): Backup {
     household: { name: "Fixture Family", timezone: "America/New_York", latitude: 40.71, longitude: -74.01, familyGoalStickers: 200, familyGoalTitle: "Pizza night", appName: "FixtureOS",
       disabledApps: ["store", "cars"],
       setupReviewed: ["look"],
+      statementDateOrder: "DAY_FIRST",
       themeColor: "forest", rewardOne: "star", rewardMany: "stars", rewardStore: "Star Shop", mascotOn: false, mascotName: "Clover", appIcon: "LETTER",
       petCareHours: { weekday: [{ start: 420, end: 480 }, { start: 900, end: 1200 }], weekend: [{ start: 540, end: 1260 }] },
     },
