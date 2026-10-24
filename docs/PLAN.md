@@ -178,8 +178,8 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 49 | The household's timezone in every date calculation | merged |
 | 50 | Teams without Power Automate: the app's own Teams bot, a jar chat picked from a list | merged |
 | 51 | Find the school calendar from the school's web address | merged |
-| 52 | Statement imports that work out their own columns | next |
-| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | later |
+| 52 | Statement imports that work out their own columns | merged |
+| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | next |
 | 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | built |
 | 55 | The pet's daily surprises and sound | next |
 
@@ -206,13 +206,13 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 
 Everything through Phase 46, Phase 48 (the migrate image cut from 2.26 GB to about 690 MB) and
 Phase 49 (the household's timezone everywhere) Phase 50 (Teams through the family's own Teams
-app, no Power Automate) and Phase 51 (finding the school calendar from its website) are merged
-to `main` (2026-10-23). The project moved to this public repository the same day (one clean
-commit; the earlier history is archived privately). `main` takes changes only through pull
-requests: a ruleset requires the three CI jobs and the container check, and a pull request
-merges itself once they pass. Every merge to `main` publishes the tested app and migrate images
-(`ghcr.io/d0nm3ga/familyos`, `…-migrate`, public, tagged `sha-<commit>`, with signed
-provenance).
+app, no Power Automate) Phase 51 (finding the school calendar from its website) and Phase 52
+(statement CSVs that work out their own columns) are merged to `main` (2026-10-23). The project
+moved to this public repository the same day (one clean commit; the earlier history is archived
+privately). `main` takes changes only through pull requests: a ruleset requires the three CI
+jobs and the container check, and a pull request merges itself once they pass. Every merge to
+`main` publishes the tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`,
+public, tagged `sha-<commit>`, with signed provenance).
 
 **Tabled until the owner says it's time (2026-10-23):** going live (the server, Cloudflare
 Tunnel and Access, the pinned version, backups and break-glass, following
@@ -221,8 +221,7 @@ The database still holds test data only.
 
 **Next, the remaining engineering work, in this order** (each its own phase and pull request;
 the owner's questions are asked at each scope):
-1. **Phase 52 — Statement imports that work out their own columns.**
-2. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
+1. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
    alert mailbox set and tested in Settings, a link to Entra's role assignments.
 
 The decisions waiting on the owner are under "Open items".
@@ -1237,9 +1236,8 @@ against real bank and card export layouts and is folded in.
 
 - **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
   with it. Removing it before going live is planned (the owner's call to keep it for now).
-- **Other setup friction:** statement imports that work out their own columns (Phase 52), and VIN
-  entry or scanning, smoother bank-feed setup, the alert mailbox set and tested in Settings, and a
-  link to Entra's role assignments (Phase 53).
+- **Other setup friction:** VIN entry or scanning, smoother bank-feed setup, the alert mailbox set
+  and tested in Settings, and a link to Entra's role assignments (Phase 53).
 - **Order emails:** improvements to forwarded order mail are deferred. Sam's Club orders can't
   be priced, since its emails carry no prices.
 - **Accessibility:** a screen-reader audit by a person is worth doing once the family uses the

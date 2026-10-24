@@ -274,6 +274,11 @@ sites only open in a full browser; the app says so, and then you copy the site's
 "iCal" link into **Or paste its link** below, as before. It never fetches anything on a private
 or home network.
 
+**Date order in statement files** (Settings → Household): when a bank or card CSV's dates could be
+read either way (03/10/2026), the app reads them the way this says. Automatic is the standard where
+the household is (month first in the US). Each import's check step shows the order it used, and
+whoever is importing can switch it for that file.
+
 ## 9. People and sign-in
 
 ### Who's who

@@ -317,6 +317,12 @@ Inside a jar:
 A jar's Settings connects the bank feed, imports statements and sets your own **Alerts for me**
 (bills due, a broken bank feed, over budget, running low). Alerts never include amounts.
 
+**Importing a statement file**: download it from the bank or card website (OFX or QFX if it
+offers one, else CSV), choose it under **Import a statement**, and press **Check it**. For a CSV,
+the app shows what it understood on a few rows: check the dates, the words and whether each
+amount is money in or out, fix any dropdown that's off, then **Import**. Got it wrong? **Remove
+this import** takes the whole file back out.
+
 **One Teams chat for the jar**: instead of a message to each of you, a jar can send its alerts
 once to a Teams group chat. In the jar's Settings, **Choose a Teams chat** lists your own group
 chats; pick one with everyone in the jar. The family's Teams app joins the chat to post there; it

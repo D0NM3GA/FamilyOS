@@ -410,6 +410,44 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
   problems.expectNone();
 });
 
+test("a card statement CSV is checked on a few rows, imported, and removed again", async () => {
+  // Phase 52: a made-up card export (charges positive, a payment negative).
+  await page.goto("/finances");
+  await page.getByLabel("Jar name").fill("Family money");
+  await page.getByRole("button", { name: "Make it" }).click();
+  await expect(page).toHaveURL(/\/finances\/[^/]+\/settings$/);
+  const csv = [
+    "Trans. Date,Post Date,Description,Amount,Category",
+    "10/01/2026,10/02/2026,Corner Grocery,45.20,Groceries",
+    "10/02/2026,10/03/2026,Bakery Example,6.50,Dining",
+    "10/03/2026,10/04/2026,Bookstore Example,18.00,Shopping",
+    "10/04/2026,10/05/2026,Gas Station Example,30.00,Transport",
+    "10/05/2026,10/06/2026,Pizza Place Example,22.40,Dining",
+    "10/07/2026,10/08/2026,Payment Thank You,-100.00,Payment",
+  ].join("\n");
+  await page.getByLabel("Statement file").setInputFiles({ name: "card.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await page.getByLabel("New account name").fill("Card");
+  await page.getByRole("button", { name: "Check it" }).click();
+  await expect(page.getByText("Here's what the app understood")).toBeVisible();
+  await expect(page.getByText(/Nearly every amount here is positive/)).toBeVisible();
+  await expect(page.getByLabel("Date", { exact: true })).toHaveValue("1");
+  await page.getByLabel(/Money out shows as a positive number/).check();
+  await expect(page.getByRole("cell", { name: "$45.20 out" })).toBeVisible();
+  await expectAccessible(page, "statement check");
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await expect(page.getByText("Added 6 transactions.")).toBeVisible();
+
+  // The rows are in the jar's Activity.
+  const settings = page.url();
+  await page.goto(settings.replace(/\/settings$/, ""));
+  await expect(page.getByText("Corner Grocery").first()).toBeVisible();
+  await page.goto(settings);
+  await page.getByRole("button", { name: "Remove this import" }).click();
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(page.getByText("Removed 6 transactions.")).toBeVisible();
+  problems.expectNone();
+});
+
 test("the school calendar finder refuses a private address and says why", async () => {
   // Phase 51: a real school site can't be reached from the tests, and a local one is refused by
   // design (the same guard as feeds), so this covers the screen and the refusal.
