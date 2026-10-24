@@ -3,13 +3,13 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition, type KeyboardEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition, type KeyboardEvent, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { nextBehavior, type Behavior, type BehaviorInput, type RoomView, type Weather } from "@/lib/pet/behavior";
 import { isSurface, itemDef, type Place, type Spot } from "@/lib/pet/items";
 import type { Food, Personality, PetSpot, Toy } from "@/lib/pet/personality";
 import { rngFor } from "@/lib/pet/random";
-import { DECOR_BOX, dropAt, ROOM_H, ROOM_W, standOn, type RoomDecor, type Season, type Sky } from "@/lib/pet/room";
+import { DECOR_BOX, dropAt, heldByMiddle, ROOM_H, ROOM_W, standOn, type RoomDecor, type Season, type Sky } from "@/lib/pet/room";
 import { EGG_TAPS, type CallKind, type Species, type Stage } from "@/lib/pet/state";
 import {
   CLEAN_LINES,
@@ -217,7 +217,7 @@ export function PetScreen({
       if (!saved.ok) showReaction("That didn't fit there. Try somewhere else.");
     });
   }
-  const { drag, start: startDrag } = useRoomDrag(roomRef, (dragged: Dragged, point) => {
+  const { drag, start: startDrag, toRoomUnits } = useRoomDrag(roomRef, (dragged: Dragged, point) => {
     const kind = itemDef(dragged.itemId)?.kind;
     const before = items.find((item) => item.id === dragged.rowId);
     if (kind === "decor") {
@@ -228,6 +228,26 @@ export function PetScreen({
       move(dragged.rowId, kind === "toy" ? "out" : "worn");
     }
   });
+
+  const decorating = panel === "decorate";
+  // Picked up where it was pressed, so it stays under the finger (see use-room-drag.ts).
+  const rowsRef = useRef(items);
+  useEffect(() => {
+    rowsRef.current = items;
+  });
+  const grabInRoom = useCallback(
+    (event: PointerEvent<SVGGElement>, item: RoomDecor) => {
+      const row = rowsRef.current.find((owned) => owned.itemId === item.itemId);
+      const at = toRoomUnits(event.clientX, event.clientY);
+      if (row && at) startDrag(event, { rowId: row.id, itemId: item.itemId }, { dx: item.x - at.x, dy: item.y - at.y });
+    },
+    [startDrag, toRoomUnits],
+  );
+  const grabFromBox = useCallback(
+    (event: PointerEvent<HTMLElement>, dragged: Dragged) =>
+      startDrag(event, dragged, itemDef(dragged.itemId)?.kind === "decor" ? heldByMiddle(dragged.itemId) : undefined),
+    [startDrag],
+  );
 
   const decor: RoomDecor[] = useMemo(
     () => items.flatMap((item) => (item.place && isSurface(item.place) ? [standOn(item.itemId, item.place, item.x, item.y)] : [])),
@@ -453,7 +473,7 @@ export function PetScreen({
         {/* While the reveal is up, everything else is out of reach (it really is modal), so a care
             tap can't change what Yay! saves as seen. */}
         <div inert={revealing} className="contents">
-        <PetRoom sky={sky} weather={weather} season={season} awake={pet.awake} decor={shownDecor} poops={pet.poops} glow={glow} />
+        <PetRoom sky={sky} weather={weather} season={season} awake={pet.awake} decor={shownDecor} poops={pet.poops} glow={glow} onGrab={decorating ? grabInRoom : undefined} />
 
         {toysOut.map((toy, i) => (
           <button
@@ -486,7 +506,7 @@ export function PetScreen({
         ))}
 
         <div
-          className={`absolute bottom-[8%] w-[24%] -translate-x-1/2 transition-[left] duration-[1800ms] ease-in-out ${pet.stage === "egg" ? "cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring" : "cursor-grab active:cursor-grabbing"}`}
+          className={`absolute bottom-[8%] w-[24%] -translate-x-1/2 transition-[left] duration-[1800ms] ease-in-out ${decorating ? "pointer-events-none" : ""} ${pet.stage === "egg" ? "cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring" : "cursor-grab active:cursor-grabbing"}`}
           style={{ left: `${x}%` }}
           onPointerDown={onPetDown}
           onPointerMove={onPetMove}
@@ -511,7 +531,8 @@ export function PetScreen({
           )}
         </div>
 
-        {panel === "decorate" &&
+        {/* For a keyboard and a screen reader: the drawing takes the pointer (pet-room.tsx). */}
+        {decorating &&
           decor.map((item) => {
             const [half, top, bottom = 0] = DECOR_BOX[item.itemId] ?? [20, 40];
             const row = items.find((owned) => owned.itemId === item.itemId);
@@ -521,7 +542,7 @@ export function PetScreen({
               <button
                 key={item.itemId}
                 type="button"
-                className={`absolute cursor-grab touch-none rounded-xl outline-2 outline-offset-2 outline-white/70 [outline-style:dashed] focus-visible:outline-ink active:cursor-grabbing ${drag?.itemId === item.itemId ? "opacity-0" : ""}`}
+                className="pointer-events-none absolute rounded-xl outline-none focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ink"
                 style={{
                   left: `${((item.x - half) / ROOM_W) * 100}%`,
                   top: `${((item.y - top) / ROOM_H) * 100}%`,
@@ -529,7 +550,6 @@ export function PetScreen({
                   height: `${((top - bottom) / ROOM_H) * 100}%`,
                 }}
                 aria-label={`${itemDef(item.itemId)?.name}, ${SURFACE_NAMES[item.surface].toLowerCase()}. Drag it, or slide it with the arrow keys. Delete puts it away.`}
-                onPointerDown={(event) => startDrag(event, { rowId: row.id, itemId: item.itemId })}
                 onKeyDown={(event) => {
                   const keys: Record<string, () => void> = {
                     ArrowLeft: () => nudge(-NUDGE, 0),
@@ -653,7 +673,7 @@ export function PetScreen({
         </div>
       )}
 
-      {panel === "decorate" && <RoomPanel items={items} onMove={(rowId, place) => move(rowId, place)} onDragStart={startDrag} />}
+      {panel === "decorate" && <RoomPanel items={items} onMove={(rowId, place) => move(rowId, place)} onDragStart={grabFromBox} />}
       {drag &&
         !preview &&
         createPortal(

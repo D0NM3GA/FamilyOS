@@ -106,6 +106,15 @@ export function dropAt(itemId: string, point: { x: number; y: number }): RoomDec
   return best && standOn(itemId, best.surface, point.x, point.y);
 }
 
+/**
+ * Phase 56.1: from a pointer holding a decoration by its middle (as one picked up from the toy
+ * box is) to where it stands, its bottom center, in room units.
+ */
+export function heldByMiddle(itemId: string): { dx: number; dy: number } {
+  const [, top, bottom = 0] = DECOR_BOX[itemId] ?? [20, 40];
+  return { dx: 0, dy: (top + bottom) / 2 };
+}
+
 /** Back of the room first, so nearer things are drawn over further ones. */
 export function inDrawingOrder(decor: readonly RoomDecor[]): RoomDecor[] {
   return [...decor].sort((a, b) => a.y - b.y || a.x - b.x);
