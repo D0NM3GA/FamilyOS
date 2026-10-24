@@ -60,6 +60,8 @@ const householdSettingsSchema = z.object({
     .trim()
     .optional()
     .refine((tz) => !tz || isValidTimeZone(tz), { message: "Not a recognized timezone" }),
+  // Phase 52: an older form without the field keeps what's saved.
+  statementDateOrder: z.enum(["AUTO", "MONTH_FIRST", "DAY_FIRST"]).optional(),
 });
 
 // Phase 45.1: where home is has its own actions (lib/home-location/actions.ts), from a phone or a ZIP
@@ -75,6 +77,7 @@ export async function updateHouseholdSettings(
   const parsed = householdSettingsSchema.safeParse({
     name: String(formData.get("name") ?? ""),
     timezone: String(formData.get("timezone") ?? ""),
+    statementDateOrder: formData.get("statementDateOrder") ?? undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -83,7 +86,10 @@ export async function updateHouseholdSettings(
   // Canonicalized, not the raw typed string: isValidTimeZone (via the zod refine above)
   // already proved it resolves, and the canonical form is what the server's clock is set to.
   const timezone = parsed.data.timezone ? canonicalizeTimeZone(parsed.data.timezone) : null;
-  await prisma.household.update({ where: { id: admin.householdId }, data: { name: parsed.data.name } });
+  await prisma.household.update({
+    where: { id: admin.householdId },
+    data: { name: parsed.data.name, ...(parsed.data.statementDateOrder ? { statementDateOrder: parsed.data.statementDateOrder } : {}) },
+  });
   // Phase 49: the zone is saved together with moving the saved days (each keeps its date and
   // clock time), and the server follows it; a failed move leaves the old zone as it was.
   try {

@@ -2,8 +2,10 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { eligibleMemberWhere, requireJar } from "@/lib/finance/access";
-import { addMember, allowChatList, connectPrivacy, connectSimpleFin, deleteJar, disconnect, importStatement, removeMember, renameJar, scanOrdersNow, setCushion, setJarChat, setMyAlerts, setOrderMail, setSpendingAccounts, stopJarChat, testJarChat } from "../../actions";
+import { addMember, allowChatList, connectPrivacy, checkStatement, connectSimpleFin, deleteJar, disconnect, importStatement, removeStatementImport, removeMember, renameJar, scanOrdersNow, setCushion, setJarChat, setMyAlerts, setOrderMail, setSpendingAccounts, stopJarChat, testJarChat } from "../../actions";
 import { chatLabel, myGroupChats } from "@/lib/teams/jar-chat";
+import { recentImports } from "@/lib/finance/statement-import";
+import { StatementImport } from "./statement-import";
 import { ActionForm, ConfirmSubmit, Submit, SyncButton } from "../../forms";
 import { backLink, btn, card, field } from "@/components/styles";
 import { centsToInput, formatMoney } from "@/lib/money";
@@ -50,6 +52,7 @@ export default async function JarSettingsPage({
     prisma.householdAlerts.findUnique({ where: { householdId: viewer.householdId }, select: { teamsAppId: true } }),
     prisma.moneyJar.findUniqueOrThrow({ where: { id: jar.id }, select: { teamsChatId: true, teamsChatName: true, teamsChatError: true, cushionCents: true } }),
   ]);
+  const recent = await recentImports(jar.id);
   const memberIds = new Set(members.map((m) => m.person.id));
   const addable = eligible.filter((p) => !memberIds.has(p.id));
   const conn = (p: "SIMPLEFIN" | "PRIVACY") => connections.find((c) => c.provider === p);
@@ -383,26 +386,17 @@ export default async function JarSettingsPage({
       <section className={card}>
         <h2 className="font-extrabold">📄 Import a statement</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          OFX or QFX from your bank works best; CSV works when it has date, description and amount columns. Importing the same
-          file twice adds nothing; rows the bank feed already has are folded in.
+          A statement file from the bank or card: OFX or QFX imports straight away; a CSV shows what the app understood on a few
+          rows first, so you can fix a column before anything is saved. Excel files: save as CSV first. Importing the same file
+          twice adds nothing; rows the bank feed already has are folded in; an import can be removed again.
         </p>
-        <ActionForm action={importStatement.bind(null, jar.id)} className="mt-2 flex flex-col gap-2">
-          <input name="file" type="file" accept=".ofx,.qfx,.csv,text/csv" required aria-label="Statement file" className="max-w-full text-sm file:mr-3 file:min-h-11 file:rounded-xl file:border-0 file:bg-muted file:px-3 file:font-bold sm:file:min-h-9" />
-          <div className="flex flex-wrap gap-2">
-            {accounts.length > 0 && (
-              <select name="accountId" aria-label="Into account" className={`${field} max-w-full min-w-0`} defaultValue={accounts[0].id}>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-                <option value="">A new account…</option>
-              </select>
-            )}
-            <input name="newAccount" maxLength={60} placeholder="New account name" aria-label="New account name" className={`${field} min-w-0 flex-1`} />
-          </div>
-          <Submit pendingText="Importing…">Import</Submit>
-        </ActionForm>
+        <StatementImport
+          accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
+          recent={recent.map((r) => ({ id: r.id, when: when(r.createdAt), added: r.added, account: r.account.name, by: r.by?.firstName ?? null }))}
+          check={checkStatement.bind(null, jar.id)}
+          importFile={importStatement.bind(null, jar.id)}
+          removeImport={removeStatementImport.bind(null, jar.id)}
+        />
       </section>
 
       <section className="rounded-2xl border-2 border-dashed border-tomato/60 p-4">

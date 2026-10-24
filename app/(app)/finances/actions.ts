@@ -8,8 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { eligibleMemberWhere, moneyViewer, requireJar } from "@/lib/finance/access";
 import { claimSetupToken, SimpleFinError } from "@/lib/finance/simplefin";
 import { verifyKey, PrivacyError } from "@/lib/finance/privacy";
-import { parseStatement } from "@/lib/finance/importers";
-import { importRows, resolveIssue, saveConnection } from "@/lib/finance/sync";
+import { checkStatement as checkStatementFile, importStatementFile, removeImport, type StatementCheck } from "@/lib/finance/statement-import";
+import { resolveIssue, saveConnection } from "@/lib/finance/sync";
 import { scheduleJarSync } from "@/lib/finance/schedule";
 import { organizeJar } from "@/lib/finance/organize";
 import { civilDate, giftGroup, isUnrevealed, parseGiftForm, spreadGiftMarks, visibleOrderWhere, visibleToWhere } from "@/lib/finance/gifts";
@@ -183,13 +183,42 @@ export async function syncNow(jarId: string): Promise<FormState> {
   return { ok: failed ? "The last try failed; it'll retry within the hour." : "Synced within the last hour (the bank feed allows about one sync an hour)." };
 }
 
-export async function importStatement(jarId: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const { jar, viewer } = await requireJar(jarId);
+/** The file from a statement form: present, not empty, not too big. */
+async function statementBytes(formData: FormData): Promise<Uint8Array | string> {
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { error: "Pick a statement file (OFX, QFX or CSV)." };
-  if (file.size > MAX_FILE) return { error: "That file is too big (3 MB max)." };
-  const parsed = parseStatement(await file.text());
-  if (!parsed.ok) return { error: parsed.error };
+  if (!(file instanceof File) || file.size === 0) return "Pick a statement file (OFX, QFX or CSV).";
+  if (file.size > MAX_FILE) return "That file is too big (3 MB max).";
+  return new Uint8Array(await file.arrayBuffer());
+}
+
+/** The choices the check step sent back (JSON), or nothing. */
+function sentChoices(formData: FormData): unknown {
+  try {
+    const raw = formData.get("choices");
+    return typeof raw === "string" && raw.length < 2_000 ? JSON.parse(raw) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Phase 52: "Check it": what the app understood of a statement file, on a few rows (an OFX or QFX
+ * only says how many rows it has). Nothing is saved. Any jar member, like importing.
+ */
+export async function checkStatement(jarId: string, formData: FormData): Promise<StatementCheck> {
+  const { jar } = await requireJar(jarId);
+  const bytes = await statementBytes(formData);
+  if (typeof bytes === "string") return { kind: "error", error: bytes };
+  const accountId = String(formData.get("accountId") ?? "");
+  const account = accountId ? await prisma.finAccount.findFirst({ where: { id: accountId, jarId: jar.id }, select: { id: true } }) : null;
+  return checkStatementFile(jar.householdId, account?.id ?? null, bytes, sentChoices(formData));
+}
+
+/** Phase 25, Phase 52: imports the checked file (a CSV with the confirmed choices) into an account. */
+export async function importStatement(jarId: string, formData: FormData): Promise<FormState> {
+  const { jar, viewer } = await requireJar(jarId);
+  const bytes = await statementBytes(formData);
+  if (typeof bytes === "string") return { error: bytes };
 
   let accountId = String(formData.get("accountId") ?? "");
   if (accountId) {
@@ -200,14 +229,26 @@ export async function importStatement(jarId: string, _prev: FormState, formData:
     if (!name.success) return { error: "Pick an account, or name a new one." };
     accountId = (await prisma.finAccount.create({ data: { jarId: jar.id, source: "MANUAL", externalId: randomUUID(), name: name.data }, select: { id: true } })).id;
   }
-  const { added, already } = await importRows(jar.id, accountId, parsed.rows);
+  const outcome = await importStatementFile(jar, accountId, viewer.id, bytes, sentChoices(formData));
+  if (!outcome.ok) return { error: outcome.error };
+  const { added, already, skipped } = outcome;
   if (added > 0) {
     const account = await prisma.finAccount.findUnique({ where: { id: accountId }, select: { name: true } });
     await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "IMPORTED", data: { count: added, account: (account?.name ?? "an account").slice(0, 60) } });
   }
   revalidatePath(jarPath(jar.id), "layout");
-  const skipped = parsed.skipped ? `; ${parsed.skipped} row${parsed.skipped === 1 ? "" : "s"} couldn't be read` : "";
-  return { ok: `Added ${added} transaction${added === 1 ? "" : "s"}${already ? `; ${already} were already here` : ""}${skipped}.` };
+  const skippedText = skipped ? `; ${skipped} row${skipped === 1 ? "" : "s"} couldn't be read` : "";
+  return { ok: `Added ${added} transaction${added === 1 ? "" : "s"}${already ? `; ${already} were already here` : ""}${skippedText}.` };
+}
+
+/** Phase 52: "Remove this import": every row one statement file brought. Any jar member, asked first. */
+export async function removeStatementImport(jarId: string, importId: string): Promise<FormState> {
+  const { jar, viewer } = await requireJar(jarId);
+  const removed = await removeImport(jar.id, String(importId).slice(0, 64));
+  if (removed == null) return { error: "That import was already removed." };
+  await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "IMPORT_REMOVED", data: { count: removed } });
+  revalidatePath(jarPath(jar.id), "layout");
+  return { ok: `Removed ${removed} transaction${removed === 1 ? "" : "s"}.` };
 }
 
 export async function answerIssue(jarId: string, issueId: string, answer: "SAME" | "DIFFERENT" | "DISMISSED") {

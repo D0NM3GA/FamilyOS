@@ -73,6 +73,8 @@ const ASKING_COMPONENTS: Record<string, (tag: string) => boolean> = {
   // Phase 40.2c: asks with ConfirmSubmit, then shows the reset's link once.
   ResetPasskeys: () => true,
   SmallActionButton: (tag) => /\bconfirmText=/.test(tag),
+  // Phase 52: "Remove this import" asks with ConfirmAction before it runs.
+  StatementImport: () => true,
 };
 
 /** The names of destructive server actions a `"use server"` file exports. */

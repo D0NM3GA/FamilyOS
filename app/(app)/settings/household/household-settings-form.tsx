@@ -15,7 +15,7 @@ export function HouseholdSettingsForm({
   timeZones,
 }: {
   action: Action;
-  defaults: { name: string; timezone: string | null };
+  defaults: { name: string; timezone: string | null; statementDateOrder: "AUTO" | "MONTH_FIRST" | "DAY_FIRST" };
   timeZones: string[];
 }) {
   const [state, formAction, pending] = useActionState<HouseholdSettingsFormState, FormData>(
@@ -68,6 +68,25 @@ export function HouseholdSettingsForm({
               Use this device&apos;s
             </button>
           )}
+        </p>
+      </div>
+
+      {/* Phase 52: how a statement file's ambiguous dates read (lib/finance/statement-columns.ts). */}
+      <div>
+        <label htmlFor="household-date-order" className="block text-sm font-medium text-foreground">Date order in statement files</label>
+        <select
+          id="household-date-order"
+          name="statementDateOrder"
+          defaultValue={defaults.statementDateOrder}
+          aria-describedby="household-date-order-hint"
+          className="mt-1 min-h-11 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-ring focus:outline-none sm:min-h-9"
+        >
+          <option value="AUTO">Automatic: the standard where you live (month first in the US)</option>
+          <option value="MONTH_FIRST">Month first (03/10 is March 10)</option>
+          <option value="DAY_FIRST">Day first (03/10 is 3 October)</option>
+        </select>
+        <p id="household-date-order-hint" className="mt-1 text-xs text-muted-foreground">
+          Only for a bank or card file whose dates could be read either way. The import check shows the order it used.
         </p>
       </div>
 
