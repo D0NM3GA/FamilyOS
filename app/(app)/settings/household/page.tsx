@@ -41,6 +41,7 @@ export default async function HouseholdSettingsPage({
 
   const household = await getHouseholdSettings(profile.householdId);
   const timeZones = listTimeZones(household.timezone);
+  const { statementDateOrder: dateOrder } = await prisma.household.findUniqueOrThrow({ where: { id: profile.householdId }, select: { statementDateOrder: true } });
   // Phase 45.1: a saved home is shown as the ZIP code it's near, never as coordinates.
   const home = household.latitude != null && household.longitude != null ? nearestZip(household.latitude, household.longitude).zip : null;
 
@@ -97,6 +98,7 @@ export default async function HouseholdSettingsPage({
           defaults={{
             name: household.name,
             timezone: household.timezone,
+            statementDateOrder: dateOrder,
           }}
           timeZones={timeZones}
         />

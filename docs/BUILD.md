@@ -893,6 +893,36 @@ each, and lists the ones it can read with the next few events, ready to add.
 - **The guided setup** has no school step, so its last step ("All set") points to the finder when
   School is on and no calendar is added yet (the owner chose a link from setup).
 
+## Phase 52 — Statement imports that work out their own columns
+
+A CSV statement only worked with a few exact header names. Now the app works the columns out and
+shows its guess on 5 rows before anything is saved (the owner's call: every CSV, every time).
+
+- **Reading** (`lib/finance/statement-columns.ts`): UTF-8, else Windows-1252, UTF-16 by its mark;
+  comma, semicolon, tab or pipe, by which splits the first lines most consistently; the header is
+  the first row followed by data (account details above it are skipped), or none.
+- **Guessing, names first and contents second:** the common names for each role, then each
+  column's share of cells that read as a date, as money (a decimal mark or a sign; bare digits
+  never), or as varied words. Fable's scope review against real exports added the decoys: a
+  running balance (by name, or steps matching another money column), reference and card numbers,
+  category and status columns; the posting date over the transaction date (the reconciler matches
+  the feed on it); a second text column as the memo.
+- **Dates and signs:** ISO, compact, numeric in either order, month names; the order from the
+  file's own dates, else the household's setting (`Household.statementDateOrder`, the owner's call:
+  automatic is the location's standard, month first in the US, and admins can change it). Comma
+  decimals are worked out before any amount is read. A Type column signs an all-positive amount
+  column, only for words it knows. A card file (80% or more positive) gets a suggestion to turn it
+  around, never an automatic flip.
+- **Check, then import** (`lib/finance/statement-import.ts`): the page keeps the File and sends it
+  with each step, since a form post clears a file field (a scope-review blocker); nothing is kept
+  on the server in between. The confirmed choices are remembered per account by a hash of the
+  file's layout and the reader's version.
+- **Undo and folding:** each import is a `FinImport`; rows carry `importId`, and **Remove this
+  import** deletes them (asked first). A row another import already brought under a different id
+  (an OFX and a CSV of the same month) is folded in by day, amount and words. A changed choice
+  still makes new ids (the hash includes the amount and day), which the undo covers.
+- Row ids are the same as Phase 25's CSV reader, so a file imported before adds nothing now.
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with

@@ -332,7 +332,8 @@ type OptionalHouseholdField =
   | "appIcon"
   | "disabledApps"
   | "setupReviewed"
-  | "petCareHours";
+  | "petCareHours"
+  | "statementDateOrder";
 
 /** Household settings from the file, re-validated the way the settings form validates them. */
 export function normalizeHousehold(
@@ -371,6 +372,7 @@ export function normalizeHousehold(
     // Phase 47: kept only if it reads as care hours. readCareHours hands back the defaults
     // object itself when it can't, which here means "none set" (the same hours).
     petCareHours: careHoursOrNull(h.petCareHours),
+    statementDateOrder: h.statementDateOrder ?? "AUTO",
   };
 }
 

@@ -32,6 +32,7 @@ export const EVENT_DATA = {
   CONNECTED: z.object({ provider: z.enum(["SIMPLEFIN", "PRIVACY"]) }),
   DISCONNECTED: z.object({ provider: z.enum(["SIMPLEFIN", "PRIVACY"]) }),
   IMPORTED: z.object({ count: z.number().int().nonnegative(), account: name }),
+  IMPORT_REMOVED: z.object({ count: z.number().int().nonnegative() }),
   CATEGORY_SET: z.object({ category: label.nullable(), always: z.boolean(), key, label }),
   RULE_FORGOTTEN: z.object({ key, label }),
   BUDGET_SET: z.object({ category: label, cents: z.number().int().nullable() }),
@@ -113,6 +114,8 @@ export function describeEvent(kind: JarEventKind, raw: unknown, actor: string): 
       return `${actor} disconnected ${d.provider === "PRIVACY" ? "Privacy.com" : "the bank feed"}`;
     case "IMPORTED":
       return `${actor} imported ${d.count} transaction${d.count === 1 ? "" : "s"} into ${d.account}`;
+    case "IMPORT_REMOVED":
+      return `${actor} removed an import (${d.count} transaction${d.count === 1 ? "" : "s"})`;
     case "CATEGORY_SET":
       return d.always
         ? `${actor} set ${d.label} to always be ${d.category ?? "uncategorized"}`

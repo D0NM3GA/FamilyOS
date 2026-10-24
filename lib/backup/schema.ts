@@ -90,6 +90,8 @@ const household = z.object({
   // Phase 47: when the pet is awake, as stored (JSON). Restore keeps it only if it reads as
   // care hours (lib/pet/stored.ts); absent in older files (the default hours).
   petCareHours: z.json().nullable().default(null),
+  // Phase 52: how ambiguous statement dates read; absent in older files (automatic).
+  statementDateOrder: z.enum(["AUTO", "MONTH_FIRST", "DAY_FIRST"]).default("AUTO"),
 });
 
 const person = z.object({

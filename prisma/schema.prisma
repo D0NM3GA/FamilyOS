@@ -34,6 +34,9 @@ model Household {
   mascotName  String?
   /// The Home Screen icon (app/icon.tsx).
   appIcon     AppIcon @default(BUNNY)
+  /// Phase 52: how a statement file's ambiguous dates (03/10/2026) are read when the file itself
+  /// can't tell: AUTO follows where the household is (month first in the US). Admins change it.
+  statementDateOrder StatementDateOrder @default(AUTO)
   /// IANA zone name (e.g. "America/New_York"), set at setup and in /settings/household. Phase
   /// 49: the server process runs in this zone (lib/household-zone.ts), so "today", due dates and
   /// every date the server prints follow it. Null means not set yet: the deploy's TZ is used.
@@ -103,6 +106,13 @@ model Household {
 }
 
 /// The bunny art, or the app name's first letter on the top bar color.
+/// Phase 52: the order of a statement file's ambiguous dates (lib/finance/statement-columns.ts).
+enum StatementDateOrder {
+  AUTO
+  MONTH_FIRST
+  DAY_FIRST
+}
+
 enum AppIcon {
   BUNNY
   LETTER
@@ -210,6 +220,7 @@ model Person {
   pushSubscriptions     PushSubscription[]
   /// Phase 21.5: who last set the family's Teams link.
   householdAlertsSet    HouseholdAlerts[] @relation("HouseholdAlertsUpdatedBy")
+  finImports            FinImport[]       @relation("FinImportBy")
   /// Phase 20: the reward this person is saving up for (a UI preference, not backed up).
   savingRewardId        String?
   savingReward          Reward?          @relation("SavingFor", fields: [savingRewardId], references: [id], onDelete: SetNull)
@@ -1659,6 +1670,7 @@ model MoneyJar {
   mailOrders   MailOrder[]
   mailScans    MailOrderScan[]
   events       JarEvent[]
+  imports      FinImport[]
   chatAlerts   JarChatAlertSent[]
   manualBills  ManualBill[]
   holdings     FinHolding[]
@@ -1760,9 +1772,13 @@ model FinAccount {
   balanceAt  DateTime?
   /// Phase 32: day-to-day spending money (checking): Safe to spend counts these balances.
   spending   Boolean   @default(false)
+  /// Phase 52: the column choices a person confirmed for this account's statement files, keyed
+  /// by the file's layout (lib/finance/statement-columns.ts layoutKey). Not money: not in backups.
+  importLayouts Json   @default("{}")
   createdAt  DateTime  @default(now())
 
   transactions FinTransaction[]
+  imports      FinImport[]
   issues       ReconcileIssue[]
   balanceDays  FinBalanceDay[]
 
@@ -1783,6 +1799,26 @@ enum FinTxnState {
 /// statement files. Negative = money out. `postedOn` is the bank's civil day, taken in UTC
 /// from the feed's epoch (bank dates are midnight UTC), so read it with UTC getters: a
 /// different rule from the app's server-local midnights (lib/tasks/schedule.ts).
+/// Phase 52: one statement file imported into one account, so it can be removed again in one
+/// tap (lib/finance/statement-import.ts). Not in backups.
+model FinImport {
+  id         String     @id @default(cuid())
+  jarId      String
+  jar        MoneyJar   @relation(fields: [jarId], references: [id], onDelete: Cascade)
+  accountId  String
+  account    FinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  byPersonId String?
+  by         Person?    @relation("FinImportBy", fields: [byPersonId], references: [id], onDelete: SetNull)
+  format     String
+  added      Int
+  createdAt  DateTime   @default(now())
+
+  transactions FinTransaction[]
+
+  @@index([jarId, createdAt])
+  @@map("fin_import")
+}
+
 model FinTransaction {
   id          String      @id @default(cuid())
   jarId       String
@@ -1834,6 +1870,10 @@ model FinTransaction {
   giftHiddenFrom   String[]  @default([])
   giftRevealOn     DateTime? @db.Date
   giftCopiedFromId String?
+
+  /// Phase 52: the statement import that brought this row (Remove this import). Not in backups.
+  importId String?
+  import   FinImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2077,6 +2117,8 @@ enum JarEventKind {
   CONNECTED
   DISCONNECTED
   IMPORTED
+  /// Phase 52: a statement import removed again.
+  IMPORT_REMOVED
   CATEGORY_SET
   RULE_FORGOTTEN
   BUDGET_SET

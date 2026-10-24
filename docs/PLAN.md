@@ -178,8 +178,8 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 49 | The household's timezone in every date calculation | merged |
 | 50 | Teams without Power Automate: the app's own Teams bot, a jar chat picked from a list | merged |
 | 51 | Find the school calendar from the school's web address | merged |
-| 52 | Statement imports that work out their own columns | next |
-| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | later |
+| 52 | Statement imports that work out their own columns | merged |
+| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | next |
 | 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | built |
 | 55 | The pet's daily surprises and sound | next |
 
@@ -206,13 +206,13 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 
 Everything through Phase 46, Phase 48 (the migrate image cut from 2.26 GB to about 690 MB) and
 Phase 49 (the household's timezone everywhere) Phase 50 (Teams through the family's own Teams
-app, no Power Automate) and Phase 51 (finding the school calendar from its website) are merged
-to `main` (2026-10-23). The project moved to this public repository the same day (one clean
-commit; the earlier history is archived privately). `main` takes changes only through pull
-requests: a ruleset requires the three CI jobs and the container check, and a pull request
-merges itself once they pass. Every merge to `main` publishes the tested app and migrate images
-(`ghcr.io/d0nm3ga/familyos`, `…-migrate`, public, tagged `sha-<commit>`, with signed
-provenance).
+app, no Power Automate) Phase 51 (finding the school calendar from its website) and Phase 52
+(statement CSVs that work out their own columns) are merged to `main` (2026-10-23). The project
+moved to this public repository the same day (one clean commit; the earlier history is archived
+privately). `main` takes changes only through pull requests: a ruleset requires the three CI
+jobs and the container check, and a pull request merges itself once they pass. Every merge to
+`main` publishes the tested app and migrate images (`ghcr.io/d0nm3ga/familyos`, `…-migrate`,
+public, tagged `sha-<commit>`, with signed provenance).
 
 **Tabled until the owner says it's time (2026-10-23):** going live (the server, Cloudflare
 Tunnel and Access, the pinned version, backups and break-glass, following
@@ -221,8 +221,7 @@ The database still holds test data only.
 
 **Next, the remaining engineering work, in this order** (each its own phase and pull request;
 the owner's questions are asked at each scope):
-1. **Phase 52 — Statement imports that work out their own columns.**
-2. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
+1. **Phase 53 — Smaller setup fixes:** VIN entry or decoding, smoother bank-feed setup, the
    alert mailbox set and tested in Settings, a link to Entra's role assignments.
 
 The decisions waiting on the owner are under "Open items".
@@ -1114,6 +1113,113 @@ finding one is common, so that answer has to be honest and specific.
 2. **Include the Finalsite rule.**
 3. **When nothing is found:** the honest line and the paste box; no email draft.
 
+## Phase 52 — scope (statement imports that work out their own columns, 2026-10-24)
+
+A jar takes statement files for history the bank feed doesn't have (Phase 25). OFX and QFX are
+read reliably (every row carries the bank's own id). A CSV only works when its header row uses a
+few exact names (a date, a description, an amount or debit and credit), otherwise it's refused
+with "Try the bank's OFX/QFX download instead". Real bank and card CSVs often don't fit: lines of
+account details before the header, no header at all, names like "Trans. Date" or "Original
+Description", semicolons or tabs, dates as `20261003`, `03-10-2026` or `Oct 3, 2026`, a separate
+"Type" column saying debit or credit, and credit cards that list charges as positive. The aim:
+the app works the columns out itself, shows what it understood on a few rows, and lets the person
+fix it before anything is saved, once per account. Fable's scope review (2026-10-24) checked it
+against real bank and card export layouts and is folded in.
+
+### 52.1 — Reading the file
+
+- **Encoding:** UTF-8 (with or without its byte-order mark), else Windows-1252 (an "é" from an
+  older bank export), and UTF-16 when the file starts with its byte-order mark.
+- **Separator:** comma, semicolon or tab, whichever splits the rows into the same number of
+  fields most consistently. The quoted-field splitter gets the separator as a new setting (it's
+  comma only today).
+- **Where the rows start:** the header is the first row followed by rows that read as data; lines
+  of account details before it are skipped. A file whose first row already reads as data has no
+  header.
+- **Header names, wider:** the common variants for each role ("Trans. Date", "Post Date",
+  "Transaction Description", "Original Description", "Amount (USD)", "Withdrawal", "Deposit",
+  "Type", "Debit/Credit").
+- **Names first, content second:** each column is scored on the first 50 data rows for how many
+  cells read as a date, as money, or as words, and the header's name counts most.
+  - **Decoys left out:** a balance column ("Balance", "Running Bal."), and a column whose steps
+    match another money column's; a reference, check or card number (digits with no decimal point
+    or sign never count as money, and 8 digits count as a date only when nothing else does); a
+    category, type or status column (few different values) is never the description.
+  - **Two dates:** the posting date wins over the transaction date (the reconciler matches the bank
+    feed on the posting day).
+  - **A second text column** (memo, original description, extended details) becomes the row's memo.
+
+### 52.2 — Dates and amounts
+
+- **Dates:** `YYYY-MM-DD`, `YYYYMMDD`, `M/D/YYYY`, `M/D/YY`, `M-D-YYYY`, `D.M.YYYY`, and month
+  names (`Oct 3, 2026`, `3 Oct 2026`). Whether `03/10/2026` is March or October is decided once for
+  the whole file: a first part over 12 means day first, a second part over 12 means month first,
+  and when every row could be either it follows the household's setting (below), shown in the
+  check step, where whoever imports can switch it for that file.
+- **The household's date order** (the owner's call): Settings → Household → **Date order in
+  statement files**: Automatic (the household's location: month first in the US and the rest of
+  the Americas that write dates that way, day first elsewhere), Month first, or Day first. Admins
+  change it; `Household.statementDateOrder`, in backups.
+- **Amounts:** as today (`$`, `(1.00)`, `CR`/`DR`, the Unicode minus), plus a comma decimal
+  (`1.234,56`, `1,50`), worked out for the file before any cell is read (today's money reader
+  would take `1,50` as 150.00).
+- **Debit and credit pairs:** both positive, or a credit written negative; either reads right
+  (today's rule, with tests for both).
+- **Which way is money out:** a single amount column is taken as negative-is-out. A Type column
+  sets the sign only when every amount is positive, and only for values it knows (debit/credit,
+  withdrawal/deposit, sale/payment/return/fee); an unknown value never changes a sign. Card
+  exports differ (some list charges positive, some negative), so when nearly all amounts are
+  positive the preview **suggests** flipping, beside the rows it would change; it's never applied
+  on its own (a savings account with only deposits looks the same).
+
+### 52.3 — Check, then import
+
+- **Choose the file → Check it**: the jar's Statement section shows what the app understood: the
+  date, description and amount columns (labelled dropdowns of the file's own column names or
+  "Column 3"), the date order, which way is money out, how many rows will be skipped, and the
+  first 5 rows as they'd be saved (a table: date, words, amount, "in" or "out" in words). **Import**
+  saves with those choices. OFX and QFX skip this and import as today.
+- Stateless: the browser keeps the chosen file in the page and sends the same file with each step
+  (not a plain form post, which clears a file field after it returns), so nothing of it is kept
+  on the server between the two steps.
+- **Remembered per account:** the choices are kept on the account with the file's layout (a hash
+  of its header, or its column count when there's none, and the reader's version, so a smarter
+  reader asks again), so the next statement from the same bank
+  goes straight to the check with them already set (question 2).
+- Re-importing the same file with the same choices adds nothing, as today (a row's id is a hash
+  of its day, amount and words). Changed choices make new ids, so:
+  - **Each import can be undone:** rows remember which import brought them, and the jar's
+    Statement section lists recent imports with **Remove this import** (asked first). A wrong
+    guess costs a tap, not a month of wrong money.
+  - **A row already there from another import** (same account, day, amount and words) is folded
+    in rather than added twice.
+
+### Tests
+
+- Unit, with made-up bank and card exports (no real bank, merchant or amount from anyone's
+  accounts): each separator and encoding; details lines before the header; no header; the wider
+  names; columns found by content; the balance, reference-number and category decoys; both dates;
+  every date form, both date orders and the zone fallback; comma decimals; Type columns (and an
+  unknown Type value); debit and credit pairs both ways; a card file that suggests flipping; a
+  column pick that overrides the guess; the layout hash; no readable rows after the choices; the
+  row cap. Existing CSV and OFX tests stay as they are.
+- Database: a remembered layout reused for the next file; re-importing adds nothing; a re-import
+  after a flipped sign, then **Remove this import**; a row folded onto one from another import.
+- Browser: choose a file, check it, fix a column, import, see the rows in Activity.
+
+### Not in this phase
+
+- PDF statements (no reliable text layout), and Excel files (save as CSV first; the guide says so).
+- Splitting one file into several accounts.
+
+### The owner's answers (2026-10-24)
+
+1. **Every CSV shows the check step** before importing; OFX and QFX import straight away.
+2. **Remember the choices** for each account's file layout.
+3. **Ambiguous dates:** the household location's standard (month first in the US) by default, as
+   a setting an admin can change (Settings → Household).
+4. **Remove this import** for recent imports.
+
 ## Open items
 
 ### Waiting on a decision
@@ -1130,9 +1236,8 @@ finding one is common, so that answer has to be honest and specific.
 
 - **The dev sign-in (`DEV_AUTH`)** still exists for development; production refuses to start
   with it. Removing it before going live is planned (the owner's call to keep it for now).
-- **Other setup friction:** statement imports that work out their own columns (Phase 52), and VIN
-  entry or scanning, smoother bank-feed setup, the alert mailbox set and tested in Settings, and a
-  link to Entra's role assignments (Phase 53).
+- **Other setup friction:** VIN entry or scanning, smoother bank-feed setup, the alert mailbox set
+  and tested in Settings, and a link to Entra's role assignments (Phase 53).
 - **Order emails:** improvements to forwarded order mail are deferred. Sam's Club orders can't
   be priced, since its emails carry no prices.
 - **Accessibility:** a screen-reader audit by a person is worth doing once the family uses the
