@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { MASCOT_ART_VERSION, mascotArt } from "./bunson-art";
 import { HOP_FRAME_COUNT } from "./bunson-hop";
 import { IDLE_LIFE_FRAME_COUNT } from "./bunson-idle";
+import { RISE_FRAME_COUNT } from "./bunson-rise";
 import { LOCO_FRAME_COUNT } from "./bunson-loco";
 
 describe("Bunson's sprite addresses", () => {
@@ -17,6 +18,7 @@ describe("Bunson's sprite addresses", () => {
       "bunson-idle",
       "bunson-periscope",
       "bunson-turn",
+      ...Array.from({ length: RISE_FRAME_COUNT }, (_, i) => `bunson-rise-${i}`),
       ...Array.from({ length: IDLE_LIFE_FRAME_COUNT }, (_, i) => `bunson-life-${i}`),
       ...Array.from({ length: HOP_FRAME_COUNT }, (_, i) => `bunson-hop-${i}`),
       ...Array.from({ length: LOCO_FRAME_COUNT }, (_, i) => `bunson-loco-${i}`),

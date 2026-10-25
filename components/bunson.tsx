@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { HOP_FRAME_COUNT, hopFrameIndex } from "@/lib/bunson-hop";
 import { mascotArt } from "@/lib/bunson-art";
 import { IDLE_LIFE_FRAME_COUNT, idleLifeFrameIndex, idleLifeGap } from "@/lib/bunson-idle";
+import { RISE_FRAME_COUNT, RISE_MS, riseFrameIndex, sitFrameIndex } from "@/lib/bunson-rise";
 import { BUBBLE_WIDTH_PX, bubbleShift } from "@/lib/bunson-bubble";
 import { chaseAcceptsPointer } from "@/lib/bunson-chase";
 import {
@@ -48,11 +49,13 @@ const IDLE_FRAME = mascotArt("bunson-idle");
 const TURN_FRAME = mascotArt("bunson-turn");
 // Life while he sits: an ear flick and a head tilt that ends on the sitting pose.
 const IDLE_LIFE_FRAMES = Array.from({ length: IDLE_LIFE_FRAME_COUNT }, (_, i) => mascotArt(`bunson-life-${i}`));
-const PERISCOPE_FRAME = mascotArt("bunson-periscope");
+// Periscoping (lib/bunson-rise.ts): rising onto his hind legs, frame 0 being
+// his sitting pose, so the hand-over from the sitting image is seamless.
+const RISE_FRAMES = Array.from({ length: RISE_FRAME_COUNT }, (_, i) => mascotArt(`bunson-rise-${i}`));
 
 const BUBBLE_MS = 4000; // how long the bubble's content stays announced/fully opaque
 const BUBBLE_EXIT_MS = 200; // fade-out duration after BUBBLE_MS, before the node unmounts
-const SPEAK_TRANSITION_MS = 300; // matches the clip/crossfade duration-300 classes below
+const SPEAK_TRANSITION_MS = RISE_MS; // the rise/sit (lib/bunson-rise.ts) and the clip's duration-300 height transition
 // Ordering invariant: BUBBLE_MS (4000) < +BUBBLE_EXIT_MS (4200) < +SPEAK_TRANSITION_MS
 // (4500, RESUME_LOCO_MS below). The bubble fades out, then — only once it's
 // fully gone — Bunson finishes settling back down from the speaking pose, and
@@ -85,13 +88,13 @@ const SHADOW_LEFT_PX = Math.round((ART_LEFT_PX + ART_RIGHT_PX) / 2 - SHADOW_WIDT
 const VISIBLE_EARS_PX = 24;
 const PEEK_PX = ART_TOP_PX + VISIBLE_EARS_PX; // clip height at rest, before ever clicked
 
-// bunson-periscope.png (the "speaking" pose — sitting up, front paws tucked to
-// his chest): 136x136 canvas, opaque rows 52-95, cols 48-85. It shares idle's
-// ground row; the separate clip tier stays so a taller pose can come back
-// without touching the wrapper (it's bottom-anchored, so a taller clip only
-// moves its top edge up and the feet stay flush with the viewport edge).
-const SPEAK_TOP_PX = 52;
-const SPEAK_HEIGHT_PX = 96; // periscope's own lowest opaque row + 1
+// bunson-rise-*.png (the "speaking" pose — standing tall on his hind legs, front
+// paws tucked to his chest): 136x136 canvas, opaque rows 2-95, cols 48-85 across
+// all nine frames. It shares idle's ground row; the taller clip tier only moves
+// its top edge up (the wrapper is bottom-anchored), so his feet stay flush with
+// the viewport edge.
+const SPEAK_TOP_PX = 2;
+const SPEAK_HEIGHT_PX = 96; // the rise frames' lowest opaque row + 1
 
 // Tail tip (~8.5px) + clearance above whichever pose is currently showing.
 const BUBBLE_LIFT_PX = 13.5;
@@ -247,6 +250,9 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
   // Life while he sits (lib/bunson-idle.ts): which wiggle frame is showing, if
   // any, and a counter that re-arms the next wiggle once one finishes.
   const [lifeIdx, setLifeIdx] = useState<number | null>(null);
+  // Which periscoping frame shows: rising, looking around, or sitting back
+  // down; null when he's not standing at all.
+  const [riseIdx, setRiseIdx] = useState<number | null>(null);
   const [lifeRound, setLifeRound] = useState(0);
   // Lifts the sprite during a chase hop (written directly, like `left`).
   const liftRef = useRef<HTMLDivElement>(null);
@@ -262,11 +268,34 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
   const speakEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    for (const src of [...HOP_FRAMES, ...LOCO_FRAMES, PERISCOPE_FRAME, TURN_FRAME, ...IDLE_LIFE_FRAMES]) {
+    for (const src of [...HOP_FRAMES, ...LOCO_FRAMES, ...RISE_FRAMES, TURN_FRAME, ...IDLE_LIFE_FRAMES]) {
       const img = new window.Image();
       img.src = src;
     }
   }, []);
+
+  // Speaking starts the rise (then looking around); when it ends he sits back
+  // down. Under reduced motion he simply stands, then sits, with no frames in
+  // between.
+  useEffect(() => {
+    let raf: number | null = null;
+    const t0 = performance.now();
+    const step = (ts: number) => {
+      const t = ts - t0;
+      if (speaking) {
+        setRiseIdx(reducedMotionRef.current ? RISE_FRAME_COUNT - 1 : riseFrameIndex(t));
+        if (!reducedMotionRef.current) raf = requestAnimationFrame(step);
+        return;
+      }
+      const idx = reducedMotionRef.current ? null : sitFrameIndex(t);
+      setRiseIdx(idx);
+      if (idx != null) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      if (raf != null) cancelAnimationFrame(raf);
+    };
+  }, [speaking]);
 
   // Only while he's sitting facing you with nothing else going on; any other
   // frame, speaking or entering cancels it, and reduced motion never starts it.
@@ -720,6 +749,8 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
     }, RESUME_LOCO_MS);
   }
 
+  // Standing from the first frame of the rise until he's sat back down.
+  const standing = speaking || riseIdx != null;
   const visibleHeight = speaking ? SPEAK_HEIGHT_PX : revealed ? GROUND_PX : PEEK_PX;
   const hitboxTop = speaking ? SPEAK_TOP_PX : ART_TOP_PX;
 
@@ -805,29 +836,20 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
               // when `frame` isn't a loco frame is a harmless no-op.
               transform: locoDirection === -1 ? "scaleX(-1)" : undefined,
             }}
-            className={
-              "pointer-events-none [image-rendering:pixelated] drop-shadow-md transition-opacity duration-300 ease-out " +
-              (speaking ? "opacity-0" : "opacity-100")
-            }
+            className={"pointer-events-none [image-rendering:pixelated] drop-shadow-md " + (standing ? "opacity-0" : "opacity-100")}
           />
         </div>
-        {/* Always mounted (not just while speaking) so it's already decoded
-            before the first click and so its opacity transition has a real
-            "before" value to animate from. Both this and the layer above
-            fade in opposite directions — periscope's silhouette is
-            different enough from idle's that a fade-in-only would leave
-            idle's outline poking out at the midpoint. */}
+        {/* Periscoping. Always mounted so the first frame is decoded before the
+            first click. The rise starts on his sitting pose, so swapping layers
+            needs no fade: the sitting image hides the moment this one shows. */}
         {/* eslint-disable-next-line @next/next/no-img-element -- see above */}
         <img
-          src={PERISCOPE_FRAME}
+          src={RISE_FRAMES[riseIdx ?? (speaking ? 0 : RISE_FRAME_COUNT - 1)]}
           alt=""
           width={SPRITE_SIZE}
           height={SPRITE_SIZE}
           style={{ display: "block" }}
-          className={
-            "pointer-events-none absolute left-0 top-0 [image-rendering:pixelated] drop-shadow-md transition-opacity duration-300 ease-out " +
-            (speaking ? "opacity-100" : "opacity-0")
-          }
+          className={"pointer-events-none absolute left-0 top-0 [image-rendering:pixelated] drop-shadow-md " + (standing ? "opacity-100" : "opacity-0")}
         />
       </div>
       {/* Click target bounded to the current pose's own bbox (not the

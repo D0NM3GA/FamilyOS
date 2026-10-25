@@ -15,7 +15,7 @@ import { mascotArt } from "@/lib/bunson-art";
 const POSES = {
   // Alpha bounding boxes measured in components/bunson.tsx (136x136 canvases).
   idle: { src: mascotArt("bunson-idle"), top: 53, left: 48, width: 38, height: 43 },
-  stand: { src: mascotArt("bunson-periscope"), top: 52, left: 48, width: 38, height: 44 },
+  stand: { src: mascotArt("bunson-periscope"), top: 2, left: 49, width: 35, height: 94 },
 } as const;
 
 // Whole-number scale only: pixel art scaled by a fraction gets uneven pixels.
