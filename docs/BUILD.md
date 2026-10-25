@@ -1023,6 +1023,32 @@ The rectangles stay, for the keyboard and screen readers only. The browser test 
 plant from the toy box onto the shelf and, by the plant itself, down onto the floor; it passes
 by day and by night (`TZ=UTC` puts its room after bedtime).
 
+## The mascot's art (2026-10-25)
+
+The default mascot is a black and white dwarf rabbit drawn with PixelLab (a 64px character, from
+a reference photo the owner chose), on the same 136px canvases as before, every pose's feet on
+row 95.
+
+- **Addresses carry a version.** The sprites are cached for a day and served stale for a week
+  (`next.config.ts`), and their names never change, so every address comes from `mascotArt()`
+  (`lib/bunson-art.ts`), which adds `?v=N`. Bump `MASCOT_ART_VERSION` whenever any file in
+  `public/mascot` changes, or browsers keep the old look, even mixing old and new frames.
+  `lib/bunson-art.test.ts` checks every named frame exists.
+- **The chase hop** (`lib/bunson-loco.ts`, `bunson-loco-0..15`) is one side-on bunny hop drawn in
+  place, starting and ending on the same crouch so hops chain. He moves only while airborne,
+  gets a small arc on longer hops, and a ground shadow shrinks with his height (the art's own
+  lift per frame is measured in `LOCO_FRAME_LIFT_PX`). Reversing turns him through a
+  three-quarter view (`bunson-turn`); arriving, he sits side-on for a moment before facing you.
+- **Life while sitting** (`lib/bunson-idle.ts`, `bunson-life-0..7`): an ear flick and head tilt
+  every 4 to 8 seconds, only while he's sitting facing you, never under reduced motion.
+- **Periscoping** (`lib/bunson-rise.ts`, `bunson-rise-0..8`, frame 0 being his sitting pose):
+  speaking plays the rise in the 300 ms the old cross-fade took, looks around while the bubble
+  shows, and sits back down in reverse. The character's own canvas had no room to stand, so
+  this clip was animated from his sitting frame on a taller canvas.
+- **His face** was redrawn by hand on every frame (small dark eyes with a sparkle, his pink
+  nose, a soft blush): the generated eyes had a red glint that read as staring. New frames
+  need the same treatment.
+
 ## Dev sign-in (temporary, remove before shipping)
 
 `lib/dev-auth.ts` adds `POST /api/auth/dev/sign-in` for `dev-tester@familyos.test`, only with
