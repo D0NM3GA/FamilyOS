@@ -12,17 +12,21 @@
 // without a jump in the pose. Not the click-triggered "excited hop" in
 // lib/bunson-hop.ts, which is a camera-facing jump-in-place; keep the two
 // clips separate.
-export const LOCO_FRAME_COUNT = 8;
-export const LOCO_FRAME_MS = 55; // frame cadence
-export const LOCO_HOP_MS = LOCO_FRAME_COUNT * LOCO_FRAME_MS; // 440
+export const LOCO_FRAME_COUNT = 16;
+export const LOCO_FRAME_MS = 30; // frame cadence: about 33 frames a second
+export const LOCO_HOP_MS = LOCO_FRAME_COUNT * LOCO_FRAME_MS; // 480
 
-// When he's off the ground, measured from the art: the feet leave the ground
-// line on frame 1 and are back on it by frame 7. He moves forward only then.
-export const AIR_START_MS = 1 * LOCO_FRAME_MS;
-export const AIR_END_MS = 7 * LOCO_FRAME_MS;
+// When he's moving forward, measured from the art: frames 0-2 are the crouch
+// gathering, he pushes off on 3, is airborne 4-7, lands front-first on 8 and
+// draws his hind legs under by 12; 13-15 settle into the crouch again.
+export const AIR_START_MS = 3 * LOCO_FRAME_MS;
+// How far each frame's art already lifts his feet off the ground line (px),
+// measured from bunson-loco-*.png; the shadow adds this to the arc.
+export const LOCO_FRAME_LIFT_PX: readonly number[] = [0, 0, 0, 0, 4, 6, 6, 3, 1, 1, 1, 1, 1, 0, 0, 0];
+export const AIR_END_MS = 13 * LOCO_FRAME_MS;
 
-export const HOP_BEAT_MS = 50; // a short settle on the crouch before the next launch
-// Full cycle (hop + beat) is 490ms, about two hops a second: brisk, and the
+export const HOP_BEAT_MS = 40; // a short settle on the crouch before the next launch
+// Full cycle (hop + beat) is 520ms, about two hops a second: brisk, and the
 // crouch at both ends keeps it one continuous bounce.
 
 // The art lifts him about 7px at the top of the hop. Longer hops get a little
@@ -34,6 +38,27 @@ const LIFT_PER_PX = 0.1;
 // Once he arrives he stays side-on in his crouch for a moment before turning
 // to face you, instead of snapping round mid-landing.
 export const SETTLE_MS = 600;
+
+// Reversing direction: he turns through a three-quarter view (facing the old
+// way, then mirrored to face the new way) instead of flipping in one frame.
+export const TURN_STEP_MS = 70;
+export const TURN_MS = 2 * TURN_STEP_MS;
+
+// Which way to show the three-quarter pose this far into a turn: the old
+// direction for the first step, the new one for the second; null once done.
+export function turnFacing(elapsedMs: number, from: 1 | -1): 1 | -1 | null {
+  if (elapsedMs >= TURN_MS) return null;
+  return elapsedMs < TURN_STEP_MS ? from : (-from as 1 | -1);
+}
+
+// The ground shadow: full size and strength on the ground, smaller and
+// fainter the higher he is (art lift + arc), so the lift reads as leaving the
+// ground rather than sliding up. Scale and opacity, both 0-1.
+export const SHADOW_FADE_PX = 24;
+export function shadowAt(liftPx: number): { scale: number; opacity: number } {
+  const k = Math.min(Math.max(liftPx, 0) / SHADOW_FADE_PX, 1);
+  return { scale: 1 - 0.45 * k, opacity: 1 - 0.6 * k };
+}
 
 // One relaxed hop covers roughly a body length; below the dead zone a "hop"
 // would just be jitter, so the final approach snaps to exactly the remaining

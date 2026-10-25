@@ -4,14 +4,18 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { usePathname } from "next/navigation";
 import { HOP_FRAME_COUNT, hopFrameIndex } from "@/lib/bunson-hop";
 import { mascotArt } from "@/lib/bunson-art";
+import { IDLE_LIFE_FRAME_COUNT, idleLifeFrameIndex, idleLifeGap } from "@/lib/bunson-idle";
 import { BUBBLE_WIDTH_PX, bubbleShift } from "@/lib/bunson-bubble";
 import { chaseAcceptsPointer } from "@/lib/bunson-chase";
 import {
   HOP_BEAT_MS,
   LOCO_FRAME_COUNT,
+  LOCO_FRAME_LIFT_PX,
   SETTLE_MS,
   hopLiftPx,
   hopProgress,
+  shadowAt,
+  turnFacing,
   locoFrameIndex,
   planHop,
 } from "@/lib/bunson-loco";
@@ -40,6 +44,10 @@ const LOCO_FRAMES = Array.from(
   (_, i) => mascotArt(`bunson-loco-${i}`),
 );
 const IDLE_FRAME = mascotArt("bunson-idle");
+// Three-quarter view (facing right and towards you), shown while he turns round.
+const TURN_FRAME = mascotArt("bunson-turn");
+// Life while he sits: an ear flick and a head tilt that ends on the sitting pose.
+const IDLE_LIFE_FRAMES = Array.from({ length: IDLE_LIFE_FRAME_COUNT }, (_, i) => mascotArt(`bunson-life-${i}`));
 const PERISCOPE_FRAME = mascotArt("bunson-periscope");
 
 const BUBBLE_MS = 4000; // how long the bubble's content stays announced/fully opaque
@@ -68,6 +76,9 @@ const ART_LEFT_PX = 48;
 const ART_RIGHT_PX = 86;
 const ART_WIDTH_PX = ART_RIGHT_PX - ART_LEFT_PX;
 const GROUND_PX = 96; // clip height once revealed — idle's lowest opaque row + 1
+// His ground shadow: about his body's width, centred under it.
+const SHADOW_WIDTH_PX = 34;
+const SHADOW_LEFT_PX = Math.round((ART_LEFT_PX + ART_RIGHT_PX) / 2 - SHADOW_WIDTH_PX / 2);
 // How much of the head pokes up at rest — also the rest-state tap target
 // height (24px), which is WCAG 2.5.8's AA floor for touch targets exactly,
 // with no margin. Don't tune this below 24.
@@ -233,8 +244,14 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
   // something written imperatively like `left`.
   const [locoDirection, setLocoDirection] = useState<1 | -1>(1);
 
+  // Life while he sits (lib/bunson-idle.ts): which wiggle frame is showing, if
+  // any, and a counter that re-arms the next wiggle once one finishes.
+  const [lifeIdx, setLifeIdx] = useState<number | null>(null);
+  const [lifeRound, setLifeRound] = useState(0);
   // Lifts the sprite during a chase hop (written directly, like `left`).
   const liftRef = useRef<HTMLDivElement>(null);
+  // His shadow on the ground, shrinking as he rises (written directly too).
+  const shadowRef = useRef<HTMLDivElement>(null);
   const hopStart = useRef<number | null>(null); // the entering hop only
   const hopRaf = useRef<number | null>(null);
   const lastFrameIdx = useRef<number | null>(null);
@@ -245,11 +262,38 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
   const speakEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    for (const src of [...HOP_FRAMES, ...LOCO_FRAMES, PERISCOPE_FRAME]) {
+    for (const src of [...HOP_FRAMES, ...LOCO_FRAMES, PERISCOPE_FRAME, TURN_FRAME, ...IDLE_LIFE_FRAMES]) {
       const img = new window.Image();
       img.src = src;
     }
   }, []);
+
+  // Only while he's sitting facing you with nothing else going on; any other
+  // frame, speaking or entering cancels it, and reduced motion never starts it.
+  useEffect(() => {
+    if (frame !== IDLE_FRAME || speaking || entering || reducedMotionRef.current) return;
+    let raf: number | null = null;
+    const timer = setTimeout(() => {
+      const t0 = performance.now();
+      const step = (ts: number) => {
+        const i = idleLifeFrameIndex(ts - t0);
+        if (i == null) {
+          raf = null;
+          setLifeIdx(null);
+          setLifeRound((n) => n + 1);
+          return;
+        }
+        setLifeIdx(i);
+        raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    }, idleLifeGap(Math.random()));
+    return () => {
+      clearTimeout(timer);
+      if (raf != null) cancelAnimationFrame(raf);
+      setLifeIdx(null);
+    };
+  }, [frame, speaking, entering, lifeRound]);
 
   // Chase + locomotion. Position lives entirely in refs and is written to the
   // DOM directly (style.left, never via React state) since it updates every
@@ -283,7 +327,13 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
     let locoFromX = 0;
     let locoToX = 0;
     let locoLastFrameIdx: number | null = null;
-    let locoPhase: "standing" | "hopping" | "beat" = "standing";
+    let locoPhase: "standing" | "turning" | "hopping" | "beat" = "standing";
+    // Which way he faces, and whether he's side-on (hopping, or settling after
+    // one): only then does reversing need a turn; from facing you he just goes.
+    let facing: 1 | -1 = 1;
+    let sideOn = false;
+    let pendingDelta = 0;
+    let artLift = 0;
     // After arriving he sits side-on for SETTLE_MS, then turns to face you.
     let settleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -296,6 +346,11 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
 
     function writeLift(px: number) {
       if (liftRef.current) liftRef.current.style.transform = px ? `translateY(${-Math.round(px)}px)` : "";
+      const s = shadowAt(px + artLift);
+      if (shadowRef.current) {
+        shadowRef.current.style.transform = `scale(${s.scale.toFixed(3)})`;
+        shadowRef.current.style.opacity = s.opacity.toFixed(3);
+      }
     }
 
     function clampCanvasLeft(x: number) {
@@ -344,6 +399,7 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
 
     function cancelLoco() {
       clearSettle();
+      artLift = 0;
       writeLift(0);
       if (locoRaf != null) {
         cancelAnimationFrame(locoRaf);
@@ -360,15 +416,18 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
       locoPhase = "standing";
       currentX.current = x;
       writeLeft(x);
+      artLift = 0;
       writeLift(0);
       clearSettle();
       if (settle) {
         setFrame(LOCO_FRAMES[LOCO_FRAME_COUNT - 1]);
         settleTimer = setTimeout(() => {
           settleTimer = null;
+          sideOn = false;
           setFrame(IDLE_FRAME);
         }, SETTLE_MS);
       } else {
+        sideOn = false;
         setFrame(IDLE_FRAME);
       }
       locoLastFrameIdx = null;
@@ -382,13 +441,26 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
 
     function launchHop(now: number, delta: number) {
       clearSettle();
-      locoPhase = "hopping";
+      const dir: 1 | -1 = delta < 0 ? -1 : 1;
       locoStart = now;
+      locoLastFrameIdx = null;
+      if (sideOn && dir !== facing) {
+        // Turn round first (see stepLoco's "turning"), then hop.
+        locoPhase = "turning";
+        pendingDelta = delta;
+      } else {
+        beginHop(delta);
+      }
+      locoRaf = requestAnimationFrame(stepLoco);
+    }
+
+    function beginHop(delta: number) {
+      locoPhase = "hopping";
       locoFromX = currentX.current;
       locoToX = clampCanvasLeft(currentX.current + delta);
-      locoLastFrameIdx = null;
-      setLocoDirection(delta < 0 ? -1 : 1);
-      locoRaf = requestAnimationFrame(stepLoco);
+      facing = delta < 0 ? -1 : 1;
+      sideOn = true;
+      setLocoDirection(facing);
     }
 
     function considerNextMove(now: number) {
@@ -405,6 +477,18 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
     }
 
     function stepLoco(ts: number) {
+      if (locoPhase === "turning") {
+        const showing = turnFacing(ts - (locoStart ?? ts), facing);
+        if (showing == null) {
+          locoStart = ts;
+          beginHop(pendingDelta);
+        } else {
+          setFrame(TURN_FRAME);
+          setLocoDirection(showing);
+          locoRaf = requestAnimationFrame(stepLoco);
+          return;
+        }
+      }
       if (locoPhase === "beat") {
         const elapsed = ts - (locoStart ?? ts);
         if (elapsed >= HOP_BEAT_MS) {
@@ -419,6 +503,7 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
       if (idx == null) {
         currentX.current = locoToX;
         writeLeft(locoToX);
+        artLift = 0;
         writeLift(0);
         // The landing crouch, held through the beat: the next hop starts from
         // the same crouch, so a run of hops reads as one continuous bounce.
@@ -430,6 +515,7 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
       }
       if (idx !== locoLastFrameIdx) {
         locoLastFrameIdx = idx;
+        artLift = LOCO_FRAME_LIFT_PX[idx] ?? 0;
         setFrame(LOCO_FRAMES[idx]);
       }
       const t = hopProgress(elapsed);
@@ -695,11 +781,20 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
         className="relative pointer-events-none overflow-hidden transition-[height] duration-300 ease-out"
         style={{ height: visibleHeight, width: SPRITE_SIZE }}
       >
+        {/* His shadow on the ground line (row 95), under his body; it shrinks and
+            fades as he rises (shadowRef, written directly). Only the top half
+            shows above the clip's bottom edge, like a shadow on the floor. */}
+        <div
+          ref={shadowRef}
+          aria-hidden
+          className="pointer-events-none absolute rounded-[50%] bg-black/25"
+          style={{ left: SHADOW_LEFT_PX, top: GROUND_PX - 4, width: SHADOW_WIDTH_PX, height: 8 }}
+        />
         {/* The chase hop's arc lifts this box (liftRef, written directly). */}
         <div ref={liftRef}>
           {/* eslint-disable-next-line @next/next/no-img-element -- small local pixel-art frames, cycled via JS; next/image's srcset blurs pixel art */}
           <img
-            src={frame}
+            src={lifeIdx != null && frame === IDLE_FRAME ? IDLE_LIFE_FRAMES[lifeIdx] : frame}
             alt=""
             width={SPRITE_SIZE}
             height={SPRITE_SIZE}
