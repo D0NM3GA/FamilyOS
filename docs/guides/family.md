@@ -101,7 +101,9 @@ Open your name at the top right. Under "How the app looks for me":
 - **Full app**: everything I can use.
 
 In the same menu you can tell the mascot how much to talk (**Chatty**, **Just cheers** or
-**Off**), switch person, or **Sign out**. A grown-up can choose where each person starts in
+**Off**), switch person, or **Sign out**. On a computer, once you've tapped him, he hops along
+the bottom of the page after your mouse; tap him and he stands up on his hind legs to say
+something. If your device is set to reduce motion, he stays put. A grown-up can choose where each person starts in
 Settings → Starting views.
 
 ## Finding your way around
