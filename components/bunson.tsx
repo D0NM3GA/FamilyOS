@@ -55,13 +55,14 @@ const RESUME_LOCO_MS = BUBBLE_MS + BUBBLE_EXIT_MS + SPEAK_TRANSITION_MS;
 // source:dest ratio.
 const SPRITE_SIZE = 136;
 
-// bunson-idle.png: 136x136 canvas, opaque rows 27-95, cols 45-87. These drive
-// the clip/hitbox bounds for the idle and entering-hop states; the hop-*.png
-// frames vary (some reach as high as row 14 mid-jump) but stay within the
-// GROUND_PX clip below, so they don't need their own bounds here.
-const ART_TOP_PX = 27;
-const ART_LEFT_PX = 45;
-const ART_RIGHT_PX = 88;
+// bunson-idle.png: 136x136 canvas, opaque rows 53-95, cols 48-85 (a 64px
+// sprite placed 35px in, feet on row 95). These drive the clip/hitbox bounds
+// for the idle and entering-hop states; the hop-*.png frames vary (some reach
+// as high as row 41 mid-jump) but stay within the GROUND_PX clip below, so
+// they don't need their own bounds here.
+const ART_TOP_PX = 53;
+const ART_LEFT_PX = 48;
+const ART_RIGHT_PX = 86;
 const ART_WIDTH_PX = ART_RIGHT_PX - ART_LEFT_PX;
 const GROUND_PX = 96; // clip height once revealed — idle's lowest opaque row + 1
 // How much of the head pokes up at rest — also the rest-state tap target
@@ -70,16 +71,13 @@ const GROUND_PX = 96; // clip height once revealed — idle's lowest opaque row 
 const VISIBLE_EARS_PX = 24;
 const PEEK_PX = ART_TOP_PX + VISIBLE_EARS_PX; // clip height at rest, before ever clicked
 
-// bunson-periscope.png (the "speaking" pose — standing upright on hind legs):
-// 136x136 canvas, opaque rows 14-115, cols 49-86. Standing tall plants his
-// feet 20px lower in the canvas than the seated idle pose — there are only 96
-// rows above idle's own ground line, and this pose is 102px tall, so it
-// physically can't share idle's ground row on this canvas. A taller clip
-// tier (not a shifted image) is the fix: the wrapper is bottom-anchored, so
-// growing the clip only moves its top edge up, and this pose's own feet land
-// flush with the true viewport edge exactly like every other tier does.
-const SPEAK_TOP_PX = 14;
-const SPEAK_HEIGHT_PX = 116; // periscope's own lowest opaque row + 1
+// bunson-periscope.png (the "speaking" pose — sitting up, front paws tucked to
+// his chest): 136x136 canvas, opaque rows 52-95, cols 48-85. It shares idle's
+// ground row; the separate clip tier stays so a taller pose can come back
+// without touching the wrapper (it's bottom-anchored, so a taller clip only
+// moves its top edge up and the feet stay flush with the viewport edge).
+const SPEAK_TOP_PX = 52;
+const SPEAK_HEIGHT_PX = 96; // periscope's own lowest opaque row + 1
 
 // Tail tip (~8.5px) + clearance above whichever pose is currently showing.
 const BUBBLE_LIFT_PX = 13.5;
