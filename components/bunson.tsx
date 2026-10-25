@@ -9,6 +9,8 @@ import { chaseAcceptsPointer } from "@/lib/bunson-chase";
 import {
   HOP_BEAT_MS,
   LOCO_FRAME_COUNT,
+  SETTLE_MS,
+  hopLiftPx,
   hopProgress,
   locoFrameIndex,
   planHop,
@@ -231,6 +233,8 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
   // something written imperatively like `left`.
   const [locoDirection, setLocoDirection] = useState<1 | -1>(1);
 
+  // Lifts the sprite during a chase hop (written directly, like `left`).
+  const liftRef = useRef<HTMLDivElement>(null);
   const hopStart = useRef<number | null>(null); // the entering hop only
   const hopRaf = useRef<number | null>(null);
   const lastFrameIdx = useRef<number | null>(null);
@@ -280,6 +284,19 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
     let locoToX = 0;
     let locoLastFrameIdx: number | null = null;
     let locoPhase: "standing" | "hopping" | "beat" = "standing";
+    // After arriving he sits side-on for SETTLE_MS, then turns to face you.
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function clearSettle() {
+      if (settleTimer != null) {
+        clearTimeout(settleTimer);
+        settleTimer = null;
+      }
+    }
+
+    function writeLift(px: number) {
+      if (liftRef.current) liftRef.current.style.transform = px ? `translateY(${-Math.round(px)}px)` : "";
+    }
 
     function clampCanvasLeft(x: number) {
       const vw = document.documentElement.clientWidth;
@@ -326,6 +343,8 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
     }
 
     function cancelLoco() {
+      clearSettle();
+      writeLift(0);
       if (locoRaf != null) {
         cancelAnimationFrame(locoRaf);
         locoRaf = null;
@@ -335,11 +354,23 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
     }
     cancelLocoRef.current = cancelLoco;
 
-    function land(x: number) {
+    // `settle`: he arrived at the cursor, so he stays in his side-on crouch a
+    // moment before facing you. Otherwise (paused for a click) he faces you now.
+    function land(x: number, settle = false) {
       locoPhase = "standing";
       currentX.current = x;
       writeLeft(x);
-      setFrame(IDLE_FRAME);
+      writeLift(0);
+      clearSettle();
+      if (settle) {
+        setFrame(LOCO_FRAMES[LOCO_FRAME_COUNT - 1]);
+        settleTimer = setTimeout(() => {
+          settleTimer = null;
+          setFrame(IDLE_FRAME);
+        }, SETTLE_MS);
+      } else {
+        setFrame(IDLE_FRAME);
+      }
       locoLastFrameIdx = null;
       // Whoever calls land() has already consumed the rAF that led here
       // (typically the beat phase's own scheduled frame, in stepLoco) without
@@ -350,6 +381,7 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
     }
 
     function launchHop(now: number, delta: number) {
+      clearSettle();
       locoPhase = "hopping";
       locoStart = now;
       locoFromX = currentX.current;
@@ -366,7 +398,7 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
       }
       const delta = planHop(targetX.current - currentX.current);
       if (delta == null) {
-        land(currentX.current);
+        land(currentX.current, true);
         return;
       }
       launchHop(now, delta);
@@ -387,7 +419,10 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
       if (idx == null) {
         currentX.current = locoToX;
         writeLeft(locoToX);
-        setFrame(LOCO_FRAMES[LOCO_FRAME_COUNT - 1]); // landing crouch, held through the beat
+        writeLift(0);
+        // The landing crouch, held through the beat: the next hop starts from
+        // the same crouch, so a run of hops reads as one continuous bounce.
+        setFrame(LOCO_FRAMES[LOCO_FRAME_COUNT - 1]);
         locoPhase = "beat";
         locoStart = ts;
         locoRaf = requestAnimationFrame(stepLoco);
@@ -401,6 +436,7 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
       const x = locoFromX + (locoToX - locoFromX) * t;
       currentX.current = x;
       writeLeft(x);
+      writeLift(hopLiftPx(elapsed, locoToX - locoFromX));
       locoRaf = requestAnimationFrame(stepLoco);
     }
 
@@ -659,24 +695,27 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
         className="relative pointer-events-none overflow-hidden transition-[height] duration-300 ease-out"
         style={{ height: visibleHeight, width: SPRITE_SIZE }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- small local pixel-art frames, cycled via JS; next/image's srcset blurs pixel art */}
-        <img
-          src={frame}
-          alt=""
-          width={SPRITE_SIZE}
-          height={SPRITE_SIZE}
-          style={{
-            display: "block",
-            // LOCO_FRAMES face right; mirrored for leftward travel. Idle and
-            // the entering hop are front-facing enough that flipping them
-            // when `frame` isn't a loco frame is a harmless no-op.
-            transform: locoDirection === -1 ? "scaleX(-1)" : undefined,
-          }}
-          className={
-            "pointer-events-none [image-rendering:pixelated] drop-shadow-md transition-opacity duration-300 ease-out " +
-            (speaking ? "opacity-0" : "opacity-100")
-          }
-        />
+        {/* The chase hop's arc lifts this box (liftRef, written directly). */}
+        <div ref={liftRef}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- small local pixel-art frames, cycled via JS; next/image's srcset blurs pixel art */}
+          <img
+            src={frame}
+            alt=""
+            width={SPRITE_SIZE}
+            height={SPRITE_SIZE}
+            style={{
+              display: "block",
+              // LOCO_FRAMES face right; mirrored for leftward travel. Idle and
+              // the entering hop are front-facing enough that flipping them
+              // when `frame` isn't a loco frame is a harmless no-op.
+              transform: locoDirection === -1 ? "scaleX(-1)" : undefined,
+            }}
+            className={
+              "pointer-events-none [image-rendering:pixelated] drop-shadow-md transition-opacity duration-300 ease-out " +
+              (speaking ? "opacity-0" : "opacity-100")
+            }
+          />
+        </div>
         {/* Always mounted (not just while speaking) so it's already decoded
             before the first click and so its opacity transition has a real
             "before" value to animate from. Both this and the layer above

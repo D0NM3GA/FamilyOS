@@ -6,28 +6,34 @@
 // cursor that moves wildly gets chased but never caught.
 //
 // The frame art itself (components/bunson.tsx's LOCO_FRAMES, bunson-loco-*.png)
-// is a distinct clip generated to face and lean into the direction of travel —
-// not the click-triggered "excited hop" in lib/bunson-hop.ts, which is a
-// camera-facing jump-in-place. Reusing that jump for sideways travel was an
-// earlier iteration and is exactly what read as unphysical; keep these two
+// is one side-on bunny hop drawn in place: crouch, push off with both hind
+// legs, stretch out in the air, land front paws first, hind legs swing under,
+// back to the same crouch. It starts and ends on that crouch, so hops chain
+// without a jump in the pose. Not the click-triggered "excited hop" in
+// lib/bunson-hop.ts, which is a camera-facing jump-in-place; keep the two
 // clips separate.
 export const LOCO_FRAME_COUNT = 8;
-export const LOCO_FRAME_MS = 60; // frame cadence
-export const LOCO_HOP_MS = LOCO_FRAME_COUNT * LOCO_FRAME_MS; // 480
+export const LOCO_FRAME_MS = 55; // frame cadence
+export const LOCO_HOP_MS = LOCO_FRAME_COUNT * LOCO_FRAME_MS; // 440
 
-// Horizontal-translation window within one hop cycle. Originally measured
-// against the jump-in-place art's own airborne frames (feet leaving/landing
-// on the ground line); LOCO_FRAMES's actual bounding-gait art keeps all feet
-// near the ground line throughout, so these values are now a stylistic
-// choice (when during the cycle he visibly displaces) rather than a
-// measurement — re-tune by eye if the loco art changes, don't re-derive from
-// a bbox scan.
-const AIR_START_MS = 120;
-const AIR_END_MS = 360;
+// When he's off the ground, measured from the art: the feet leave the ground
+// line on frame 1 and are back on it by frame 7. He moves forward only then.
+export const AIR_START_MS = 1 * LOCO_FRAME_MS;
+export const AIR_END_MS = 7 * LOCO_FRAME_MS;
 
-export const HOP_BEAT_MS = 120; // pause on the landing pose before the next launch
-// Full cycle (hop + beat) is LOCO_HOP_MS + HOP_BEAT_MS = 600ms, ~1.7 hops/sec —
-// a relaxed cadence for a small rabbit.
+export const HOP_BEAT_MS = 50; // a short settle on the crouch before the next launch
+// Full cycle (hop + beat) is 490ms, about two hops a second: brisk, and the
+// crouch at both ends keeps it one continuous bounce.
+
+// The art lifts him about 7px at the top of the hop. Longer hops get a little
+// more height on top of that, as a real rabbit would: a parabola over the air
+// window, its peak growing with the hop's length up to HOP_LIFT_MAX_PX.
+export const HOP_LIFT_MAX_PX = 6;
+const LIFT_PER_PX = 0.1;
+
+// Once he arrives he stays side-on in his crouch for a moment before turning
+// to face you, instead of snapping round mid-landing.
+export const SETTLE_MS = 600;
 
 // One relaxed hop covers roughly a body length; below the dead zone a "hop"
 // would just be jitter, so the final approach snaps to exactly the remaining
@@ -56,6 +62,14 @@ export function locoFrameIndex(elapsedMs: number): number | null {
   if (elapsedMs >= LOCO_HOP_MS) return null;
   const clamped = Math.max(0, elapsedMs);
   return Math.floor(clamped / LOCO_FRAME_MS) % LOCO_FRAME_COUNT;
+}
+
+// Extra height (px, positive is up) at this point of a hop of this length.
+export function hopLiftPx(elapsedMs: number, hopPx: number): number {
+  if (elapsedMs <= AIR_START_MS || elapsedMs >= AIR_END_MS) return 0;
+  const t = (elapsedMs - AIR_START_MS) / (AIR_END_MS - AIR_START_MS);
+  const peak = Math.min(HOP_LIFT_MAX_PX, Math.abs(hopPx) * LIFT_PER_PX);
+  return 4 * peak * t * (1 - t);
 }
 
 // Linear horizontal progress (0-1) through the airborne window of one hop.
