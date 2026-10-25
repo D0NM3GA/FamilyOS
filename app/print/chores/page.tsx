@@ -20,6 +20,7 @@ import {
   Td,
 } from "@/components/print/print-shell";
 import { requireAppOn } from "@/lib/app-guard";
+import { mascotArt } from "@/lib/bunson-art";
 
 export const metadata: Metadata = { title: "Chore chart" };
 
@@ -184,7 +185,7 @@ function BunsonBanner({ mascot, rewards }: { mascot: FamilyLook["mascot"]; rewar
     <div className="mt-4 flex items-center gap-3">
       {/* eslint-disable-next-line @next/next/no-img-element -- small local pixel art; next/image's srcset blurs it */}
       <img
-        src="/mascot/bunson-idle.png"
+        src={mascotArt("bunson-idle")}
         alt=""
         width={48}
         height={48}

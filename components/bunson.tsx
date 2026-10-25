@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { HOP_FRAME_COUNT, hopFrameIndex } from "@/lib/bunson-hop";
+import { mascotArt } from "@/lib/bunson-art";
 import { BUBBLE_WIDTH_PX, bubbleShift } from "@/lib/bunson-bubble";
 import { chaseAcceptsPointer } from "@/lib/bunson-chase";
 import {
@@ -24,7 +25,7 @@ import type { RewardWords } from "@/lib/reward-words";
 // to face and lean into the direction of travel.
 const HOP_FRAMES = Array.from(
   { length: HOP_FRAME_COUNT },
-  (_, i) => `/mascot/bunson-hop-${i}.png`,
+  (_, i) => mascotArt(`bunson-hop-${i}`),
 );
 // A rightward-facing bounding gait. Mirrored via CSS (scaleX(-1)) for
 // leftward travel — the character is symmetric enough that one direction of
@@ -34,10 +35,10 @@ const HOP_FRAMES = Array.from(
 // generation isn't guaranteed to land on the same ground row idle does.
 const LOCO_FRAMES = Array.from(
   { length: LOCO_FRAME_COUNT },
-  (_, i) => `/mascot/bunson-loco-${i}.png`,
+  (_, i) => mascotArt(`bunson-loco-${i}`),
 );
-const IDLE_FRAME = "/mascot/bunson-idle.png";
-const PERISCOPE_FRAME = "/mascot/bunson-periscope.png";
+const IDLE_FRAME = mascotArt("bunson-idle");
+const PERISCOPE_FRAME = mascotArt("bunson-periscope");
 
 const BUBBLE_MS = 4000; // how long the bubble's content stays announced/fully opaque
 const BUBBLE_EXIT_MS = 200; // fade-out duration after BUBBLE_MS, before the node unmounts

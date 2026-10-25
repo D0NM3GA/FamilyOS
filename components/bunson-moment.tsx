@@ -10,10 +10,12 @@
  *
  * Only the sprites that exist today are used (sit and stand-up); new poses wait on art.
  */
+import { mascotArt } from "@/lib/bunson-art";
+
 const POSES = {
   // Alpha bounding boxes measured in components/bunson.tsx (136x136 canvases).
-  idle: { src: "/mascot/bunson-idle.png", top: 53, left: 48, width: 38, height: 43 },
-  stand: { src: "/mascot/bunson-periscope.png", top: 52, left: 48, width: 38, height: 44 },
+  idle: { src: mascotArt("bunson-idle"), top: 53, left: 48, width: 38, height: 43 },
+  stand: { src: mascotArt("bunson-periscope"), top: 52, left: 48, width: 38, height: 44 },
 } as const;
 
 // Whole-number scale only: pixel art scaled by a fraction gets uneven pixels.
