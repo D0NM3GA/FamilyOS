@@ -10,6 +10,7 @@ import { addItem, deletePantryItem, mergeIntoItem, saveItemDetails, type SheetRe
 import { btn, btnDanger, btnPrimary, chip, field, fieldLabel } from "@/components/styles";
 import { RequesterSelect } from "./requester-select";
 import { SubmitButton } from "@/components/submit";
+import { Picker } from "@/components/picker";
 
 type Props = {
   product: {
@@ -279,16 +280,15 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
                 <label htmlFor="merge-pick" className="text-sm font-bold">
                   Same as…
                 </label>
-                <select id="merge-pick" name="mergeId" required defaultValue="" className={`${field} min-w-0 flex-1`}>
-                  <option value="" disabled>
-                    pick the duplicate
-                  </option>
-                  {others.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
+                <Picker
+                  id="merge-pick"
+                  name="mergeId"
+                  required
+                  options={others.map((o) => ({ value: o.id, label: o.name }))}
+                  placeholder="Type the duplicate's name"
+                  requiredMessage="Pick the duplicate from the list."
+                  className="min-w-0 flex-1"
+                />
                 <SubmitButton className={btn}>
                   Merge into this
                 </SubmitButton>

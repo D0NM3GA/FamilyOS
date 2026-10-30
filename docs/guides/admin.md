@@ -258,7 +258,8 @@ already keeps strangers away, but don't leave it waiting.)
      first), and, with School on, a pointer to adding the school's calendar.
 3. Anything skipped waits under **Finish setting up** at the top of Settings.
 
-Then, in Settings → Household, check the time zone is home's, and set a PIN for each kid.
+Then, in Settings → Household, check the time zone is home's (type a city, like "Chicago", to find
+it; each zone shows its offset from UTC now), and set a PIN for each kid.
 
 **The time zone** is the family's clock: "today", due dates, dose times and every date the app
 shows follow it, wherever the server runs. Changing it later (the family moves) keeps everything

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { btn, btnDanger, btnPrimary, field } from "@/components/styles";
+import { btn, btnDanger, btnPrimary } from "@/components/styles";
+import { Picker } from "@/components/picker";
 import { forgetRule, setCategory, type FormState } from "../actions";
 import { useSheet } from "./txn-sheet";
 
@@ -69,14 +70,13 @@ export function CategoryPicker({
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-muted-foreground">{how}</p>
-      <select value={picked} onChange={(e) => setPicked(e.target.value)} aria-label="Category" className={field}>
-        <option value="">No category</option>
-        {categories.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.emoji} {c.name}
-          </option>
-        ))}
-      </select>
+      <Picker
+        label="Category"
+        options={[{ value: "", label: "No category" }, ...categories.map((c) => ({ value: c.id, label: c.name, emoji: c.emoji }))]}
+        value={picked}
+        onChange={setPicked}
+        placeholder="Type a category"
+      />
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={pending} onClick={() => run(() => setCategory(jarId, txnId, picked, "one"))} className={btn}>
           Just this one

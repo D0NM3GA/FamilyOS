@@ -1052,6 +1052,28 @@ custom picker only for long lists (57.3).
 - The browser test opens a list in both themes, runs axe on it, and checks a phone (Playwright's
   Pixel 7 device) gets the plain styled box, not the styled list. `E2E_SHOTS=<folder>` saves its
   screenshots for a person to look at.
+- **57.3, the searchable picker** (`components/picker.tsx`, its logic in `lib/picker.ts`), for the
+  owner's four lists: the household time zone (each zone with its offset now, worked out in the
+  browser after load so the server's render matches), a receipt line's item ("On this trip",
+  then the rest of the pantry), Merge into, and a charge's category (with its emoji). An ARIA 1.2
+  combobox modelled on the grocery add box (which doesn't change): typing filters (case,
+  accents and `_`/`/` ignored, every word must match, a label starting with the query first),
+  arrows and Home/End move, Enter picks, Escape closes the list only (inside a sheet or dialog
+  the sheet stays open), and it must end on an option. At most 50 rows are drawn, then "keep
+  typing". Controlled (`value`/`onChange`) or in a form (`name`, `defaultValue`): a hidden input
+  carries the value, `required` is enforced with `setCustomValidity` on the text box (a hidden
+  input ignores it), and it returns to `defaultValue` on its form's `reset` (React resets a form
+  after its action). The people and contact lists are next in line once Google Contacts sync
+  makes them long.
+- **Fable's review of 57.3, folded in:** focus keeps the choice in the box (selected, so typing
+  replaces it) and the list always shows and highlights it, even past the 50-row cap (with no
+  choice nothing is highlighted, so Enter only closes the list); result counts and "nothing
+  matches" are announced in a polite live region, and the visible messages sit outside the
+  listbox; the list opens upward when there's no room below (inside a sheet it would otherwise
+  open into the sheet's scroll space) and keeps the highlighted row in view by scrolling itself,
+  never the sheet; the listbox is named by the field's label; the receipt's list of lines no
+  longer clips each line's picker (`overflow-hidden` removed). The browser test now also opens a
+  charge's category inside its sheet (a native dialog) and checks Escape closes only the list.
 
 ## The mascot's art (2026-10-25)
 
