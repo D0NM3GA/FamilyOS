@@ -183,7 +183,7 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | merged |
 | 55 | The pet's daily surprises and sound | next |
 | 56 | The pet: tap the egg open, drag things around the room (and 56.1, tighter hitboxes) | merged |
-| 57 | Dropdowns that look like the app: styled native, a styled list, custom pickers where earned | scoped |
+| 57 | Dropdowns that look like the app: styled native, a styled list, custom pickers where earned | 57.1–57.2 built |
 
 ### Phases 42–45 in brief
 

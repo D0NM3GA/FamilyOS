@@ -1023,6 +1023,29 @@ The rectangles stay, for the keyboard and screen readers only. The browser test 
 plant from the toy box onto the shelf and, by the plant itself, down onto the floor; it passes
 by day and by night (`TZ=UTC` puts its room after bedtime).
 
+## Phase 57 — Dropdowns that look like the app
+
+The app's 51 plain `<select>`s had the operating system's look. The owner chose the mixed approach
+(2026-10-29): styled native dropdowns everywhere, the browser's styled list where it has one, and a
+custom picker only for long lists (57.3).
+
+- **57.1, one rule for every dropdown** (`app/globals.css`, `select:not([multiple], [size])`):
+  `appearance: none`, the app's arrow drawn as two gradient halves in the muted text colour (a
+  mask would clip the whole control; a select can't have `::before`/`::after`), room for it on the
+  right, and a dimmed disabled look. It's unlayered, like the phone 16px rule, because Tailwind's
+  utilities beat the base layer and `field`'s `px-3` would put the text under the arrow. So no
+  class can undo the look; a list box (`multiple`, `size`) keeps the native one, and
+  `lib/select-guard.test.ts` makes any new list box get listed with a reason.
+- **57.2, the styled open list** inside `@supports (appearance: base-select)` and
+  `@media (pointer: fine)`: the list as the app's card, the chosen option bold with a tick in
+  `--brand-text`, the browser's `::picker-icon` in place of 57.1's arrow (turning when open,
+  still under reduced motion). Chrome and Edge 135+ today, Safari 27 reported; elsewhere the
+  native list. Phones and iPads (which report a coarse pointer even with a trackpad) keep their
+  own pickers.
+- The browser test opens a list in both themes, runs axe on it, and checks a phone (Playwright's
+  Pixel 7 device) gets the plain styled box, not the styled list. `E2E_SHOTS=<folder>` saves its
+  screenshots for a person to look at.
+
 ## The mascot's art (2026-10-25)
 
 The default mascot is a black and white dwarf rabbit drawn with PixelLab (a 64px character, from
