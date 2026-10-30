@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PICKER_ROW_CAP, filterOptions, groupOptions, moveActive, normalize, type PickerOption } from "./picker";
+import { PICKER_ROW_CAP, filterOptions, groupOptions, moveActive, normalize, pickerRows, type PickerOption } from "./picker";
 
 const zones: PickerOption[] = ["America/Chicago", "America/New_York", "America/Sao_Paulo", "Europe/London", "Asia/Tokyo"].map((z) => ({
   value: z,
@@ -58,5 +58,20 @@ describe("groups and keys", () => {
     expect(moveActive(1, "Home", 3)).toBe(0);
     expect(moveActive(0, "End", 3)).toBe(2);
     expect(moveActive(0, "ArrowDown", 0)).toBe(-1);
+  });
+});
+
+describe("opening the list", () => {
+  it("always shows the current choice before anything's typed, even past the row cap", () => {
+    const many = Array.from({ length: 100 }, (_, i) => ({ value: String(i), label: `Zone ${i}` }));
+    const chosen = many[80];
+    const { shown, more } = pickerRows(many, null, chosen, 10);
+    expect(shown[0]).toBe(chosen);
+    expect(shown).toHaveLength(10);
+    expect(more).toBe(90);
+    // Already within the cap: left where it is.
+    expect(pickerRows(many, null, many[3], 10).shown.indexOf(many[3])).toBe(3);
+    // Once something's typed, it's only there if it matches.
+    expect(pickerRows(many, "zone 5", chosen, 10).shown).not.toContain(chosen);
   });
 });

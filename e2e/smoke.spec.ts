@@ -592,6 +592,24 @@ test("a card statement CSV is checked on a few rows, imported, and removed again
   const settings = page.url();
   await page.goto(settings.replace(/\/settings$/, ""));
   await expect(page.getByText("Corner Grocery").first()).toBeVisible();
+
+  // Phase 57.3: a charge's category is a searchable picker inside the charge's sheet (a native
+  // dialog). Escape closes the list, not the dialog; Enter picks the highlighted match.
+  await page.getByRole("button", { name: /Bookstore Example/ }).first().click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toBeVisible();
+  const category = sheet.getByRole("combobox", { name: "Category" });
+  await category.click();
+  await category.fill("din");
+  await expect(sheet.getByRole("option", { name: /Dining/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet.getByRole("listbox")).toHaveCount(0);
+  await expect(sheet).toBeVisible();
+  await category.fill("din");
+  await page.keyboard.press("Enter");
+  await expect(category).toHaveValue("🍔 Dining");
+  await sheet.getByRole("button", { name: "Just this one" }).click();
+  await expect(sheet).toBeHidden();
   await page.goto(settings);
   await page.getByRole("button", { name: "Remove this import" }).click();
   await page.getByRole("button", { name: "Remove", exact: true }).click();

@@ -52,6 +52,19 @@ export function filterOptions(options: readonly PickerOption[], query: string, c
   return { shown: ranked.slice(0, cap).map((r) => r.option), more: Math.max(0, ranked.length - cap) };
 }
 
+/**
+ * The rows for a query, or null before anything's typed. Then the current choice is always there
+ * (first, if the row cap would have left it out), so opening the list shows and highlights it.
+ */
+export function pickerRows(options: readonly PickerOption[], query: string | null, selected: PickerOption | null, cap = PICKER_ROW_CAP) {
+  const result = filterOptions(options, query ?? "", cap);
+  if (query === null && selected && !result.shown.includes(selected)) {
+    // One row out, the choice in: the count of the rest doesn't change.
+    return { shown: [selected, ...result.shown.slice(0, cap - 1)], more: result.more };
+  }
+  return result;
+}
+
 /** The shown options under their headings, groups in the order they first appear. */
 export function groupOptions(shown: readonly PickerOption[]): { group: string | null; options: PickerOption[] }[] {
   const out: { group: string | null; options: PickerOption[] }[] = [];
