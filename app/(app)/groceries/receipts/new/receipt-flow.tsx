@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
 import { formatMoney } from "@/lib/money";
 import type { PreparedReceipt } from "@/lib/groceries/receipts";
 import { field } from "@/components/styles";
+import { Picker, type PickerOption } from "@/components/picker";
 import { readReceipt, saveReceipt, type ReadState } from "../actions";
 
 const LONG_EDGE = 2000;
@@ -84,9 +85,17 @@ export function ReceiptReview({ receipt }: { receipt: PreparedReceipt }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
   const name = new Map(receipt.pantry.map((p) => [p.id, p.name]));
-  const tripIds = new Set(receipt.tripItems.map((p) => p.id));
-  const others = receipt.pantry.filter((p) => !tripIds.has(p.id));
   const picked = choice.filter(Boolean).length;
+  // Phase 57.3: the trip's items, then the whole pantry, as a search (the pantry keeps growing).
+  const itemOptions = useMemo<PickerOption[]>(() => {
+    const trip = new Set(receipt.tripItems.map((p) => p.id));
+    const rest = receipt.pantry.filter((p) => !trip.has(p.id));
+    const restGroup = receipt.tripItems.length > 0 ? "Everything else" : "Pantry";
+    return [
+      ...receipt.tripItems.map((p) => ({ value: p.id, label: p.name, group: "On this trip" })),
+      ...rest.map((p) => ({ value: p.id, label: p.name, group: restGroup })),
+    ];
+  }, [receipt.tripItems, receipt.pantry]);
 
   function save() {
     setError(null);
@@ -139,31 +148,15 @@ export function ReceiptReview({ receipt }: { receipt: PreparedReceipt }) {
               )}
             </span>
             <span className="shrink-0 font-bold">{l.totalCents != null ? formatMoney(l.totalCents) : "—"}</span>
-            <select
-              aria-label={`What is ${l.text}?`}
+            <Picker
+              label={`What is ${l.text}?`}
+              options={[{ value: SKIP, label: l.match.skip ? "Not an item" : "Skip" }, ...itemOptions]}
               value={choice[i]}
               disabled={l.match.skip}
-              onChange={(e) => setChoice((c) => c.map((v, j) => (j === i ? e.target.value : v)))}
-              className={`${field} min-w-0 basis-full sm:basis-56`}
-            >
-              <option value={SKIP}>{l.match.skip ? "Not an item" : "Skip"}</option>
-              {receipt.tripItems.length > 0 && (
-                <optgroup label="On this trip">
-                  {receipt.tripItems.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              <optgroup label={receipt.tripItems.length > 0 ? "Everything else" : "Pantry"}>
-                {others.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
+              onChange={(next) => setChoice((c) => c.map((v, j) => (j === i ? next : v)))}
+              placeholder="Type to find the item"
+              className="min-w-0 basis-full sm:basis-56"
+            />
           </li>
         ))}
       </ul>

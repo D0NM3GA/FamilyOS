@@ -1,8 +1,23 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
 import type { HouseholdSettingsFormState } from "./actions";
 import { useDeviceTimeZone } from "@/components/device-time-zone";
+import { Picker, type PickerOption } from "@/components/picker";
+
+const noSubscribe = () => () => {};
+
+/** "UTC−5" for a zone right now, or "" if this browser can't say. */
+function offsetOf(zone: string, now: Date): string {
+  try {
+    const part = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" })
+      .formatToParts(now)
+      .find((p) => p.type === "timeZoneName")?.value;
+    return part ? part.replace("GMT", "UTC").replace("-", "−") || "UTC" : "";
+  } catch {
+    return "";
+  }
+}
 
 type Action = (
   prevState: HouseholdSettingsFormState,
@@ -25,7 +40,17 @@ export function HouseholdSettingsForm({
   const [timezone, setTimezone] = useState(defaults.timezone ?? "");
   const device = useDeviceTimeZone();
   // The saved zone stays pickable even if this server's list doesn't have it.
-  const zones = timezone && !timeZones.includes(timezone) ? [timezone, ...timeZones] : timeZones;
+  const zones = useMemo(() => (timezone && !timeZones.includes(timezone) ? [timezone, ...timeZones] : timeZones), [timezone, timeZones]);
+  // Phase 57.3: 400-odd zones are a search, not a scroll. Each shows its offset now, worked out in
+  // the browser after the page loads (so the server's render and the browser's always match).
+  const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const zoneOptions = useMemo<PickerOption[]>(() => {
+    const now = new Date();
+    return [
+      { value: "", label: "Not set" },
+      ...zones.map((tz) => ({ value: tz, label: tz.replace(/_/g, " "), detail: inBrowser ? offsetOf(tz, now) : undefined })),
+    ];
+  }, [zones, inBrowser]);
 
   return (
     <form action={formAction} className="max-w-lg space-y-4 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
@@ -43,20 +68,15 @@ export function HouseholdSettingsForm({
 
       <div>
         <label htmlFor="household-timezone" className="block text-sm font-medium text-foreground">Timezone</label>
-        <select
+        <Picker
           id="household-timezone"
           name="timezone"
+          options={zoneOptions}
           value={timezone}
-          onChange={(e) => setTimezone(e.target.value)}
-          className="mt-1 min-h-11 w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-ring focus:outline-none sm:min-h-9"
-        >
-          <option value="">Not set</option>
-          {zones.map((tz) => (
-            <option key={tz} value={tz}>
-              {tz.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
+          onChange={setTimezone}
+          placeholder="Type a city, like Chicago"
+          className="mt-1 w-full"
+        />
         <p className="mt-1 text-xs text-muted-foreground" aria-live="polite">
           {device && timezone === device
             ? "Matches this device. "

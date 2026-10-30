@@ -284,7 +284,8 @@ shopping list**. The copy is kept for a week and is removed when someone signs o
 
 **After the trip:** grown-ups can **📸 Snap the receipt**. The app reads the prices and matches
 them to what you bought, so next time you'll see what you paid. Nobody types prices, and the photo
-isn't kept.
+isn't kept. A line it isn't sure about: type a few letters of the item to find it (this trip's
+items come first, then the whole Pantry).
 
 Also here: **🥫 Pantry** (everything the family buys, and tidying up duplicates) and **🧾 Past
 trips**.

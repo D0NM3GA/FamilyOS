@@ -424,11 +424,14 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
   const started = await page.getByLabel("Starting").inputValue();
   await page.goto("/settings/household");
   // What's selected now (CI's browser is in UTC, which the picker lists only as the household's own).
-  const original = await page.getByLabel("Timezone").inputValue();
+  // Phase 57.3: the zone is a searchable picker; its value rides in the form's hidden field.
+  const original = await page.locator('input[name="timezone"]').inputValue();
   const moved = home === "Pacific/Honolulu" ? "Asia/Tokyo" : "Pacific/Honolulu";
   const setZone = async (zone: string) => {
     await page.goto("/settings/household");
-    await page.getByLabel("Timezone").selectOption(zone);
+    await page.getByRole("combobox", { name: "Timezone" }).fill(zone.replace(/_/g, " "));
+    await page.keyboard.press("Enter");
+    await expect(page.locator('input[name="timezone"]')).toHaveValue(zone);
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Saved.")).toBeVisible();
   };
@@ -447,7 +450,7 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
 });
 
 test("dropdowns look like the app, with the styled list only where a mouse is", async ({ browser }) => {
-  // Phase 57.1 and 57.2. Settings → Household has two plain dropdowns (time zone, date order).
+  // Phase 57.1 and 57.2. Settings → Household's date order is a plain dropdown.
   const shots = process.env.E2E_SHOTS; // a folder to save screenshots in, for a person to look at
   const look = (p: Page) =>
     p.locator("#household-date-order").evaluate((el) => {
@@ -485,6 +488,67 @@ test("dropdowns look like the app, with the styled list only where a mouse is", 
   } finally {
     await phone.close();
   }
+  problems.expectNone();
+});
+
+test("the searchable picker: a zone by its city, Escape closes only the list, required and posted", async () => {
+  // Phase 57.3. The time zone: type a city, see the zone with its offset now.
+  await page.goto("/settings/household");
+  const zone = page.getByRole("combobox", { name: "Timezone" });
+  await zone.click();
+  await zone.fill("honolulu");
+  await expect(page.getByRole("option", { name: /Pacific\/Honolulu/ })).toContainText("UTC−10");
+  if (process.env.E2E_SHOTS) {
+    await zone.fill("america");
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await page.screenshot({ path: `${process.env.E2E_SHOTS}/picker-${scheme}.png` });
+    }
+    await page.emulateMedia({ colorScheme: null });
+    await zone.fill("honolulu");
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expectAccessible(page, "/settings/household with the zone picker open");
+  await page.emulateMedia({ reducedMotion: null });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+
+  // Merge into, inside a grocery item's sheet: required, posted through its form, and Escape
+  // closes the list without closing the sheet.
+  await page.goto("/groceries");
+  for (const item of ["Oat drink", "Oat drink carton"]) {
+    await page.getByLabel("Add to the list").fill(item);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByRole("link", { name: new RegExp(`^${item}\\b`) }).first()).toBeVisible();
+  }
+  await page.getByRole("link", { name: /^Oat drink carton/ }).first().click();
+  await expect(page).toHaveURL(/item=/);
+  const same = page.getByRole("combobox", { name: "Same as…" });
+  let asked = false;
+  page.once("dialog", (d) => {
+    asked = true;
+    void d.accept();
+  });
+  await page.getByRole("button", { name: "Merge into this" }).click();
+  await expect.poll(() => same.evaluate((el: HTMLInputElement) => el.validationMessage)).toContain("Pick the duplicate");
+  expect(asked).toBe(false);
+  await same.fill("oat");
+  await expect(page.getByRole("option", { name: "Oat drink", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(page).toHaveURL(/item=/);
+  await same.fill("oat drink");
+  await page.getByRole("option", { name: "Oat drink", exact: true }).click();
+  await expect(page.locator('input[name="mergeId"]')).not.toHaveValue("");
+  await page.getByRole("button", { name: "Merge into this" }).click();
+  await expect.poll(() => asked).toBe(true);
+  // The picked duplicate folds into the open item: "Oat drink" goes, "Oat drink carton" stays.
+  // Wait for that on this page (the merge reopens the kept item's sheet over a fresh list):
+  // leaving any sooner would cut the merge off.
+  await expect(page.getByRole("link", { name: /^Oat drink(?! carton)/ })).toHaveCount(0);
+  await page.goto("/groceries");
+  await expect(page.getByRole("link", { name: /^Oat drink carton/ })).toHaveCount(1);
+  await expect(page.getByRole("link", { name: /^Oat drink(?! carton)/ })).toHaveCount(0);
   problems.expectNone();
 });
 
