@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { devices, expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { APPS } from "../lib/apps";
 import { addPasskeyDevice, expectAccessible, expectNoErrorScreen, watchForProblems } from "./support";
 
@@ -443,6 +443,48 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
   }
   await page.goto("/meds");
   await expect(page.getByText(/8:00\sAM/).first()).toBeVisible();
+  problems.expectNone();
+});
+
+test("dropdowns look like the app, with the styled list only where a mouse is", async ({ browser }) => {
+  // Phase 57.1 and 57.2. Settings → Household has two plain dropdowns (time zone, date order).
+  const shots = process.env.E2E_SHOTS; // a folder to save screenshots in, for a person to look at
+  const look = (p: Page) =>
+    p.locator("#household-date-order").evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { appearance: s.appearance, arrow: s.backgroundImage, supports: CSS.supports("appearance", "base-select") };
+    });
+  await page.goto("/settings/household");
+  const desktop = await look(page);
+  // Chromium has the styled list, and the desktop test browser has a mouse.
+  expect(desktop.supports).toBe(true);
+  expect(desktop.appearance).toBe("base-select");
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    // The app follows the system theme here; make sure the dark pass really is dark.
+    if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    const box = page.locator("#household-date-order");
+    if (shots) await box.screenshot({ path: `${shots}/select-${scheme}-closed.png` });
+    await box.click();
+    await expect.poll(() => box.evaluate((el) => el.matches(":open"))).toBe(true);
+    if (shots) await page.screenshot({ path: `${shots}/select-${scheme}-open.png` });
+    await expectAccessible(page, `/settings/household with a list open (${scheme})`);
+    await page.keyboard.press("Escape");
+  }
+  await page.emulateMedia({ colorScheme: null, reducedMotion: null });
+
+  // A phone keeps its own picker: no styled list, just the app's own closed box and arrow.
+  const phone = await browser.newContext({ ...devices["Pixel 7"], storageState: await dad.storageState() });
+  try {
+    const p = await phone.newPage();
+    await p.goto("/settings/household");
+    const mobile = await look(p);
+    expect(mobile.appearance).toBe("none");
+    expect(mobile.arrow).toContain("linear-gradient");
+    if (shots) await p.locator("#household-date-order").screenshot({ path: `${shots}/select-phone-closed.png` });
+  } finally {
+    await phone.close();
+  }
   problems.expectNone();
 });
 

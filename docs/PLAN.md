@@ -179,9 +179,11 @@ Status: **merged** (on `main`), **next**, **later**, **waiting** (on the owner's
 | 50 | Teams without Power Automate: the app's own Teams bot, a jar chat picked from a list | merged |
 | 51 | Find the school calendar from the school's web address | merged |
 | 52 | Statement imports that work out their own columns | merged |
-| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | built |
-| 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | built |
+| 53 | Smaller setup fixes: VIN, bank feeds, alert mailbox, Entra role link | merged |
+| 54 | The pet's fun pass: growing-up moments, juice, collection book, tricks | merged |
 | 55 | The pet's daily surprises and sound | next |
+| 56 | The pet: tap the egg open, drag things around the room (and 56.1, tighter hitboxes) | merged |
+| 57 | Dropdowns that look like the app: styled native, a styled list, custom pickers where earned | 57.1–57.2 built |
 
 ### Phases 42–45 in brief
 
@@ -219,8 +221,9 @@ Tunnel and Access, the pinned version, backups and break-glass, following
 `docs/guides/admin.md`, then entering the real family) and, with it, removing the dev sign-in.
 The database still holds test data only.
 
-**The remaining engineering work:** Phase 53 (smaller setup fixes) was the last on the list.
-What's left waits on a decision (below) or on going live; the pet's Phase 55 is its own track.
+**The remaining engineering work:** Phase 57 (dropdowns that look like the app, scoped
+2026-10-29). Otherwise what's left waits on a decision (below) or on going live; the pet's
+Phase 55 is its own track.
 
 The decisions waiting on the owner are under "Open items".
 
@@ -1321,6 +1324,119 @@ shows on the card, connecting starts a sync, and accounts have their Spending sw
 2. **An account left out of a jar:** its rows already here stay but leave the totals and Safe to
    spend.
 3. **The alert mailbox in Settings** overrides `ALERT_MAILBOX`, which stays the fallback.
+
+## Phase 57 — scope (dropdowns that look like the app, 2026-10-29)
+
+The owner noticed the dropdowns look like the operating system's, not the app's. There are 51
+plain `<select>`s in 29 files (none `multiple` or with `size`); their closed box gets the app's
+border, but the arrow and the open list are the OS's own. Nothing decided that: it's what was
+left when shadcn/ui was removed (2026-10-09). The owner picked the mixed approach most polished
+apps use (2026-10-29): the app's own look on every dropdown, the native list kept for plain short
+choices (phones keep their own pickers, the browser keeps accessibility), and a custom picker only
+where a list is long or needs search. Three parts, two pull requests: 57.1 and 57.2 together, then
+57.3 once the owner has picked its lists. Fable's scope review (2026-10-29) checked the CSS
+against this codebase, the browser facts and the forms, and is folded in.
+
+### 57.1 — Every dropdown looks like the app
+
+- **One rule in `app/globals.css`, not 51 edits,** for `select:not([multiple], [size])`. It is
+  unlayered, like the existing phone 16px rule and for the same reason: Tailwind v4's utilities
+  layer beats the base layer, and `field`'s `px-3` would otherwise put the text under the
+  chevron. So the rule's `appearance: none`, chevron and right padding can't be overridden by a
+  select's own classes, which is the point; everything else (border, rounding, colours, width)
+  stays with `field`, School's `box` and the forms' own classes.
+- **The chevron is a background, not a mask** (a mask on a select clips the whole control, and a
+  select can't carry `::before`/`::after`): two small `linear-gradient`s in `currentColor`,
+  positioned at the right. They follow the text colour in both themes, need no image, and
+  survive `field`'s `bg-background` (Tailwind's `bg-*` sets only `background-color`).
+- `select:disabled` gets `opacity: 0.5`, matching the buttons (`field` has no disabled style).
+- **Unchanged:** the dark-mode list colours set for Windows (`select option, select optgroup`),
+  the 16px font on phones (iPhone zoom), `field`'s focus ring and 44px touch height. Behaviour
+  doesn't change: the native list, phone pickers, keyboard type-to-select and screen readers are
+  the browser's own.
+
+### 57.2 — The styled open list, where the browser has it
+
+- After 57.1's rule (so it wins on source order), inside `@supports (appearance: base-select)`
+  (the test MDN uses) and `@media (pointer: fine)`: the select and its `::picker(select)` take
+  `appearance: base-select`, and the open list is drawn as the app's card (rounded corners,
+  border, shadow, the popover colours), the chosen option in the brand colour with a tick
+  (`::checkmark`), hover and keyboard focus visible. Here 57.1's gradient chevron is turned off
+  (`background-image: none`) and the browser's own `::picker-icon` is styled instead, or the
+  arrow would show twice.
+- **Where it applies:** Chrome and Edge 135 and later. Safari 27 (September 2026) is reported to
+  ship it; verify on a device. Firefox has it behind a preference only. Everyone else keeps
+  57.1's look with the native list. Form submission is unchanged: every option here has a
+  `value`.
+- **Phones and tablets keep their pickers:** base-select doesn't use the phone's own sheet or
+  wheel (MDN), and `pointer: fine` keeps every touch-first device native: Android phones, and
+  iPads, which report `pointer: coarse` even with a trackpad. A Windows laptop with a
+  touchscreen reports `fine` (its mouse is primary) and gets the styled list, which is right for
+  it.
+- Options stay plain text, so nothing depends on the browser having this.
+
+### 57.3 — A custom picker only where it earns its keep
+
+- **One shared component, `components/picker.tsx`, modelled on the grocery add box's combobox**
+  (`app/(app)/groceries/add-box.tsx`, a sound ARIA 1.2 combobox), which itself doesn't change.
+  The add box is a free-text search against the server; a picker needs more:
+  - a passed-in list filtered on the device (case and accents ignored; a zone found by its city),
+    with option groups (the receipt's "On this trip" and "Everything else"), an optional emoji
+    and second line per option, and a cap on rows drawn (about 50, "keep typing" below) for the
+    418 time zones;
+  - a strict "must be one of the options" state, the current choice shown when closed, a clear
+    button, open on focus and on ArrowDown, and Home/End;
+  - **both kinds of caller:** `value`/`onChange` for the controlled ones (the time zone, which
+    "Use this device's" also sets; one picker per receipt line; the category picker, which has
+    no form at all), and an optional `name` for forms that post to server actions;
+  - **validation and reset that work:** the value is carried in a visually hidden text input,
+    not `type="hidden"` (which ignores `required`), with `setCustomValidity` on the visible box
+    so a required picker blocks submit with the browser's own message; and it resets with its
+    form (the `reset` event React 19 fires after a successful action; every `useActionState`
+    form here relies on it).
+- **The lists (the owner's answer 1: all four):**
+  1. **Time zone** (Settings → Household): 418 zones in one list today. The strongest case.
+  2. **The receipt's item match** (Groceries → a receipt): the trip's items, then the whole
+     pantry, which grows with the household.
+  3. **Merge into** (Groceries → an item): the whole pantry.
+  4. **Money categories** (a jar's Activity): the jar's own categories with their emoji (15 to
+     start).
+- **Next in line, not in this phase:** the people and contact lists (the doctor and pharmacy on
+  a med, a school contact, relationships, invites, a store's members) stay short today but grow
+  with Google Contacts sync (Phase 8.5), and "Which charge?" on an order has no limit. The
+  picker's API is designed so they can move to it later.
+- Everything else is a short plain choice (a role, a cadence, a kind, a unit) and stays styled
+  native.
+
+### Tests
+
+- Unit: the picker's filtering (case, accents, a zone by its city), option groups, the row cap,
+  and keyboard handling, as pure functions where possible.
+- A guard test, like `lib/forms-guard.test.ts`: no `<select>` gains `multiple` or `size` without
+  the scope's native fallback being thought about (the unlayered rule means classes can't undo
+  the look, so that's the only gap).
+- Browser: the accessibility pass (both themes, both widths) covers the chevron's contrast and
+  focus, plus axe on an open picker; a picker chosen by keyboard and by mouse posts its value
+  through a `useActionState` form and is empty again after success; a required picker blocks
+  submit; a receipt with 10+ lines stays responsive. The styled list is checked absent in a
+  phone-emulated context (Playwright's `isMobile` device, which reports a coarse pointer;
+  `emulateMedia` can't set `pointer`).
+- Guides: `docs/guides/admin.md` (time zone search) and `family.md` only if 57.3 changes how a
+  list is used.
+
+### Not in this phase
+
+- Rich options inside native selects (icons, avatars): plain text keeps every browser equal.
+- Replacing the date fields, checkboxes or radio buttons: not raised; they already follow the
+  theme.
+- Moving the people and contact lists to the picker (above).
+
+### The owner's answers (2026-10-29)
+
+1. **All four lists get the custom picker:** the time zone, the receipt's item match, Merge
+   into, and the money categories (with their emoji).
+2. **The styled list on mouse-first devices only** (Macs, Windows PCs, touchscreen laptops
+   included); phones and iPads always keep their own pickers.
 
 ## Open items
 

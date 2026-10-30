@@ -265,6 +265,107 @@ main#main,
   }
 }
 
+/* Phase 57.1: every dropdown in the app's own look instead of the operating system's. Unlayered,
+   like the rule above: Tailwind's utilities layer beats the base layer, and `field`'s px-3 would
+   otherwise put the text under the arrow. Only the look of the closed box changes; the open list,
+   phone pickers, keyboard and screen readers stay the browser's own. The arrow is two gradient
+   halves in the muted text colour (a mask would clip the whole control, and a select can't have
+   ::before or ::after), so it follows the theme with no image. A list box (multiple, size) keeps
+   the native look. */
+select:not([multiple], [size]) {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.125rem) 50%,
+    calc(100% - 0.8125rem) 50%;
+  background-size: 0.3125rem 0.3125rem;
+  background-repeat: no-repeat;
+  padding-right: 2.25rem;
+}
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Phase 57.2: where the browser can draw the open list itself (Chrome and Edge 135+; elsewhere the
+   native list),
+   it's drawn as the app's card. Only on mouse-first devices: phones and tablets (iPads report a
+   coarse pointer even with a trackpad) keep their own sheet or wheel, which base-select would
+   replace with a small in-page list. The browser's own ::picker-icon takes over from 57.1's arrow
+   here, or there would be two. */
+@supports (appearance: base-select) {
+  @media (pointer: fine) {
+    select:not([multiple], [size]),
+    select:not([multiple], [size])::picker(select) {
+      appearance: base-select;
+    }
+    /* Base-select lays the box out as a flex row (text, then the icon): a `block` class would push
+       the icon onto a second line, so the row is kept. One line, clipped like a native select's,
+       not wrapped. (It's sized to the chosen option, not the widest as native is; the few short
+       dropdowns whose row would jump get a min width.) */
+    select:not([multiple], [size]) {
+      display: inline-flex;
+      overflow: hidden;
+      white-space: nowrap;
+      background-image: none;
+      padding-right: 0.75rem;
+    }
+    /* The browser already halves a disabled base-select's text; 57.1's opacity would halve it
+       again. */
+    select:not([multiple], [size]):disabled {
+      opacity: 1;
+    }
+    select:not([multiple], [size])::picker-icon {
+      color: var(--muted-foreground);
+      transition: rotate 150ms ease-out;
+    }
+    select:not([multiple], [size]):open::picker-icon {
+      rotate: 180deg;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      select:not([multiple], [size])::picker-icon {
+        transition: none;
+      }
+    }
+    select:not([multiple], [size])::picker(select) {
+      margin-block: 0.25rem;
+      padding: 0.25rem;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      background-color: var(--popover);
+      color: var(--popover-foreground);
+      box-shadow: 0 10px 25px -10px rgb(0 0 0 / 0.35);
+    }
+    select:not([multiple], [size]) option {
+      padding: 0.375rem 0.625rem;
+      border-radius: calc(var(--radius) - 0.25rem);
+      white-space: normal;
+    }
+    /* A tint strong enough to see in both themes (the muted colour is too close to the card), and
+       a ring for the keyboard. */
+    select:not([multiple], [size]) option:hover,
+    select:not([multiple], [size]) option:focus-visible {
+      background-color: color-mix(in srgb, currentColor 12%, transparent);
+    }
+    select:not([multiple], [size]) option:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: -2px;
+    }
+    select:not([multiple], [size]) option:checked {
+      font-weight: 700;
+    }
+    select:not([multiple], [size]) option::checkmark {
+      color: var(--brand-text);
+    }
+    select:not([multiple], [size]) optgroup {
+      font-weight: 800;
+      color: var(--muted-foreground);
+    }
+  }
+}
+
 /* Phase 19.5 Bunson volume (components/bunson-moment.tsx). The (app) layout root carries
    data-bunson-volume; a hidden moment falls back to its plain-text twin so the words stay.
    The corner Bunson is only rendered on Chatty, where no moment is CSS-hidden, so the

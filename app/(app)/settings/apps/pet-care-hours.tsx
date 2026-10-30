@@ -21,7 +21,7 @@ function Window({ day, index, value }: { day: "weekday" | "weekend"; index: numb
       <label className="sr-only" htmlFor={`${name}-from`}>
         {day === "weekday" ? "Weekdays" : "Weekends"}, time {index + 1}: from
       </label>
-      <select id={`${name}-from`} name={`${name}-from`} defaultValue={value ? value.start / 60 : ""} className={field}>
+      <select id={`${name}-from`} name={`${name}-from`} defaultValue={value ? value.start / 60 : ""} className={`${field} min-w-28`}>
         <option value="">Off</option>
         {HOURS.slice(0, 24).map((hour) => (
           <option key={hour} value={hour}>
@@ -33,7 +33,7 @@ function Window({ day, index, value }: { day: "weekday" | "weekend"; index: numb
       <label className="sr-only" htmlFor={`${name}-to`}>
         to
       </label>
-      <select id={`${name}-to`} name={`${name}-to`} defaultValue={value ? value.end / 60 : ""} className={field}>
+      <select id={`${name}-to`} name={`${name}-to`} defaultValue={value ? value.end / 60 : ""} className={`${field} min-w-28`}>
         <option value="">Off</option>
         {HOURS.slice(1).map((hour) => (
           <option key={hour} value={hour}>
