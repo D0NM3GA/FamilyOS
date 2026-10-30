@@ -89,8 +89,9 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      // An open native <select> handles its own Escape.
-      if (e.key === "Escape" && !(e.target instanceof HTMLSelectElement)) router.replace(returnTo, { scroll: false });
+      // An open <select> handles its own Escape. In the styled list (Phase 57.2) focus is on one of
+      // its options, so anything inside a select counts, not only the select itself.
+      if (e.key === "Escape" && !(e.target instanceof Element && e.target.closest("select"))) router.replace(returnTo, { scroll: false });
       if (e.key === "Tab" && dialogRef.current) trapTab(e, dialogRef.current);
     }
     window.addEventListener("keydown", onKey);
@@ -164,7 +165,7 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
                 aria-label="Size"
                 className={`${field} w-24`}
               />
-              <select name="sizeUnit" value={unit} onChange={(e) => setUnit(e.target.value)} aria-label="Unit" className={field}>
+              <select name="sizeUnit" value={unit} onChange={(e) => setUnit(e.target.value)} aria-label="Unit" className={`${field} min-w-24`}>
                 <option value="">unit</option>
                 {SIZE_UNITS.map((u) => (
                   <option key={u} value={u}>
@@ -172,7 +173,7 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
                   </option>
                 ))}
               </select>
-              <select name="container" value={container} onChange={(e) => setContainer(e.target.value)} aria-label="Container" className={field}>
+              <select name="container" value={container} onChange={(e) => setContainer(e.target.value)} aria-label="Container" className={`${field} min-w-32`}>
                 <option value="">container</option>
                 {CONTAINERS.map((c) => (
                   <option key={c} value={c}>

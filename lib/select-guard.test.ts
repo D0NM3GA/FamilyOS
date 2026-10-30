@@ -21,7 +21,8 @@ function filesUnder(dir: string): string[] {
 /** `file:line` for every `<select …>` opening tag that makes a list box. */
 export function listBoxes(file: string, text: string): string[] {
   const found: string[] = [];
-  for (const m of text.matchAll(/<select\b[^>]*>/g)) {
+  // `=>` inside a prop (onChange={(e) => …}) isn't the end of the tag. A {...spread} can't be read.
+  for (const m of text.matchAll(/<select\b(?:=>|[^>])*>/g)) {
     if (/\s(multiple|size)(\s|=|>|\/)/.test(m[0])) found.push(`${file}:${text.slice(0, m.index).split("\n").length}`);
   }
   return found;
@@ -36,6 +37,7 @@ describe("dropdowns keep the app's look", () => {
     expect(listBoxes("f", `\n<select\n  size={4}\n  name="a">`)).toEqual(["f:2"]);
     expect(listBoxes("f", `<select name="sizeUnit" className={field}>`)).toEqual([]);
     expect(listBoxes("f", `<select aria-label="Size">`)).toEqual([]);
+    expect(listBoxes("f", `<select onChange={(e) => set(e.target.value)} multiple>`)).toEqual(["f:1"]);
   });
 
   test("no select in the app is a list box unless it's listed", () => {

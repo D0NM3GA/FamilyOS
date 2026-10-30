@@ -461,6 +461,8 @@ test("dropdowns look like the app, with the styled list only where a mouse is", 
   expect(desktop.appearance).toBe("base-select");
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    // The app follows the system theme here; make sure the dark pass really is dark.
+    if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
     const box = page.locator("#household-date-order");
     if (shots) await box.screenshot({ path: `${shots}/select-${scheme}-closed.png` });
     await box.click();

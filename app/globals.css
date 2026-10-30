@@ -289,7 +289,8 @@ select:disabled {
   opacity: 0.5;
 }
 
-/* Phase 57.2: where the browser can draw the open list itself (Chrome and Edge 135+, Safari 27),
+/* Phase 57.2: where the browser can draw the open list itself (Chrome and Edge 135+; elsewhere the
+   native list),
    it's drawn as the app's card. Only on mouse-first devices: phones and tablets (iPads report a
    coarse pointer even with a trackpad) keep their own sheet or wheel, which base-select would
    replace with a small in-page list. The browser's own ::picker-icon takes over from 57.1's arrow
@@ -300,9 +301,21 @@ select:disabled {
     select:not([multiple], [size])::picker(select) {
       appearance: base-select;
     }
+    /* Base-select lays the box out as a flex row (text, then the icon): a `block` class would push
+       the icon onto a second line, so the row is kept. One line, clipped like a native select's,
+       not wrapped. (It's sized to the chosen option, not the widest as native is; the few short
+       dropdowns whose row would jump get a min width.) */
     select:not([multiple], [size]) {
+      display: inline-flex;
+      overflow: hidden;
+      white-space: nowrap;
       background-image: none;
       padding-right: 0.75rem;
+    }
+    /* The browser already halves a disabled base-select's text; 57.1's opacity would halve it
+       again. */
+    select:not([multiple], [size]):disabled {
+      opacity: 1;
     }
     select:not([multiple], [size])::picker-icon {
       color: var(--muted-foreground);
@@ -328,11 +341,17 @@ select:disabled {
     select:not([multiple], [size]) option {
       padding: 0.375rem 0.625rem;
       border-radius: calc(var(--radius) - 0.25rem);
+      white-space: normal;
     }
+    /* A tint strong enough to see in both themes (the muted colour is too close to the card), and
+       a ring for the keyboard. */
     select:not([multiple], [size]) option:hover,
     select:not([multiple], [size]) option:focus-visible {
-      background-color: var(--muted);
-      outline: none;
+      background-color: color-mix(in srgb, currentColor 12%, transparent);
+    }
+    select:not([multiple], [size]) option:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: -2px;
     }
     select:not([multiple], [size]) option:checked {
       font-weight: 700;

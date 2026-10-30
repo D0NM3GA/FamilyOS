@@ -1039,9 +1039,16 @@ custom picker only for long lists (57.3).
 - **57.2, the styled open list** inside `@supports (appearance: base-select)` and
   `@media (pointer: fine)`: the list as the app's card, the chosen option bold with a tick in
   `--brand-text`, the browser's `::picker-icon` in place of 57.1's arrow (turning when open,
-  still under reduced motion). Chrome and Edge 135+ today, Safari 27 reported; elsewhere the
-  native list. Phones and iPads (which report a coarse pointer even with a trackpad) keep their
-  own pickers.
+  still under reduced motion). Chrome and Edge 135+ today; elsewhere the native list. Phones and
+  iPads (which report a coarse pointer even with a trackpad) keep their own pickers.
+- **Base-select's differences, handled (Fable's review):** it lays the box out as a flex row, so
+  the rule keeps `inline-flex` (a `block` class would push the icon onto its own line); the
+  chosen label stays on one line and clips instead of wrapping; a disabled select isn't dimmed
+  twice (the browser already halves its text); the hovered and keyboard-focused rows get a
+  visible tint and a ring. The box is sized to the chosen option, not the widest, so the four
+  short dropdowns in a flex row (a grocery item's unit and container, the pet's care hours) have
+  a min width. Focus moves onto the options while the list is open, so the grocery sheet's
+  Escape handler ignores anything inside a select, not only the select itself.
 - The browser test opens a list in both themes, runs axe on it, and checks a phone (Playwright's
   Pixel 7 device) gets the plain styled box, not the styled list. `E2E_SHOTS=<folder>` saves its
   screenshots for a person to look at.
