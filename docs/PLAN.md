@@ -1394,7 +1394,7 @@ against this codebase, the browser facts and the forms, and is folded in.
     so a required picker blocks submit with the browser's own message; and it resets with its
     form (the `reset` event React 19 fires after a successful action; every `useActionState`
     form here relies on it).
-- **Candidates (the owner's call, question 1):**
+- **The lists (the owner's answer 1: all four):**
   1. **Time zone** (Settings → Household): 418 zones in one list today. The strongest case.
   2. **The receipt's item match** (Groceries → a receipt): the trip's items, then the whole
      pantry, which grows with the household.
@@ -1431,12 +1431,12 @@ against this codebase, the browser facts and the forms, and is folded in.
   theme.
 - Moving the people and contact lists to the picker (above).
 
-### Questions for the owner
+### The owner's answers (2026-10-29)
 
-1. **Which lists get the custom picker?** Recommended: time zone, the receipt's item match and
-   Merge into; categories only if seeing their emoji in the list matters to you.
-2. **The styled list on mouse-first devices only** (Macs, Windows PCs, including touchscreen
-   laptops), with phones and iPads always keeping their own pickers: recommended.
+1. **All four lists get the custom picker:** the time zone, the receipt's item match, Merge
+   into, and the money categories (with their emoji).
+2. **The styled list on mouse-first devices only** (Macs, Windows PCs, touchscreen laptops
+   included); phones and iPads always keep their own pickers.
 
 ## Open items
 
