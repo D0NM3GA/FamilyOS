@@ -1,10 +1,12 @@
 /**
  * Demo data for every part of the app, so it can be looked at "in action" on a dev database:
  * `npm run db:seed:demo`. DEV ONLY: it clears the household's chores, meds, store, vehicles,
- * groceries, school, contacts and money jars and fills them again, dated around today.
+ * groceries, school, contacts, money jars and the kids' pets and fills them again, dated around
+ * today.
  *
  * It keeps the household's members and their sign-ins (the household of the oldest
- * Microsoft-linked admin, the one the dev sign-in acts as). Refuses to run in production.
+ * Microsoft-linked admin, the one the dev sign-in acts as), adding a second grown-up and two
+ * kids if it hasn't got them. Refuses to run in production.
  * Nothing here talks to Microsoft, banks or any other outside service.
  */
 import { existsSync } from "node:fs";
@@ -12,6 +14,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Prisma } from "../app/generated/prisma/client";
 import { productNameKey } from "../lib/product-name";
 import { merchantKeyOf, STARTING_CATEGORIES } from "../lib/finance/categories";
+import { hashPin } from "../lib/pin-hash";
+import { newEgg } from "../lib/pet/state";
+import { epochMinute } from "../lib/pet/care-hours";
+
+// Same as prisma/seed.ts, for the kids this adds.
+const DEV_PIN = "1234";
 
 if (process.env.NODE_ENV === "production") throw new Error("seed-demo is for development databases only.");
 
@@ -51,11 +59,7 @@ async function main() {
   });
   if (!admin) throw new Error("No Microsoft-linked admin yet: sign in once (or run the dev sign-in) first.");
   const householdId = admin.householdId;
-  const members = await prisma.person.findMany({ where: { householdId, isHouseholdMember: true }, omit: { photo: true }, orderBy: [{ createdAt: "asc" }, { firstName: "asc" }] });
-  const partner = members.find((p) => p.id !== admin.id && (p.role === "ADULT" || p.role === "ADMIN") && p.authUserId);
-  const kids = members.filter((p) => p.role === "KID");
-  if (!partner || kids.length < 2) throw new Error("Expected a second signed-in adult and two kids in the household (prisma/seed.ts makes them).");
-  const [kidA, kidB] = kids;
+  const { partner, kidA, kidB } = await ensureFamily(householdId, admin.id);
   console.log(`Household ${householdId}: ${admin.firstName}, ${partner.firstName}, ${kidA.firstName}, ${kidB.firstName}`);
 
   await clear(householdId);
@@ -73,7 +77,31 @@ async function main() {
   const trips = await seedGroceries(householdId, admin.id, partner.id, kidA.id, kidB.id);
   await seedSchool(householdId, admin.id, partner.id, kidA.id, kidB.id, people);
   await seedMoney(householdId, admin.id, partner.id, partner.firstName, trips);
+  await seedPets(householdId, kidA.id, kidB.id);
   console.log("Demo data ready.");
+}
+
+/**
+ * The second grown-up and two kids the demo needs, from the household's members (a signed-in
+ * adult first), adding the made-up family's Mom, Ivy and Max for any that are missing. Added
+ * members aren't signed in to anything; the kids get the base seed's dev PIN.
+ */
+async function ensureFamily(householdId: string, adminId: string) {
+  const members = () => prisma.person.findMany({ where: { householdId, isHouseholdMember: true }, omit: { photo: true }, orderBy: [{ createdAt: "asc" }, { firstName: "asc" }] });
+  let all = await members();
+  const adults = all.filter((p) => p.id !== adminId && (p.role === "ADULT" || p.role === "ADMIN"));
+  if (!adults.length) await prisma.person.create({ data: { householdId, firstName: "Mom", lastName: "Parker", isHouseholdMember: true, role: "ADULT", email: "mom@example.com" } });
+  const kidNames = ["Ivy", "Max"].filter((name) => !all.some((p) => p.role === "KID" && p.firstName === name));
+  const missingKids = Math.max(0, 2 - all.filter((p) => p.role === "KID").length);
+  if (missingKids) {
+    const pinHash = await hashPin(DEV_PIN);
+    for (const firstName of kidNames.slice(0, missingKids)) await prisma.person.create({ data: { householdId, firstName, lastName: "Parker", isHouseholdMember: true, role: "KID", pinHash } });
+  }
+  all = await members();
+  const grownUps = all.filter((p) => p.id !== adminId && (p.role === "ADULT" || p.role === "ADMIN"));
+  const partner = grownUps.find((p) => p.authUserId) ?? grownUps[0];
+  const [kidA, kidB] = all.filter((p) => p.role === "KID");
+  return { partner, kidA, kidB };
 }
 
 async function clear(householdId: string) {
@@ -751,7 +779,49 @@ async function seedMoney(householdId: string, adminId: string, partnerId: string
     ],
   });
   await prisma.recurringMark.create({ data: { jarId: jar.id, key: "spotify usa", status: "KEEP", reviewedAt: at(-20, 20) } });
+
+  // Bills added by hand (ones no card shows), and merchants the family filed themselves.
+  await prisma.manualBill.createMany({
+    data: [
+      { jarId: jar.id, name: "Car registration", amountCents: 8500, cadence: "YEARLY", nextDue: civil(24), matchKey: "car registration", createdById: adminId },
+      { jarId: jar.id, name: "Piano lessons", amountCents: 12000, cadence: "MONTHLY", nextDue: civil(4), matchKey: "piano lessons", createdById: partnerId },
+      { jarId: jar.id, name: "Water softener salt", amountCents: 3200, cadence: "QUARTERLY", nextDue: civil(38), matchKey: "water softener salt", createdById: adminId },
+    ],
+  });
+  await prisma.categoryRule.createMany({
+    data: [
+      { jarId: jar.id, key: "coffee cart", categoryId: cats.get("dining")! },
+      { jarId: jar.id, key: "chipotle", categoryId: cats.get("dining")! },
+    ],
+  });
   console.log(`Money jar "Family": ${rows.length} transactions over 7 months.`);
+}
+
+// ---- Pets -----------------------------------------------------------------------------------
+
+/** A fresh egg for one kid, ready to hatch; the other still gets to pick one. */
+async function seedPets(householdId: string, kidAId: string, kidBId: string) {
+  const kids = [kidAId, kidBId];
+  await prisma.petItem.deleteMany({ where: { personId: { in: kids } } });
+  await prisma.petDiscovery.deleteMany({ where: { personId: { in: kids } } });
+  await prisma.petGift.deleteMany({ where: { personId: { in: kids } } });
+  await prisma.petPlay.deleteMany({ where: { personId: { in: kids } } });
+  await prisma.pet.deleteMany({ where: { personId: { in: kids } } });
+  const bornAt = at(0, now.getHours(), Math.max(0, now.getMinutes() - 5));
+  await prisma.pet.create({
+    data: {
+      householdId,
+      personId: kidAId,
+      name: "Sprout",
+      seed: "demo-pet-1",
+      state: newEgg("critter", epochMinute(bornAt.getTime())) as unknown as Prisma.InputJsonValue,
+      bornAt,
+      lastAdvancedAt: bornAt,
+      shownStage: "egg",
+      shownForm: 0,
+      shownTricks: 0,
+    },
+  });
 }
 
 main()
