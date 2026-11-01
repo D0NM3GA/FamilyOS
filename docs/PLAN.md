@@ -1446,7 +1446,7 @@ light/dark per browser. The owner wants real choices with real character, and ma
 look belongs to the person, not the family; and each goes all in on its genre, "more than a color
 palette change", because people spend more time in something worth looking at. The agreed design
 is the Theme Explorer canvas (a private claude.ai artifact, in the owner's account); its art
-generator and CSS are in `docs/looks-prototype/` until this phase replaces them.
+generator is `scripts/looks-art.cjs`.
 
 ### The rules every look keeps
 
@@ -1565,8 +1565,7 @@ Vaporwave (last because it reshapes the most, with a taskbar and windows).
 ### 58.10 — Guides and close
 
 `docs/guides/family.md` (picking a look, the top switch), `docs/guides/admin.md` (a look is each
-person's; what Make it yours still does), `docs/BUILD.md`, README. `docs/looks-prototype/` is
-removed. `axe` runs in the browser test across every look in both modes on a few pages.
+person's; what Make it yours still does), `docs/BUILD.md`, README. The prototype's CSS is removed and its art generator moved to `scripts/`. `axe` runs in the browser test across every look in both modes on a few pages.
 
 ### The owner's answers (2026-11-01)
 

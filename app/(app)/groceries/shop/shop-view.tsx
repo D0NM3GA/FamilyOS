@@ -1,5 +1,6 @@
 "use client";
 
+import { useLook } from "@/components/look";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
@@ -88,6 +89,7 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
   const [undo, setUndo] = useState<{ id: string; name: string } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [finishing, startFinish] = useTransition();
+  const { celebrate } = useLook();
   const [finishError, setFinishError] = useState<string | null>(null);
   const screenOn = useWakeLock();
 
@@ -114,6 +116,7 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
     startFinish(async () => {
       try {
         const result = await completeTrip();
+        celebrate();
         router.replace(tripSavedHref(result.saved ? result.purchaseId : null));
       } catch (err) {
         // A signed-out profile redirects; let that navigation happen without a scary note.

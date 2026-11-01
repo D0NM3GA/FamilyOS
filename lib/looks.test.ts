@@ -58,6 +58,27 @@ describe("every color of every look", () => {
     for (const surface of ["#30254f", "#221a3a"]) expect(contrast(c.vars!.dark["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it.each(LOOKS.find((l) => l.id === "acanthus")!.colors.map((c) => [c.id, c] as const))("acanthus/%s keeps links readable", (_id, c) => {
+    for (const surface of ["#fbf7ec", "#efe8d8"]) expect(contrast(c.vars!.light["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
+    for (const surface of ["#1b2840", "#121b2c", "#0c1321"]) expect(contrast(c.vars!.dark["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(LOOKS.find((l) => l.id === "vapor")!.colors.map((c) => [c.id, c] as const))("vapor/%s keeps its pages and title bars readable", (_id, c) => {
+    const { light, dark } = c.vars!;
+    for (const surface of [light["--muted"], "#efeaf7"]) {
+      expect(contrast("#15204e", surface)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast("#333c66", surface)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(light["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const surface of [dark["--muted"], "#18106f"]) {
+      expect(contrast("#f7f2ff", surface)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast("#d8d3f5", surface)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(dark["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contrast("#ffffff", light["--vapor-bar1"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast("#ffffff", light["--vapor-bar2"])).toBeGreaterThanOrEqual(4.5);
+  });
+
   // Goth's accents, on the page and card each mode draws them on, and the ink on top of --sun.
   it.each(LOOKS.find((l) => l.id === "goth")!.colors.map((c) => [c.id, c] as const))("goth/%s keeps its titles and links readable", (_id, c) => {
     expect(contrast(c.vars!.light["--goth-title"], "#e8e1cf")).toBeGreaterThanOrEqual(4.5);

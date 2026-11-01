@@ -1,0 +1,56 @@
+/* Phase 58: true of every look but Sticker Book. Their tomato is a sticker color, too pale to read as
+   error text on a light page, so by day that text goes darker. */
+:root:not(.dark) [data-app-root]:not([data-look="sticker"]) .text-tomato {
+  color: #b3261a;
+}
+/* A focus ring in --sun is too faint on these lighter pages. */
+[data-app-root]:not([data-look="sticker"]) main#main:focus-visible {
+  --tw-ring-color: var(--ring);
+}
+
+/* The moment someone finishes something. It floats above the page, takes no taps and ends itself:
+   each look draws its own, and with reduced motion it just shows, then goes. */
+.ui-moment {
+  position: fixed;
+  left: 50%;
+  top: 38%;
+  z-index: 55;
+  translate: -50% 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-moment {
+    animation: moment-show 1.4s steps(1) forwards;
+  }
+}
+@keyframes moment-show { to { visibility: hidden; } }
+@keyframes moment-steps { 99% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+@keyframes moment-slam {
+  0% { opacity: 0; scale: 2.6; }
+  22%, 78% { opacity: 1; scale: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+@keyframes moment-rise {
+  0% { opacity: 0; transform: translateY(16px); }
+  18%, 70% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-36px); visibility: hidden; }
+}
+@keyframes moment-fly {
+  0% { opacity: 0; transform: translateX(60px) skewX(-10deg); }
+  20%, 75% { opacity: 1; transform: skewX(-10deg); }
+  100% { opacity: 0; transform: translateY(-24px) skewX(-10deg); visibility: hidden; }
+}
+@keyframes moment-pop {
+  0% { opacity: 0; scale: 0.3; }
+  25%, 75% { opacity: 1; scale: 1; }
+  100% { opacity: 0; transform: translateY(-14px); visibility: hidden; }
+}
+@keyframes moment-fade {
+  0% { opacity: 0; }
+  15%, 78% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+@keyframes moment-stamp {
+  0% { transform: scale(3) rotate(-18deg); opacity: 0; }
+}

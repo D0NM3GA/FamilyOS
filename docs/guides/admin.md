@@ -354,6 +354,8 @@ there: take their sign-in away first, or, for Microsoft people, remove them in E
 - **App name:** type the family's name and the app adds "OS". Blank means FamilyOS.
 - **Family color:** eight presets, all readable in light and dark mode. It colors the sign-in page and
   the app's icon, and it's the color of anyone who hasn't picked their own under **My look**.
+  A look belongs to each person (Goth, Kawaii, Acanthus, Synthwave, Vaporwave, Neo-brutal or Sticker Book):
+  everyone picks their own under **My look**, and the setup walkthrough has a step for yours.
 - **What the kids earn:** stickers (the default), stars, points, coins, gems, or your own word.
   Only the words change; balances stay.
 - **The mascot:** on for everyone (each person can still quiet him) or off, and his name.

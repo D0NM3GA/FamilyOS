@@ -3,7 +3,7 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { syncThemeColor } from "@/components/theme-toggle";
-import { LOOKS_TO_CHOOSE, type Worn } from "@/lib/looks";
+import { LOOKS_TO_CHOOSE, lookOf, type Worn } from "@/lib/looks";
 import { LookSheet } from "@/components/look-sheet";
 
 type LookState = {
@@ -16,6 +16,8 @@ type LookState = {
   openSheet: (returnTo?: HTMLElement | null) => void;
   closeSheet: () => void;
   welcoming: boolean;
+  /** Someone just finished something: the look marks it, if it has a way to. */
+  celebrate: () => void;
 };
 
 const Ctx = createContext<LookState>({
@@ -27,6 +29,7 @@ const Ctx = createContext<LookState>({
   openSheet: () => {},
   closeSheet: () => {},
   welcoming: false,
+  celebrate: () => {},
 });
 
 export const useLook = () => useContext(Ctx);
@@ -55,7 +58,17 @@ export function AppRoot({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [welcomed, setWelcomed] = useState(false);
   const pathname = usePathname();
+  // Up here, not on the card that was finished: the card leaves the page straight away.
+  const [moment, setMoment] = useState(0);
+  const celebrate = useCallback(() => setMoment((n) => n + 1), []);
+  // Gone once it's played, so changing look later can't replay it.
+  useEffect(() => {
+    if (moment === 0) return;
+    const done = setTimeout(() => setMoment(0), 2000);
+    return () => clearTimeout(done);
+  }, [moment]);
   const shown = tried ?? worn;
+  const momentWord = lookOf(shown.look).moment;
 
   const putBack = useCallback(() => setTried(null), []);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -81,8 +94,8 @@ export function AppRoot({
   useEffect(() => () => syncThemeColor(), []);
 
   const value = useMemo(
-    () => ({ available: true, worn, shown, tryOn: setTried, putBack, openSheet, closeSheet, welcoming }),
-    [worn, shown, putBack, openSheet, closeSheet, welcoming],
+    () => ({ available: true, worn, shown, tryOn: setTried, putBack, openSheet, closeSheet, welcoming, celebrate }),
+    [worn, shown, putBack, openSheet, closeSheet, welcoming, celebrate],
   );
 
   return (
@@ -92,6 +105,12 @@ export function AppRoot({
       <div data-app-root data-view={view} data-bunson-volume={volume} data-look={shown.look} data-color={shown.color} className={className}>
         {children}
         {showSheet && <LookSheet />}
+        {/* Decorative: the action announces itself. Re-keyed so a second one plays again; it ends itself. */}
+        {moment > 0 && momentWord && (
+          <span key={moment} className="ui-moment" aria-hidden="true">
+            {momentWord}
+          </span>
+        )}
       </div>
     </Ctx.Provider>
   );

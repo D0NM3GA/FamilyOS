@@ -25,6 +25,8 @@ export type Look = {
   colors: readonly LookColor[];
   /** Home's scene, a little of the look's voice. Sticker Book has the mascot instead. */
   hello?: (firstName: string) => string;
+  /** The word when someone finishes something (app/looks/*.css draws it). Sticker Book has its own. */
+  moment?: string;
 };
 
 const brutColor = (id: string, name: string, chrome: string, brand: string): LookColor => {
@@ -76,6 +78,34 @@ const kawaiiColor = (id: string, name: string, day: [string, string, string, str
   };
 };
 
+const acanthusColor = (id: string, name: string, day: string, dayHover: string, dayLink: string, night: string, nightHover: string, nightLink: string): LookColor => ({
+  id,
+  name,
+  swatch: day,
+  light: { chrome: "#fbf7ec", chromeHover: "#efe8d8", chromeActive: "#e6dec8", brand: day, brandHover: dayHover },
+  dark: { chrome: "#0c1321", chromeHover: "#1b2840", chromeActive: "#243450", brand: night, brandHover: nightHover },
+  vars: {
+    light: { "--on-chrome": "#23302c", "--on-brand": "#ffffff", "--brand-text": dayLink },
+    dark: { "--on-chrome": "#f2ead7", "--on-brand": "#141b28", "--brand-text": nightLink },
+  },
+});
+
+const vaporColor = (id: string, name: string, dayPage: string, nightPage: string, brand: string, brandHover: string, link: string, bar1: string, bar2: string): LookColor => {
+  const silver = { chrome: "#d4cfe6", chromeHover: "#c4bedc", chromeActive: "#b6afd2" };
+  const page = (p: string) => ({ "--muted": p, "--secondary": p, "--accent": p, "--vapor-bar1": bar1, "--vapor-bar2": bar2 });
+  return {
+    id,
+    name,
+    swatch: nightPage,
+    light: { ...silver, brand, brandHover },
+    dark: { ...silver, brand: "#ff71ce", brandHover: "#ff8fd8" },
+    vars: {
+      light: { ...page(dayPage), "--on-chrome": "#14093f", "--on-brand": "#ffffff", "--brand-text": link, "--ring": link },
+      dark: { ...page(nightPage), "--on-chrome": "#14093f", "--on-brand": "#14093f", "--brand-text": "#05e6ff", "--ring": "#05e6ff" },
+    },
+  };
+};
+
 export const DEFAULT_LOOK = "sticker";
 
 export const LOOKS: readonly Look[] = [
@@ -92,6 +122,7 @@ export const LOOKS: readonly Look[] = [
     ],
     // No time of day: the banner stays up all day.
     hello: (firstName) => `Hey, ${firstName}.`,
+    moment: "DONE.",
   },
   {
     id: "goth",
@@ -104,6 +135,7 @@ export const LOOKS: readonly Look[] = [
       gothColor("rosewater", "Rosewater", "#b0386f", "#8f2a58", "#b0386f", "#bf467c", "#ff9ad0", "#6e2a50"),
     ],
     hello: (firstName) => `Good morrow, ${firstName}`,
+    moment: "So it is done",
   },
   {
     id: "synth",
@@ -116,6 +148,7 @@ export const LOOKS: readonly Look[] = [
       synthColor("laser", "Laser", "#a78bff", "#bda6ff", "#7a3cff", "#7fe9ff", "#5a2bb0", "#4e249c"),
     ],
     hello: (firstName) => `Welcome back, ${firstName}`,
+    moment: "BONUS!",
   },
   {
     id: "kawaii",
@@ -128,6 +161,34 @@ export const LOOKS: readonly Look[] = [
       kawaiiColor("lavender", "Lavender", ["#cdb8ff", "#2a1563", "#6a3fd0", "#5f37bd", "#5b33bd"], ["#3a2a63", "#c4a8ff", "#d4beff", "#1e0f48", "#d6c4ff"]),
     ],
     hello: (firstName) => `Welcome back, ${firstName}!`,
+    moment: "Yay!!",
+  },
+  {
+    id: "acanthus",
+    name: "Acanthus",
+    blurb: "A bookplate on Morris wallpaper.",
+    colors: [
+      acanthusColor("leicester", "Leicester", "#2c5a4a", "#254d3f", "#8a3d2c", "#dcb862", "#e6c87e", "#f0a093"),
+      acanthusColor("thief", "Strawberry", "#8a2a34", "#7a242d", "#2c5a4a", "#e58b7e", "#eda398", "#dcb862"),
+      acanthusColor("lily", "Golden Lily", "#7a5a1e", "#6c4f19", "#8a3d2c", "#e8c56a", "#f0d488", "#9fc3a0"),
+      acanthusColor("willow", "Willow", "#2f4a7a", "#29416b", "#7a3d2c", "#9db6d6", "#b4c8e2", "#e6c87e"),
+    ],
+    hello: (firstName) => `Welcome home, ${firstName}`,
+    moment: "Duly attested",
+  },
+  {
+    id: "vapor",
+    name: "Vaporwave",
+    blurb: "The whole family, on a 1995 desktop.",
+    colors: [
+      vaporColor("cobalt", "Cobalt", "#a8e6e4", "#1c12b8", "#c21e8f", "#ab1a7e", "#2a1fb5", "#c21e8f", "#3a2bd1"),
+      vaporColor("flamingo", "Flamingo", "#ffd3ea", "#5a0f7a", "#b3125f", "#9e1054", "#8a0f55", "#c21f66", "#7a2bd1"),
+      vaporColor("lagoon", "Lagoon", "#b8f0e0", "#0b3f6b", "#0f6e7a", "#0c5f6a", "#0b5f6b", "#0c7777", "#2a5fd1"),
+      vaporColor("arizona", "Arizona", "#ffe0b8", "#3a1a6b", "#a8430e", "#953b0c", "#8f3a0c", "#b8430f", "#7a2bd1"),
+    ],
+    // No time of day: the banner stays up all day.
+    hello: (firstName) => `Hello, ${firstName}`,
+    moment: "Task complete.",
   },
 ];
 

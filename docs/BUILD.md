@@ -1186,3 +1186,34 @@ slanted buttons; four colors. Night is neon on violet, day a sunset.
 A speech bubble with a bobbing cat on Home, die-cut stickers and washi tape on its cards, a scalloped
 bar and pill nav, four colors. Home's cards tilt; lists and forms stay straight.
 
+### 58.7 — Acanthus
+
+A gilded bookplate with an engraved library on Home, on Morris-style wallpaper; a ribbon of the
+wallpaper under the bar elsewhere, since other pages have words right on the page; a Roman-numeral
+index for the nav; four colors.
+
+### 58.8 — Vaporwave
+
+Cards are windows with title bars, the nav is desktop icons, a marble bust and chrome sphere watch
+over Home, four colors that also change the desktop. Windows are silver by day and dark at night,
+unlike the prototype's silver in both, so status colors' day and night shades stay right. The real
+top bar stays at the top (search, bell and name open downward), so there's no fake taskbar.
+
+### 58.9 — The moment you finish something
+
+Finishing a chore, taking a med or finishing a grocery trip gets the look's own mark: "DONE." slammed
+on, a wax seal, a self-closing dialog. It lives on `AppRoot` because the finished card leaves the page
+at once, and fires once the save worked. Decorative, takes no taps, ends itself, and just shows and
+goes under reduced motion. It plays alongside the card's existing burst and the mascot, in every look;
+Sticker Book has only those. No sound, the owner's call for now.
+
+### 58.10 — Close
+
+`scripts/looks-art.cjs` keeps the generator for the looks' art (not run by the build; its output is
+compressed to WebP in `public/looks/`). The prototype's CSS is gone. Each look's browser test wears it
+on seven pages in day and night and on a phone, with `axe`. Contrast over art can't be measured by
+`axe`, so scenes are checked by eye in `E2E_SHOTS` screenshots.
+
+Narrower than scoped: a look's voice is Home's greeting and the finish word only. Section and page
+title kickers, empty states and kana kickers weren't built; the other pages' words are the app's own.
+

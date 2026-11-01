@@ -1,4 +1,4 @@
-/* eslint-disable -- the prototype's art generator, kept only until Phase 58 replaces it. */
+/* eslint-disable -- paints the looks' art (npm not involved): ART_OUT=folder node scripts/looks-art.cjs [name prefixes]. */
 // Paints each look's art as SVG and rasterizes it (filters, grain and marble need a real renderer).
 const fs = require("fs"), path = require("path");
 const { chromium } = require("playwright");

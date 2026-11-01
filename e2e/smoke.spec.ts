@@ -362,6 +362,8 @@ for (const [look, color, face] of [
   ["goth", "oxblood", "Spectral"],
   ["synth", "outrun", "Exo 2"],
   ["kawaii", "ramune", "M PLUS Rounded 1c"],
+  ["acanthus", "leicester", "EB Garamond"],
+  ["vapor", "cobalt", "IBM Plex Sans"],
 ]) {
   test(`${look} holds up on real pages, day and night`, async () => {
     test.setTimeout(4 * 60_000); // Seven pages, twice over, each with an accessibility run.
@@ -412,6 +414,90 @@ for (const [look, color, face] of [
     problems.expectNone();
   });
 }
+
+test("finishing a chore is marked by the look, and takes no taps", async () => {
+  test.setTimeout(3 * 60_000);
+  const shots = process.env.E2E_SHOTS;
+  const root = page.locator("[data-app-root]");
+  const start = { look: await root.getAttribute("data-look"), color: await root.getAttribute("data-color") };
+  const sheet = page.getByRole("dialog", { name: "My look" });
+  const wear = async (id: string, colorId: string) => {
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "My look" }).click();
+    await sheet.locator(`input[name="look"][value="${id}"]`).check({ force: true });
+    await sheet.locator(`input[name="color"][value="${colorId}"]`).check({ force: true });
+    const keep = sheet.getByRole("button", { name: "Keep it" });
+    if (await keep.count()) await keep.click();
+    else await sheet.getByRole("button", { name: "Done" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(root).toHaveAttribute("data-look", id);
+  };
+
+  await page.goto("/chores/new");
+  await page.getByLabel("Title").fill("Water the plants");
+  await page.getByRole("radio", { name: "Dad" }).check();
+  await page.locator('form button[type="submit"]').last().click();
+  await expect(page).toHaveURL(/\/chores$/);
+
+  // Reduced motion holds each one still, so it's there to check and to photograph.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const looks = [["brut", "banana", "DONE."], ["goth", "oxblood", "So it is done"], ["synth", "outrun", "BONUS!"], ["kawaii", "ramune", "Yay!!"], ["acanthus", "leicester", "Duly attested"], ["vapor", "cobalt", "Task complete."]];
+  try {
+    for (const [id, color, word] of looks) {
+      await wear(id, color);
+      await page.goto("/chores");
+      const card = page.getByText("Water the plants").first();
+      await expect(card).toBeVisible();
+      // Watched from inside the page: it only lasts two seconds, and a busy test machine can lose
+      // that between one check and the next. A copy stays behind, held still, for the screenshot.
+      await page.evaluate(() => {
+        const seen: Record<string, unknown> = {};
+        (window as unknown as { seenMoment: unknown }).seenMoment = seen;
+        const start = performance.now();
+        const watch = new MutationObserver((changes) => {
+          for (const change of changes) {
+            for (const node of change.addedNodes) {
+              if (!(node instanceof HTMLElement) || node.className !== "ui-moment" || node.id) continue;
+              const css = getComputedStyle(node);
+              Object.assign(seen, { word: node.textContent, taps: css.pointerEvents, shown: css.visibility });
+              const held = node.cloneNode(true) as HTMLElement;
+              held.id = "held-moment";
+              held.style.animation = "none";
+              node.parentElement!.append(held);
+            }
+            for (const node of change.removedNodes) {
+              if (node instanceof HTMLElement && node.className === "ui-moment" && !node.id) {
+                seen.lasted = performance.now() - start;
+                watch.disconnect();
+              }
+            }
+          }
+        });
+        watch.observe(document.body, { childList: true, subtree: true });
+      });
+      await page.getByRole("button", { name: "Complete" }).first().click();
+      const held = page.locator("#held-moment");
+      await expect(held).toHaveText(word);
+      if (shots) await page.screenshot({ path: `${shots}/moment-${id}.png` });
+      await held.evaluate((el) => el.remove());
+      // It floats above the page without catching taps, and ends itself.
+      const seen = () => page.evaluate(() => (window as unknown as { seenMoment: Record<string, unknown> }).seenMoment);
+      await expect.poll(async () => (await seen()).lasted, { timeout: 10_000 }).toBeGreaterThan(0);
+      expect(await seen()).toMatchObject({ word, taps: "none", shown: "visible" });
+      await page.getByRole("button", { name: "Undo" }).first().click();
+      await expect(page.getByRole("button", { name: "Complete" }).first()).toBeVisible();
+    }
+    // Sticker Book keeps its own celebration.
+    await wear("sticker", "ink");
+    await page.goto("/chores");
+    await page.getByRole("button", { name: "Complete" }).first().click();
+    await expect(page.locator(".ui-moment")).toHaveCount(0);
+  } finally {
+    await page.emulateMedia({ reducedMotion: null });
+    await wear(start.look!, start.color!);
+  }
+  problems.expectNone();
+});
 
 test("home location from a ZIP code, then from this device", async () => {
   await page.goto("/settings/household");

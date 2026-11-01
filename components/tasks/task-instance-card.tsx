@@ -1,5 +1,6 @@
 "use client";
 
+import { useLook } from "@/components/look";
 import { useOptimistic, useState, useTransition } from "react";
 import { Check, Undo2, CloudRain, Minus } from "lucide-react";
 import { formatRelative } from "@/lib/format";
@@ -162,6 +163,7 @@ export function TaskInstanceCard({
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(instance.status);
   const [, startTransition] = useTransition();
   const [celebrating, setCelebrating] = useState(false);
+  const { celebrate: celebrateLook } = useLook();
   // Set only when onComplete's result actually reports one (Meds' plain-void action never
   // does) — a bigger, longer second wave layered on top of the always-instant 650ms burst
   // below, once the server round-trip confirms a milestone was actually crossed.
@@ -202,6 +204,8 @@ export function TaskInstanceCard({
         setFailed(true);
         return;
       }
+      // After the save, unlike the burst: the look says "done" only when it is.
+      celebrateLook();
       const milestone = result && typeof result === "object" ? result.milestone : null;
       if (milestone) {
         // Both fire: the in-place badge below covers the common case (a card that stays
