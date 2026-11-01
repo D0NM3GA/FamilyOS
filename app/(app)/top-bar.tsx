@@ -26,11 +26,11 @@ export function TopBar({
 }) {
   const appName = useAppName();
   return (
-    <header className="flex h-16 items-center gap-3 bg-chrome px-3 text-on-chrome md:gap-4">
+    <header className="ui-bar flex h-16 items-center gap-3 bg-chrome px-3 text-on-chrome md:gap-4">
       <LauncherButton />
       {/* A family's own name can be long: it gives way (…) before the icons on a phone do. */}
-      <span className="min-w-0 truncate py-1 font-heading text-xl font-extrabold leading-none sm:text-2xl" title={appName}>
-        <Wordmark name={appName} accentClassName="text-sun" />
+      <span className="ui-wordmark min-w-0 truncate py-1 font-heading text-xl font-extrabold leading-none sm:text-2xl" title={appName}>
+        <Wordmark name={appName} accentClassName="ui-accent text-sun" />
       </span>
 
       <form action="/search" method="get" className="relative hidden max-w-xl flex-1 sm:block">

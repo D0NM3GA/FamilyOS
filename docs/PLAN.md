@@ -1513,7 +1513,7 @@ out a card by hand (`rounded-2xl border-2 border-ink`) move to the shared string
   client, since `generateViewport` can't know the person: `theme-toggle.tsx` reads `--chrome` from
   `[data-app-root]`, and keeps its own tag whenever a look other than Sticker Book is worn, in
   every mode including Match device (today it removes the tag there).
-- **Loading:** each look's CSS is its own file, `app/(app)/looks/<id>.css`, loaded by a client
+- **Loading (one shared stylesheet in the build, see `docs/BUILD.md` 58.3; this was the plan):** each look's CSS is its own file, `app/(app)/looks/<id>.css`, loaded by a client
   `LookStyles` component through dynamic `import()`: fingerprinted under `/_next/static`, allowed by
   the CSP's `style-src 'self'`, and processed by Tailwind. Next never removes a loaded stylesheet,
   so tried looks stay in the page, inert because `data-look` scopes them. Fonts `preload: false`,

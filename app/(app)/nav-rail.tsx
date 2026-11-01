@@ -70,7 +70,7 @@ export function NavRail() {
   return (
     <nav
       aria-label="Apps"
-      className="no-scrollbar hidden w-24 shrink-0 big:w-28 flex-col items-center gap-1 overflow-y-auto overscroll-contain bg-chrome py-3 md:flex [&>*]:shrink-0"
+      className="ui-rail no-scrollbar hidden w-24 shrink-0 big:w-28 flex-col items-center gap-1 overflow-y-auto overscroll-contain bg-chrome py-3 md:flex [&>*]:shrink-0"
     >
       {first.map((app) => (
         <RailLink key={app.id} app={app} active={app.id === current} />
@@ -106,7 +106,7 @@ export function BottomBar() {
   return (
     <nav
       aria-label="Apps"
-      className="fixed inset-x-0 bottom-0 z-30 flex h-[var(--bottom-bar-h)] items-stretch justify-around bg-chrome px-1 md:hidden"
+      className="ui-bottom-bar fixed inset-x-0 bottom-0 z-30 flex h-[var(--bottom-bar-h)] items-stretch justify-around bg-chrome px-1 md:hidden"
     >
       {apps.slice(0, BOTTOM_BAR_COUNT).map((app) => {
         const active = app.id === current;

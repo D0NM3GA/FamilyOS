@@ -67,7 +67,7 @@ async function main() {
   await prisma.person.update({ where: { id: admin.id }, data: { color: "SKY" } });
   await prisma.person.update({ where: { id: partner.id }, data: { color: "GRAPE" } });
   await prisma.person.update({ where: { id: kidA.id }, data: { color: "SUN" } });
-  await prisma.person.update({ where: { id: kidB.id }, data: { color: "LIME" } });
+  await prisma.person.update({ where: { id: kidB.id }, data: { color: "LIME", look: "brut", lookColor: "electric" } });
 
   const people = await seedPeople(householdId, admin.id, partner.id, kidA.id, kidB.id);
   await seedChores(householdId, admin.id, kidA.id, kidB.id);

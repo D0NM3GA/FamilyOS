@@ -21,7 +21,7 @@ export default async function NotificationsPage() {
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">All quiet. Nothing yet.</p>
       ) : (
-        <ul className="divide-y divide-border rounded-2xl bg-card ring-1 ring-border">
+        <ul className="ui-card divide-y divide-border rounded-2xl bg-card ring-1 ring-border">
           {items.map((n) => (
             <li key={n.id}>
               <Link href={n.href} className={`flex min-h-11 flex-col justify-center px-4 py-3 text-sm hover:bg-muted ${n.unread ? "font-bold" : ""}`}>

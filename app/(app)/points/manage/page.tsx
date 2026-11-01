@@ -48,13 +48,13 @@ export default async function ManageStorePage() {
         <p className="text-muted-foreground">Kids can only buy what&apos;s on these shelves.</p>
       </div>
 
-      <section className="rounded-3xl bg-card p-5 ring-1 ring-border">
+      <section className="ui-card rounded-3xl bg-card p-5 ring-1 ring-border">
         <h2 className="text-xl font-extrabold">Family sheet goal</h2>
         <p className="text-sm text-muted-foreground">Everyone&apos;s <RewardWord /> this month add up toward this. Leave blank for no goal.</p>
         <FamilyGoalForm stickers={household.familyGoalStickers} title={household.familyGoalTitle} />
       </section>
 
-      <section className="rounded-3xl bg-card p-5 ring-1 ring-border">
+      <section className="ui-card rounded-3xl bg-card p-5 ring-1 ring-border">
         <h2 className="text-xl font-extrabold">Shelves</h2>
         <ul className="mt-3 space-y-2">
           {buckets.map((b) => (
@@ -70,7 +70,7 @@ export default async function ManageStorePage() {
         </div>
       </section>
 
-      <section className="rounded-3xl bg-card p-5 ring-1 ring-border">
+      <section className="ui-card rounded-3xl bg-card p-5 ring-1 ring-border">
         <h2 className="text-xl font-extrabold">Rewards</h2>
         <div className="mt-3">
           <RewardForm reward={null} shelves={shelfOptions} />

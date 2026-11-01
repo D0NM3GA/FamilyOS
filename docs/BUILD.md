@@ -1159,3 +1159,20 @@ color. The welcome and the setup step wait for `LOOKS_TO_CHOOSE`, a second look.
 color now reads `--chrome` from the root, and stays owned in the shell in every mode.
 Waiting for the first look to need them (58.3): per-look CSS and its offline handling, and the demo
 family's mix of looks; the contrast test here already runs over whatever `lib/looks.ts` lists.
+
+### 58.3 — Neo-brutal, the first look
+
+Tokens, type and shell in `app/looks/brut.css`, art in `public/looks/`, four colors. The real Home
+has no banner (the mascot greets), so `components/look-scene.tsx` adds one for looks that want it.
+With a second look to choose from, the setup step and the once-only welcome turned on.
+
+All looks share one stylesheet rather than the scope's per-look files, once measured: selectors keep
+them inert and browsers fetch a look's art and fonts only when used, so wearers pay for theirs, there's
+no flash, try-on is instant and offline needs nothing new. `public/sw.js` caps saved fonts.
+
+### 58.4 — Goth
+
+A cathedral on Home by day (a woodcut on parchment) and by night (candlelit, with embers), framed
+Home cards with a skull crest, coffin-shaped main buttons, four colors. Blackletter is for titles;
+Big buttons swaps it for a plainer gothic, and a focused button squares off so its ring shows.
+

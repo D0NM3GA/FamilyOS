@@ -53,7 +53,7 @@ export default async function EditSchoolProfilePage({ params }: { params: Promis
         <section className="mt-8 max-w-lg">
           <h2 className={sectionTitle}>Teachers & contacts</h2>
           {school.contacts.length > 0 && (
-            <ul className="mt-2 divide-y divide-border rounded-xl bg-card ring-1 ring-border">
+            <ul className="ui-card mt-2 divide-y divide-border rounded-xl bg-card ring-1 ring-border">
               {school.contacts.map((c) => {
                 const name = [c.person.firstName, c.person.lastName].filter(Boolean).join(" ");
                 return (

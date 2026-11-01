@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Phase 58: every look, scoped by [data-look], so its art and fonts load only for whoever wears it. */
+@import "./looks/brut.css";
+@import "./looks/goth.css";
 
 /* Hides a scroll area's bar but keeps it scrollable (the app rail). The one utility the
    app used from the vendored shadcn stylesheet, so that file went. */
@@ -250,6 +253,11 @@ main#main,
   }
   html {
     @apply font-sans;
+  }
+  /* Phase 58: decoration only some looks show. */
+  .ui-ticker,
+  .ui-scene {
+    display: none;
   }
   /* Inherited as a computed font, so a look on this element has to set it here too. */
   [data-app-root] {

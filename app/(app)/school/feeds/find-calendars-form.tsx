@@ -67,7 +67,7 @@ export function FindCalendarsForm({
             </p>
             <ul className="space-y-3">
               {state.calendars.map((c, i) => (
-                <li key={`${state.sealed}-${i}`} className="rounded-xl bg-card p-3 shadow-sm ring-1 ring-border">
+                <li key={`${state.sealed}-${i}`} className="ui-card rounded-xl bg-card p-3 shadow-sm ring-1 ring-border">
                   <AddFound sealed={state.sealed!} index={i} calendar={c} add={add} students={students} />
                 </li>
               ))}

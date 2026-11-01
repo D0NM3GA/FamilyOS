@@ -20,6 +20,7 @@ import { iconBtn } from "@/components/styles";
 import { logQuickContact } from "./people/[id]/actions";
 import { isAdult } from "@/lib/authz";
 import { resolveViewMode } from "@/lib/view-prefs";
+import { LookScene } from "@/components/look-scene";
 import { choreProgressFor, currentHour, greetingLine } from "@/lib/bunson-moments";
 import { toCardInstance } from "@/lib/tasks/card";
 import { completeInstance as completeChore, uncompleteInstance as undoChore } from "./chores/actions";
@@ -147,8 +148,9 @@ export default async function HomePage() {
   const words = await getRewardWords(profile.householdId);
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="ui-home p-4 sm:p-6">
       <h1 className="sr-only">Home</h1>
+      <LookScene firstName={profile.firstName} date={new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: zone }).format(new Date())} />
       <div className="mb-4 empty:hidden">
         <AwayNote />
       </div>
@@ -486,7 +488,7 @@ function Card({
   return (
     <div
       style={{ animationDelay: `${index * 90}ms` }}
-      className={`animate-in fade-in zoom-in-90 slide-in-from-bottom-4 fill-mode-backwards duration-500 rounded-2xl bg-card p-4 shadow-[3px_3px_0_rgb(31_41_51/0.12)] ring-1 ring-border transition hover:-translate-y-0.5`}
+      className={`ui-card animate-in fade-in zoom-in-90 slide-in-from-bottom-4 fill-mode-backwards duration-500 rounded-2xl bg-card p-4 shadow-[3px_3px_0_rgb(31_41_51/0.12)] ring-1 ring-border transition hover:-translate-y-0.5`}
     >
       <h2 className="text-lg font-bold leading-tight text-foreground">{title}</h2>
       <div className="mt-2">{children}</div>

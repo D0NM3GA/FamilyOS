@@ -34,7 +34,7 @@ export default async function SuppliesPage() {
       {supplies.length === 0 ? (
         <p className="mt-6 text-sm text-muted-foreground">No supplies yet.</p>
       ) : (
-        <ul className="mt-4 max-w-3xl divide-y divide-border overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-border">
+        <ul className="ui-card mt-4 max-w-3xl divide-y divide-border overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-border">
           {supplies.map((s) => {
             const low = s.active && isSupplyLow(s.quantityOnHand, s.lowThreshold);
             const usedBy = s.usedBy.map((u) => `${u.item.vehicle.name}: ${u.item.title}`);

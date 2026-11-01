@@ -26,6 +26,9 @@ const SAVEABLE_MARK = "data-shop-saveable";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // A page names a few dozen chunks; anything past this is not a page this worker should save.
 const MAX_ASSETS = 200;
+// Phase 58: one stylesheet declares every look's fonts, and the Shop copy doesn't need them all.
+// Sticker Book's come first; a font left out just falls back.
+const MAX_FONTS = 24;
 // Pages opened from the saved copy, by their window's id: the page asks, to say it's the saved
 // list. Capped, for pages that never ask (their script didn't run).
 const fromCopy = new Set();
@@ -165,7 +168,7 @@ async function writeCopy(response) {
     if (files.some((f) => !f.ok)) throw new Error("a static file didn't load");
     // A stylesheet's fonts live in /_next/static too; best effort, a missing font just falls back.
     const css = files.filter((f, i) => paths[i].endsWith(".css"));
-    const fonts = (await Promise.all(css.map((f) => f.clone().text()))).flatMap(staticPaths).filter((p) => !paths.includes(p));
+    const fonts = (await Promise.all(css.map((f) => f.clone().text()))).flatMap(staticPaths).filter((p) => !paths.includes(p)).slice(0, MAX_FONTS);
     await Promise.all(paths.map((p, i) => cache.put(p, files[i])));
     await Promise.all(
       fonts.map(async (p) => {

@@ -117,7 +117,7 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
           )}
         </div>
 
-        <div className="rounded-3xl bg-card p-5 ring-1 ring-border">
+        <div className="ui-card rounded-3xl bg-card p-5 ring-1 ring-border">
           <p className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">Family sheet</p>
           <p className="font-heading text-3xl font-extrabold">
             {sheet.earned}
@@ -174,7 +174,7 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
         ) : (
           <ul className="mt-3 space-y-2">
             {myOrders.map((o) => (
-              <li key={o.id} className="flex flex-wrap items-center gap-3 rounded-2xl bg-card p-3 ring-1 ring-border">
+              <li key={o.id} className="ui-card flex flex-wrap items-center gap-3 rounded-2xl bg-card p-3 ring-1 ring-border">
                 <span className="text-2xl" aria-hidden>
                   {o.emoji ?? "🎁"}
                 </span>

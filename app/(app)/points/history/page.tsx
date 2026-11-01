@@ -82,7 +82,7 @@ export default async function StickerHistoryPage({ searchParams }: { searchParam
             Nothing yet. {mine && choresOn ? <Link href={`/chores?person=${profile.id}`} className="font-bold underline">Chores earn {words.many}!</Link> : null}
           </p>
         ) : (
-          <ul className="mt-2 divide-y divide-border rounded-2xl bg-card ring-1 ring-border">
+          <ul className="ui-card mt-2 divide-y divide-border rounded-2xl bg-card ring-1 ring-border">
             {rows.map((r) => (
               <li key={r.id} className="flex items-center gap-3 px-4 py-3 text-sm">
                 <span aria-hidden className="text-xl">

@@ -184,7 +184,7 @@ export function TaskDefinitionForm({
             id={`${titleId}-suggestions`}
             ref={suggestionsRef}
             aria-label="Suggested medication names"
-            className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl bg-card py-1 shadow-lg ring-1 ring-border"
+            className="ui-card absolute z-10 mt-1 w-full overflow-hidden rounded-xl bg-card py-1 shadow-lg ring-1 ring-border"
           >
             {nameSuggestions.map((s, i) => (
               <li key={s}>

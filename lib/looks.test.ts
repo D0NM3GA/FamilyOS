@@ -44,5 +44,13 @@ describe("every color of every look", () => {
     expect(contrast(tokens.brandHover, onBrand)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(tokens.chrome, onChrome)).toBeGreaterThanOrEqual(4.5);
   });
+
+  // Goth's accents, on the page and card each mode draws them on, and the ink on top of --sun.
+  it.each(LOOKS.find((l) => l.id === "goth")!.colors.map((c) => [c.id, c] as const))("goth/%s keeps its titles and links readable", (_id, c) => {
+    expect(contrast(c.vars!.light["--goth-title"], "#e8e1cf")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(c.vars!.light["--goth-title"], "#cfc6b2")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(c.vars!.dark["--goth-title"], "#15121a")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(c.vars!.dark["--sun"], "#16120e")).toBeGreaterThanOrEqual(4.5);
+  });
 });
 

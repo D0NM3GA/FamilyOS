@@ -152,7 +152,7 @@ export function BigHome({
               <li key={`${s.kind}-${s.id}`}>
                 <Link
                   href={s.href}
-                  className="flex items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3 text-lg font-bold ring-1 ring-border hover:bg-muted"
+                  className="ui-card flex items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3 text-lg font-bold ring-1 ring-border hover:bg-muted"
                 >
                   <span className="truncate">
                     {s.title}

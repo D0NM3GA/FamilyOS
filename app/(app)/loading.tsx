@@ -41,7 +41,7 @@ export default function Loading() {
         {Array.from({ length: 6 }, (_, i) => (
           <div
             key={i}
-            className="animate-in fade-in fill-mode-backwards h-36 rounded-2xl bg-card ring-1 ring-border duration-300"
+            className="ui-card animate-in fade-in fill-mode-backwards h-36 rounded-2xl bg-card ring-1 ring-border duration-300"
             style={{ animationDelay: `${200 + i * 60}ms` }}
           >
             <div className="m-4 h-5 w-1/2 animate-pulse rounded-full bg-muted" />

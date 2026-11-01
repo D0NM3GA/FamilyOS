@@ -109,7 +109,7 @@ function FuelLogFormInner({
   const label = `block ${fieldLabel}`;
 
   return (
-    <form action={formAction} className="flex w-full flex-wrap items-end gap-2 rounded-xl bg-card p-3 ring-1 ring-border">
+    <form action={formAction} className="ui-card flex w-full flex-wrap items-end gap-2 rounded-xl bg-card p-3 ring-1 ring-border">
       <div>
         <label htmlFor={`${id}-date`} className={label}>
           Date
