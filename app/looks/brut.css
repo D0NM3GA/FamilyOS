@@ -1,0 +1,284 @@
+/* Phase 58.3, Neo-brutal: a gig poster with opinions. Everything is scoped to the look, unlayered so
+   it beats Tailwind's utilities, and its art and fonts load only for someone wearing it. */
+[data-app-root][data-look="brut"] {
+  --face-body: var(--font-space-grotesk);
+  --face-heading: var(--font-archivo-black);
+  --face-hand: var(--font-archivo-black);
+  --ink: #000000;
+  --ink-soft: #3d3d3d;
+  --paper: #fbeadc;
+  --sun: #ffd400;
+  --tomato: #ff5a3c;
+  --sky: #7fdcff;
+  --lime: #a7f070;
+  --grape: #b9a5ff;
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #fbeadc;
+  --secondary-foreground: #000000;
+  --muted: #fbeadc;
+  --muted-foreground: #3d3d3d;
+  --accent: #fbeadc;
+  --accent-foreground: #000000;
+  --border: #000000;
+  --input: #000000;
+  --ring: #1a35d1;
+  --brand-text: #1a35d1;
+  --grid-line: #00000014;
+  --radius: 0rem;
+  --brut-line: #000000;
+  --brut-hard: #000000;
+  --brut-scene: #b9a5ff;
+  --brut-scene-text: #000000;
+  --brut-dots: #0000002e;
+}
+.dark [data-app-root][data-look="brut"] {
+  --background: #131313;
+  --foreground: #ffffff;
+  --card: #232323;
+  --card-foreground: #ffffff;
+  --popover: #232323;
+  --popover-foreground: #ffffff;
+  --primary: #ffd400;
+  --primary-foreground: #000000;
+  --secondary: #131313;
+  --secondary-foreground: #ffffff;
+  --muted: #131313;
+  --muted-foreground: #c4c4c4;
+  --accent: #131313;
+  --accent-foreground: #ffffff;
+  --border: #ffffff;
+  --input: #ffffff;
+  --ring: #ffd400;
+  --brand-text: #ffd400;
+  --grid-line: #ffffff0f;
+  --brut-line: #ffffff;
+  --brut-hard: #ffd400;
+  --brut-scene: #3a2a8c;
+  --brut-scene-text: #ffffff;
+  --brut-dots: #ffffff24;
+}
+
+/* Wrinkled poster paper over everything; nothing can tap it. */
+[data-look="brut"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  background: url(/looks/paper.png);
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+}
+.dark [data-look="brut"]::after {
+  opacity: 0.15;
+  mix-blend-mode: normal;
+}
+[data-look="brut"] main#main {
+  background-size: 28px 28px;
+  background-image:
+    linear-gradient(var(--grid-line) 2px, transparent 2px),
+    linear-gradient(90deg, var(--grid-line) 2px, transparent 2px);
+}
+
+/* The bar. */
+[data-look="brut"] .ui-bar {
+  border-bottom: 3px solid #000000;
+}
+[data-look="brut"] .ui-wordmark {
+  text-transform: uppercase;
+  letter-spacing: -0.04em;
+  font-size: 1.75rem;
+}
+[data-look="brut"] .ui-accent {
+  color: inherit;
+  background: var(--on-chrome);
+  color: var(--chrome);
+  padding: 0 0.2em;
+  margin-left: 0.08em;
+}
+[data-look="brut"] .ui-ticker {
+  display: block;
+  flex: none;
+  height: 2rem;
+  overflow: hidden;
+  white-space: nowrap;
+  background: #000000;
+  border-bottom: 3px solid var(--brut-line);
+  color: var(--sun);
+  font: 400 0.875rem/1.75rem var(--face-heading);
+  text-transform: uppercase;
+}
+[data-look="brut"] .ui-ticker::before {
+  content: "Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * ";
+  display: inline-block;
+}
+
+/* The rail and the phone's bar: stacked color blocks. */
+[data-look="brut"] .ui-rail {
+  gap: 0;
+  padding: 0;
+  background: var(--brand);
+  border-right: 3px solid var(--brut-line);
+}
+[data-look="brut"] .ui-rail a {
+  width: 100%;
+  padding-block: 0.625rem;
+  border-bottom: 3px solid #000000;
+  color: #000000;
+  font-family: var(--face-heading);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+}
+[data-look="brut"] .ui-rail a:nth-of-type(6n + 1) { background: #ffd400; }
+[data-look="brut"] .ui-rail a:nth-of-type(6n + 2) { background: #7fdcff; }
+[data-look="brut"] .ui-rail a:nth-of-type(6n + 3) { background: #a7f070; }
+[data-look="brut"] .ui-rail a:nth-of-type(6n + 4) { background: #ff9a3c; }
+[data-look="brut"] .ui-rail a:nth-of-type(6n + 5) { background: #b9a5ff; }
+[data-look="brut"] .ui-rail a:nth-of-type(6n) { background: #ff5cad; }
+[data-look="brut"] .ui-rail a[aria-current] {
+  background: #000000;
+  color: #ffffff;
+}
+[data-look="brut"] .ui-rail button,
+[data-look="brut"] .ui-rail hr {
+  color: #000000;
+  border-color: #000000;
+}
+[data-look="brut"] .ui-bottom-bar {
+  border-top: 3px solid #000000;
+}
+[data-look="brut"] .ui-bottom-bar a {
+  font-family: var(--face-heading);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: 0.625rem;
+  color: var(--on-chrome);
+}
+[data-look="brut"] .ui-bottom-bar a[aria-current] {
+  background: #000000;
+  color: #ffffff;
+}
+
+/* Shared pieces. */
+[data-look="brut"] h1,
+[data-look="brut"] h2,
+[data-look="brut"] .ui-page-title {
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  font-weight: 400;
+}
+[data-look="brut"] .ui-card {
+  border: 3px solid var(--brut-line);
+  border-radius: 0;
+  box-shadow: 6px 6px 0 var(--brut-hard);
+}
+[data-look="brut"] .ui-btn {
+  border-radius: 0;
+  border: 3px solid var(--brut-line);
+  box-shadow: 4px 4px 0 var(--brut-hard);
+  text-transform: uppercase;
+  transition: transform 80ms, box-shadow 80ms;
+}
+[data-look="brut"] .ui-btn-primary {
+  border-color: #000000;
+  font-family: var(--face-heading);
+  font-weight: 400;
+}
+[data-look="brut"] .ui-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+[data-look="brut"] .ui-chip {
+  border-radius: 0;
+  border: 3px solid var(--brut-line);
+  box-shadow: 3px 3px 0 var(--brut-hard);
+  text-transform: uppercase;
+}
+[data-look="brut"] .ui-field {
+  border-width: 3px;
+}
+[data-look="brut"] .ui-section-title,
+[data-look="brut"] .ui-field-label {
+  color: var(--foreground);
+}
+
+/* Home's scene, and Home is the one place cards go crooked: lists and forms stay straight. */
+[data-look="brut"] .ui-scene {
+  position: relative;
+  display: block;
+  margin: 0.5rem 0.75rem 1.75rem 0;
+  padding: 1rem 1rem 2.25rem;
+  background-color: var(--brut-scene);
+  background-image: radial-gradient(var(--brut-dots) 22%, transparent 24%);
+  background-size: 9px 9px;
+  color: var(--brut-scene-text);
+  border: 3px solid var(--brut-line);
+  box-shadow: 7px 7px 0 var(--brut-hard);
+  transform: rotate(-1deg);
+}
+[data-look="brut"] .ui-scene-hello {
+  display: block;
+  max-width: calc(100% - 4.5rem);
+  font: 400 clamp(2.5rem, 9vw, 4rem)/0.92 var(--face-heading);
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+[data-look="brut"] .ui-scene-date {
+  display: inline-block;
+  margin-top: 0.625rem;
+  padding: 0.125rem 0.5rem;
+  background: #000000;
+  color: #ffffff;
+  font-weight: 700;
+}
+[data-look="brut"] .ui-scene::before {
+  content: "HI!";
+  position: absolute;
+  top: -1.75rem;
+  right: -1rem;
+  display: grid;
+  place-items: center;
+  width: 6rem;
+  height: 6rem;
+  background: url(/looks/brut-burst.png) center/contain no-repeat;
+  color: #000000;
+  font: 400 1.375rem/1 var(--face-heading);
+}
+[data-look="brut"] .ui-scene::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 18px;
+  border-top: 3px solid #000000;
+  background: conic-gradient(#000000 25%, #ffffff 0 50%, #000000 0 75%, #ffffff 0) 0 0/18px 18px;
+}
+[data-look="brut"] .ui-home .ui-card:nth-child(3n + 1) { transform: rotate(0.6deg); }
+[data-look="brut"] .ui-home .ui-card:nth-child(3n + 2) { transform: rotate(-0.7deg); }
+
+/* The picker's poster. */
+[data-poster="brut"] {
+  background: url(/looks/brut-computer.png) 92% 12%/4rem auto no-repeat, #b9a5ff;
+  color: #000000;
+  border: 3px solid #000000;
+  box-shadow: 4px 4px 0 #000000;
+  border-radius: 0;
+}
+[data-poster="brut"] b {
+  font: 400 1.25rem/1 var(--font-archivo-black);
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-look="brut"] .ui-ticker::before { animation: brut-ticker 24s linear infinite; }
+  [data-look="brut"] .ui-scene { animation: brut-slam 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+}
+@keyframes brut-ticker { to { transform: translateX(-50%); } }
+@keyframes brut-slam { from { transform: translate(-14px, -14px) rotate(-3deg) scale(1.03); } }

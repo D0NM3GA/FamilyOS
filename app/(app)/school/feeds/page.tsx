@@ -62,7 +62,7 @@ export default async function SchoolFeedsPage() {
       </p>
 
       {feeds.length > 0 && (
-        <ul className="mt-6 max-w-2xl divide-y divide-border rounded-xl bg-card shadow-sm ring-1 ring-border">
+        <ul className="ui-card mt-6 max-w-2xl divide-y divide-border rounded-xl bg-card shadow-sm ring-1 ring-border">
           {feeds.map((f) => (
             <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
               <div className="min-w-0 flex-1 basis-48">

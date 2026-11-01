@@ -139,7 +139,7 @@ function RecallCard({
   footnote?: string;
 }) {
   return (
-    <li className={`rounded-xl bg-card p-3 shadow-sm ring-1 ring-border ${muted ? "opacity-70" : ""}`}>
+    <li className={`ui-card rounded-xl bg-card p-3 shadow-sm ring-1 ring-border ${muted ? "opacity-70" : ""}`}>
       {/* The button drops under the text on a phone instead of squeezing it into a sliver. */}
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-48">

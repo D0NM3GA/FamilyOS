@@ -16,12 +16,36 @@ export type LookColor = {
   onBrand?: string;
   onChrome?: string;
 };
-export type Look = { id: string; name: string; blurb: string; colors: readonly LookColor[] };
+export type Look = {
+  id: string;
+  name: string;
+  blurb: string;
+  colors: readonly LookColor[];
+  /** Home's scene, a little of the look's voice. Sticker Book has the mascot instead. */
+  hello?: (firstName: string) => string;
+};
+
+const brutColor = (id: string, name: string, chrome: string, brand: string): LookColor => {
+  const tokens = { chrome, chromeHover: chrome, chromeActive: chrome, brand, brandHover: brand };
+  return { id, name, swatch: chrome, light: tokens, dark: tokens, onBrand: "#000000", onChrome: "#000000" };
+};
 
 export const DEFAULT_LOOK = "sticker";
 
 export const LOOKS: readonly Look[] = [
   { id: DEFAULT_LOOK, name: "Sticker Book", blurb: "Warm paper, ink and sunshine.", colors: THEME_COLORS },
+  {
+    id: "brut",
+    name: "Neo-brutal",
+    blurb: "A gig poster with opinions.",
+    colors: [
+      brutColor("banana", "Banana", "#ffd400", "#ff5cad"),
+      brutColor("gum", "Bubblegum", "#ff5cad", "#ffd400"),
+      brutColor("electric", "Electric", "#7fdcff", "#a7f070"),
+      brutColor("tangerine", "Tangerine", "#ff9a3c", "#b9a5ff"),
+    ],
+    hello: (firstName) => `Morning, ${firstName}.`,
+  },
 ];
 
 /** Once there's a real choice, new people are asked (Settings' setup step, the welcome). */
@@ -45,7 +69,8 @@ export function lookColorsCss(): string {
   return LOOKS.flatMap((look) =>
     look.colors.map((c) => {
       const on = `[data-app-root][data-look="${look.id}"][data-color="${c.id}"]`;
-      return `${on}{${colorVars(c.light)}}.dark ${on}{${colorVars(c.dark)}}`;
+      const text = (c.onBrand ? `--on-brand:${c.onBrand};` : "") + (c.onChrome ? `--on-chrome:${c.onChrome};` : "");
+      return `${on}{${colorVars(c.light)}${text}}.dark ${on}{${colorVars(c.dark)}${text}}`;
     }),
   ).join("");
 }

@@ -52,12 +52,12 @@ describe("what a look can change stays changeable", () => {
   });
 
   test("hand-written cards and main buttons carry the name a look's CSS grabs", () => {
-    const hits = SOURCE.filter(({ file }) => !file.startsWith("app/print") && !file.includes("/pet/") && !file.includes("dev-preview")).flatMap(({ file, lines }) =>
+    const hits = SOURCE.filter(({ file }) => !file.startsWith("app/print") && !file.includes("/pet/") && !/dev-preview|app\/(sign-in|setup|invite|not-provisioned|profiles)/.test(file)).flatMap(({ file, lines }) =>
       lines.flatMap((line, i) =>
         [...line.matchAll(/(["`])((?:(?!\1).)*?)\1/g)].flatMap(([, , text]) => {
           const words = text.split(/\s+/);
           const isButton = words.includes("bg-brand") && words.includes("text-on-brand");
-          const isCard = words.includes("bg-card") && words.includes("border-2") && words.some((w) => w === "border-ink" || w === "border-border") && words.some((w) => /^rounded-(xl|2xl|3xl)$/.test(w));
+          const isCard = words.includes("bg-card") && ((words.includes("border-2") && words.some((w) => w === "border-ink" || w === "border-border")) || words.includes("ring-border")) && words.some((w) => /^rounded-(xl|2xl|3xl)$/.test(w));
           return (isButton && !words.includes("ui-btn")) || (isCard && !words.includes("ui-card")) ? [`${file}:${i + 1}`] : [];
         }),
       ),

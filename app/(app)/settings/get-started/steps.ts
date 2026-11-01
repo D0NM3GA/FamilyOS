@@ -3,6 +3,7 @@ export const STEPS = [
   { id: "welcome", label: "Welcome" },
   { id: "home", label: "Household basics" },
   { id: "look", label: "Make it yours" },
+  { id: "yourlook", label: "Your look" },
   { id: "people", label: "Who's in your family" },
   { id: "apps", label: "Pick your apps" },
   { id: "phone", label: "Phone and safety" },

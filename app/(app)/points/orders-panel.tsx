@@ -58,7 +58,7 @@ function OrderRow({ order }: { order: OpenOrder }) {
   const waiting = order.status === "WAITING_OK";
 
   return (
-    <li className="rounded-2xl bg-card p-3 ring-1 ring-border">
+    <li className="ui-card rounded-2xl bg-card p-3 ring-1 ring-border">
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-2xl" aria-hidden>
           {order.emoji ?? "🎁"}

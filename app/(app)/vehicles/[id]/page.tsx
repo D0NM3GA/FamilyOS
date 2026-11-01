@@ -249,7 +249,7 @@ function LogTable<T extends { id: string }>({
     <>
       <ul className="space-y-2 sm:hidden">
         {rows.map((row) => (
-          <li key={row.id} className="rounded-xl bg-card p-3 text-sm text-foreground ring-1 ring-border">
+          <li key={row.id} className="ui-card rounded-xl bg-card p-3 text-sm text-foreground ring-1 ring-border">
             <div className="flex items-start justify-between gap-3">
               <p className={`font-bold ${first.tone?.(row) ?? ""}`}>{first.cell(row)}</p>
               {actions?.(row)}
@@ -270,7 +270,7 @@ function LogTable<T extends { id: string }>({
         ))}
       </ul>
 
-      <div className="hidden overflow-x-auto rounded-xl bg-card ring-1 ring-border sm:block">
+      <div className="ui-card hidden overflow-x-auto rounded-xl bg-card ring-1 ring-border sm:block">
         <table className="w-full text-left text-sm">
           <thead>
             <tr>

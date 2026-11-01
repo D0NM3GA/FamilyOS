@@ -19,6 +19,7 @@ import { HomeLocation } from "@/components/home-location";
 import { SignInAgain } from "@/components/sign-in-again";
 import { SubmitButton } from "@/components/submit";
 import { btn, btnPrimary } from "@/components/styles";
+import { LookChooser } from "@/components/look-sheet";
 import { LookForm } from "../make-it-yours/look-form";
 import { lookFormDefaults } from "../make-it-yours/defaults";
 import { AppSwitchList } from "../apps/app-switch-list";
@@ -85,7 +86,7 @@ export default async function GetStartedPage({ searchParams }: { searchParams: P
 function Heading({ n, title, intro }: { n?: number; title: string; intro?: string }) {
   return (
     <div>
-      {n && <p className="text-sm font-extrabold text-muted-foreground">Step {n} of 5</p>}
+      {n && <p className="text-sm font-extrabold text-muted-foreground">Step {n} of 6</p>}
       {/* Keyed on the title, so each new step's heading takes focus. */}
       <FocusHeading key={title} className="font-heading text-3xl font-extrabold leading-tight text-foreground sm:text-4xl">
         {title}
@@ -129,12 +130,13 @@ async function Step({ step, profile }: { step: StepId; profile: Profile }) {
           <p className="font-hand text-3xl text-brand-text">{people > 1 ? "Welcome back." : signIn?.passkey ? "Your passkey is made. Nice." : "You're signed in. Nice."}</p>
           <Heading
             title={`Let's get your family settled in, ${profile.firstName}.`}
-            intro="Five short steps, about five minutes. Each one makes the app more useful from day one. Skip any you like: the app works without them, and Settings keeps a list of what's left."
+            intro="Six short steps, about five minutes. Each one makes the app more useful from day one. Skip any you like: the app works without them, and Settings keeps a list of what's left."
           />
           <ol className="grid grid-cols-[repeat(auto-fill,minmax(min(15rem,100%),1fr))] gap-3">
             {[
               ["Household basics", "So outdoor chores can warn about rain"],
               ["Make it yours", "Your family's name and colors on every screen"],
+              ["Your look", "Everyone picks their own, and this one's yours"],
               ["Who's in your family", "So everyone gets their own chores, meds and calendar"],
               ["Pick your apps", "Short menus, with only what you use"],
               ["Phone and safety", "Reminders that reach you, and no lockouts"],
@@ -179,6 +181,16 @@ async function Step({ step, profile }: { step: StepId; profile: Profile }) {
         </div>
       );
 
+    case "yourlook":
+      // Having been here counts as being asked: no welcome on Home afterwards.
+      await prisma.person.updateMany({ where: { id: profile.id, lookPromptSeenAt: null }, data: { lookPromptSeenAt: new Date() } });
+      return (
+        <div className="space-y-5">
+          <Heading n={3} title="Your look" intro="Tap one and the whole app tries it on. This one's just for you: everyone in the family picks their own, whenever they like. Keep it, then Continue." />
+          <LookChooser />
+        </div>
+      );
+
     case "people": {
       const people = await prisma.person.findMany({
         where: { householdId: profile.householdId, isHouseholdMember: true },
@@ -189,7 +201,7 @@ async function Step({ step, profile }: { step: StepId; profile: Profile }) {
         p.id === profile.id ? "You · Admin" : p.role === "KID" ? "Kid" : p.authUserId ? "Grown-up · signs in" : "Grown-up · invite at the end";
       return (
         <div className="space-y-5">
-          <Heading n={3} title="Who's in your family?" intro="Add everyone who should have their own chores, meds or calendar. You can add more any time from Settings." />
+          <Heading n={4} title="Who's in your family?" intro="Add everyone who should have their own chores, meds or calendar. You can add more any time from Settings." />
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
             {people.map((p) => (
               <li key={p.id} className="flex flex-col items-center gap-1 rounded-2xl border-2 border-border p-3 text-center">
@@ -211,7 +223,7 @@ async function Step({ step, profile }: { step: StepId; profile: Profile }) {
       ]);
       return (
         <div className="space-y-5">
-          <Heading n={4} title="Pick your apps" intro="Turn off any you won't use, so menus stay short. Nothing is deleted, and you can turn one back on any time. Each switch saves as you flip it." />
+          <Heading n={5} title="Pick your apps" intro="Turn off any you won't use, so menus stay short. Nothing is deleted, and you can turn one back on any time. Each switch saves as you flip it." />
           <AppSwitchList disabled={disabled} outlook={outlookConnected && isAppOn(disabled, "calendar")} />
           <p className="text-sm text-muted-foreground">Home, People, Data and Settings are always here.</p>
         </div>
@@ -226,7 +238,7 @@ async function Step({ step, profile }: { step: StepId; profile: Profile }) {
       ]);
       return (
         <div className="space-y-5">
-          <Heading n={5} title="Phone and safety" intro="Three quick extras for this device. Do any, all or none." />
+          <Heading n={6} title="Phone and safety" intro="Three quick extras for this device. Do any, all or none." />
           <section className="space-y-2 rounded-2xl border-2 border-border p-4">
             <h2 className="text-lg font-extrabold text-foreground">Get alerts on this phone</h2>
             <p className="text-sm text-muted-foreground">Hear about store orders, bills due and budgets running low without opening the app.</p>

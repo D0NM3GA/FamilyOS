@@ -57,6 +57,14 @@ test("the guided setup: every step can be skipped, and what's left waits in Sett
   await expect(page.getByRole("heading", { name: "Make it yours" })).toBeVisible();
   await page.getByRole("link", { name: "Skip for now" }).click();
 
+  // Phase 58: the walkthrough's own step: tried on here, put back by moving on without keeping it.
+  await expect(page.getByRole("heading", { name: "Your look" })).toBeVisible();
+  const root = page.locator("[data-app-root]");
+  await page.locator('input[name="look"][value="brut"]').check({ force: true });
+  await expect(root).toHaveAttribute("data-look", "brut");
+  await page.getByRole("link", { name: "Skip for now" }).click();
+  await expect(root).toHaveAttribute("data-look", "sticker");
+
   await expect(page.getByRole("heading", { name: "Who's in your family?" })).toBeVisible();
   await page.getByLabel("First name").fill("Ivy");
   await page.getByRole("button", { name: "Add", exact: true }).click();
@@ -346,6 +354,40 @@ test("a look is tried on over the real page, and only Keep it saves it", async (
   await sheet.locator(`input[name="color"][value="${startColor}"]`).check({ force: true });
   await sheet.getByRole("button", { name: "Keep it" }).click();
   await expect(sheet).toBeHidden();
+  problems.expectNone();
+});
+
+test("every look holds up on real pages, day and night", async () => {
+  const shots = process.env.E2E_SHOTS; // a folder to save screenshots in, for a person to look at
+  const root = page.locator("[data-app-root]");
+  const start = { look: await root.getAttribute("data-look"), color: await root.getAttribute("data-color") };
+  const sheet = page.getByRole("dialog", { name: "My look" });
+  const wear = async (look: string, color: string) => {
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "My look" }).click();
+    await sheet.locator(`input[name="look"][value="${look}"]`).check({ force: true });
+    await sheet.locator(`input[name="color"][value="${color}"]`).check({ force: true });
+    const keep = sheet.getByRole("button", { name: "Keep it" });
+    if (await keep.count()) await keep.click();
+    else await sheet.getByRole("button", { name: "Done" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(root).toHaveAttribute("data-look", look);
+  };
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await wear("brut", "banana");
+  for (const scheme of ["light", "dark"] as const) {
+    await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
+    for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await expect(root).toHaveAttribute("data-look", "brut");
+      await expectAccessible(page, `brut ${scheme} ${path}`);
+      if (shots) await page.screenshot({ path: `${shots}/brut-${scheme}${path.replace(/\//g, "-")}.png` });
+    }
+  }
+  await page.evaluate(() => localStorage.removeItem("theme"));
+  await page.emulateMedia({ reducedMotion: null });
+  await wear(start.look!, start.color!);
   problems.expectNone();
 });
 

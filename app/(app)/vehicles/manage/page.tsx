@@ -29,7 +29,7 @@ export default async function ManageVehiclesPage() {
       ) : (
         <div className="mt-4 space-y-4">
           {vehicles.map((vehicle) => (
-            <div key={vehicle.id} className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-border">
+            <div key={vehicle.id} className="ui-card overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-border">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
                 <div className="min-w-0 flex-1 basis-40">
                   <p

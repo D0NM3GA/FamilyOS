@@ -74,7 +74,7 @@ export function MaintenanceItemCard({
   const style = STATUS_STYLE[item.status];
 
   return (
-    <li className="rounded-xl bg-card p-3 shadow-sm ring-1 ring-border">
+    <li className="ui-card rounded-xl bg-card p-3 shadow-sm ring-1 ring-border">
       {/* The buttons drop under the text on a phone instead of squeezing the title. */}
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-48">

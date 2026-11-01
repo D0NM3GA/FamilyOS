@@ -87,6 +87,7 @@ export default async function AppLayout({
             prefs={{ viewMode, bunsonVolume: profile.bunsonVolume }}
             unread={unread}
           />
+          <div className="ui-ticker" aria-hidden="true" />
           {breakGlass && (
             <p role="alert" className="bg-red-700 px-4 py-2 text-center text-sm font-bold text-white">
               Emergency local access is on until {breakGlassTime(breakGlass.endsAt, household.timezone)}.

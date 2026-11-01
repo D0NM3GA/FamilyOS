@@ -32,15 +32,11 @@ export function MyLookButton() {
  * keys and their meaning for free.
  */
 export function LookSheet() {
-  const { worn, shown, tryOn, putBack, closeSheet, welcoming } = useLook();
+  const { putBack, closeSheet, welcoming } = useLook();
   const titleId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
   const pathname = usePathname();
   const openedOn = useRef(pathname);
-  const look = lookOf(shown.look);
-  const color = lookColorOf(look, shown.color);
-  const [failed, setFailed] = useState(false);
-  const changed = shown.look !== worn.look || shown.color !== worn.color;
 
   function leave() {
     putBack();
@@ -64,6 +60,42 @@ export function LookSheet() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  return (
+    <section
+      role="dialog"
+      aria-labelledby={titleId}
+      className="fixed inset-x-0 bottom-0 z-40 max-h-[70dvh] space-y-4 overflow-y-auto rounded-t-3xl border-2 border-ink bg-card p-4 text-foreground shadow-2xl md:inset-x-auto md:top-16 md:right-0 md:bottom-0 md:max-h-none md:w-96 md:rounded-none md:rounded-l-3xl dark:border-white/20"
+    >
+      <div>
+        <h2 ref={heading} id={titleId} tabIndex={-1} className="font-heading text-2xl font-extrabold outline-none">
+          {welcoming ? "Pick your look" : "My look"}
+        </h2>
+        <p className="text-sm text-muted-foreground">Tap one and the app tries it on. It&apos;s yours alone, on every device.</p>
+      </div>
+      <LookChooser
+        onSaved={() => {
+          putBack();
+          closeSheet();
+        }}
+        onLeave={leave}
+      />
+    </section>
+  );
+}
+
+/**
+ * The choices, in the sheet or on a page (the setup's own step, where moving on is what leaves).
+ * Whatever's being tried goes back when this leaves the screen, unless Keep it saved it.
+ */
+export function LookChooser({ onSaved, onLeave }: { onSaved?: () => void; onLeave?: () => void }) {
+  const { worn, shown, tryOn, putBack } = useLook();
+  const look = lookOf(shown.look);
+  const color = lookColorOf(look, shown.color);
+  const changed = shown.look !== worn.look || shown.color !== worn.color;
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => putBack, [putBack]);
+
   async function keep(form: FormData) {
     setFailed(false);
     try {
@@ -77,28 +109,16 @@ export function LookSheet() {
     }
     // The server's new value arrives with this action, so what's shown doesn't change.
     putBack();
-    closeSheet();
+    onSaved?.();
   }
 
   return (
-    <section
-      role="dialog"
-      aria-labelledby={titleId}
-      className="fixed inset-x-0 bottom-0 z-40 max-h-[70dvh] overflow-y-auto rounded-t-3xl border-2 border-ink bg-card p-4 text-foreground shadow-2xl md:inset-x-auto md:top-16 md:right-0 md:bottom-0 md:max-h-none md:w-96 md:rounded-none md:rounded-l-3xl dark:border-white/20"
-    >
-      <form action={keep} className="space-y-4">
-        <div>
-          <h2 ref={heading} id={titleId} tabIndex={-1} className="font-heading text-2xl font-extrabold outline-none">
-            {welcoming ? "Pick your look" : "My look"}
-          </h2>
-          <p className="text-sm text-muted-foreground">Tap one and the app tries it on. It&apos;s yours alone, on every device.</p>
-        </div>
-
+    <form action={keep} className="space-y-4">
         <fieldset className="space-y-2">
           <legend className="text-sm font-bold">Look</legend>
           <div className="grid grid-cols-2 gap-2">
             {LOOKS.map((l) => (
-              <label key={l.id} className={`block cursor-pointer rounded-xl border-2 p-2 text-sm ${focusRing} ${shown.look === l.id ? picked : unpicked}`}>
+              <label key={l.id} data-poster={l.id} className={`block min-h-20 cursor-pointer rounded-xl border-2 p-2 text-sm ${focusRing} ${shown.look === l.id ? "outline-3 outline-offset-2 outline-ring" : ""} ${shown.look === l.id ? picked : unpicked}`}>
                 <input
                   type="radio"
                   name="look"
@@ -107,7 +127,7 @@ export function LookSheet() {
                   onChange={() => tryOn({ look: l.id, color: lookColorOf(l, l.id === worn.look ? worn.color : null).id })}
                   className="sr-only"
                 />
-                <span className="block font-bold">{l.name}</span>
+                <b className="block font-bold">{l.name}</b>
                 <span className="block text-xs">{l.blurb}</span>
               </label>
             ))}
@@ -139,11 +159,12 @@ export function LookSheet() {
         )}
         <div className="flex flex-wrap items-center gap-2">
           <SubmitButton className={btnPrimary}>{changed ? "Keep it" : "Done"}</SubmitButton>
-          <button type="button" onClick={leave} className={btn}>
-            {changed ? "Put it back" : "Close"}
-          </button>
+          {(onLeave || changed) && (
+            <button type="button" onClick={onLeave ?? putBack} className={btn}>
+              {changed ? "Put it back" : "Close"}
+            </button>
+          )}
         </div>
-      </form>
-    </section>
+    </form>
   );
 }
