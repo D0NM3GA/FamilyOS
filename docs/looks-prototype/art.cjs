@@ -199,7 +199,7 @@ A["brut-hello"] = [260, 150, svg(260, 150, `<path d="M18 16H250V104H90L52 140L58
   const files = fs.readdirSync(OUT).filter((f) => f.endsWith(".png"));
   const q = await b.newPage({ viewport: { width: 1800, height: 1500 } });
   await q.setContent(`<body style="margin:0;background:#667;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;color:#fff;font:11px sans-serif">${files.map((f) => `<div><img src="data:image/png;base64,${fs.readFileSync(path.join(OUT, f)).toString("base64")}" style="max-width:${/night|day/.test(f) && !/frame|vignette/.test(f) ? 440 : 210}px;max-height:300px;display:block"><span>${f}</span></div>`).join("")}`);
-  await q.screenshot({ path: path.join(__dirname, "art.png") });
+  await q.screenshot({ path: path.join(OUT, "contact-sheet.png") });
   for (const f of files) console.log(f, Math.round(fs.statSync(path.join(OUT, f)).size / 1024) + "KB");
   await b.close();
 })();

@@ -378,7 +378,7 @@ test("every look holds up on real pages, day and night", async () => {
     await wear(look, color);
     // The look's own stylesheet really applied, not only its colors: its type is not Sticker Book's.
     const face = await root.evaluate((el) => getComputedStyle(el).getPropertyValue("--face-body"));
-    expect(face).not.toContain("--font-nunito");
+    expect(face).toContain({ brut: "Space Grotesk", goth: "Spectral" }[look]);
     for (const scheme of ["light", "dark"] as const) {
       await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
       for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {

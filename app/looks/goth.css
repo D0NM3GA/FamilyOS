@@ -75,11 +75,11 @@
   opacity: 0.45;
   mix-blend-mode: overlay;
 }
-/* Embers rising at night, behind the page's content. */
+/* Embers rising at night: tiny dots over everything, since the page itself is opaque. Nothing can tap them. */
 .dark [data-look="goth"]::before {
   content: "";
   position: fixed;
-  inset: -40% 0 0;
+  inset: 0 0 -40%;
   z-index: 50;
   pointer-events: none;
   background-image:
@@ -248,8 +248,8 @@
   border-image: var(--goth-frame) 220 / 52px / 0 stretch;
   background-clip: border-box;
   box-shadow: none;
-  padding: 0.25rem 0.625rem 0.5rem;
-  margin-top: 0.5rem;
+  padding: 0.25rem 2.125rem 2.125rem;
+  margin-top: 1rem;
 }
 [data-look="goth"] .ui-home .ui-card:has(h2)::before {
   content: "";
@@ -289,7 +289,7 @@
   .dark [data-look="goth"]::before { animation: goth-embers 16s linear infinite; }
   [data-look="goth"] .ui-scene { animation: goth-candle 0.9s ease-out; }
 }
-@keyframes goth-embers { to { transform: translateY(340px); } }
+@keyframes goth-embers { to { transform: translateY(-340px); } }
 @keyframes goth-candle {
   0% { filter: brightness(0); }
   30% { filter: brightness(0.5); }
