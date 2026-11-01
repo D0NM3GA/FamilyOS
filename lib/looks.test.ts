@@ -26,3 +26,23 @@ describe("lookColorsCss", () => {
     }
   });
 });
+
+// WCAG 2 contrast, as in lib/theme-colors.test.ts.
+const luminance = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+describe("every color of every look", () => {
+  const all = LOOKS.flatMap((l) => l.colors.flatMap((c) => [[`${l.id}/${c.id} day`, c.light, c.onBrand ?? "#ffffff", c.onChrome ?? "#ffffff"], [`${l.id}/${c.id} night`, c.dark, c.onBrand ?? "#ffffff", c.onChrome ?? "#ffffff"]] as const));
+  it.each(all)("%s keeps text on the bar and main buttons readable", (_name, tokens, onBrand, onChrome) => {
+    expect(contrast(tokens.brand, onBrand)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(tokens.brandHover, onBrand)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(tokens.chrome, onChrome)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+

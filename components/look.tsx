@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { syncThemeColor } from "@/components/theme-toggle";
 import { LOOKS_TO_CHOOSE, type Worn } from "@/lib/looks";
@@ -12,7 +12,8 @@ type LookState = {
   shown: Worn;
   tryOn: (next: Worn) => void;
   putBack: () => void;
-  openSheet: () => void;
+  /** `returnTo` takes focus when it closes: by default whatever has it now. */
+  openSheet: (returnTo?: HTMLElement | null) => void;
   closeSheet: () => void;
   welcoming: boolean;
 };
@@ -57,10 +58,16 @@ export function AppRoot({
   const shown = tried ?? worn;
 
   const putBack = useCallback(() => setTried(null), []);
-  const openSheet = useCallback(() => setSheetOpen(true), []);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const openSheet = useCallback((returnTo?: HTMLElement | null) => {
+    returnFocus.current = returnTo ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    setSheetOpen(true);
+  }, []);
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
     setWelcomed(true);
+    returnFocus.current?.focus();
+    returnFocus.current = null;
   }, []);
 
   // Once only, on Home: not over setup, a game or a form someone's in the middle of.
@@ -69,8 +76,9 @@ export function AppRoot({
 
   useEffect(() => {
     syncThemeColor();
-    return () => document.getElementById("theme-color-override")?.remove();
   }, [shown.look, shown.color]);
+  // Leaving the shell: the root is gone, so this falls back to the family's or the pinned mode's.
+  useEffect(() => () => syncThemeColor(), []);
 
   const value = useMemo(
     () => ({ available: true, worn, shown, tryOn: setTried, putBack, openSheet, closeSheet, welcoming }),

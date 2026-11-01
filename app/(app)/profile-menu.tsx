@@ -174,7 +174,7 @@ export function ProfileMenu({
             </>
           )}
           {look.available && (
-            <button type="button" onClick={() => { setOpen(false); look.openSheet(); }} className={`${btn} w-full`}>
+            <button type="button" onClick={() => { setOpen(false); look.openSheet(buttonRef.current); }} className={`${btn} w-full`}>
               My look
             </button>
           )}

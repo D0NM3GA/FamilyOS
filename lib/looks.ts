@@ -6,7 +6,16 @@ import { THEME_COLORS, colorVars, type Tokens } from "@/lib/theme-colors";
  * checked here: an unknown one falls back rather than breaking the page.
  */
 
-export type LookColor = { id: string; name: string; swatch: string; light: Tokens; dark: Tokens };
+export type LookColor = {
+  id: string;
+  name: string;
+  swatch: string;
+  light: Tokens;
+  dark: Tokens;
+  /** Text on main buttons and the bar, where it isn't white. */
+  onBrand?: string;
+  onChrome?: string;
+};
 export type Look = { id: string; name: string; blurb: string; colors: readonly LookColor[] };
 
 export const DEFAULT_LOOK = "sticker";

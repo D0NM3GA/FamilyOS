@@ -320,6 +320,7 @@ test("a look is tried on over the real page, and only Keep it saves it", async (
   await expect(root).toHaveAttribute("data-color", "ocean");
   await sheet.getByRole("button", { name: "Put it back" }).click();
   await expect(sheet).toBeHidden();
+  await expect(page.getByRole("button", { name: "My look" })).toBeFocused();
   await expect(root).toHaveAttribute("data-color", startColor!);
 
   // Escape puts it back too, and nothing was saved.

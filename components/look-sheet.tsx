@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useLook } from "@/components/look";
 import { SubmitButton } from "@/components/submit";
 import { btn, btnPrimary } from "@/components/styles";
 import { ThemePicker } from "@/components/theme-toggle";
+import { captureError } from "@/lib/observability";
 import { LOOKS, lookColorOf, lookOf } from "@/lib/looks";
 import { dismissLookPrompt, setMyLook } from "@/app/(app)/prefs-actions";
 
@@ -18,7 +19,7 @@ export function MyLookButton() {
   const { available, openSheet } = useLook();
   if (!available) return null;
   return (
-    <button type="button" onClick={openSheet} className={btn}>
+    <button type="button" onClick={() => openSheet()} className={btn}>
       My look
     </button>
   );
@@ -38,12 +39,13 @@ export function LookSheet() {
   const openedOn = useRef(pathname);
   const look = lookOf(shown.look);
   const color = lookColorOf(look, shown.color);
+  const [failed, setFailed] = useState(false);
   const changed = shown.look !== worn.look || shown.color !== worn.color;
 
   function leave() {
     putBack();
     closeSheet();
-    if (welcoming) void dismissLookPrompt();
+    if (welcoming) dismissLookPrompt().catch(captureError);
   }
   const leaveRef = useRef(leave);
   useEffect(() => {
@@ -56,14 +58,23 @@ export function LookSheet() {
   }, [pathname]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") leaveRef.current();
+      if (e.key === "Escape" && !e.defaultPrevented) leaveRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
   async function keep(form: FormData) {
-    await setMyLook(form);
+    setFailed(false);
+    try {
+      await setMyLook(form);
+    } catch (e) {
+      // Thrown from a form action it would reach past the app's error page, this sheet being
+      // above it; the look they're trying is still showing, so they can just try again.
+      captureError(e);
+      setFailed(true);
+      return;
+    }
     // The server's new value arrives with this action, so what's shown doesn't change.
     putBack();
     closeSheet();
@@ -121,6 +132,11 @@ export function LookSheet() {
           <ThemePicker />
         </div>
 
+        {failed && (
+          <p role="alert" className="text-sm font-bold text-destructive">
+            That didn&apos;t save. Check your connection and try again.
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <SubmitButton className={btnPrimary}>{changed ? "Keep it" : "Done"}</SubmitButton>
           <button type="button" onClick={leave} className={btn}>

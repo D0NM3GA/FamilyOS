@@ -39,6 +39,8 @@ export default async function ShellPreviewPage({
     <NavProvider personId={id} apps={visibleApps(!kid, [])}>
       <div
         data-app-root
+        data-look="sticker"
+        data-color="ink"
         data-view={big ? "BIG" : "FULL"}
         data-bunson-volume={volume}
         className={`flex h-dvh flex-col overflow-hidden [--bottom-bar-h:0px] max-md:pb-[var(--bottom-bar-h)] ${

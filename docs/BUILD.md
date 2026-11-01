@@ -1157,4 +1157,5 @@ over the page you're on, dropping the scope's hop to Home: that's the page you w
 Keep it saves. Sticker Book's eight colors are the first choices, with `null` following the family's
 color. The welcome and the setup step wait for `LOOKS_TO_CHOOSE`, a second look. The browser's bar
 color now reads `--chrome` from the root, and stays owned in the shell in every mode.
-
+Waiting for the first look to need them (58.3): per-look CSS and its offline handling, and the demo
+family's mix of looks; the contrast test here already runs over whatever `lib/looks.ts` lists.
