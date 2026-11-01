@@ -305,6 +305,49 @@ test("Settings is a hub, and its search narrows the tiles", async () => {
 });
 
 // Phase 45.1: home from a ZIP code or this device, never typed coordinates.
+test("a look is tried on over the real page, and only Keep it saves it", async () => {
+  await page.goto("/settings");
+  const root = page.locator("[data-app-root]");
+  const startColor = await root.getAttribute("data-color");
+  const sheet = page.getByRole("dialog", { name: "My look" });
+
+  await page.getByRole("button", { name: "My look" }).click();
+  await expect(sheet.getByRole("heading", { name: "My look" })).toBeFocused();
+  await expectAccessible(page, "the look sheet");
+
+  // Trying it on changes the page, and Put it back undoes it.
+  await sheet.getByText("Ocean").click();
+  await expect(root).toHaveAttribute("data-color", "ocean");
+  await sheet.getByRole("button", { name: "Put it back" }).click();
+  await expect(sheet).toBeHidden();
+  await expect(root).toHaveAttribute("data-color", startColor!);
+
+  // Escape puts it back too, and nothing was saved.
+  await page.getByRole("button", { name: "My look" }).click();
+  await sheet.getByText("Ocean").click();
+  await page.keyboard.press("Escape");
+  await expect(root).toHaveAttribute("data-color", startColor!);
+  await page.reload();
+  await expect(root).toHaveAttribute("data-color", startColor!);
+
+  // Keep it saves for this person, and the bar's color and the browser's follow.
+  await page.getByRole("button", { name: "My look" }).click();
+  await sheet.getByText("Ocean").click();
+  await sheet.getByRole("button", { name: "Keep it" }).click();
+  await expect(sheet).toBeHidden();
+  await page.reload();
+  await expect(root).toHaveAttribute("data-color", "ocean");
+  await expect(page.locator("header").first()).toHaveCSS("background-color", /^rgb\(29, 79, 122\)|^rgb\(12, 29, 46\)/);
+  await expect(page.locator("#theme-color-override")).toHaveAttribute("content", /^#(1d4f7a|0c1d2e)$/);
+
+  // Back to the family's color for the tests after this one.
+  await page.getByRole("button", { name: "My look" }).click();
+  await sheet.locator(`input[name="color"][value="${startColor}"]`).check({ force: true });
+  await sheet.getByRole("button", { name: "Keep it" }).click();
+  await expect(sheet).toBeHidden();
+  problems.expectNone();
+});
+
 test("home location from a ZIP code, then from this device", async () => {
   await page.goto("/settings/household");
   await expect(page.getByPlaceholder("Latitude")).toHaveCount(0);
@@ -590,7 +633,8 @@ test("a card statement CSV is checked on a few rows, imported, and removed again
 
   // The rows are in the jar's Activity.
   const settings = page.url();
-  await page.goto(settings.replace(/\/settings$/, ""));
+  // Asks for the statement's month: the page opens on the current one, which moves on.
+  await page.goto(`${settings.replace(/\/settings$/, "")}?month=2026-10`);
   await expect(page.getByText("Corner Grocery").first()).toBeVisible();
 
   // Phase 57.3: a charge's category is a searchable picker inside the charge's sheet (a native

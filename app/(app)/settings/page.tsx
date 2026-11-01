@@ -2,6 +2,7 @@ import Link from "next/link";
 import { backupSignInState, isSessionOwner, requireActiveProfile } from "@/lib/active-profile";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, isAdult } from "@/lib/authz";
+import { MyLookButton } from "@/components/look-sheet";
 import { ThemePicker } from "@/components/theme-toggle";
 import { getHouseholdMembers } from "@/lib/people";
 import { appOn } from "@/lib/app-switches";
@@ -122,6 +123,7 @@ export default async function SettingsPage() {
           <div className="min-w-0 flex-1">
             <ThemePicker />
           </div>
+          <MyLookButton />
         </div>
       </section>
 

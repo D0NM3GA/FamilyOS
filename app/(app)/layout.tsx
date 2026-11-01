@@ -15,6 +15,8 @@ import { AppLauncher } from "./app-launcher";
 import { BottomBar, NavRail } from "./nav-rail";
 import { TopBar } from "./top-bar";
 import { FamilyLookProvider } from "@/components/family-look";
+import { AppRoot } from "@/components/look";
+import { wornLook } from "@/lib/looks";
 
 export default async function AppLayout({
   children,
@@ -44,6 +46,7 @@ export default async function AppLayout({
   const viewMode = resolveViewMode(profile.viewMode, adult);
   // Off for the family (Settings → Make it yours) outranks everyone's own volume.
   const volume = look.mascot.on ? profile.bunsonVolume : "OFF";
+  const worn = wornLook(profile, look.themeColor);
 
   return (
     <HouseholdZoneProvider zone={processZone()}>
@@ -60,10 +63,11 @@ export default async function AppLayout({
             moments in pure CSS; data-app-root scopes the one-Bunson-per-screen rule. */}
         {/* Exactly the window's height (h-dvh), so the page never grows past it: the rail stays
             put and scrolls on its own, and only <main> scrolls the page. */}
-        <div
-          data-app-root
-          data-view={viewMode}
-          data-bunson-volume={volume}
+        <AppRoot
+          worn={worn}
+          welcome={profile.lookPromptSeenAt === null}
+          view={viewMode}
+          volume={volume}
           className={`flex h-dvh flex-col overflow-hidden [--bottom-bar-h:0px] max-md:pb-[var(--bottom-bar-h)] ${
             viewMode === "BIG" ? "max-md:[--bottom-bar-h:5rem]" : "max-md:[--bottom-bar-h:4.25rem]"
           }`}
@@ -107,7 +111,7 @@ export default async function AppLayout({
           {/* Phase 39: he looks up his own facts once he's on screen (app/api/bunson-facts), so
               no page waits on them and pages that hide him don't pay for them. */}
           {volume === "CHATTY" && <Bunson factsUrl="/api/bunson-facts" offApps={disabled} />}
-        </div>
+        </AppRoot>
       </NavProvider>
     </FamilyLookProvider>
     </HouseholdZoneProvider>
