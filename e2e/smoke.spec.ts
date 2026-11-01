@@ -358,6 +358,7 @@ test("a look is tried on over the real page, and only Keep it saves it", async (
 });
 
 test("every look holds up on real pages, day and night", async () => {
+  test.setTimeout(10 * 60_000); // Every look, on seven pages, twice over, each with an accessibility run.
   const shots = process.env.E2E_SHOTS; // a folder to save screenshots in, for a person to look at
   const root = page.locator("[data-app-root]");
   const start = { look: await root.getAttribute("data-look"), color: await root.getAttribute("data-color") };
@@ -374,11 +375,11 @@ test("every look holds up on real pages, day and night", async () => {
     await expect(root).toHaveAttribute("data-look", look);
   };
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const [look, color] of [["brut", "banana"], ["goth", "oxblood"], ["synth", "outrun"]]) {
+  for (const [look, color] of [["brut", "banana"], ["goth", "oxblood"], ["synth", "outrun"], ["kawaii", "ramune"]]) {
     await wear(look, color);
     // The look's own stylesheet really applied, not only its colors: its type is not Sticker Book's.
     const face = await root.evaluate((el) => getComputedStyle(el).getPropertyValue("--face-body"));
-    expect(face).toContain({ brut: "Space Grotesk", goth: "Spectral", synth: "Exo 2" }[look]);
+    expect(face).toContain({ brut: "Space Grotesk", goth: "Spectral", synth: "Exo 2", kawaii: "M PLUS Rounded 1c" }[look]);
     for (const scheme of ["light", "dark"] as const) {
       await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
       for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {

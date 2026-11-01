@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo_Black, Baloo_2, Exo_2, Gaegu, Grenze_Gotisch, Mr_Dafoe, Nunito, Orbitron, Space_Grotesk, Spectral, UnifrakturCook } from "next/font/google";
+import { Archivo_Black, Baloo_2, Exo_2, Gaegu, Grenze_Gotisch, M_PLUS_Rounded_1c, Mochiy_Pop_One, Mr_Dafoe, Nunito, Orbitron, Space_Grotesk, Spectral, UnifrakturCook } from "next/font/google";
 import { connection } from "next/server";
 import { headers } from "next/headers";
 import { getFamilyLook } from "@/lib/household-settings";
@@ -39,6 +39,8 @@ const spectral = Spectral({ variable: "--font-spectral", subsets: ["latin"], wei
 const orbitron = Orbitron({ variable: "--font-orbitron", subsets: ["latin"], preload: false });
 const dafoe = Mr_Dafoe({ variable: "--font-dafoe", subsets: ["latin"], weight: "400", preload: false });
 const exo = Exo_2({ variable: "--font-exo", subsets: ["latin"], preload: false });
+const mochiy = Mochiy_Pop_One({ variable: "--font-mochiy", subsets: ["latin"], weight: "400", preload: false });
+const mplus = M_PLUS_Rounded_1c({ variable: "--font-mplus", subsets: ["latin"], weight: ["400", "700", "800"], preload: false });
 
 export async function generateMetadata(): Promise<Metadata> {
   // The family names the app in Settings, so the name is read per request: a build-time
@@ -108,7 +110,7 @@ export default async function RootLayout({
     // pages outside the app shell too (sign-in, not found), through globals.css's volume gate.
     <html
       lang="en"
-      className={`${nunito.variable} ${baloo.variable} ${gaegu.variable} ${archivoBlack.variable} ${spaceGrotesk.variable} ${unifraktur.variable} ${grenze.variable} ${spectral.variable} ${orbitron.variable} ${dafoe.variable} ${exo.variable} h-full antialiased`}
+      className={`${nunito.variable} ${baloo.variable} ${gaegu.variable} ${archivoBlack.variable} ${spaceGrotesk.variable} ${unifraktur.variable} ${grenze.variable} ${spectral.variable} ${orbitron.variable} ${dafoe.variable} ${exo.variable} ${mochiy.variable} ${mplus.variable} h-full antialiased`}
       data-bunson-volume={look.mascot.on ? undefined : "OFF"}
       // Phase 46: Sentry's DSN for the browser, from the server's settings at run time
       // (instrumentation-client.ts reads it), so the published image carries none.
