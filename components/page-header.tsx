@@ -1,3 +1,4 @@
+import { PageKicker } from "./look-voice";
 import { pageTitle } from "./styles";
 
 /**
@@ -8,6 +9,7 @@ import { pageTitle } from "./styles";
 export function PageHeader({ title, children, className = "" }: { title: React.ReactNode; children?: React.ReactNode; className?: string }) {
   return (
     <div className={`flex flex-wrap items-center gap-x-4 gap-y-3 ${className}`}>
+      <PageKicker />
       <h1 className={`${pageTitle} mr-auto min-w-0 break-words`}>{title}</h1>
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </div>

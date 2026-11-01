@@ -1,3 +1,4 @@
+import { LookQuiet } from "@/components/look-voice";
 import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
@@ -132,7 +133,7 @@ export default async function MedsPage({
         <Section title="Today">
           {dueToday.length === 0 ? (
             <li>
-              <EmptyNote>Nothing due today.</EmptyNote>
+              <EmptyNote>Nothing due today.<LookQuiet /></EmptyNote>
             </li>
           ) : (
             dueToday.map((i, idx) => (
