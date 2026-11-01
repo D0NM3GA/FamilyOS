@@ -358,12 +358,12 @@ test("a look is tried on over the real page, and only Keep it saves it", async (
 });
 
 for (const [look, color, face] of [
-  ["brut", "banana", "Space Grotesk"],
-  ["goth", "oxblood", "Spectral"],
-  ["synth", "outrun", "Exo 2"],
-  ["kawaii", "ramune", "M PLUS Rounded 1c"],
-  ["acanthus", "leicester", "EB Garamond"],
-  ["vapor", "cobalt", "IBM Plex Sans"],
+  ["brut", "banana", "spaceGrotesk"],
+  ["goth", "oxblood", "spectral"],
+  ["synth", "outrun", "exo"],
+  ["kawaii", "ramune", "mplus"],
+  ["acanthus", "leicester", "garamond"],
+  ["vapor", "cobalt", "plex"],
 ]) {
   test(`${look} holds up on real pages, day and night`, async () => {
     test.setTimeout(4 * 60_000); // Seven pages, twice over, each with an accessibility run.
@@ -388,6 +388,13 @@ for (const [look, color, face] of [
       await wear(look, color);
       // The look's own stylesheet really applied, not only its colors.
       expect(await root.evaluate((el) => getComputedStyle(el).getPropertyValue("--face-body"))).toContain(face);
+      // Its font files really load: the Latin face, and the Latin Extended one for an accented name.
+      const faces = await page.evaluate(async (family) => {
+        const load = async (text: string) => (await document.fonts.load(`16px ${family}`, text)).map((f) => f.unicodeRange);
+        return { latin: await load("Aa"), extended: await load("\u0141") };
+      }, face);
+      expect(faces.latin.length, `${face} Latin`).toBeGreaterThan(0);
+      expect(faces.extended.some((range) => range.includes("U+100-2BA")), `${face} Latin Extended`).toBe(true);
       for (const scheme of ["light", "dark"] as const) {
         await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
         for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {
