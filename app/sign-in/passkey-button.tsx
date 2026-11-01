@@ -29,7 +29,7 @@ export function PasskeySignInButton() {
           router.push("/profiles");
           router.refresh();
         }}
-        className="flex w-full items-center justify-center gap-3 rounded-md bg-brand px-4 py-3 font-medium text-on-brand shadow-sm transition hover:bg-brand-hover disabled:opacity-60"
+        className="ui-btn ui-btn-primary flex w-full items-center justify-center gap-3 rounded-md bg-brand px-4 py-3 font-medium text-on-brand shadow-sm transition hover:bg-brand-hover disabled:opacity-60"
       >
         <span aria-hidden>🔑</span>
         {pending ? "Waiting for your device…" : "Sign in with a passkey"}

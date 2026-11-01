@@ -47,7 +47,7 @@ export default async function GetStartedPage({ searchParams }: { searchParams: P
 
   return (
     <div className="mx-auto flex max-w-6xl flex-wrap items-start gap-6 p-4 sm:p-6">
-      <nav aria-label="Setup steps" className="w-full max-w-full flex-[1_1_15rem] rounded-2xl border-2 border-border bg-card p-3 sm:w-auto">
+      <nav aria-label="Setup steps" className="ui-card w-full max-w-full flex-[1_1_15rem] rounded-2xl border-2 border-border bg-card p-3 sm:w-auto">
         <ol className="space-y-1">
           {STEPS.map((s, i) => (
             <li key={s.id}>
@@ -71,7 +71,7 @@ export default async function GetStartedPage({ searchParams }: { searchParams: P
       </nav>
 
       {/* A div, not <main>: the (app) layout has the page's one main (and its graph paper). */}
-      <div className="min-w-0 flex-[999_1_34rem] space-y-6 rounded-3xl border-2 border-border bg-card p-5 sm:p-7">
+      <div className="ui-card min-w-0 flex-[999_1_34rem] space-y-6 rounded-3xl border-2 border-border bg-card p-5 sm:p-7">
         <div role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={STEPS.length - 1} aria-valuenow={index} className="h-2 overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-ink dark:bg-sun" style={{ width: `${Math.round((index / (STEPS.length - 1)) * 100)}%` }} />
         </div>

@@ -134,7 +134,7 @@ export default async function PantryPage({
               : "Nothing here yet. Things you add to the list show up here."}
         </p>
       ) : (
-        <div className="mt-4 overflow-hidden rounded-2xl border-2 border-ink bg-card shadow-[3px_3px_0_rgb(31_41_51/0.15)] dark:border-white/20">
+        <div className="ui-card mt-4 overflow-hidden rounded-2xl border-2 border-ink bg-card shadow-[3px_3px_0_rgb(31_41_51/0.15)] dark:border-white/20">
           <div className="hidden grid-cols-[2.25rem_1.6fr_1fr_1fr_1fr_1fr] gap-3 border-b-2 border-ink/10 px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-muted-foreground md:grid">
             <span />
             <span>Item</span>

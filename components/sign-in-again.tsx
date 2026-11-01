@@ -83,7 +83,7 @@ export function SignInAgain({
           await signOut().catch(() => null);
           router.push("/sign-in");
         }}
-        className="inline-flex min-h-11 items-center rounded-md bg-brand px-4 py-2 text-sm font-medium sm:min-h-9 text-on-brand hover:bg-brand-hover disabled:opacity-60"
+        className="ui-btn ui-btn-primary inline-flex min-h-11 items-center rounded-md bg-brand px-4 py-2 text-sm font-medium sm:min-h-9 text-on-brand hover:bg-brand-hover disabled:opacity-60"
       >
         {pending ? "Signing in…" : microsoft || dev || passkey || oidc ? "🔐 Sign in again" : "🔐 Sign out and back in"}
       </button>

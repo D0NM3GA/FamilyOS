@@ -38,7 +38,7 @@ export function KidTiles({ tiles }: { tiles: KidTile[] }) {
   }
 
   return (
-    <section aria-labelledby="kid-tiles" className="mt-4 rounded-3xl border-2 border-ink bg-card p-4 dark:border-white/20">
+    <section aria-labelledby="kid-tiles" className="ui-card mt-4 rounded-3xl border-2 border-ink bg-card p-4 dark:border-white/20">
       <h2 id="kid-tiles" className="font-hand text-2xl">
         Tap what you want!
       </h2>

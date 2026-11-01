@@ -123,7 +123,7 @@ export function ProfileGrid({ self, people }: { self: SelfTile; people: Tile[] }
             Their profile only opens with their own sign-in (it keeps their money and messages private).
             To switch, sign out here and let them sign in.
           </p>
-          <SignOutButton className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-brand font-bold text-on-brand hover:bg-brand-hover disabled:opacity-50">
+          <SignOutButton className="ui-btn ui-btn-primary mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-brand font-bold text-on-brand hover:bg-brand-hover disabled:opacity-50">
             Sign out so they can sign in
           </SignOutButton>
         </NoteDialog>
@@ -156,7 +156,7 @@ function NoteDialog({ title, onClose, children }: { title: string; onClose: () =
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="m-auto w-full max-w-xs rounded-3xl border-2 border-ink bg-card p-6 text-sm text-foreground shadow-xl backdrop:bg-black/50 animate-in zoom-in-95 duration-200 dark:border-white/20"
+      className="ui-card m-auto w-full max-w-xs rounded-3xl border-2 border-ink bg-card p-6 text-sm text-foreground shadow-xl backdrop:bg-black/50 animate-in zoom-in-95 duration-200 dark:border-white/20"
     >
       <h2 id="note-title" className="mb-2 text-xl font-extrabold">
         {title}

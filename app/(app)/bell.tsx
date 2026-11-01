@@ -97,7 +97,7 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
         <div
           role="region"
           aria-label="Notifications"
-          className="absolute right-0 top-full z-20 mt-1 w-80 max-w-[calc(100vw-1rem)] rounded-xl border-2 border-ink bg-card p-2 text-sm text-foreground shadow-lg dark:border-white/20"
+          className="ui-card absolute right-0 top-full z-20 mt-1 w-80 max-w-[calc(100vw-1rem)] rounded-xl border-2 border-ink bg-card p-2 text-sm text-foreground shadow-lg dark:border-white/20"
         >
           <p className="px-2 py-1 font-heading font-bold">Notifications</p>
           {pending && !items ? (

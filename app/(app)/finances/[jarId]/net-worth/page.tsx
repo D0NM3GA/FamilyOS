@@ -311,7 +311,7 @@ function AccountRow({
   cents: number;
 }) {
   return (
-    <li className="rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
+    <li className="ui-card rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
       <div className="flex flex-wrap items-center gap-2">
         <span className="min-w-0 flex-1 font-extrabold break-words">🏦 {account.name}</span>
         <span className="font-bold">{money(cents)}</span>

@@ -44,7 +44,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ jarId: 
           if (i.kind === "SYNC_ERROR") {
             const conn = connections.find((c) => `sync:${c.id}` === i.key);
             return (
-              <li key={i.id} className="rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
+              <li key={i.id} className="ui-card rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
                 <p className="font-bold">{conn?.provider === "PRIVACY" ? "Privacy.com" : "The bank feed"} didn&apos;t sync</p>
                 <p className="text-sm text-muted-foreground">{conn?.lastError ?? "It'll try again later."}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -70,7 +70,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ jarId: 
             </div>
           );
           return (
-            <li key={i.id} className="flex flex-col gap-2 rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
+            <li key={i.id} className="ui-card flex flex-col gap-2 rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
               <p className="font-bold">Same charge twice?</p>
               {row(i.txn)}
               {row(i.otherTxn)}

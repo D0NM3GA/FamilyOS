@@ -88,7 +88,7 @@ function LauncherPanel() {
           setLauncherOpen(false);
         }
       }}
-      className="fixed inset-x-2 top-16 z-40 outline-none max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl border-2 border-ink bg-card p-4 text-card-foreground shadow-[6px_6px_0_rgb(31_41_51/0.18)] max-md:bottom-[calc(var(--bottom-bar-h,0px)+0.5rem)] max-md:top-auto md:left-3 md:right-auto md:w-[30rem] dark:border-white/20"
+      className="ui-card fixed inset-x-2 top-16 z-40 outline-none max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl border-2 border-ink bg-card p-4 text-card-foreground shadow-[6px_6px_0_rgb(31_41_51/0.18)] max-md:bottom-[calc(var(--bottom-bar-h,0px)+0.5rem)] max-md:top-auto md:left-3 md:right-auto md:w-[30rem] dark:border-white/20"
     >
       <h2 id={titleId} className="sr-only">
         All apps

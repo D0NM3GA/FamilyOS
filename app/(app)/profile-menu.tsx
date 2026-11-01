@@ -147,7 +147,7 @@ export function ProfileMenu({
       {open && (
         <div
           id={menuId}
-          className="absolute right-0 top-full z-20 mt-1 w-72 max-w-[calc(100vw-1rem)] space-y-3 rounded-xl border-2 border-ink bg-card p-3 text-sm text-foreground shadow-lg dark:border-white/20"
+          className="ui-card absolute right-0 top-full z-20 mt-1 w-72 max-w-[calc(100vw-1rem)] space-y-3 rounded-xl border-2 border-ink bg-card p-3 text-sm text-foreground shadow-lg dark:border-white/20"
         >
           {optimistic && (
             <>

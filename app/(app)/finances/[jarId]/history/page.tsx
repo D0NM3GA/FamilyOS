@@ -22,7 +22,7 @@ export default async function JarHistoryPage({ params }: { params: Promise<{ jar
       </Link>
       <h1 className="text-3xl font-extrabold">🕘 Who changed what</h1>
       <p className="text-sm text-muted-foreground">Changes people made in this jar over the last year. The automatic tidy-ups aren&apos;t listed.</p>
-      <section className="rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
+      <section className="ui-card rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
         <HistoryList lines={lines} />
       </section>
     </div>

@@ -15,7 +15,7 @@ type State =
   | { kind: "error" }
   | { kind: "ready"; owner: { name: string; isMe: boolean } | null; endpoint: string | null };
 
-const btn = "inline-flex min-h-11 items-center rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-on-brand hover:bg-brand-hover disabled:opacity-50 sm:min-h-9";
+const btn = "ui-btn ui-btn-primary inline-flex min-h-11 items-center rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-on-brand hover:bg-brand-hover disabled:opacity-50 sm:min-h-9";
 const quiet = "inline-flex min-h-11 items-center rounded-md px-3 py-1.5 text-sm font-medium ring-1 ring-input hover:bg-muted disabled:opacity-50 sm:min-h-9";
 
 /** iPhones and iPads (iPadOS reports a Mac user agent, so check touch too). */

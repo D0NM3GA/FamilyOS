@@ -120,7 +120,7 @@ export function ReceiptReview({ receipt }: { receipt: PreparedReceipt }) {
 
   return (
     <div className="mt-6 flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
+      <div className="ui-card flex flex-wrap items-center gap-3 rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
         <label className="flex max-w-full min-w-0 items-center gap-2 text-sm font-bold">
           Store
           <select value={storeId} onChange={(e) => setStoreId(e.target.value)} className={`${field} min-w-0`}>
@@ -137,7 +137,7 @@ export function ReceiptReview({ receipt }: { receipt: PreparedReceipt }) {
         {!receipt.purchaseId && <p className="basis-full text-xs text-muted-foreground">Not linked to a recent trip, so guesses come from the whole Pantry.</p>}
       </div>
 
-      <ul className="divide-y-2 divide-dashed divide-ink/10 rounded-2xl border-2 border-ink bg-card dark:divide-white/10 dark:border-white/20">
+      <ul className="ui-card divide-y-2 divide-dashed divide-ink/10 rounded-2xl border-2 border-ink bg-card dark:divide-white/10 dark:border-white/20">
         {receipt.lines.map((l, i) => (
           <li key={i} className={`flex flex-wrap items-center gap-2 px-4 py-3 ${l.match.skip ? "opacity-60" : ""}`}>
             <span className="min-w-0 flex-1">

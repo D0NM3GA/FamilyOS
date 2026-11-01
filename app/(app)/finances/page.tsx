@@ -57,7 +57,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
           <li key={j.id}>
             <Link
               href={`/finances/${j.id}`}
-              className="flex h-full flex-col gap-1 rounded-2xl border-2 border-ink bg-card p-4 shadow-[3px_3px_0_rgb(31_41_51/0.15)] transition hover:-translate-y-0.5 dark:border-white/20"
+              className="ui-card flex h-full flex-col gap-1 rounded-2xl border-2 border-ink bg-card p-4 shadow-[3px_3px_0_rgb(31_41_51/0.15)] transition hover:-translate-y-0.5 dark:border-white/20"
             >
               <span className="text-3xl" aria-hidden>
                 {j.emoji || "🫙"}

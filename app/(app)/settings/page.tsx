@@ -105,7 +105,7 @@ export default async function SettingsPage() {
 
       <SetupCard items={setup} hidden={profile.setupCardHidden} admin={admin} />
 
-      <section aria-label="You" className="flex flex-wrap items-center gap-x-6 gap-y-4 rounded-2xl border-2 border-border bg-card p-5">
+      <section aria-label="You" className="ui-card flex flex-wrap items-center gap-x-6 gap-y-4 rounded-2xl border-2 border-border bg-card p-5">
         <div className="flex min-w-0 flex-[1_1_16rem] items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="font-heading text-xl font-extrabold text-foreground">

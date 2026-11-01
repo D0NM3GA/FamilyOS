@@ -188,7 +188,7 @@ export default async function JarPage({
               <Link
                 href={href({ account: shownAccount?.id === a.id ? null : a.id })}
                 aria-current={shownAccount?.id === a.id ? "true" : undefined}
-                className="flex flex-col rounded-2xl border-2 border-ink bg-card p-3 aria-[current=true]:bg-sun/20 dark:border-white/20"
+                className="ui-card flex flex-col rounded-2xl border-2 border-ink bg-card p-3 aria-[current=true]:bg-sun/20 dark:border-white/20"
               >
                 <span className="text-sm text-muted-foreground">
                   {a.org ? `${a.org} · ` : ""}
@@ -257,7 +257,7 @@ export default async function JarPage({
         </p>
       )}
       {txns.length > 0 && (
-        <ul className="mt-3 divide-y-2 divide-dashed divide-ink/10 overflow-hidden rounded-2xl border-2 border-ink bg-card dark:divide-white/10 dark:border-white/20">
+        <ul className="ui-card mt-3 divide-y-2 divide-dashed divide-ink/10 overflow-hidden rounded-2xl border-2 border-ink bg-card dark:divide-white/10 dark:border-white/20">
           {txns.map((t) => {
             const name = t.merchantName ?? t.payee ?? t.description;
             const cat = t.categoryId ? (catById.get(t.categoryId) ?? null) : null;

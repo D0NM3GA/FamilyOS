@@ -189,7 +189,7 @@ function BuyDialog({
         if (pending) e.preventDefault();
       }}
       aria-labelledby="buy-title"
-      className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-3xl border-2 border-ink bg-card p-6 text-card-foreground shadow-[6px_6px_0_rgb(31_41_51/0.25)] backdrop:bg-ink/50 dark:border-white/25"
+      className="ui-card m-auto w-[min(26rem,calc(100vw-2rem))] rounded-3xl border-2 border-ink bg-card p-6 text-card-foreground shadow-[6px_6px_0_rgb(31_41_51/0.25)] backdrop:bg-ink/50 dark:border-white/25"
     >
       {result && !result.error ? (
         <div className="space-y-4 text-center" role="status">

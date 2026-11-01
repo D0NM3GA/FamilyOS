@@ -1139,3 +1139,10 @@ so a look can override them on `[data-app-root]`. `--on-brand`, `--on-chrome` an
 `var(--color-ink)`, which would resolve once on `:root`; `lib/look-tokens-guard.test.ts` holds these
 rules. Red, green and amber status colors were left alone (the scope's plan to tokenize them was
 dropped once measured): they already have day and night shades, and every look has both.
+
+### 58.1b — Names for a look's CSS to grab
+
+`components/styles.ts` strings gain `ui-card`, `ui-btn`, `ui-chip`, `ui-field` and friends, which
+style nothing themselves. Pages that spell out their own card or main button add the same name
+rather than moving to the shared string as first scoped: their spacing differs, and moving them
+would have shifted Sticker Book. `lib/look-tokens-guard.test.ts` checks new ones.

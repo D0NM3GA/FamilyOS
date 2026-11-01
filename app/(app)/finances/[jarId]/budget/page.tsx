@@ -108,15 +108,15 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
 
       {/* Three across even on a phone, so the totals shrink and may wrap instead of pushing the page sideways. */}
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-2xl border-2 border-ink bg-card p-2 sm:p-3 dark:border-white/20">
+        <div className="ui-card rounded-2xl border-2 border-ink bg-card p-2 sm:p-3 dark:border-white/20">
           <div className="text-xs font-bold uppercase text-muted-foreground">Spent</div>
           <div className="text-base font-extrabold [overflow-wrap:anywhere] sm:text-xl">{money(summary.spentCents)}</div>
         </div>
-        <div className="rounded-2xl border-2 border-ink bg-card p-2 sm:p-3 dark:border-white/20">
+        <div className="ui-card rounded-2xl border-2 border-ink bg-card p-2 sm:p-3 dark:border-white/20">
           <div className="text-xs font-bold uppercase text-muted-foreground">Budgeted</div>
           <div className="text-base font-extrabold [overflow-wrap:anywhere] sm:text-xl">{money(summary.budgetedCents)}</div>
         </div>
-        <div className="rounded-2xl border-2 border-ink bg-card p-2 sm:p-3 dark:border-white/20">
+        <div className="ui-card rounded-2xl border-2 border-ink bg-card p-2 sm:p-3 dark:border-white/20">
           <div className="text-xs font-bold uppercase text-muted-foreground">Income</div>
           <div className="text-base font-extrabold [overflow-wrap:anywhere] sm:text-xl">{money(summary.incomeCents)}</div>
         </div>
@@ -172,7 +172,7 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
           const balance = l.availableCents != null ? l.availableCents - l.spentCents : null;
           const plan = c.goalCents && c.goalMonth && balance != null ? goalPlan(c.goalCents, c.goalMonth, balance, month) : null;
           return (
-            <li key={l.category.id} className="rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
+            <li key={l.category.id} className="ui-card rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xl" aria-hidden>
                   {l.category.emoji}

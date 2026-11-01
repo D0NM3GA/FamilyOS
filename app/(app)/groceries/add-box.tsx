@@ -139,7 +139,7 @@ export function AddBox() {
 
   if (scanning) {
     return (
-      <div className="rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
+      <div className="ui-card rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
         <BarcodeScanner onUnknown={onScannedUnknown} onDone={() => setScanning(false)} />
       </div>
     );
@@ -147,7 +147,7 @@ export function AddBox() {
 
   if (needsNameFor) {
     return (
-      <div className="rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
+      <div className="ui-card rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
         <p className="font-extrabold">We don&apos;t know this one yet</p>
         <p className="text-sm text-muted-foreground">Name it once and {appName} remembers barcode {needsNameFor} next time.</p>
         <div className="mt-3 flex gap-2">
@@ -191,7 +191,7 @@ export function AddBox() {
 
   return (
     <div className="relative">
-      <div className="flex items-center gap-2 rounded-2xl border-2 border-ink bg-card p-1.5 pl-3 shadow-[3px_3px_0_rgb(31_41_51/0.15)] focus-within:ring-2 focus-within:ring-ring dark:border-white/20">
+      <div className="ui-card flex items-center gap-2 rounded-2xl border-2 border-ink bg-card p-1.5 pl-3 shadow-[3px_3px_0_rgb(31_41_51/0.15)] focus-within:ring-2 focus-within:ring-ring dark:border-white/20">
         <input
           ref={inputRef}
           value={query}
@@ -254,7 +254,7 @@ export function AddBox() {
           id={listId}
           role="listbox"
           aria-label="Suggestions"
-          className="absolute z-20 mt-1 w-full overflow-hidden rounded-2xl border-2 border-ink bg-card py-1 shadow-lg dark:border-white/20"
+          className="ui-card absolute z-20 mt-1 w-full overflow-hidden rounded-2xl border-2 border-ink bg-card py-1 shadow-lg dark:border-white/20"
         >
           {suggestions.map((s, i) => (
             <li
