@@ -1293,6 +1293,14 @@ the tenant who isn't assigned is refused by Entra itself, before the app (Global
 aside, whom the app refuses itself without an Admin or Adult role). Conditional Access
 policies (sign-in frequency, MFA) apply on top. See [docs/PLAN.md](docs/PLAN.md) "Open items."
 
+## Looks
+
+A look belongs to each person (Phase 58): Sticker Book, Goth, Kawaii, Acanthus, Synthwave, Vaporwave or
+Neo-brutal, each with day and night and its own colors. **My look**, in the name menu and Settings,
+tries one on over the page you're on; only Keep it saves. New people start on Sticker Book and are
+asked once. A look changes type, shape, art, motion and a little wording, never what anyone can do.
+See `lib/looks.ts` and `app/looks/`.
+
 ## Make it yours
 
 An admin opens **Settings → Make it yours** (Phase 35). Everything there is for the whole
@@ -1302,9 +1310,9 @@ family, on every device, kept in the database and the household backup, never in
   with the sunny OS like FamilyOS's (up to 22 characters before it). It shows in the top bar,
   sign-in, "Who's using…?", tab titles, phone alerts, emails and the Home Screen. Blank is
   FamilyOS.
-- **Top bar color:** Ink (the original), Ocean, Forest, Berry, Plum, Clay, Teal or Slate,
-  for the top bar, the rail and the main buttons in light and dark mode. Presets only, each
-  checked for readable white text (`lib/theme-colors.ts`, with a contrast test).
+- **Family color:** Ink (the original), Ocean, Forest, Berry, Plum, Clay, Teal or Slate, for
+  the sign-in page, the app's icon, and anyone wearing Sticker Book who hasn't picked their own.
+  Presets only, each checked for readable white text (`lib/theme-colors.ts`, with a contrast test).
 - **What the kids earn:** stickers and the Sticker Store, or stars / points / coins / gems,
   or the family's own word ("acorn", "acorns", "Acorn Shop"). Only the words change;
   balances stay.

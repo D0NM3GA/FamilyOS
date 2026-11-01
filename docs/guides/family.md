@@ -97,7 +97,7 @@ To change who's using the app, open your name at the top right and tap **Switch 
 Your look is yours: nobody else sees it, and it follows you to every device. Open your name at the
 top right and tap **My look** (it's in Settings too). Tap one and the app tries it on right
 there, over whatever page you're on. Pick a look, then one of its colors. **Keep it** saves it; **Put it back** or Esc leaves things as
-they were. The first time you reach Home, the app asks once. Day or night stays per device, so a tablet in a dark room can stay dark.
+they were. The first time you reach Home, the app asks once. Each look has its own colors, and its own way of marking a finished chore. Day or night stays per device, so a tablet in a dark room can stay dark.
 
 ### Big buttons or Full app
 

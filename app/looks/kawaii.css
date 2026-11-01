@@ -323,3 +323,26 @@
 }
 @keyframes kawaii-pop { from { transform: scale(0.9) rotate(-2deg); opacity: 0; } }
 @keyframes kawaii-bob { 50% { transform: translateY(-5px); } }
+
+/* Finishing something: a cat and a bubble pop up. */
+[data-look="kawaii"] .ui-moment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 1.25rem 0.25rem 0.5rem;
+  background: var(--sun);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: 3px 4px 0 var(--ink);
+  font: 400 clamp(1.5rem, 5vw, 2.25rem)/1 var(--face-heading);
+}
+[data-look="kawaii"] .ui-moment::before {
+  content: "";
+  width: 3.5rem;
+  height: 2.75rem;
+  background: url(/looks/kawaii-cat2.webp) center/contain no-repeat;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-look="kawaii"] .ui-moment { animation: moment-pop 1.3s cubic-bezier(0.3, 1.7, 0.6, 1) forwards; }
+}

@@ -415,6 +415,61 @@ for (const [look, color, face] of [
   });
 }
 
+test("finishing a chore is marked by the look, and takes no taps", async () => {
+  test.setTimeout(3 * 60_000);
+  const shots = process.env.E2E_SHOTS;
+  const root = page.locator("[data-app-root]");
+  const start = { look: await root.getAttribute("data-look"), color: await root.getAttribute("data-color") };
+  const sheet = page.getByRole("dialog", { name: "My look" });
+  const wear = async (id: string, colorId: string) => {
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "My look" }).click();
+    await sheet.locator(`input[name="look"][value="${id}"]`).check({ force: true });
+    await sheet.locator(`input[name="color"][value="${colorId}"]`).check({ force: true });
+    const keep = sheet.getByRole("button", { name: "Keep it" });
+    if (await keep.count()) await keep.click();
+    else await sheet.getByRole("button", { name: "Done" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(root).toHaveAttribute("data-look", id);
+  };
+
+  await page.goto("/chores/new");
+  await page.getByLabel("Title").fill("Water the plants");
+  await page.getByRole("radio", { name: "Dad" }).check();
+  await page.locator('form button[type="submit"]').last().click();
+  await expect(page).toHaveURL(/\/chores$/);
+
+  // Reduced motion holds each one still, so it's there to check and to photograph.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const looks = [["brut", "banana", "DONE."], ["goth", "oxblood", "So it is done"], ["synth", "outrun", "BONUS!"], ["kawaii", "ramune", "Yay!!"], ["acanthus", "leicester", "Duly attested"], ["vapor", "cobalt", "Task complete."]];
+  try {
+    for (const [id, color, word] of looks) {
+      await wear(id, color);
+      await page.goto("/chores");
+      const card = page.getByText("Water the plants").first();
+      await expect(card).toBeVisible();
+      await page.getByRole("button", { name: "Complete" }).first().click();
+      const moment = page.locator(".ui-moment");
+      await expect(moment).toHaveText(word);
+      // It floats above the page without catching taps, and ends itself.
+      await expect(moment).toHaveCSS("pointer-events", "none");
+      if (shots) await page.screenshot({ path: `${shots}/moment-${id}.png` }).catch(() => {});
+      await expect(moment).toHaveCount(0, { timeout: 10_000 });
+      await page.getByRole("button", { name: "Undo" }).first().click();
+      await expect(page.getByRole("button", { name: "Complete" }).first()).toBeVisible();
+    }
+    // Sticker Book keeps its own celebration.
+    await wear("sticker", "ink");
+    await page.goto("/chores");
+    await page.getByRole("button", { name: "Complete" }).first().click();
+    await expect(page.locator(".ui-moment")).toHaveCount(0);
+  } finally {
+    await page.emulateMedia({ reducedMotion: null });
+    await wear(start.look!, start.color!);
+  }
+  problems.expectNone();
+});
+
 test("home location from a ZIP code, then from this device", async () => {
   await page.goto("/settings/household");
   await expect(page.getByPlaceholder("Latitude")).toHaveCount(0);

@@ -299,3 +299,18 @@
   0%, 92%, 96%, 100% { opacity: 1; }
   94%, 98% { opacity: 0.35; }
 }
+
+/* Finishing something: an arcade score flying in. */
+[data-look="synth"] .ui-moment {
+  padding: 0.25rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--synth-line);
+  color: var(--brand-text);
+  font: 700 clamp(1.5rem, 5vw, 2.5rem)/1.1 var(--face-heading);
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 22px var(--synth-glow);
+  skew: -10deg;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-look="synth"] .ui-moment { animation: moment-fly 1.2s ease-out forwards; }
+}

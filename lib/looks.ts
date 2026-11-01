@@ -25,6 +25,8 @@ export type Look = {
   colors: readonly LookColor[];
   /** Home's scene, a little of the look's voice. Sticker Book has the mascot instead. */
   hello?: (firstName: string) => string;
+  /** The word when someone finishes something (app/looks/*.css draws it). Sticker Book has its own. */
+  moment?: string;
 };
 
 const brutColor = (id: string, name: string, chrome: string, brand: string): LookColor => {
@@ -120,6 +122,7 @@ export const LOOKS: readonly Look[] = [
     ],
     // No time of day: the banner stays up all day.
     hello: (firstName) => `Hey, ${firstName}.`,
+    moment: "DONE.",
   },
   {
     id: "goth",
@@ -132,6 +135,7 @@ export const LOOKS: readonly Look[] = [
       gothColor("rosewater", "Rosewater", "#b0386f", "#8f2a58", "#b0386f", "#bf467c", "#ff9ad0", "#6e2a50"),
     ],
     hello: (firstName) => `Good morrow, ${firstName}`,
+    moment: "So it is done",
   },
   {
     id: "synth",
@@ -144,6 +148,7 @@ export const LOOKS: readonly Look[] = [
       synthColor("laser", "Laser", "#a78bff", "#bda6ff", "#7a3cff", "#7fe9ff", "#5a2bb0", "#4e249c"),
     ],
     hello: (firstName) => `Welcome back, ${firstName}`,
+    moment: "BONUS!",
   },
   {
     id: "kawaii",
@@ -156,6 +161,7 @@ export const LOOKS: readonly Look[] = [
       kawaiiColor("lavender", "Lavender", ["#cdb8ff", "#2a1563", "#6a3fd0", "#5f37bd", "#5b33bd"], ["#3a2a63", "#c4a8ff", "#d4beff", "#1e0f48", "#d6c4ff"]),
     ],
     hello: (firstName) => `Welcome back, ${firstName}!`,
+    moment: "Yay!!",
   },
   {
     id: "acanthus",
@@ -168,6 +174,7 @@ export const LOOKS: readonly Look[] = [
       acanthusColor("willow", "Willow", "#2f4a7a", "#29416b", "#7a3d2c", "#9db6d6", "#b4c8e2", "#e6c87e"),
     ],
     hello: (firstName) => `Welcome home, ${firstName}`,
+    moment: "Duly attested",
   },
   {
     id: "vapor",
@@ -181,6 +188,7 @@ export const LOOKS: readonly Look[] = [
     ],
     // No time of day: the banner stays up all day.
     hello: (firstName) => `Hello, ${firstName}`,
+    moment: "Task complete.",
   },
 ];
 

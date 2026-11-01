@@ -329,3 +329,17 @@
 }
 @keyframes brut-ticker { to { transform: translateX(-100%); } }
 @keyframes brut-slam { from { transform: translate(-14px, -14px) rotate(-3deg) scale(1.03); } }
+
+/* Finishing something: slammed across the screen. */
+[data-look="brut"] .ui-moment {
+  padding: 0.25rem 1rem;
+  background: #ff5cad;
+  color: #000000;
+  border: 4px solid #000000;
+  box-shadow: 6px 6px 0 #000000;
+  font: 400 clamp(2rem, 8vw, 3.5rem)/1 var(--face-heading);
+  rotate: -6deg;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-look="brut"] .ui-moment { animation: moment-slam 1.2s cubic-bezier(0.2, 0.9, 0.3, 1.3) forwards; }
+}

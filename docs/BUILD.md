@@ -1199,3 +1199,17 @@ over Home, four colors that also change the desktop. Windows are silver by day a
 unlike the prototype's silver in both, so status colors' day and night shades stay right. The real
 top bar stays at the top (search, bell and name open downward), so there's no fake taskbar.
 
+### 58.9 — The moment you finish something
+
+Finishing a chore, taking a med or finishing a grocery trip gets the look's own mark: "DONE." slammed
+on, a wax seal, a self-closing dialog. It lives on `AppRoot` because the finished card leaves the page
+at once. Decorative, takes no taps, ends itself, and just shows and goes under reduced motion. Sticker
+Book keeps its burst, and every look keeps the mascot's. No sound, the owner's call for now.
+
+### 58.10 — Close
+
+`scripts/looks-art.cjs` keeps the generator for the looks' art (not run by the build; its output is
+compressed to WebP in `public/looks/`). The prototype's CSS is gone. Each look's browser test wears it
+on seven pages in day and night and on a phone, with `axe`. Contrast over art can't be measured by
+`axe`, so scenes are checked by eye in `E2E_SHOTS` screenshots.
+
