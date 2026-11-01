@@ -41,6 +41,14 @@ stranger about the family that runs it.
   characters go in as backslash-u escapes, never raw; `privacy:check` flags raw ones. File
   tools can turn a typed escape into the raw character, so check after writing one.
 
+# Pull requests
+
+- **Every PR against `main` opens with auto-merge on, and with Auto-fix on** (the owner's standing
+  instruction): `main`'s required checks are the gate, so a green PR merges itself. GitHub refuses
+  auto-merge on a PR that's already green; merge that one directly.
+- **Never turn auto-merge on for a PR with another base.** Only `main` has required checks, so it
+  would merge at once.
+
 # Forms
 
 - **A server action's submit button is `SubmitButton`** (`components/submit.tsx`): it's
