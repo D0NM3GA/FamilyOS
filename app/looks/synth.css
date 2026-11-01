@@ -63,9 +63,11 @@
 }
 
 /* The highway under every page, and scanlines over it. Nothing can tap them. */
-[data-look="synth"] main#main {
-  position: relative;
-  z-index: 1;
+[data-look="synth"] {
+  isolation: isolate;
+}
+[data-look="synth"] main#main,
+.dark [data-look="synth"] main#main {
   background-color: transparent;
   background-image: none;
 }
@@ -76,7 +78,7 @@
   right: -60%;
   bottom: -6%;
   height: 40%;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   background-image:
     linear-gradient(var(--synth-grid) 2px, transparent 2px),
@@ -97,19 +99,34 @@
 /* The bar: a chrome script logo with a star on it. */
 [data-look="synth"] .ui-bar {
   position: relative;
-  z-index: 2;
   box-shadow: 0 2px 0 var(--synth-line), 0 0 18px -2px var(--synth-glow);
 }
 [data-look="synth"] .ui-wordmark {
-  padding: 0.25rem 0.5rem 0.375rem 0.25rem;
+  padding: 0.375rem 0.625rem 0.625rem 0.375rem;
   font-family: var(--font-dafoe);
   font-size: 2.125rem;
   font-weight: 400;
+  line-height: 1.25;
   background: linear-gradient(#ffffff 20%, #7fe9ff 46%, #172a7a 50%, #ff4fb0 56%, #ffffff 92%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   filter: drop-shadow(0 0 6px var(--synth-glow));
+}
+[data-look="synth"] .ui-bar::after {
+  content: "";
+  position: absolute;
+  left: 8.5rem;
+  top: 0.375rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: url(/looks/synth-glint.webp) center/contain no-repeat;
+  pointer-events: none;
+}
+@media (max-width: 639px) {
+  [data-look="synth"] .ui-bar::after {
+    left: 6.75rem;
+  }
 }
 [data-look="synth"] .ui-accent {
   color: transparent;
@@ -122,8 +139,6 @@
 
 /* The rail and phone bar. */
 [data-look="synth"] .ui-rail {
-  position: relative;
-  z-index: 2;
   background: color-mix(in srgb, var(--chrome) 88%, transparent);
   box-shadow: 2px 0 0 var(--synth-line);
   font-family: var(--face-heading);
@@ -267,10 +282,15 @@
 
 @media (prefers-reduced-motion: no-preference) {
   [data-look="synth"]::before { animation: synth-drive 1.4s linear infinite; }
+  [data-look="synth"] .ui-bar::after { animation: synth-glint 3.6s ease-in-out infinite; }
   [data-look="synth"] .ui-scene { animation: synth-crt 0.6s ease-out; }
   [data-look="synth"] .ui-scene-date { animation: synth-neon 7s linear infinite; }
 }
 @keyframes synth-drive { to { background-position: 0 40px; } }
+@keyframes synth-glint {
+  0%, 70%, 100% { transform: scale(0); }
+  85% { transform: scale(1) rotate(45deg); }
+}
 @keyframes synth-crt {
   0% { transform: scaleY(0.01); filter: brightness(4); }
   60% { transform: scaleY(1); filter: brightness(1.8); }
