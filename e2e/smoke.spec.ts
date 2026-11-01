@@ -358,6 +358,7 @@ test("a look is tried on over the real page, and only Keep it saves it", async (
 });
 
 test("every look holds up on real pages, day and night", async () => {
+  test.setTimeout(10 * 60_000); // Every look, on seven pages, twice over, each with an accessibility run.
   const shots = process.env.E2E_SHOTS; // a folder to save screenshots in, for a person to look at
   const root = page.locator("[data-app-root]");
   const start = { look: await root.getAttribute("data-look"), color: await root.getAttribute("data-color") };
