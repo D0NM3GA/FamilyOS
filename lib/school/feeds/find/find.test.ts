@@ -239,7 +239,9 @@ describe("the sealed list of what was found", () => {
     expect(openFound(sealed, 0, { householdId: "h1", personId: "mom" }, NOW)).toBeNull();
     expect(openFound(sealed, 0, { householdId: "h2", personId: "dad" }, NOW)).toBeNull();
     expect(openFound(sealed, 0, who, NOW + 16 * 60_000)).toBeNull();
-    expect(openFound(sealed.slice(0, -2) + "AA", 0, who, NOW)).toBeNull();
+    // A middle character, always changed: the last ones can decode the same, or already be these.
+    const mid = Math.floor(sealed.length / 2);
+    expect(openFound(sealed.slice(0, mid) + (sealed[mid] === "A" ? "B" : "A") + sealed.slice(mid + 1), 0, who, NOW)).toBeNull();
     expect(openFound(sealed, 5, who, NOW)).toBeNull();
     expect(openFound(sealed, -1, who, NOW)).toBeNull();
     expect(openFound("garbage", 0, who, NOW)).toBeNull();
