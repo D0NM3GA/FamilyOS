@@ -92,7 +92,7 @@ export function StoreShelf({
                   <button
                     type="button"
                     onClick={() => setPicked(r)}
-                    className="inline-flex min-h-11 items-center rounded-xl border-2 border-ink bg-lime px-4 text-sm font-extrabold text-ink shadow-[2px_2px_0_var(--color-ink)] transition hover:-translate-y-0.5 sm:min-h-9"
+                    className="inline-flex min-h-11 items-center rounded-xl border-2 border-ink bg-lime px-4 text-sm font-extrabold text-ink shadow-[2px_2px_0_var(--ink)] transition hover:-translate-y-0.5 sm:min-h-9"
                   >
                     Buy
                   </button>
@@ -286,7 +286,7 @@ function BuyDialog({
               if (e.detail === 0 || !pressed) buy();
               else if (!holding) setHint(true);
             }}
-            className="relative w-full touch-manipulation select-none overflow-hidden rounded-2xl border-2 border-ink bg-lime py-4 font-heading text-xl font-extrabold text-ink shadow-[3px_3px_0_var(--color-ink)] [-webkit-touch-callout:none] disabled:opacity-50"
+            className="relative w-full touch-manipulation select-none overflow-hidden rounded-2xl border-2 border-ink bg-lime py-4 font-heading text-xl font-extrabold text-ink shadow-[3px_3px_0_var(--ink)] [-webkit-touch-callout:none] disabled:opacity-50"
           >
             <span
               aria-hidden

@@ -54,7 +54,7 @@ function DayCard({ day }: { day: AgendaDay }) {
       aria-labelledby={headingId}
       className={`min-w-0 scroll-mt-4 rounded-2xl p-3 ${
         day.isToday
-          ? "border-2 border-ink bg-card shadow-[3px_3px_0_var(--color-ink)] dark:border-sun dark:shadow-none"
+          ? "border-2 border-ink bg-card shadow-[3px_3px_0_var(--ink)] dark:border-sun dark:shadow-none"
           : `ring-1 ring-border ${day.isPast ? "bg-card/60" : "bg-card"}`
       }`}
     >

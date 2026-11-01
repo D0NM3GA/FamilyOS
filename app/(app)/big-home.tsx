@@ -63,7 +63,7 @@ export function BigHome({
       {stickers !== null && (
         <Link
           href="/points"
-          className="flex items-center justify-between rounded-2xl border-2 border-ink bg-sun px-5 py-4 text-ink shadow-[4px_4px_0_var(--color-ink)] transition hover:-translate-y-0.5"
+          className="flex items-center justify-between rounded-2xl border-2 border-ink bg-sun px-5 py-4 text-ink shadow-[4px_4px_0_var(--ink)] transition hover:-translate-y-0.5"
         >
           <span className="font-heading text-2xl font-extrabold">
             My <RewardWord />

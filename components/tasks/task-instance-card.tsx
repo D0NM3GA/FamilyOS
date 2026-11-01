@@ -375,8 +375,8 @@ export function TaskInstanceCard({
                 onClick={handleComplete}
                 className={
                   big
-                    ? "min-h-14 shrink-0 rounded-2xl border-2 border-ink bg-lime px-5 text-base font-extrabold text-ink shadow-[3px_3px_0_var(--color-ink)] transition hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none"
-                    : "min-h-11 shrink-0 rounded-xl bg-brand px-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:scale-105 hover:rotate-2 hover:bg-brand-hover hover:shadow-md active:translate-y-0 active:scale-100 active:rotate-0 sm:min-h-9"
+                    ? "min-h-14 shrink-0 rounded-2xl border-2 border-ink bg-lime px-5 text-base font-extrabold text-ink shadow-[3px_3px_0_var(--ink)] transition hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none"
+                    : "min-h-11 shrink-0 rounded-xl bg-brand px-4 text-sm font-bold text-on-brand transition hover:-translate-y-0.5 hover:scale-105 hover:rotate-2 hover:bg-brand-hover hover:shadow-md active:translate-y-0 active:scale-100 active:rotate-0 sm:min-h-9"
                 }
               >
                 {completeLabel}

@@ -84,7 +84,7 @@ export default async function ShellPreviewPage({
                     <div key={t} className="rounded-2xl bg-card p-4 shadow-[3px_3px_0_rgb(31_41_51/0.12)] ring-1 ring-border">
                       <h2 className="text-lg font-bold">{t}</h2>
                       <p className="mt-2 text-sm text-muted-foreground">Sample card on the graph paper.</p>
-                      <button className="mt-3 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover">
+                      <button className="mt-3 rounded-md bg-brand px-4 py-2 text-sm font-medium text-on-brand hover:bg-brand-hover">
                         Primary action
                       </button>
                     </div>

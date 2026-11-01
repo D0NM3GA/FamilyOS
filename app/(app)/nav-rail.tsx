@@ -41,7 +41,7 @@ function RailLink({ app, active }: { app: AppDef; active: boolean }) {
       href={app.href}
       aria-current={active ? "page" : undefined}
       className={`flex w-20 flex-col items-center gap-0.5 rounded-xl py-2 text-xs font-bold transition big:w-24 big:py-3 big:text-sm ${
-        active ? "bg-sun text-ink" : "text-white/75 hover:bg-chrome-hover hover:text-white"
+        active ? "bg-sun text-ink" : "text-on-chrome/75 hover:bg-chrome-hover hover:text-on-chrome"
       }`}
     >
       <span className="text-xl leading-none big:text-3xl" aria-hidden>
@@ -77,7 +77,7 @@ export function NavRail() {
       ))}
       {folded && (
         <>
-          <hr className="my-1 w-14 border-t-2 border-dashed border-white/25" />
+          <hr className="my-1 w-14 border-t-2 border-dashed border-on-chrome/25" />
           {more.map((app) => (
             <RailLink key={app.id} app={app} active={app.id === current} />
           ))}
@@ -116,7 +116,7 @@ export function BottomBar() {
             href={app.href}
             aria-current={active ? "page" : undefined}
             className={`my-1.5 flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-xs font-bold big:text-sm ${
-              active ? "bg-sun text-ink" : "text-white/80"
+              active ? "bg-sun text-ink" : "text-on-chrome/80"
             }`}
           >
             <span className="text-xl leading-none big:text-2xl" aria-hidden>

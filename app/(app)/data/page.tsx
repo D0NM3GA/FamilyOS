@@ -112,7 +112,7 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
             <form method="post" action="/api/backup/download" className="mt-3">
               <button
                 type="submit"
-                className="inline-flex min-h-11 items-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:scale-105 hover:-translate-y-0.5 hover:bg-brand-hover active:scale-95 sm:min-h-9"
+                className="inline-flex min-h-11 items-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-on-brand transition hover:scale-105 hover:-translate-y-0.5 hover:bg-brand-hover active:scale-95 sm:min-h-9"
               >
                 Download backup (.json)
               </button>

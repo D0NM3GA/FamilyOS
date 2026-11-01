@@ -41,7 +41,7 @@ export function RenamePasskey({ action, name }: { action: Action; name: string }
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex min-h-11 items-center rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-hover disabled:opacity-60 sm:min-h-0"
+        className="inline-flex min-h-11 items-center rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-on-brand hover:bg-brand-hover disabled:opacity-60 sm:min-h-0"
       >
         {pending ? "Saving…" : "Save"}
       </button>

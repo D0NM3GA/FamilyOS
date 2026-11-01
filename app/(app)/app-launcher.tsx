@@ -19,7 +19,7 @@ export function LauncherButton() {
       onClick={() => setLauncherOpen(!launcherOpen)}
       // Fixed 5px tracks, centred: `grid-cols-3` alone stretched the columns to the button's
       // full width, so the outer dots sat on (and past) the round edge.
-      className="grid size-10 shrink-0 grid-cols-[repeat(3,5px)] grid-rows-[repeat(3,5px)] place-content-center gap-[3px] rounded-xl bg-sun shadow-[inset_0_0_0_2px_var(--color-paper)] transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sun"
+      className="grid size-10 shrink-0 grid-cols-[repeat(3,5px)] grid-rows-[repeat(3,5px)] place-content-center gap-[3px] rounded-xl bg-sun shadow-[inset_0_0_0_2px_var(--paper)] transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sun"
     >
       {Array.from({ length: 9 }, (_, i) => (
         <i key={i} className="size-[5px] rounded-[1.5px] bg-ink" />
