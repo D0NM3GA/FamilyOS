@@ -1,0 +1,5 @@
+/* Phase 58: true of every look but Sticker Book. Their tomato is a sticker color, too pale to read as
+   error text on a light page, so by day that text goes darker. */
+:root:not(.dark) [data-app-root]:not([data-look="sticker"]) .text-tomato {
+  color: #b3261a;
+}

@@ -7,6 +7,7 @@
 @import "./looks/kawaii.css";
 @import "./looks/acanthus.css";
 @import "./looks/vapor.css";
+@import "./looks/shared.css";
 
 /* Hides a scroll area's bar but keeps it scrollable (the app rail). The one utility the
    app used from the vendored shadcn stylesheet, so that file went. */
