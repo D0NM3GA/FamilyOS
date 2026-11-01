@@ -48,6 +48,18 @@ const gothColor = (id: string, name: string, swatch: string, day: string, night:
   };
 };
 
+const synthColor = (id: string, name: string, night: string, nightHover: string, glow: string, link: string, day: string, dayHover: string): LookColor => ({
+  id,
+  name,
+  swatch: night,
+  light: { chrome: "#7f1a3f", chromeHover: "#8f2048", chromeActive: "#9b2650", brand: day, brandHover: dayHover },
+  dark: { chrome: "#0c0620", chromeHover: "#1e1142", chromeActive: "#2a1a58", brand: night, brandHover: nightHover },
+  vars: {
+    light: { "--on-brand": "#ffffff", "--on-chrome": "#fff3dc", "--brand-text": day, "--sun": "#ffc15e", "--synth-glow": "#f28a3a" },
+    dark: { "--on-brand": "#15062b", "--on-chrome": "#f6eeff", "--brand-text": link, "--sun": link, "--synth-glow": glow },
+  },
+});
+
 export const DEFAULT_LOOK = "sticker";
 
 export const LOOKS: readonly Look[] = [
@@ -76,6 +88,18 @@ export const LOOKS: readonly Look[] = [
       gothColor("rosewater", "Rosewater", "#b0386f", "#8f2a58", "#b0386f", "#bf467c", "#ff9ad0", "#6e2a50"),
     ],
     hello: (firstName) => `Good morrow, ${firstName}`,
+  },
+  {
+    id: "synth",
+    name: "Synthwave",
+    blurb: "The arcade at the end of the highway.",
+    colors: [
+      synthColor("outrun", "Outrun", "#ff4fb0", "#ff7cc6", "#ff2fa0", "#27e8ff", "#b3204a", "#a01c42"),
+      synthColor("miami", "Miami", "#27e8ff", "#6ff0ff", "#27e8ff", "#ff8fd0", "#0f6e7a", "#0c5f6a"),
+      synthColor("sunset", "Sunset", "#ffa23c", "#ffb868", "#ff7a1f", "#ffd23f", "#a8430e", "#953b0c"),
+      synthColor("laser", "Laser", "#a78bff", "#bda6ff", "#7a3cff", "#7fe9ff", "#5a2bb0", "#4e249c"),
+    ],
+    hello: (firstName) => `Welcome back, ${firstName}`,
   },
 ];
 

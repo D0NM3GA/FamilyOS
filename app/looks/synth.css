@@ -1,0 +1,301 @@
+/* Phase 58.5, Synthwave: the arcade at the end of the highway. Night is neon on violet, day is a
+   sunset. Each color sets --brand-text, --sun, --on-brand and --synth-glow. */
+[data-app-root][data-look="synth"] {
+  --face-body: var(--font-exo);
+  --face-heading: var(--font-orbitron);
+  --face-hand: var(--font-exo);
+  --ink: #1a0b2e;
+  --ink-soft: #75403f;
+  --paper: #fbdcae;
+  --tomato: #ff6b57;
+  --sky: #4fb3ff;
+  --lime: #a3d95b;
+  --grape: #a68bff;
+  --background: #fff3dc;
+  --foreground: #3a1226;
+  --card: #fff3dc;
+  --card-foreground: #3a1226;
+  --popover: #fff3dc;
+  --popover-foreground: #3a1226;
+  --primary: #3a1226;
+  --primary-foreground: #fff3dc;
+  --secondary: #fbdcae;
+  --secondary-foreground: #3a1226;
+  --muted: #fbdcae;
+  --muted-foreground: #6b3735;
+  --accent: #fbdcae;
+  --accent-foreground: #3a1226;
+  --border: #a61e45;
+  --input: #a61e45;
+  --ring: #3a1226;
+  --grid-line: transparent;
+  --radius: 0rem;
+  --synth-line: #a61e45;
+  --synth-sky: linear-gradient(#fbe3b4, #fbdcae 70%);
+  --synth-grid: #a61e4533;
+  --synth-art: url(/looks/synth-day.webp);
+  --synth-top: #fbe3b4;
+  background: var(--synth-sky);
+}
+.dark [data-app-root][data-look="synth"] {
+  --background: #120a2b;
+  --foreground: #f6eeff;
+  --card: #1e1142;
+  --card-foreground: #f6eeff;
+  --popover: #1e1142;
+  --popover-foreground: #f6eeff;
+  --primary: #f6eeff;
+  --primary-foreground: #120a2b;
+  --secondary: #120a2b;
+  --secondary-foreground: #f6eeff;
+  --muted: #120a2b;
+  --muted-foreground: #c4b5e4;
+  --accent: #120a2b;
+  --accent-foreground: #f6eeff;
+  --border: #7a3cff;
+  --input: #9a6cff;
+  --ring: #ffffff;
+  --synth-line: var(--synth-glow);
+  --synth-sky: linear-gradient(#07031a, #1c0a44 60%, #2d0f63);
+  --synth-grid: #ff2fa04d;
+  --synth-art: url(/looks/synth-night.webp);
+  --synth-top: #07031a;
+}
+
+/* The highway under every page, and scanlines over it. Nothing can tap them. */
+[data-look="synth"] {
+  isolation: isolate;
+}
+[data-look="synth"] main#main,
+.dark [data-look="synth"] main#main {
+  background-color: transparent;
+  background-image: none;
+}
+[data-look="synth"]::before {
+  content: "";
+  position: fixed;
+  left: -60%;
+  right: -60%;
+  bottom: -6%;
+  height: 40%;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--synth-grid) 2px, transparent 2px),
+    linear-gradient(90deg, var(--synth-grid) 2px, transparent 2px);
+  background-size: 60px 40px;
+  transform: perspective(320px) rotateX(62deg);
+  transform-origin: bottom;
+}
+.dark [data-look="synth"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  background: repeating-linear-gradient(transparent 0 3px, #00000014 3px 4px);
+}
+
+/* The bar: a chrome script logo with a star on it. */
+[data-look="synth"] .ui-bar {
+  position: relative;
+  box-shadow: 0 2px 0 var(--synth-line), 0 0 18px -2px var(--synth-glow);
+}
+[data-look="synth"] .ui-wordmark {
+  padding: 0.375rem 0.625rem 0.625rem 0.375rem;
+  font-family: var(--font-dafoe);
+  font-size: 2.125rem;
+  font-weight: 400;
+  line-height: 1.25;
+  background: linear-gradient(#ffffff 20%, #7fe9ff 46%, #172a7a 50%, #ff4fb0 56%, #ffffff 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 6px var(--synth-glow));
+}
+[data-look="synth"] .ui-bar::after {
+  content: "";
+  position: absolute;
+  left: 8.5rem;
+  top: 0.375rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: url(/looks/synth-glint.webp) center/contain no-repeat;
+  pointer-events: none;
+}
+@media (max-width: 639px) {
+  [data-look="synth"] .ui-bar::after {
+    left: 6.75rem;
+  }
+}
+[data-look="synth"] .ui-accent {
+  color: transparent;
+}
+@media (max-width: 639px) {
+  [data-look="synth"] .ui-wordmark {
+    font-size: 1.5rem;
+  }
+}
+
+/* The rail and phone bar. */
+[data-look="synth"] .ui-rail {
+  background: color-mix(in srgb, var(--chrome) 88%, transparent);
+  box-shadow: 2px 0 0 var(--synth-line);
+  font-family: var(--face-heading);
+  letter-spacing: 0.04em;
+}
+[data-look="synth"] .ui-rail a,
+[data-look="synth"] .ui-bottom-bar a {
+  border-radius: 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.625rem;
+}
+[data-look="synth"] .ui-rail a[aria-current],
+[data-look="synth"] .ui-bottom-bar a[aria-current] {
+  background: var(--sun);
+  color: var(--ink);
+  box-shadow: 0 0 14px var(--sun);
+}
+[data-look="synth"] .ui-bottom-bar {
+  z-index: 30;
+  box-shadow: 0 -2px 0 var(--synth-line);
+}
+
+/* Titles and pieces. */
+[data-look="synth"] h1,
+[data-look="synth"] h2,
+[data-look="synth"] .ui-page-title {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+[data-look="synth"] h2 {
+  font-size: 1em;
+}
+[data-look="synth"] h3 {
+  font-family: var(--face-body);
+}
+[data-look="synth"] .ui-page-title {
+  font-size: 1.75rem;
+}
+[data-look="synth"] .ui-section-title,
+[data-look="synth"] .ui-field-label {
+  font-family: var(--face-heading);
+  color: var(--brand-text);
+  letter-spacing: 0.14em;
+}
+[data-look="synth"] .ui-card {
+  border: 1px solid var(--synth-line);
+  border-radius: 0;
+  box-shadow: 0 0 0 1px var(--synth-line), 0 0 18px -3px var(--synth-glow);
+}
+[data-look="synth"] .ui-chip,
+[data-look="synth"] .ui-btn {
+  border-radius: 0;
+  transform: skewX(-10deg);
+  font-family: var(--face-heading);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+[data-look="synth"] .ui-field {
+  border-width: 1px;
+  border-radius: 0;
+}
+[data-look="synth"] .ui-btn-primary {
+  border: 0;
+  box-shadow: 0 0 16px -2px var(--synth-glow), 4px 4px 0 var(--synth-line);
+}
+[data-look="synth"] .ui-btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+/* Home's scene: the road, with the sky left clear for the words. */
+[data-look="synth"] .ui-scene {
+  display: block;
+  margin: -1rem -1rem 1rem;
+  padding: 1.25rem 1rem 15rem;
+  text-align: center;
+  background: var(--synth-art) center bottom/auto 14rem no-repeat;
+  background-color: var(--synth-top);
+  color: var(--foreground);
+  -webkit-mask-image: linear-gradient(#000000 92%, transparent);
+  mask-image: linear-gradient(#000000 92%, transparent);
+}
+@media (min-width: 640px) {
+  [data-look="synth"] .ui-scene {
+    margin: -1.5rem -1.5rem 1rem;
+    padding-bottom: 21rem;
+    background-size: 100% auto;
+    background-position: center bottom;
+  }
+}
+[data-look="synth"] .ui-scene-hello {
+  display: block;
+  overflow-wrap: anywhere;
+  font: 700 clamp(1.25rem, 4vw, 2rem)/1.15 var(--face-heading);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 0 12px var(--synth-glow);
+}
+[data-look="synth"] .ui-scene-date {
+  display: block;
+  margin-top: 0.25rem;
+  font: 600 0.6875rem/1.4 var(--face-heading);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-text);
+}
+
+/* Words over a picture: a plate, so they read whatever is behind them. */
+[data-look="synth"] .ui-scene-hello,
+[data-look="synth"] .ui-scene-date {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  padding: 0.25rem 0.75rem;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--synth-line);
+}
+[data-look="synth"] .ui-scene-date {
+  margin-top: 0;
+}
+
+[data-poster="synth"] {
+  min-height: 7rem;
+  background: url(/looks/synth-night.webp) center bottom/cover no-repeat;
+  border-radius: 0;
+  border-color: #ff2fa0;
+}
+[data-poster="synth"] b {
+  font: 400 1.75rem/1.1 var(--font-dafoe);
+  padding-bottom: 0.25rem;
+  transform: rotate(-5deg);
+  background: linear-gradient(#ffffff 20%, #7fe9ff 46%, #172a7a 50%, #ff4fb0 56%, #ffffff 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-poster="synth"] span {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-look="synth"]::before { animation: synth-drive 1.4s linear infinite; }
+  [data-look="synth"] .ui-bar::after { animation: synth-glint 3.6s ease-in-out infinite; }
+  [data-look="synth"] .ui-scene { animation: synth-crt 0.6s ease-out; }
+  [data-look="synth"] .ui-scene-date { animation: synth-neon 7s linear infinite; }
+}
+@keyframes synth-drive { to { background-position: 0 40px; } }
+@keyframes synth-glint {
+  0%, 70%, 100% { transform: scale(0); }
+  85% { transform: scale(1) rotate(45deg); }
+}
+@keyframes synth-crt {
+  0% { transform: scaleY(0.01); filter: brightness(4); }
+  60% { transform: scaleY(1); filter: brightness(1.8); }
+}
+@keyframes synth-neon {
+  0%, 92%, 96%, 100% { opacity: 1; }
+  94%, 98% { opacity: 0.35; }
+}
