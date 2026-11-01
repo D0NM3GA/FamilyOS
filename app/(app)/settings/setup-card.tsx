@@ -24,29 +24,29 @@ export function SetupCard({ items, hidden, admin }: { items: SetupItem[]; hidden
   const done = items.length - left.length;
   const next = left[0];
   return (
-    <section aria-labelledby="setup-heading" className="space-y-4 rounded-3xl bg-ink p-5 text-white sm:p-6 dark:bg-card dark:ring-2 dark:ring-sun/40">
+    <section aria-labelledby="setup-heading" className="space-y-4 rounded-3xl bg-ink p-5 text-on-ink sm:p-6 dark:bg-card dark:text-card-foreground dark:ring-2 dark:ring-sun/40">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-wider text-sun">Finish setting up</p>
           <h2 id="setup-heading" className="font-heading text-2xl font-extrabold leading-tight">
             {done} of {items.length} done. {left.length === 1 ? "One left." : `${left.length} to go.`}
           </h2>
-          <p className="mt-1 text-sm text-white/80">The app works without these, but each one makes it more useful for the whole family.</p>
+          <p className="mt-1 text-sm text-on-ink/80">The app works without these, but each one makes it more useful for the whole family.</p>
         </div>
         <form action={hideSetupCard}>
-          <SubmitButton className="inline-flex min-h-11 items-center rounded-xl border-2 border-white/30 px-3 text-sm font-bold text-white hover:bg-white/10 sm:min-h-9">
+          <SubmitButton className="inline-flex min-h-11 items-center rounded-xl border-2 border-on-ink/30 px-3 text-sm font-bold text-on-ink hover:bg-on-ink/10 sm:min-h-9">
             Hide for now
           </SubmitButton>
         </form>
       </div>
-      <div role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={done} className="h-3 overflow-hidden rounded-full bg-white/15">
+      <div role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={done} className="h-3 overflow-hidden rounded-full bg-on-ink/15">
         <div className="h-full rounded-full bg-sun" style={{ width: `${Math.round((done / items.length) * 100)}%` }} />
       </div>
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(16rem,100%),1fr))] gap-x-4 gap-y-1">
         {items.map((item) => (
           <li key={item.id}>
             {item.done ? (
-              <span className="flex min-h-9 items-center gap-2 text-sm text-white/70">
+              <span className="flex min-h-9 items-center gap-2 text-sm text-on-ink/70">
                 <span className="grid size-6 shrink-0 place-items-center rounded-full bg-sun text-ink">
                   <Check className="size-3.5" aria-hidden="true" />
                 </span>
@@ -54,8 +54,8 @@ export function SetupCard({ items, hidden, admin }: { items: SetupItem[]; hidden
                 <span className="sr-only">(done)</span>
               </span>
             ) : (
-              <Link href={item.href} className="flex min-h-9 items-center gap-2 text-sm font-bold text-white hover:underline">
-                <span className="size-6 shrink-0 rounded-full border-2 border-white/50" aria-hidden="true" />
+              <Link href={item.href} className="flex min-h-9 items-center gap-2 text-sm font-bold text-on-ink hover:underline">
+                <span className="size-6 shrink-0 rounded-full border-2 border-on-ink/50" aria-hidden="true" />
                 {item.label}
               </Link>
             )}
@@ -70,7 +70,7 @@ export function SetupCard({ items, hidden, admin }: { items: SetupItem[]; hidden
           {admin ? "Pick up where you left off" : next.label}
           <ArrowRight className="size-4" aria-hidden="true" />
         </Link>
-        <span className="text-sm text-white/80">
+        <span className="text-sm text-on-ink/80">
           Next: {next.label.toLowerCase()}, {next.why}.
         </span>
       </div>

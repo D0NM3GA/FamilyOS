@@ -15,7 +15,7 @@ export const pageTitle = "text-4xl font-extrabold leading-tight";
 export const sectionTitle = "text-xs font-extrabold uppercase tracking-wide text-muted-foreground";
 
 /** The one main thing to do on a page or form ("+ New chore", "Save"). */
-export const btnPrimary = `${tap} rounded-xl bg-brand px-4 text-sm font-bold text-white transition hover:bg-brand-hover active:scale-95 disabled:opacity-50`;
+export const btnPrimary = `${tap} rounded-xl bg-brand px-4 text-sm font-bold text-on-brand transition hover:bg-brand-hover active:scale-95 disabled:opacity-50`;
 
 /** Everything else (Print, Export, Manage, Cancel). */
 export const btn = `${tap} rounded-xl px-3 text-sm font-bold text-muted-foreground ring-1 ring-input transition hover:bg-muted hover:text-foreground disabled:opacity-50`;

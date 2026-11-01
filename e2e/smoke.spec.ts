@@ -590,7 +590,8 @@ test("a card statement CSV is checked on a few rows, imported, and removed again
 
   // The rows are in the jar's Activity.
   const settings = page.url();
-  await page.goto(settings.replace(/\/settings$/, ""));
+  // Asks for the statement's month: the page opens on the current one, which moves on.
+  await page.goto(`${settings.replace(/\/settings$/, "")}?month=2026-10`);
   await expect(page.getByText("Corner Grocery").first()).toBeVisible();
 
   // Phase 57.3: a charge's category is a searchable picker inside the charge's sheet (a native

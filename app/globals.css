@@ -19,24 +19,27 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Was `var(--font-sans)` — a self-referencing cycle that made this invalid, so every
-     page silently fell back to the browser's serif default. Fixed as part of wiring
-     Nunito in (Design pass, see docs/BUILD.md). */
-  --font-sans: var(--font-nunito);
-  /* Phase 19 Sticker Book: Baloo 2 for headings, Gaegu for small handwritten notes
-     (`font-hand`), Nunito stays the body face. Wired in app/layout.tsx via next/font. */
-  --font-heading: var(--font-baloo);
-  --font-hand: var(--font-gaegu);
-  /* Sticker Book palette (fixed in both themes — they're sticker colors, always paired
-     with ink text; see lib/person-color.ts for the AA check). */
-  --color-ink: #1f2933;
-  --color-ink-soft: #5b6670;
-  --color-paper: #f7f1e3;
-  --color-sun: #ffd23f;
-  --color-tomato: #ff6b57;
-  --color-sky: #4fb3ff;
-  --color-lime: #a3d95b;
-  --color-grape: #a68bff;
+  /* Phase 58: everything a look can change goes through a variable on :root (or the look's own
+     rule on [data-app-root]), so it isn't fixed when Tailwind builds. `inline` is what makes this
+     work: utilities read the inner variable where they're used, at the element, rather than one
+     resolved once on :root. Which is also why CSS here says var(--ink), never var(--color-ink). */
+  --font-sans: var(--face-body);
+  --font-heading: var(--face-heading);
+  --font-hand: var(--face-hand);
+  /* Sticker Book palette (the same in light and dark: sticker colors, always paired with ink
+     text; see lib/person-color.ts for the AA check). */
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-paper: var(--paper);
+  --color-sun: var(--sun);
+  --color-tomato: var(--tomato);
+  --color-sky: var(--sky);
+  --color-lime: var(--lime);
+  --color-grape: var(--grape);
+  /* Text on the bar and on main buttons: white in Sticker Book, not in every look. */
+  --color-on-chrome: var(--on-chrome);
+  --color-on-brand: var(--on-brand);
   /* Chrome (top bar, rail, bottom bar) and brand (solid primary buttons, always with
      text-white at the ~47 call sites) are reactive: ink in light mode, but ink would vanish
      against the dark theme's cards, so dark mode swaps brand to a deep sky that still
@@ -88,6 +91,21 @@
 }
 
 :root {
+  /* Phase 58: Sticker Book's type and palette. next/font's variables are on <html>, this element. */
+  --face-body: var(--font-nunito);
+  --face-heading: var(--font-baloo);
+  --face-hand: var(--font-gaegu);
+  --ink: #1f2933;
+  --on-ink: #ffffff;
+  --ink-soft: #5b6670;
+  --paper: #f7f1e3;
+  --sun: #ffd23f;
+  --tomato: #ff6b57;
+  --sky: #4fb3ff;
+  --lime: #a3d95b;
+  --grape: #a68bff;
+  --on-chrome: #ffffff;
+  --on-brand: #ffffff;
   /* Phase 19 Sticker Book (light): ink text on warm card, paper as the page floor. Every
      value here was contrast-checked in the Phase 19 scope review (see docs/BUILD.md). */
   color-scheme: light;
@@ -220,7 +238,7 @@ main#main,
    every call site, and shadows (this app's usual hover cue, e.g. shadow-md) read as
    basically invisible against a near-black surface, so this replaces that cue here. */
 .dark .bg-brand:hover {
-  box-shadow: 0 0 20px -4px var(--color-brand-hover);
+  box-shadow: 0 0 20px -4px var(--brand-hover);
 }
 
 @layer base {
@@ -233,6 +251,10 @@ main#main,
   html {
     @apply font-sans;
   }
+  /* Inherited as a computed font, so a look on this element has to set it here too. */
+  [data-app-root] {
+    font-family: var(--face-body);
+  }
   /* Windows draws an open <select>'s list in the select's own colours. Most selects here have
      no background of their own, so in dark mode the rows came out white under the theme's
      light text, readable only on the hovered row. The list always gets the popover colours. */
@@ -244,7 +266,7 @@ main#main,
   h1,
   h2,
   h3 {
-    font-family: var(--font-heading);
+    font-family: var(--face-heading);
   }
   /* Phase 38: a submit button whose form is busy (components/submit.tsx). In the base layer so
      a button's own disabled: utilities still win where it has them. */
@@ -557,15 +579,15 @@ select:disabled {
 }
 @keyframes pet-reveal-out {
   0% {
-    filter: drop-shadow(0 0 0 #ffd23f);
+    filter: drop-shadow(0 0 0 var(--sun));
     opacity: 1;
   }
   60% {
-    filter: brightness(0) drop-shadow(0 0 12px #ffd23f);
+    filter: brightness(0) drop-shadow(0 0 12px var(--sun));
     opacity: 1;
   }
   100% {
-    filter: brightness(0) drop-shadow(0 0 24px #ffd23f);
+    filter: brightness(0) drop-shadow(0 0 24px var(--sun));
     opacity: 0;
     transform: scale(1.15);
   }

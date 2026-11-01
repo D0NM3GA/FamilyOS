@@ -131,7 +131,7 @@ function Tile({ tile }: { tile: HubTile }) {
         </span>
         {tile.preview && (
           <span aria-hidden="true" className="min-w-60 flex-[0_1_20rem] overflow-hidden rounded-xl border-2 border-border bg-muted">
-            <span className="flex h-9 items-center bg-chrome px-3 font-heading text-lg font-extrabold text-white">
+            <span className="flex h-9 items-center bg-chrome px-3 font-heading text-lg font-extrabold text-on-chrome">
               {tile.preview.appName}
             </span>
             <span className="flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold">

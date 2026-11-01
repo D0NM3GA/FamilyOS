@@ -123,7 +123,7 @@ export function ProfileGrid({ self, people }: { self: SelfTile; people: Tile[] }
             Their profile only opens with their own sign-in (it keeps their money and messages private).
             To switch, sign out here and let them sign in.
           </p>
-          <SignOutButton className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-brand font-bold text-white hover:bg-brand-hover disabled:opacity-50">
+          <SignOutButton className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-brand font-bold text-on-brand hover:bg-brand-hover disabled:opacity-50">
             Sign out so they can sign in
           </SignOutButton>
         </NoteDialog>

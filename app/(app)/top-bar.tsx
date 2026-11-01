@@ -26,7 +26,7 @@ export function TopBar({
 }) {
   const appName = useAppName();
   return (
-    <header className="flex h-16 items-center gap-3 bg-chrome px-3 text-white md:gap-4">
+    <header className="flex h-16 items-center gap-3 bg-chrome px-3 text-on-chrome md:gap-4">
       <LauncherButton />
       {/* A family's own name can be long: it gives way (…) before the icons on a phone do. */}
       <span className="min-w-0 truncate py-1 font-heading text-xl font-extrabold leading-none sm:text-2xl" title={appName}>
@@ -36,13 +36,13 @@ export function TopBar({
       <form action="/search" method="get" className="relative hidden max-w-xl flex-1 sm:block">
         <Search
           size={16}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/50"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-chrome/50"
         />
         <input
           type="search"
           name="q"
           placeholder="Find anything…"
-          className="w-full rounded-xl bg-white/10 py-2 pl-9 pr-3 text-sm text-white placeholder-white/50 outline-none focus:bg-white/15"
+          className="w-full rounded-xl bg-on-chrome/10 py-2 pl-9 pr-3 text-sm text-on-chrome placeholder-on-chrome/50 outline-none focus:bg-on-chrome/15"
         />
       </form>
 
@@ -53,12 +53,12 @@ export function TopBar({
         <Link
           href="/search"
           aria-label="Search"
-          className="grid size-11 place-items-center rounded-md text-white/70 hover:bg-chrome-hover hover:text-white sm:hidden"
+          className="grid size-11 place-items-center rounded-md text-on-chrome/70 hover:bg-chrome-hover hover:text-on-chrome sm:hidden"
         >
           <Search size={18} />
         </Link>
 
-        <ThemeToggle className="text-white/70 hover:bg-chrome-hover hover:text-white" />
+        <ThemeToggle className="text-on-chrome/70 hover:bg-chrome-hover hover:text-on-chrome" />
 
         {unread !== undefined && <Bell unread={unread} />}
 

@@ -1124,3 +1124,18 @@ with `DEV_AUTH` set (check builds with `DEV_AUTH= npm run build`). Everything is
   instances.
 - **Phase 6:** a no-date service log defaults to local midnight so "latest" and undo stay correct;
   undo doesn't revert an odometer bump (no pre-bump reading is stored), and the button says so.
+
+## Phase 58 — Looks
+
+A look belongs to a person and changes type, shape, art, motion and a little of the app's voice,
+not only color. Scope in `docs/PLAN.md`.
+
+### 58.1a — Everything a look changes became a variable
+
+Sticker Book looks as it did. `ink`, `sun`, `paper`, the sticker colors and the three type faces
+were fixed when Tailwind built; they now go through `--ink`, `--face-heading` and so on, on `:root`,
+so a look can override them on `[data-app-root]`. `--on-brand`, `--on-chrome` and `--on-ink` replace
+`text-white` on main buttons, the bar and ink panels. Code reads `var(--ink)`, never
+`var(--color-ink)`, which would resolve once on `:root`; `lib/look-tokens-guard.test.ts` holds these
+rules. Red, green and amber status colors were left alone (the scope's plan to tokenize them was
+dropped once measured): they already have day and night shades, and every look has both.

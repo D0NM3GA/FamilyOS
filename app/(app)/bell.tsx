@@ -84,7 +84,7 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
               setUnread(0);
             });
         }}
-        className="relative grid size-11 place-items-center rounded-md text-white/80 hover:bg-chrome-hover hover:text-white sm:size-9"
+        className="relative grid size-11 place-items-center rounded-md text-on-chrome/80 hover:bg-chrome-hover hover:text-on-chrome sm:size-9"
       >
         <BellIcon size={20} aria-hidden />
         {unread > 0 && (

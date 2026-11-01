@@ -83,7 +83,7 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
       )}
 
       <section className="grid gap-4 md:grid-cols-[1.2fr_1fr]">
-        <div className="rounded-3xl border-2 border-ink bg-sun p-5 text-ink shadow-[4px_4px_0_var(--color-ink)]">
+        <div className="rounded-3xl border-2 border-ink bg-sun p-5 text-ink shadow-[4px_4px_0_var(--ink)]">
           <p className="text-sm font-extrabold uppercase tracking-wider">My wallet</p>
           <p className="font-heading text-5xl font-extrabold leading-none">
             <span aria-hidden>⭐ </span>

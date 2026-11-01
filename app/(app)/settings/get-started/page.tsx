@@ -58,7 +58,7 @@ export default async function GetStartedPage({ searchParams }: { searchParams: P
               >
                 <span
                   className={`grid size-7 shrink-0 place-items-center rounded-full border-2 text-xs font-extrabold ${
-                    i < index ? "border-transparent bg-sun text-ink" : s.id === step ? "border-ink bg-ink text-white dark:border-sun dark:bg-sun dark:text-ink" : "border-border"
+                    i < index ? "border-transparent bg-sun text-ink" : s.id === step ? "border-ink bg-ink text-on-ink dark:border-sun dark:bg-sun dark:text-ink" : "border-border"
                   }`}
                 >
                   {i < index ? <Check className="size-4" aria-hidden="true" /> : i === 0 ? "·" : i === STEPS.length - 1 ? "★" : i}

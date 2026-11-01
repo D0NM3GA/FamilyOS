@@ -14,7 +14,7 @@ export default function NotFound() {
       <BunsonMoment kind="cheer" pose="stand" text={MOMENT_LINES.notFound} />
       <Link
         href="/"
-        className="rounded-2xl border-2 border-ink bg-sun px-6 py-3 font-heading text-lg font-extrabold text-ink shadow-[3px_3px_0_var(--color-ink)] transition hover:-translate-y-0.5"
+        className="rounded-2xl border-2 border-ink bg-sun px-6 py-3 font-heading text-lg font-extrabold text-ink shadow-[3px_3px_0_var(--ink)] transition hover:-translate-y-0.5"
       >
         Back home
       </Link>

@@ -89,7 +89,7 @@ export function TeamsAppButtons({ label, askFirst }: { label: string; askFirst: 
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex min-h-11 items-center rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-50 sm:min-h-9"
+            className="inline-flex min-h-11 items-center rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-on-brand hover:bg-brand-hover disabled:opacity-50 sm:min-h-9"
           >
             {pending ? "Publishing…" : label}
           </button>

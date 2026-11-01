@@ -1438,6 +1438,180 @@ against this codebase, the browser facts and the forms, and is folded in.
 2. **The styled list on mouse-first devices only** (Macs, Windows PCs, touchscreen laptops
    included); phones and iPads always keep their own pickers.
 
+## Phase 58 — scope (looks: six worlds to live in, 2026-11-01)
+
+Today's "themes" are one design with eight top bar colors, set for the whole family, plus
+light/dark per browser. The owner wants real choices with real character, and made three calls
+(2026-11-01): the six looks are Goth, Kawaii, Acanthus, Synthwave, Vaporwave and Neo-brutal; a
+look belongs to the person, not the family; and each goes all in on its genre, "more than a color
+palette change", because people spend more time in something worth looking at. The agreed design
+is the Theme Explorer canvas (a private claude.ai artifact, in the owner's account); its art
+generator and CSS are in `docs/looks-prototype/` until this phase replaces them.
+
+### The rules every look keeps
+
+- **Same pages, same markup.** A look is tokens, CSS on shared hooks, art and motion. No page is
+  written seven times, so a new page gets all seven looks for free.
+- **Plain words stay.** "Chores" and "Today" stay visible and searchable; flavor sits beside them.
+  Nothing a person needs to act on is only in a look's voice. The prototype's Vaporwave window
+  titles replace the plain word for sighted users: here the title bar shows both.
+- **Still usable:** text 4.5:1, tap targets 44px, a visible keyboard focus in every look (Goth's
+  clipped buttons can't use the normal ring), no hover-only meaning, motion off under
+  `prefers-reduced-motion`, decoration never takes a tap, and a moment never blocks or needs
+  dismissing (the Vaporwave dialog closes itself).
+- **Privacy:** art and voice carry nothing about any family. The wordmark comes from `Wordmark`,
+  reward words from `useRewardWords`. Fonts ship with the app through `next/font`, never fetched
+  from Google by the browser. Art is made here (`scripts/`), fonts are open licensed.
+
+### 58.1 — Foundations, nothing visibly changes
+
+The prerequisite, and the riskiest part because it touches the most files.
+
+Two pull requests, because together it's about 250 class edits. Fable's scope review
+(2026-11-01) checked the scope against the code and is folded in.
+
+**58.1a, tokens and guards:**
+
+- **An indirection layer is the whole mechanism.** `@theme inline` holds literal hex and
+  `--font-heading: var(--font-baloo)` (`globals.css`), so `bg-ink` compiles to a fixed color and
+  `next/font`'s variables live on `<html>`. So `--color-ink: var(--ink)`, the same for `sun`,
+  `paper` and the sticker colors, and `--font-heading: var(--face-heading)`, with Sticker Book's
+  values on `:root` and `.dark` and each look's on `[data-app-root][data-look=…]` and
+  `.dark [data-look=…]`.
+- **New tokens.** `--on-brand` and `--on-chrome` replace `text-white` where it means text on a
+  button or on the bar (neo-brutal's buttons are pink with black text, its bar yellow).
+- **Status colors stay as they are.** Measured 2026-11-01: red, green and amber classes already pair
+  a light and a `dark:` shade, and every look has a day and a night, so they stay readable without
+  165 edits; the browser test's `axe` run over each look catches any that don't. A look with light
+  windows at night (Vaporwave) draws them dark instead, or scopes the fix to itself. Decorative
+  `tomato`/`sky`/`lime`/`grape` become tokens with the rest of the palette. The pet's room and
+  sprites keep their hex: pixel art is its own world, in every look. `lib/person-color.ts` returns
+  its own ink hex, so it's unaffected.
+- **Guards:** a test that fails on `text-white` beside `bg-brand` or `bg-chrome`. Screenshots of a dozen key pages before and after, in light and dark, must match
+  apart from intended fixes.
+
+**58.1b, shared hooks:** `components/styles.ts` strings gain stable class names (`ui-card`,
+`ui-btn`, `ui-chip`, `ui-field`, `ui-page-title`, `ui-section-title`), and the 31 files that spell
+out a card by hand (`rounded-2xl border-2 border-ink`) move to the shared string.
+
+### 58.2 — A look per person, and trying them on
+
+- **`Person.look String?`**, a preset id checked in code like `themeColor` (null or an unknown id
+  is Sticker Book). A display preference like `viewMode`: not in backups (add it to `lib/backup/coverage.test.ts`'s exclusions).
+  `setMyLook` in `prefs-actions.ts` saves look and color for the active profile, so anyone may
+  change their own.
+- **Applied on the server on `data-app-root`** in `app/(app)/layout.tsx`, which already knows the
+  active profile. So no flash, a shared tablet changes with the person, and the root layout never
+  reads a session. Pages outside the shell (sign-in, setup, the profile grid, errors) and print
+  stay Sticker Book. The shop and money `<dialog>`s sit inside the root, so they inherit it. `body`
+  keeps Sticker Book's color, seen only in an iPhone overscroll bounce.
+- **`lib/looks.ts`** lists the looks: id, name, blurb, its modes' tokens, fonts, art, voice. Pure,
+  like `lib/theme-colors.ts`, with a contrast test over the pairs that are really used, in both
+  modes: sun/ink (34 places), paper/ink, card/ink, brand/on-brand, chrome/its text, and the rest.
+- **Day and night stay per device** (today's `localStorage`, with Match device): what's comfortable
+  depends on the room. Every look has both. `<meta theme-color>` follows the look's bar from the
+  client, since `generateViewport` can't know the person: `theme-toggle.tsx` reads `--chrome` from
+  `[data-app-root]`, and keeps its own tag whenever a look other than Sticker Book is worn, in
+  every mode including Match device (today it removes the tag there).
+- **Loading:** each look's CSS is its own file, `app/(app)/looks/<id>.css`, loaded by a client
+  `LookStyles` component through dynamic `import()`: fingerprinted under `/_next/static`, allowed by
+  the CSP's `style-src 'self'`, and processed by Tailwind. Next never removes a loaded stylesheet,
+  so tried looks stay in the page, inert because `data-look` scopes them. Fonts `preload: false`,
+  art compressed (WebP, target under 600KB a look), so people download only what they wear. Try-on
+  fetches a look when tapped and shows it once ready.
+- **Offline (`public/sw.js`):** the Shop copy saves the files the HTML names, so only the worn look
+  must be named there, and the worker's uncapped font list gets a cap. The copy carries whoever was
+  active when it was saved, so offline Shop on a shared tablet shows their look. That's acceptable.
+- **The picker tries looks on the real app, not a mock.** From the name menu and Settings' own
+  card, a sheet (bottom on a phone, a side panel on a computer) opens over the page you're on with
+  the poster cards, Day/Night/Match device, and Keep it / Put it back. A small client provider owns `data-look`, rendering it from
+  state seeded by the server's value, so React and the page can't disagree after Keep it. Tapping
+  changes only that state; only Keep it saves. The layout survives navigation, so the sheet closes
+  and reverts when `usePathname` changes. Posters are native radios in the Keep it form (arrow keys
+  and semantics for free, `onChange` tries it on, `SubmitButton` saves; any other button there is
+  `type="button"`). From Settings it opens on Home, the richest page to judge by.
+- **The theme switch at the top stays** for day and night.
+
+### 58.3–58.8 — The looks, one pull request each
+
+Each ships complete: tokens for day and night, type, shell (bar, rail, phone bottom bar), shared
+hooks, art, idle motion, voice, and its moment. Order: Neo-brutal first (the least art and the
+hardest test of `--on-brand`, so it proves the engine), then Goth, Synthwave, Kawaii, Acanthus,
+Vaporwave (last because it reshapes the most, with a taskbar and windows).
+
+- **Voice is small and bounded:** Home's greeting and date, section kickers on Home, each app's page
+  title kicker, empty states where a page has one, and the moment's word. One dictionary per look in
+  `lib/looks.ts`. Everything else stays the app's normal words.
+- **Big buttons** keeps its size and layout in every look; Goth's headings use a readable gothic
+  face there, for the kids it's made for.
+- **Japanese and kanji:** `next/font/google` keeps Google's unicode-range slices, so kana kickers
+  fetch one or two small files from the app. "蒸気波" is part of the art. About 15 more families
+  are fetched at build, as the three today are; if that makes the Docker build flaky, 58.2 moves
+  them to `next/font/local`.
+- **Every look is checked on real pages,** not just Home: a long list (Groceries), a form (New
+  chore), a table (Money), Calendar, a phone in Big buttons, and a dialog. Frames and tilted cards
+  are the likeliest to break on dense pages, so tilts and heavy frames apply on Home and top-level
+  summary cards; dense lists and forms stay straight.
+
+### 58.9 — The moment you finish something
+
+- **`components/look-moment.tsx`:** one component, rendered by whatever just completed, drawing the
+  worn look's moment (the coffin flare, the wax seal, "DONE."). First: finishing a chore, then meds
+  taken and a grocery trip finished. Decorative, `aria-hidden` (the action already announces itself),
+  under 2 seconds, never a layer that catches taps.
+- Sticker Book keeps its existing celebrations and the mascot's. He visits in every look and isn't
+  redrawn.
+
+### 58.10 — Guides and close
+
+`docs/guides/family.md` (picking a look, the top switch), `docs/guides/admin.md` (a look is each
+person's; what Make it yours still does), `docs/BUILD.md`, README. `docs/looks-prototype/` is
+removed. `axe` runs in the browser test across every look in both modes on a few pages.
+
+### The owner's answers (2026-11-01)
+
+- **The color chooser stays, per look.** Each look offers its own named colors (Sticker Book the
+  eight it has today, the others about four each), and a person picks one with their look:
+  `Person.lookColor String?`, checked in code against that look's list, so a color that doesn't
+  belong falls back to the look's first. A color changes the accent tokens only (brand, chips,
+  links, the wordmark's accent), and the contrast test runs over every look, mode and color. Art
+  drawn in the accent (Goth's frames) is painted per color or takes it from a CSS mask.
+- **The family's color stays too, in Make it yours,** because some things have no person: the
+  sign-in page and other pages outside the shell, the letter icon, the installed app's manifest and
+  the Teams app (`lib/app-icon.tsx`, `app/manifest.ts`, `lib/teams/manifest.ts`). It's also Sticker
+  Book's color for anyone who hasn't picked their own, so nobody's copy changes. Its heading becomes
+  "Family color", with help text saying each person picks their own look. Backups keep it.
+- **New people start on Sticker Book, and choosing is part of onboarding.** The only walkthrough
+  today is the admin's first-run setup (`settings/get-started`), so:
+  - it gains a step, "Your look", after Make it yours (`steps.ts`, "Step n of 6", the welcome list,
+    `e2e/smoke.spec.ts`), holding the picker inline. Skippable like every step;
+  - everyone else (invited grown-ups, kids) has no walkthrough, so the first time a person reaches
+    the app the try-on sheet opens once, with a short welcome: `Person.lookPromptSeenAt DateTime?`,
+    set by Keep it, by closing the sheet, or by the setup step. Display state, not in backups. It
+    doesn't open in the Pet's first reveal, over setup, or while another person's PIN is asked for;
+    existing people see it once too, which is how they learn looks exist.
+- **Anyone can pick any look.** No role or age check.
+- **No sound for now.** The owner will come back to it.
+
+### Everything it touches
+
+Checked 2026-11-01, beyond the files named above:
+
+- **Shell:** `top-bar.tsx`, `nav-rail.tsx` (rail and phone bar), `profile-menu.tsx` (the entry),
+  `bell.tsx`, `app-launcher.tsx`, `loading.tsx`, `error.tsx`, the graph paper on `main#main`.
+  `app/dev-preview/shell` copies the root's attributes, so it learns `data-look`.
+- **Fonts:** `html` sets `font-sans`, and children inherit the computed font, so a look sets
+  `font-family` on `[data-app-root]` itself as well as swapping `--face-*`.
+- **Settings:** `hub.tsx` (your own card, and its bar preview of the family's color),
+  `make-it-yours/*`, `setup-checklist.ts`.
+- **Outside the shell, staying Sticker Book in the family's color:** sign-in, setup, invite,
+  `/profiles`, `not-found`, `global-error`, `app/print/*` (forced light already). `not-found` shows
+  inside no shell even for a signed-in person.
+- **Unchanged by design:** the pet (hex pixel art), `lib/person-color.ts`, the mascot, `next/og`
+  icons, emails, Teams messages.
+- **Data:** a migration adding `look`, `lookColor`, `lookPromptSeenAt` on `Person`, the backup
+  exclusions in `coverage.test.ts`, and `prisma/seed-demo.ts` giving the made-up family a mix.
+
 ## Open items
 
 ### Waiting on a decision

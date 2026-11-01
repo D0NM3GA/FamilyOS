@@ -160,7 +160,7 @@ export default async function HomePage() {
       {openOrders.length > 0 && (
         <Link
           href="/points#orders"
-          className="mt-6 block rounded-3xl border-2 border-ink bg-sun p-4 text-ink shadow-[4px_4px_0_var(--color-ink)] transition hover:-translate-y-0.5"
+          className="mt-6 block rounded-3xl border-2 border-ink bg-sun p-4 text-ink shadow-[4px_4px_0_var(--ink)] transition hover:-translate-y-0.5"
         >
           <p className="font-heading text-xl font-extrabold">
             🛍️ {openOrders.length} {openOrders.length === 1 ? "reward" : "rewards"} to make happen
