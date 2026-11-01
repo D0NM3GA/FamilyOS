@@ -88,6 +88,22 @@ const acanthusColor = (id: string, name: string, day: string, dayHover: string, 
   },
 });
 
+const vaporColor = (id: string, name: string, dayPage: string, nightPage: string, brand: string, brandHover: string, link: string, bar1: string, bar2: string): LookColor => {
+  const silver = { chrome: "#d4cfe6", chromeHover: "#c4bedc", chromeActive: "#b6afd2" };
+  const page = (p: string) => ({ "--muted": p, "--secondary": p, "--accent": p, "--vapor-bar1": bar1, "--vapor-bar2": bar2 });
+  return {
+    id,
+    name,
+    swatch: nightPage,
+    light: { ...silver, brand, brandHover },
+    dark: { ...silver, brand: "#ff71ce", brandHover: "#ff8fd8" },
+    vars: {
+      light: { ...page(dayPage), "--on-chrome": "#14093f", "--on-brand": "#ffffff", "--brand-text": link, "--ring": link },
+      dark: { ...page(nightPage), "--on-chrome": "#14093f", "--on-brand": "#14093f", "--brand-text": "#05e6ff", "--ring": "#05e6ff" },
+    },
+  };
+};
+
 export const DEFAULT_LOOK = "sticker";
 
 export const LOOKS: readonly Look[] = [
@@ -152,6 +168,19 @@ export const LOOKS: readonly Look[] = [
       acanthusColor("willow", "Willow", "#2f4a7a", "#29416b", "#7a3d2c", "#9db6d6", "#b4c8e2", "#e6c87e"),
     ],
     hello: (firstName) => `Welcome home, ${firstName}`,
+  },
+  {
+    id: "vapor",
+    name: "Vaporwave",
+    blurb: "The whole family, on a 1995 desktop.",
+    colors: [
+      vaporColor("cobalt", "Cobalt", "#a8e6e4", "#1c12b8", "#c21e8f", "#ab1a7e", "#2a1fb5", "#c21e8f", "#3a2bd1"),
+      vaporColor("flamingo", "Flamingo", "#ffd3ea", "#5a0f7a", "#b3125f", "#9e1054", "#8a0f55", "#c21f66", "#7a2bd1"),
+      vaporColor("lagoon", "Lagoon", "#b8f0e0", "#0b3f6b", "#0f6e7a", "#0c5f6a", "#0b5f6b", "#0c7777", "#2a5fd1"),
+      vaporColor("arizona", "Arizona", "#ffe0b8", "#3a1a6b", "#a8430e", "#953b0c", "#8f3a0c", "#b8430f", "#7a2bd1"),
+    ],
+    // No time of day: the banner stays up all day.
+    hello: (firstName) => `Hello, ${firstName}`,
   },
 ];
 

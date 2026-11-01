@@ -1,0 +1,343 @@
+/* Phase 58.8, Vaporwave: the whole app is a desktop from 1995. Cards are windows with title bars, the
+   nav is desktop icons, and the bust keeps watch on Home. Windows are silver by day and dark at night,
+   so every status color's day and night shade stays right. Each color sets the page and title bars. */
+[data-app-root][data-look="vapor"] {
+  --face-body: var(--font-plex);
+  --face-heading: var(--font-pixelify);
+  --face-hand: var(--font-plex);
+  --ink: #14093f;
+  --ink-soft: #3a3468;
+  --paper: #d4cfe6;
+  --sun: #ffd23f;
+  --tomato: #ff7f6e;
+  --sky: #7fdcff;
+  --lime: #7dffb0;
+  --grape: #c4a8ff;
+  --background: #ffffff;
+  --foreground: #15204e;
+  --card: #efeaf7;
+  --card-foreground: #15204e;
+  --popover: #efeaf7;
+  --popover-foreground: #15204e;
+  --primary: #15204e;
+  --primary-foreground: #ffffff;
+  --muted-foreground: #333c66;
+  --border: #15204e;
+  --input: #15204e;
+  --grid-line: transparent;
+  --radius: 0rem;
+  --vapor-edge-hi: #ffffff;
+  --vapor-edge-lo: #15204e;
+  --vapor-edge-mid: #8f89ad;
+  --vapor-gridc: #15204e1f;
+  --vapor-glitch1: #ff71ce;
+  --vapor-glitch2: #ffffff;
+}
+.dark [data-app-root][data-look="vapor"] {
+  --background: #120c5a;
+  --foreground: #f7f2ff;
+  --card: #18106f;
+  --card-foreground: #f7f2ff;
+  --popover: #18106f;
+  --popover-foreground: #f7f2ff;
+  --primary: #f7f2ff;
+  --primary-foreground: #14093f;
+  --muted-foreground: #d8d3f5;
+  --border: #c7c1f2;
+  --input: #c7c1f2;
+  --vapor-edge-hi: #8f89e8;
+  --vapor-edge-lo: #05032a;
+  --vapor-edge-mid: #3a33a8;
+  --vapor-gridc: #ffffff26;
+  --vapor-glitch1: #ff71ce;
+  --vapor-glitch2: #05e6ff;
+}
+
+/* The desktop. */
+[data-look="vapor"] main#main,
+.dark [data-look="vapor"] main#main {
+  background-image:
+    linear-gradient(var(--vapor-gridc) 1px, transparent 1px),
+    linear-gradient(90deg, var(--vapor-gridc) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-attachment: local;
+}
+/* Home's desktop has a column and a palm behind the windows. */
+@media (min-width: 768px) {
+  [data-look="vapor"] main#main:has(.ui-home),
+  .dark [data-look="vapor"] main#main:has(.ui-home) {
+    background-image:
+      url(/looks/vapor-column.webp),
+      url(/looks/vapor-palm.webp),
+      linear-gradient(var(--vapor-gridc) 1px, transparent 1px),
+      linear-gradient(90deg, var(--vapor-gridc) 1px, transparent 1px);
+    background-size: 6.5rem auto, 13rem auto, 32px 32px, 32px 32px;
+    background-position: right 1rem bottom 0, left 7rem bottom 0, 0 0, 0 0;
+    background-repeat: no-repeat, no-repeat, repeat, repeat;
+    background-attachment: fixed, fixed, local, local;
+  }
+}
+/* Scanlines, and a VHS tracking bar that rolls past. Nothing can tap them. */
+[data-look="vapor"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  background: repeating-linear-gradient(transparent 0 2px, #00000012 2px 3px);
+}
+[data-look="vapor"]::before {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: -8%;
+  height: 7%;
+  z-index: 60;
+  pointer-events: none;
+  background: linear-gradient(transparent, #ffffff2e, transparent);
+}
+
+/* The bar: a silver menu bar, and the same at the bottom of a phone. */
+[data-look="vapor"] .ui-bar,
+[data-look="vapor"] .ui-bottom-bar {
+  box-shadow: inset 0 2px 0 #ffffff, inset 0 -2px 0 #14093f;
+}
+[data-look="vapor"] .ui-wordmark {
+  font-family: var(--font-silkscreen);
+  font-weight: 400;
+  font-size: 1.125rem;
+}
+[data-look="vapor"] .ui-accent {
+  color: #a3127a;
+}
+@media (max-width: 639px) {
+  [data-look="vapor"] .ui-wordmark {
+    font-size: 0.8125rem;
+  }
+}
+[data-look="vapor"] .ui-bar > button:first-child {
+  border-radius: 0;
+  background: #d4cfe6;
+  box-shadow: inset -2px -2px 0 #14093f, inset 2px 2px 0 #ffffff;
+}
+[data-look="vapor"] .ui-bar > button:first-child:focus-visible {
+  outline-color: #14093f;
+}
+[data-look="vapor"] .ui-bar input {
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: inset 2px 2px 0 #8f89ad;
+  color: #14093f;
+}
+[data-look="vapor"] .ui-bar input::placeholder {
+  color: #3a3468;
+  opacity: 1;
+}
+[data-look="vapor"] .ui-bar form svg {
+  color: #3a3468;
+}
+[data-look="vapor"] .ui-bottom-bar a {
+  border-radius: 0;
+}
+[data-look="vapor"] .ui-bottom-bar a[aria-current] {
+  background: #14093f;
+  color: #ffffff;
+}
+[data-look="vapor"] .ui-bottom-bar button {
+  color: #14093f;
+}
+[data-look="vapor"] .ui-bottom-bar button i {
+  background: #14093f;
+}
+
+/* The nav: icons on the desktop. */
+[data-look="vapor"] .ui-rail {
+  background: var(--muted);
+  color: var(--foreground);
+}
+[data-look="vapor"] .ui-rail a {
+  border-radius: 0;
+  color: var(--foreground);
+  outline: 1px solid transparent;
+}
+[data-look="vapor"] .ui-rail a[aria-current] {
+  background: #14093f;
+  color: #ffffff;
+  outline: 1px dotted #ffffff;
+  outline-offset: -3px;
+}
+[data-look="vapor"] .ui-rail button {
+  color: var(--brand-text);
+}
+[data-look="vapor"] .ui-rail hr {
+  border-color: var(--foreground);
+}
+
+/* Windows and their pieces. */
+[data-look="vapor"] h1,
+[data-look="vapor"] h2,
+[data-look="vapor"] .ui-page-title {
+  font-weight: 600;
+}
+[data-look="vapor"] .ui-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    inset -2px -2px 0 var(--vapor-edge-lo),
+    inset 2px 2px 0 var(--vapor-edge-hi),
+    inset -4px -4px 0 var(--vapor-edge-mid),
+    5px 5px 0 #14093f55;
+}
+[data-look="vapor"] .ui-btn,
+[data-look="vapor"] .ui-chip {
+  border: 0;
+  border-radius: 0;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: inset -2px -2px 0 var(--vapor-edge-lo), inset 2px 2px 0 var(--vapor-edge-hi), inset -3px -3px 0 var(--vapor-edge-mid);
+}
+[data-look="vapor"] .ui-btn:active {
+  box-shadow: inset 2px 2px 0 var(--vapor-edge-lo), inset -2px -2px 0 var(--vapor-edge-hi);
+}
+[data-look="vapor"] .ui-btn-primary {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+[data-look="vapor"] .ui-chip:is([aria-pressed="true"], [aria-current="page"]) {
+  background: #14093f;
+  color: #ffffff;
+  box-shadow: inset 2px 2px 0 #000000;
+}
+[data-look="vapor"] .ui-field {
+  border: 0;
+  border-radius: 0;
+  outline: 2px solid transparent;
+  box-shadow: inset 2px 2px 0 var(--vapor-edge-mid), inset -1px -1px 0 var(--vapor-edge-hi);
+}
+[data-look="vapor"] .ui-field:focus {
+  outline-color: var(--ring);
+}
+[data-look="vapor"] .ui-section-title,
+[data-look="vapor"] .ui-field-label {
+  font-family: var(--face-heading);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-size: 0.9375rem;
+  color: var(--foreground);
+}
+
+/* Home: every card's heading becomes its window's title bar, with its three little buttons. */
+[data-look="vapor"] .ui-home .ui-card:has(> h2:first-child) {
+  position: relative;
+  padding: 3px 3px 0.875rem;
+}
+[data-look="vapor"] .ui-home .ui-card > h2:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 2px 4px 0.5rem 2px;
+  padding: 0.125rem 0.375rem 0.125rem 0.5rem;
+  background: linear-gradient(90deg, var(--vapor-bar1), var(--vapor-bar2));
+  color: #ffffff;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+[data-look="vapor"] .ui-home .ui-card > h2:first-child::after {
+  content: "";
+  flex: none;
+  width: 2.875rem;
+  height: 0.875rem;
+  background:
+    linear-gradient(#d4cfe6, #d4cfe6) 0 0/0.875rem 100% no-repeat,
+    linear-gradient(#d4cfe6, #d4cfe6) 1rem 0/0.875rem 100% no-repeat,
+    linear-gradient(#d4cfe6, #d4cfe6) 2rem 0/0.875rem 100% no-repeat;
+}
+[data-look="vapor"] .ui-home .ui-card:has(> h2:first-child) > :not(h2) {
+  margin-inline: 0.75rem;
+}
+/* Staggered, as if someone dragged them there. */
+@media (min-width: 640px) {
+  [data-look="vapor"] .ui-home .ui-card:has(> h2:first-child):nth-child(even) {
+    top: 0.625rem;
+  }
+}
+
+/* The scene: the bust, a chrome sphere and a sun, on the bare desktop. */
+[data-look="vapor"] .ui-scene {
+  position: relative;
+  display: block;
+  min-height: 11rem;
+  margin: 0 0 1rem;
+  padding: 0.5rem 9rem 0.5rem 0;
+  color: var(--foreground);
+  background:
+    url(/looks/vapor-bust.webp) right bottom/8.5rem auto no-repeat,
+    url(/looks/vapor-sphere.webp) right 8.5rem top 0.25rem/3rem auto no-repeat;
+}
+@media (max-width: 639px) {
+  [data-look="vapor"] .ui-scene {
+    background-position: right bottom, right 0.25rem top 0;
+    background-size: 8.5rem auto, 2.25rem auto;
+  }
+}
+[data-look="vapor"] .ui-scene::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: 1.5rem;
+  top: 0.5rem;
+  width: 8rem;
+  height: 8rem;
+  border-radius: 50%;
+  background: linear-gradient(#ff71ce, #ffb86b);
+}
+[data-look="vapor"] .ui-home {
+  position: relative;
+  isolation: isolate;
+}
+[data-look="vapor"] .ui-scene-hello {
+  display: block;
+  overflow-wrap: anywhere;
+  font: 600 clamp(1.75rem, 6vw, 3rem)/1 var(--face-heading);
+  text-shadow: 2px 0 0 var(--vapor-glitch1), -2px 0 0 var(--vapor-glitch2);
+}
+[data-look="vapor"] .ui-scene-date {
+  display: block;
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+[data-poster="vapor"] {
+  min-height: 7rem;
+  background: url(/looks/vapor-bust.webp) right bottom/4.5rem auto no-repeat, url(/looks/vapor-sphere.webp) 8% 12%/1.75rem auto no-repeat, #1c12b8;
+  color: #ffffff;
+  border-radius: 0;
+  border-color: #14093f;
+  display: flex;
+  align-items: flex-end;
+}
+[data-poster="vapor"] b {
+  padding: 0 0.25rem;
+  background: #1c12b8;
+  font: 400 0.8125rem/1.4 var(--font-silkscreen);
+  text-shadow: 1px 0 0 #ff71ce, -1px 0 0 #05e6ff;
+}
+[data-poster="vapor"] span {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-look="vapor"]::before { animation: vapor-vhs 7s linear infinite; }
+  [data-look="vapor"] .ui-scene-hello { animation: vapor-glitch 6s steps(1) infinite; }
+  [data-look="vapor"] .ui-scene { animation: vapor-open 0.5s steps(5); }
+}
+@keyframes vapor-vhs { to { top: 108%; } }
+@keyframes vapor-glitch {
+  0%, 91%, 100% { transform: none; }
+  92% { transform: translateX(5px) skewX(-8deg); }
+  94% { transform: translateX(-4px); }
+  96% { transform: translateX(2px) skewX(6deg); }
+}
+@keyframes vapor-open { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0); } }

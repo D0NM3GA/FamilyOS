@@ -363,6 +363,7 @@ for (const [look, color, face] of [
   ["synth", "outrun", "Exo 2"],
   ["kawaii", "ramune", "M PLUS Rounded 1c"],
   ["acanthus", "leicester", "EB Garamond"],
+  ["vapor", "cobalt", "IBM Plex Sans"],
 ]) {
   test(`${look} holds up on real pages, day and night`, async () => {
     test.setTimeout(4 * 60_000); // Seven pages, twice over, each with an accessibility run.

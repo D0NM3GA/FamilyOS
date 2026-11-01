@@ -1192,3 +1192,10 @@ A gilded bookplate with an engraved library on Home, on Morris-style wallpaper; 
 wallpaper under the bar elsewhere, since other pages have words right on the page; a Roman-numeral
 index for the nav; four colors.
 
+### 58.8 — Vaporwave
+
+Cards are windows with title bars, the nav is desktop icons, a marble bust and chrome sphere watch
+over Home, four colors that also change the desktop. Windows are silver by day and dark at night,
+unlike the prototype's silver in both, so status colors' day and night shades stay right. The real
+top bar stays at the top (search, bell and name open downward), so there's no fake taskbar.
+
