@@ -1,0 +1,316 @@
+/* Phase 58.6, Kawaii: a sticker sheet that got carried away. Soda colors by day, starlight by night.
+   Home is where things tilt and get stickers on; lists and forms stay straight. */
+[data-app-root][data-look="kawaii"] {
+  --face-body: var(--font-mplus);
+  --face-heading: var(--font-mochiy);
+  --face-hand: var(--font-mochiy);
+  --ink: #3e0f2c;
+  --ink-soft: #7d4763;
+  --paper: #ffe8f1;
+  --sun: #ffe14d;
+  --tomato: #ff7f6e;
+  --sky: #7fdcff;
+  --lime: #b6e28a;
+  --grape: #c4a8ff;
+  --background: #fffdfb;
+  --foreground: #4a1636;
+  --card: #fffdfb;
+  --card-foreground: #4a1636;
+  --popover: #fffdfb;
+  --popover-foreground: #4a1636;
+  --primary: #4a1636;
+  --primary-foreground: #fffdfb;
+  --secondary: #ffe8f1;
+  --secondary-foreground: #4a1636;
+  --muted: #ffe8f1;
+  --muted-foreground: #754059;
+  --accent: #ffe8f1;
+  --accent-foreground: #4a1636;
+  --border: #4a1636;
+  --input: #4a1636;
+  --ring: #c9186a;
+  --grid-line: transparent;
+  --radius: 1rem;
+  --kawaii-line: #4a1636;
+  --kawaii-dot: #ffcfe1;
+  --kawaii-scene: #bfe9ff;
+  --kawaii-scene-ray: #d7f2ff;
+  --kawaii-scene-text: #3e1a55;
+}
+.dark [data-app-root][data-look="kawaii"] {
+  --background: #221a3a;
+  --foreground: #fff1f8;
+  --card: #30254f;
+  --card-foreground: #fff1f8;
+  --popover: #30254f;
+  --popover-foreground: #fff1f8;
+  --primary: #fff1f8;
+  --primary-foreground: #221a3a;
+  --secondary: #221a3a;
+  --secondary-foreground: #fff1f8;
+  --muted: #221a3a;
+  --muted-foreground: #cfc2e4;
+  --accent: #221a3a;
+  --accent-foreground: #fff1f8;
+  --border: #ff9cc4;
+  --input: #ff9cc4;
+  --ring: #ffe14d;
+  --kawaii-line: #ff9cc4;
+  --kawaii-dot: #2e2450;
+  --kawaii-scene: #3a2a63;
+  --kawaii-scene-ray: #32245a;
+  --kawaii-scene-text: #fff1f8;
+}
+
+/* Soft dots everywhere; the doodles only on Home, since other pages have words right on the page. */
+[data-look="kawaii"] main#main,
+.dark [data-look="kawaii"] main#main {
+  background-image: radial-gradient(var(--kawaii-dot) 18%, transparent 19%);
+  background-size: 26px 26px;
+  background-attachment: local;
+}
+[data-look="kawaii"] main#main:has(.ui-home),
+.dark [data-look="kawaii"] main#main:has(.ui-home) {
+  background-image: url(/looks/kawaii-doodles.webp), radial-gradient(var(--kawaii-dot) 18%, transparent 19%);
+  background-size: 420px 420px, 26px 26px;
+}
+
+/* The bar: a scalloped edge and a die-cut wordmark. */
+[data-look="kawaii"] .ui-bar {
+  position: relative;
+  margin-bottom: 0.625rem;
+}
+[data-look="kawaii"] .ui-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 1;
+  height: 0.75rem;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 0, var(--chrome) 11px, transparent 12px) 0 0/24px 12px repeat-x;
+}
+[data-look="kawaii"] .ui-wordmark {
+  padding: 0.25rem 0.5rem;
+  line-height: 1.3;
+  font-size: 1.625rem;
+  font-weight: 400;
+  color: #3e0f2c;
+  -webkit-text-stroke: 6px #ffffff;
+  paint-order: stroke fill;
+  transform: rotate(-2deg);
+}
+@media (max-width: 639px) {
+  [data-look="kawaii"] .ui-wordmark {
+    font-size: 1.0625rem;
+    -webkit-text-stroke-width: 4px;
+  }
+}
+[data-look="kawaii"] .ui-accent {
+  color: #c9186a;
+}
+[data-look="kawaii"] .ui-rail {
+  padding-inline: 0.5rem;
+  overflow-x: hidden;
+  background: transparent;
+  gap: 0.5rem;
+  color: var(--foreground);
+}
+[data-look="kawaii"] .ui-rail a {
+  width: 100%;
+  border-radius: 1rem;
+  border: 3px solid var(--kawaii-line);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 2px 3px 0 var(--kawaii-line);
+}
+[data-look="kawaii"] .ui-rail a:nth-of-type(even) { transform: rotate(1.5deg); }
+[data-look="kawaii"] .ui-rail a:nth-of-type(odd) { transform: rotate(-1.5deg); }
+[data-look="kawaii"] .ui-rail a[aria-current] {
+  background: var(--sun);
+  color: var(--ink);
+}
+[data-look="kawaii"] .ui-rail button {
+  color: var(--brand-text);
+}
+[data-look="kawaii"] .ui-rail hr {
+  border-color: var(--kawaii-line);
+}
+/* Whatever else sits on the bar: --sun is too close to these pale bars to read. */
+[data-look="kawaii"] .ui-bottom-bar button {
+  color: var(--on-chrome);
+}
+[data-look="kawaii"] .ui-bottom-bar button i {
+  background: var(--on-chrome);
+}
+[data-look="kawaii"] .ui-bar > button:first-child:focus-visible {
+  outline-color: var(--on-chrome);
+}
+[data-look="kawaii"] .ui-bottom-bar a[aria-current] {
+  background: var(--sun);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+}
+
+/* Pieces. */
+[data-look="kawaii"] h1,
+[data-look="kawaii"] h2,
+[data-look="kawaii"] .ui-page-title {
+  font-weight: 400;
+}
+[data-look="kawaii"] .ui-section-title,
+[data-look="kawaii"] .ui-field-label {
+  color: var(--brand-text);
+  font-family: var(--face-heading);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+[data-look="kawaii"] .ui-card {
+  border: 3px solid var(--kawaii-line);
+  border-radius: 1.75rem;
+  box-shadow: 3px 4px 0 var(--kawaii-line);
+}
+[data-look="kawaii"] .ui-chip,
+[data-look="kawaii"] .ui-btn {
+  border-radius: 999px;
+  border: 3px solid var(--kawaii-line);
+}
+[data-look="kawaii"] .ui-btn {
+  box-shadow: 2px 3px 0 var(--kawaii-line);
+  transition: transform 90ms, box-shadow 90ms;
+}
+[data-look="kawaii"] .ui-btn-primary {
+  border-color: var(--on-brand);
+  outline: 3px solid var(--kawaii-line);
+  outline-offset: -1px;
+  box-shadow: 2px 4px 0 var(--kawaii-line), inset 0 3px 0 #ffffff55;
+  font-family: var(--face-heading);
+  font-weight: 400;
+}
+[data-look="kawaii"] .ui-btn-primary:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+[data-look="kawaii"] .ui-btn:active {
+  transform: translateY(3px) scale(0.97);
+  box-shadow: none;
+}
+[data-look="kawaii"] .ui-field {
+  border-width: 3px;
+  border-radius: 1rem;
+}
+
+/* Home: a speech bubble with a cat in it. */
+[data-look="kawaii"] .ui-scene {
+  position: relative;
+  display: block;
+  min-height: 9rem;
+  margin: 0.75rem 0.25rem 2rem;
+  padding: 1.25rem 1.25rem 1.5rem;
+  background: repeating-conic-gradient(from 0deg at 88% 100%, var(--kawaii-scene) 0 10deg, var(--kawaii-scene-ray) 10deg 20deg);
+  color: var(--kawaii-scene-text);
+  border: 3px solid var(--kawaii-line);
+  border-radius: 2rem 3rem 1.75rem 3.25rem;
+  box-shadow: 4px 5px 0 var(--kawaii-line);
+  transform: rotate(-1deg);
+}
+[data-look="kawaii"] .ui-scene-hello {
+  display: block;
+  max-width: calc(100% - 8rem);
+  overflow-wrap: anywhere;
+  font: 400 clamp(1.5rem, 5vw, 2.25rem)/1.1 var(--face-heading);
+}
+[data-look="kawaii"] .ui-scene-date {
+  display: block;
+  max-width: calc(100% - 8rem);
+  margin-top: 0.375rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+[data-look="kawaii"] .ui-scene::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -0.375rem;
+  width: 9rem;
+  height: 7rem;
+  background: url(/looks/kawaii-cat.webp) center bottom/contain no-repeat;
+  pointer-events: none;
+}
+[data-look="kawaii"] .ui-home .ui-card:has(h2) {
+  position: relative;
+  margin-top: 0.75rem;
+}
+[data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(3n + 1) { transform: rotate(-0.8deg); }
+[data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(3n + 2) { transform: rotate(0.7deg); }
+/* Washi tape on every card, and a sticker on some. Nothing here can take a tap. */
+[data-look="kawaii"] .ui-home .ui-card:has(h2)::before {
+  content: "";
+  position: absolute;
+  top: -0.625rem;
+  left: 50%;
+  width: 5rem;
+  height: 1.25rem;
+  margin-left: -2.5rem;
+  transform: rotate(-4deg);
+  background: repeating-linear-gradient(45deg, var(--sun) 0 8px, var(--chrome) 8px 16px);
+  box-shadow: 0 1px 2px #00000033;
+  opacity: 0.92;
+  pointer-events: none;
+}
+[data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(4n + 1)::after,
+[data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(4n + 2)::after,
+[data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(4n + 3)::after {
+  content: "";
+  position: absolute;
+  right: 0.25rem;
+  top: -2.125rem;
+  width: 4rem;
+  height: 3.25rem;
+  pointer-events: none;
+  background: url(/looks/kawaii-cat2.webp) center/contain no-repeat;
+}
+[data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(4n + 2)::after {
+  background-image: url(/looks/kawaii-tomato.webp);
+}
+[data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(4n + 3)::after {
+  background-image: url(/looks/kawaii-cat3.webp);
+}
+
+[data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(4n)::after {
+  content: "";
+  position: absolute;
+  right: 0.25rem;
+  top: -1.75rem;
+  width: 2rem;
+  height: 4.75rem;
+  pointer-events: none;
+  background: url(/looks/kawaii-ramune.webp) center/contain no-repeat;
+  transform: rotate(10deg);
+}
+
+[data-poster="kawaii"] {
+  min-height: 7rem;
+  background: url(/looks/kawaii-cat.webp) 50% 95%/5rem auto no-repeat, repeating-conic-gradient(from 0deg at 50% 100%, #ff9cc4 0 12deg, #ffe8f1 12deg 24deg);
+  color: #3e0f2c;
+  border-radius: 1.5rem;
+  border: 3px solid #4a1636;
+}
+[data-poster="kawaii"] b {
+  font: 400 1.25rem/1.1 var(--font-mochiy);
+  -webkit-text-stroke: 4px #ffffff;
+  paint-order: stroke fill;
+  text-align: center;
+}
+[data-poster="kawaii"] span {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-look="kawaii"] .ui-scene { animation: kawaii-pop 0.55s cubic-bezier(0.3, 1.6, 0.6, 1); }
+  [data-look="kawaii"] .ui-scene::after { animation: kawaii-bob 2.8s ease-in-out infinite; }
+}
+@keyframes kawaii-pop { from { transform: scale(0.9) rotate(-2deg); opacity: 0; } }
+@keyframes kawaii-bob { 50% { transform: translateY(-5px); } }

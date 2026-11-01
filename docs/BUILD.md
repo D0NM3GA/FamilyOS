@@ -1181,3 +1181,8 @@ Big buttons swaps it for a plainer gothic, and a focused button squares off so i
 A road, sun, palms and a wedge car on Home; a chrome script logo; a neon grid under every page;
 slanted buttons; four colors. Night is neon on violet, day a sunset.
 
+### 58.6 — Kawaii
+
+A speech bubble with a bobbing cat on Home, die-cut stickers and washi tape on its cards, a scalloped
+bar and pill nav, four colors. Home's cards tilt; lists and forms stay straight.
+

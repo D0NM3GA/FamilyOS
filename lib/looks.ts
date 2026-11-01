@@ -60,6 +60,22 @@ const synthColor = (id: string, name: string, night: string, nightHover: string,
   },
 });
 
+const kawaiiColor = (id: string, name: string, day: [string, string, string, string, string], night: [string, string, string, string, string]): LookColor => {
+  const [dayChrome, dayOn, dayBrand, dayHover, dayLink] = day;
+  const [nightChrome, nightBrand, nightHover, nightOn, nightLink] = night;
+  return {
+    id,
+    name,
+    swatch: dayChrome,
+    light: { chrome: dayChrome, chromeHover: dayChrome, chromeActive: dayChrome, brand: dayBrand, brandHover: dayHover },
+    dark: { chrome: nightChrome, chromeHover: nightChrome, chromeActive: nightChrome, brand: nightBrand, brandHover: nightHover },
+    vars: {
+      light: { "--on-chrome": dayOn, "--on-brand": "#ffffff", "--brand-text": dayLink },
+      dark: { "--on-chrome": "#fff1f8", "--on-brand": nightOn, "--brand-text": nightLink },
+    },
+  };
+};
+
 export const DEFAULT_LOOK = "sticker";
 
 export const LOOKS: readonly Look[] = [
@@ -100,6 +116,18 @@ export const LOOKS: readonly Look[] = [
       synthColor("laser", "Laser", "#a78bff", "#bda6ff", "#7a3cff", "#7fe9ff", "#5a2bb0", "#4e249c"),
     ],
     hello: (firstName) => `Welcome back, ${firstName}`,
+  },
+  {
+    id: "kawaii",
+    name: "Kawaii",
+    blurb: "A sticker sheet that got carried away.",
+    colors: [
+      kawaiiColor("ramune", "Ramune", ["#ff9cc4", "#3e0f2c", "#d0216a", "#bb1c5e", "#b3135a"], ["#4a2a63", "#ff8cc0", "#ffa6cf", "#2a0f28", "#ffb3d4"]),
+      kawaiiColor("soda", "Soda", ["#8fdcff", "#0c2f4a", "#0f6ea8", "#0d6396", "#0c5f94"], ["#1e3a63", "#7fd0ff", "#a0dcff", "#06223a", "#a8e2ff"]),
+      kawaiiColor("matcha", "Matcha", ["#b6e28a", "#1f3a12", "#3f7d1f", "#37701a", "#356b1a"], ["#2a4a2e", "#a7e07a", "#bdea98", "#12280a", "#c4efa0"]),
+      kawaiiColor("lavender", "Lavender", ["#cdb8ff", "#2a1563", "#6a3fd0", "#5f37bd", "#5b33bd"], ["#3a2a63", "#c4a8ff", "#d4beff", "#1e0f48", "#d6c4ff"]),
+    ],
+    hello: (firstName) => `Welcome back, ${firstName}!`,
   },
 ];
 
