@@ -153,6 +153,15 @@
   border: 3px solid var(--ink);
 }
 
+/* A pale bar and page: --sun is too faint to mark focus or a hint here. */
+[data-look="kawaii"] main#main:focus-visible {
+  --tw-ring-color: var(--ring);
+}
+[data-look="kawaii"] .ui-bar input::placeholder {
+  color: var(--on-chrome);
+  opacity: 0.75;
+}
+
 /* Pieces. */
 [data-look="kawaii"] h1,
 [data-look="kawaii"] h2,

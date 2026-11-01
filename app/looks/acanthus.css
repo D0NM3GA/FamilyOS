@@ -131,6 +131,18 @@
   background: var(--on-brand);
 }
 
+[data-look="acanthus"] .ui-bar > button:first-child:focus-visible {
+  outline-color: var(--on-chrome);
+}
+/* A pale bar and page: --sun is too faint to mark focus or a hint here. */
+[data-look="acanthus"] main#main:focus-visible {
+  --tw-ring-color: var(--ring);
+}
+[data-look="acanthus"] .ui-bar input::placeholder {
+  color: var(--on-chrome);
+  opacity: 0.75;
+}
+
 /* The nav: a library index, with Roman numerals. */
 [data-look="acanthus"] .ui-rail {
   width: 7rem;
@@ -236,7 +248,7 @@
   position: relative;
   display: block;
   margin: 1.75rem 0 1.5rem;
-  padding: 7rem 0.5rem 0.5rem;
+  padding: 7rem 0.5rem 3.5rem;
   text-align: center;
   border: 2rem solid transparent;
   border-image: url(/looks/acanthus-cartouche.webp) 330 / 5.5rem / 0 stretch;
