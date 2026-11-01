@@ -374,11 +374,11 @@ test("every look holds up on real pages, day and night", async () => {
     await expect(root).toHaveAttribute("data-look", look);
   };
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const [look, color] of [["brut", "banana"], ["goth", "oxblood"]]) {
+  for (const [look, color] of [["brut", "banana"], ["goth", "oxblood"], ["synth", "outrun"]]) {
     await wear(look, color);
     // The look's own stylesheet really applied, not only its colors: its type is not Sticker Book's.
     const face = await root.evaluate((el) => getComputedStyle(el).getPropertyValue("--face-body"));
-    expect(face).toContain({ brut: "Space Grotesk", goth: "Spectral" }[look]);
+    expect(face).toContain({ brut: "Space Grotesk", goth: "Spectral", synth: "Exo 2" }[look]);
     for (const scheme of ["light", "dark"] as const) {
       await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
       for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {

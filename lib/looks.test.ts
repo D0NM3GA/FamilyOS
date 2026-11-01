@@ -38,11 +38,19 @@ const contrast = (a: string, b: string) => {
 };
 
 describe("every color of every look", () => {
-  const all = LOOKS.flatMap((l) => l.colors.flatMap((c) => [[`${l.id}/${c.id} day`, c.light, c.onBrand ?? "#ffffff", c.onChrome ?? "#ffffff"], [`${l.id}/${c.id} night`, c.dark, c.onBrand ?? "#ffffff", c.onChrome ?? "#ffffff"]] as const));
+  const all = LOOKS.flatMap((l) => l.colors.flatMap((c) => (["light", "dark"] as const).map((mode) => [`${l.id}/${c.id} ${mode}`, c[mode], c.vars?.[mode]["--on-brand"] ?? c.onBrand ?? "#ffffff", c.vars?.[mode]["--on-chrome"] ?? c.onChrome ?? "#ffffff"] as const)));
   it.each(all)("%s keeps text on the bar and main buttons readable", (_name, tokens, onBrand, onChrome) => {
     expect(contrast(tokens.brand, onBrand)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(tokens.brandHover, onBrand)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(tokens.chrome, onChrome)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // Synthwave's links on its cards and pages, and ink on the accent fill.
+  it.each(LOOKS.find((l) => l.id === "synth")!.colors.map((c) => [c.id, c] as const))("synth/%s keeps links readable", (_id, c) => {
+    for (const surface of ["#fff3dc", "#fbdcae"]) expect(contrast(c.vars!.light["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
+    for (const surface of ["#1e1142", "#120a2b"]) expect(contrast(c.vars!.dark["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(c.vars!.dark["--sun"], "#1a0b2e")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(c.vars!.light["--sun"], "#1a0b2e")).toBeGreaterThanOrEqual(4.5);
   });
 
   // Goth's accents, on the page and card each mode draws them on, and the ink on top of --sun.

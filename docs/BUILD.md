@@ -1176,3 +1176,8 @@ A cathedral on Home by day (a woodcut on parchment) and by night (candlelit, wit
 Home cards with a skull crest, coffin-shaped main buttons, four colors. Blackletter is for titles;
 Big buttons swaps it for a plainer gothic, and a focused button squares off so its ring shows.
 
+### 58.5 — Synthwave
+
+A road, sun, palms and a wedge car on Home; a chrome script logo; a neon grid under every page;
+slanted buttons; four colors. Night is neon on violet, day a sunset.
+
