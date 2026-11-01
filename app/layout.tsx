@@ -1,51 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo_Black, Baloo_2, EB_Garamond, Exo_2, Gaegu, Grenze_Gotisch, IBM_Plex_Sans, M_PLUS_Rounded_1c, Mochiy_Pop_One, Mr_Dafoe, Nunito, Orbitron, Pixelify_Sans, Playfair_Display, Silkscreen, Space_Grotesk, Spectral, UnifrakturCook } from "next/font/google";
 import { connection } from "next/server";
 import { headers } from "next/headers";
 import { getFamilyLook } from "@/lib/household-settings";
 import { lookColorsCss } from "@/lib/looks";
 import { themeColorCss, themeColorOf } from "@/lib/theme-colors";
 import { serverSentryDsn } from "@/lib/observability/options";
+import { fontVariables } from "./fonts";
 import "./globals.css";
-
-// Replaces Geist Sans as part of the warm/family-friendly design pass — see
-// docs/BUILD.md. Also fixed a pre-existing bug: globals.css's `--font-sans` was a
-// self-reference (`var(--font-sans)`), never actually wired to the Geist variable, so
-// every page was silently rendering the browser's serif fallback rather than Geist.
-const nunito = Nunito({
-  variable: "--font-nunito",
-  subsets: ["latin"],
-});
-
-// Phase 19 Sticker Book type: Baloo 2 headings (a variable font, so no weight list) and
-// Gaegu for short handwritten notes (`font-hand`; Gaegu isn't variable, so it needs one).
-const baloo = Baloo_2({
-  variable: "--font-baloo",
-  subsets: ["latin"],
-});
-const gaegu = Gaegu({
-  variable: "--font-gaegu",
-  subsets: ["latin"],
-  weight: "700",
-});
-
-// Phase 58: each look's type. Not preloaded: a browser fetches a face only when something on the
-// page uses it, so nobody downloads the looks they aren't wearing.
-const archivoBlack = Archivo_Black({ variable: "--font-archivo-black", subsets: ["latin"], weight: "400", preload: false });
-const spaceGrotesk = Space_Grotesk({ variable: "--font-space-grotesk", subsets: ["latin"], preload: false });
-const unifraktur = UnifrakturCook({ variable: "--font-unifraktur", subsets: ["latin"], weight: "700", preload: false });
-const grenze = Grenze_Gotisch({ variable: "--font-grenze", subsets: ["latin"], preload: false });
-const spectral = Spectral({ variable: "--font-spectral", subsets: ["latin"], weight: ["400", "600", "700"], style: ["normal", "italic"], preload: false });
-const orbitron = Orbitron({ variable: "--font-orbitron", subsets: ["latin"], preload: false });
-const dafoe = Mr_Dafoe({ variable: "--font-dafoe", subsets: ["latin"], weight: "400", preload: false });
-const exo = Exo_2({ variable: "--font-exo", subsets: ["latin"], preload: false });
-const mochiy = Mochiy_Pop_One({ variable: "--font-mochiy", subsets: ["latin"], weight: "400", preload: false });
-const mplus = M_PLUS_Rounded_1c({ variable: "--font-mplus", subsets: ["latin"], weight: ["400", "700", "800"], preload: false });
-const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin"], style: ["normal", "italic"], preload: false });
-const garamond = EB_Garamond({ variable: "--font-garamond", subsets: ["latin"], style: ["normal", "italic"], preload: false });
-const pixelify = Pixelify_Sans({ variable: "--font-pixelify", subsets: ["latin"], preload: false });
-const silkscreen = Silkscreen({ variable: "--font-silkscreen", subsets: ["latin"], weight: "400", preload: false });
-const plex = IBM_Plex_Sans({ variable: "--font-plex", subsets: ["latin"], weight: ["400", "500", "600", "700"], preload: false });
 
 export async function generateMetadata(): Promise<Metadata> {
   // The family names the app in Settings, so the name is read per request: a build-time
@@ -115,7 +76,7 @@ export default async function RootLayout({
     // pages outside the app shell too (sign-in, not found), through globals.css's volume gate.
     <html
       lang="en"
-      className={`${nunito.variable} ${baloo.variable} ${gaegu.variable} ${archivoBlack.variable} ${spaceGrotesk.variable} ${unifraktur.variable} ${grenze.variable} ${spectral.variable} ${orbitron.variable} ${dafoe.variable} ${exo.variable} ${mochiy.variable} ${mplus.variable} ${playfair.variable} ${garamond.variable} ${pixelify.variable} ${silkscreen.variable} ${plex.variable} h-full antialiased`}
+      className={`${fontVariables} h-full antialiased`}
       data-bunson-volume={look.mascot.on ? undefined : "OFF"}
       // Phase 46: Sentry's DSN for the browser, from the server's settings at run time
       // (instrumentation-client.ts reads it), so the published image carries none.

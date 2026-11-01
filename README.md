@@ -1397,4 +1397,5 @@ docs/               PLAN.md (roadmap) and BUILD.md (phase log + acceptance recor
 ## License
 
 MIT (see [LICENSE](LICENSE)): use it, change it and share it, keeping the copyright notice. It
-comes with no warranty. The app's dependencies keep their own licences.
+comes with no warranty. The app's dependencies keep their own licences. The fonts are under the SIL Open
+Font License; their notices are in [public/licenses/fonts.txt](public/licenses/fonts.txt).

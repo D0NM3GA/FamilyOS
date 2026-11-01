@@ -1217,3 +1217,14 @@ on seven pages in day and night and on a phone, with `axe`. Contrast over art ca
 Narrower than scoped: a look's voice is Home's greeting and the finish word only. Section and page
 title kickers, empty states and kana kickers weren't built; the other pages' words are the app's own.
 
+### Fonts from npm, after Phase 58
+
+A build used to download every look's fonts from Google. `subsets: ["latin"]` only chooses what's
+preloaded, so that meant 674 files, and a failed download could fail a build, which CI saw once.
+`app/fonts.ts` now loads the same families with `next/font/local` from exactly pinned Fontsource
+packages: 56 files and 1.5MB instead of 11MB, no Google at build, and the same fonts from the same
+commit. Browsers never contacted Google, before or after. Latin Extended sits behind a unicode-range,
+fetched only for a name that needs it; other alphabets, kana included, now use the device's font.
+Nothing in the app uses kana today, so add those files if kana kickers get built. The fonts' OFL
+notices ship in `public/licenses/fonts.txt`. To change a package, update that file too;
+`lib/fonts-guard.test.ts` checks the license, the pin and that each file exists.
