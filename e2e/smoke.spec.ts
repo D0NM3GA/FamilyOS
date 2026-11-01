@@ -385,6 +385,14 @@ test("every look holds up on real pages, day and night", async () => {
       if (shots) await page.screenshot({ path: `${shots}/brut-${scheme}${path.replace(/\//g, "-")}.png` });
     }
   }
+  // The phone: the bottom bar, the scene and a long name's room.
+  const desktop = page.viewportSize()!;
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await expectAccessible(page, "brut phone");
+  if (shots) await page.screenshot({ path: `${shots}/brut-phone.png` });
+  await page.setViewportSize(desktop);
   await page.evaluate(() => localStorage.removeItem("theme"));
   await page.emulateMedia({ reducedMotion: null });
   await wear(start.look!, start.color!);

@@ -21,7 +21,6 @@ import { logQuickContact } from "./people/[id]/actions";
 import { isAdult } from "@/lib/authz";
 import { resolveViewMode } from "@/lib/view-prefs";
 import { LookScene } from "@/components/look-scene";
-import { formatFullDate } from "@/lib/format";
 import { choreProgressFor, currentHour, greetingLine } from "@/lib/bunson-moments";
 import { toCardInstance } from "@/lib/tasks/card";
 import { completeInstance as completeChore, uncompleteInstance as undoChore } from "./chores/actions";
@@ -151,7 +150,7 @@ export default async function HomePage() {
   return (
     <div className="ui-home p-4 sm:p-6">
       <h1 className="sr-only">Home</h1>
-      <LookScene firstName={profile.firstName} date={formatFullDate(new Date())} />
+      <LookScene firstName={profile.firstName} date={new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: zone }).format(new Date())} />
       <div className="mb-4 empty:hidden">
         <AwayNote />
       </div>
