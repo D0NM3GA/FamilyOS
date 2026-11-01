@@ -1228,3 +1228,11 @@ fetched only for a name that needs it; other alphabets, kana included, now use t
 Nothing in the app uses kana today, so add those files if kana kickers get built. The fonts' OFL
 notices ship in `public/licenses/fonts.txt`. To change a package, update that file too;
 `lib/fonts-guard.test.ts` checks the license, the pin and that each file exists.
+
+### Looks: checked in every color
+
+Each look's browser test now runs `axe` on its other colors too, on Home and Chores, day and night,
+and a test finishes a med and a shopping trip with a look on. Looking at those screenshots found what
+`axe` can't: Kawaii's night tape read as caution tape, hatching behind Acanthus's house ended in a
+hard box, and Vaporwave's palm showed only as fragments between windows, so it moved up beside the
+bust. Goth's greeting no longer says "morrow" in the evening.

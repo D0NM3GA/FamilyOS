@@ -134,7 +134,7 @@ export const LOOKS: readonly Look[] = [
       gothColor("amethyst", "Amethyst", "#6d2fb8", "#54258f", "#6d2fb8", "#7a3bc6", "#c39bff", "#4a2a78"),
       gothColor("rosewater", "Rosewater", "#b0386f", "#8f2a58", "#b0386f", "#bf467c", "#ff9ad0", "#6e2a50"),
     ],
-    hello: (firstName) => `Good morrow, ${firstName}`,
+    hello: (firstName) => `Well met, ${firstName}`,
     moment: "So it is done",
   },
   {

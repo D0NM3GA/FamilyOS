@@ -32,6 +32,8 @@
   --grid-line: transparent;
   --radius: 1rem;
   --kawaii-line: #4a1636;
+  --kawaii-tape: var(--sun);
+  --kawaii-tape-2: var(--chrome);
   --kawaii-dot: #ffcfe1;
   --kawaii-scene: #bfe9ff;
   --kawaii-scene-ray: #d7f2ff;
@@ -56,6 +58,8 @@
   --input: #ff9cc4;
   --ring: #ffe14d;
   --kawaii-line: #ff9cc4;
+  --kawaii-tape: var(--brand-text);
+  --kawaii-tape-2: #fff1f8;
   --kawaii-dot: #2e2450;
   --kawaii-scene: #3a2a63;
   --kawaii-scene-ray: #32245a;
@@ -264,7 +268,7 @@
   height: 1.25rem;
   margin-left: -2.5rem;
   transform: rotate(-4deg);
-  background: repeating-linear-gradient(45deg, var(--sun) 0 8px, var(--chrome) 8px 16px);
+  background: repeating-linear-gradient(45deg, var(--kawaii-tape) 0 8px, var(--kawaii-tape-2) 8px 16px);
   box-shadow: 0 1px 2px #00000033;
   opacity: 0.92;
   pointer-events: none;
