@@ -65,19 +65,18 @@
 [data-look="vapor"] main#main:focus-visible {
   --tw-ring-color: var(--ring);
 }
-/* Home's desktop has a column and a palm behind the windows. */
+/* Home's desktop has a column behind the windows. */
 @media (min-width: 768px) {
   [data-look="vapor"] main#main:has(.ui-home),
   .dark [data-look="vapor"] main#main:has(.ui-home) {
     background-image:
       url(/looks/vapor-column.webp),
-      url(/looks/vapor-palm.webp),
       linear-gradient(var(--vapor-gridc) 1px, transparent 1px),
       linear-gradient(90deg, var(--vapor-gridc) 1px, transparent 1px);
-    background-size: 6.5rem auto, 13rem auto, 32px 32px, 32px 32px;
-    background-position: right 1rem bottom 0, left 7rem bottom 0, 0 0, 0 0;
-    background-repeat: no-repeat, no-repeat, repeat, repeat;
-    background-attachment: fixed, fixed, local, local;
+    background-size: 6.5rem auto, 32px 32px, 32px 32px;
+    background-position: right 1rem bottom 0, 0 0, 0 0;
+    background-repeat: no-repeat, repeat, repeat;
+    background-attachment: fixed, local, local;
   }
 }
 /* Scanlines, and a VHS tracking bar that rolls past. Nothing can tap them. */
@@ -295,6 +294,15 @@
   [data-look="vapor"] .ui-scene {
     background-position: right bottom, right 0.25rem top 0;
     background-size: 8.5rem auto, 2.25rem auto;
+  }
+}
+/* The palm joins them where there's room, since the windows would cover it on the desktop. */
+@media (min-width: 1024px) {
+  [data-look="vapor"] .ui-scene {
+    background:
+      url(/looks/vapor-bust.webp) right bottom/8.5rem auto no-repeat,
+      url(/looks/vapor-sphere.webp) right 8.5rem top 0.25rem/3rem auto no-repeat,
+      url(/looks/vapor-palm.webp) right 13rem bottom/auto 10.5rem no-repeat;
   }
 }
 [data-look="vapor"] .ui-scene::before {

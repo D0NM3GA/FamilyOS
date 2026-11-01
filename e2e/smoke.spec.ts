@@ -2,6 +2,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { devices, expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { APPS } from "../lib/apps";
+import { lookOf } from "../lib/looks";
 import { addPasskeyDevice, expectAccessible, expectNoErrorScreen, watchForProblems } from "./support";
 
 /**
@@ -405,6 +406,20 @@ for (const [look, color, face] of [
           if (shots) await page.screenshot({ path: `${shots}/${look}-${scheme}${path.replace(/\//g, "-")}.png` });
         }
       }
+      // The look's other colors, which change its art and glow too, on a busy page and Home.
+      const others = lookOf(look).colors.map((c) => c.id).filter((id) => id !== color);
+      for (const scheme of ["light", "dark"] as const) {
+        await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
+        for (const path of ["/", "/chores"]) {
+          await page.goto(path);
+          for (const other of others) {
+            await root.evaluate((el, id) => el.setAttribute("data-color", id), other);
+            await page.waitForLoadState("networkidle");
+            await expectAccessible(page, `${look} ${other} ${scheme} ${path}`);
+            if (shots) await page.screenshot({ path: `${shots}/${look}-${other}-${scheme}${path.replace(/\//g, "-")}.png` });
+          }
+        }
+      }
       // The phone: the bottom bar, the scene and a long name's room.
       await page.setViewportSize({ width: 375, height: 812 });
       await page.goto("/");
@@ -647,6 +662,65 @@ test("a dose away from home shows both times, and a new zone keeps saved days on
   }
   await page.goto("/meds");
   await expect(page.getByText(/8:00\sAM/).first()).toBeVisible();
+  problems.expectNone();
+});
+
+test("taking a med and finishing a shopping trip are marked by the look too", async () => {
+  const root = page.locator("[data-app-root]");
+  const start = { look: await root.getAttribute("data-look"), color: await root.getAttribute("data-color") };
+  const sheet = page.getByRole("dialog", { name: "My look" });
+  const wear = async (id: string, colorId: string) => {
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "My look" }).click();
+    await sheet.locator(`input[name="look"][value="${id}"]`).check({ force: true });
+    await sheet.locator(`input[name="color"][value="${colorId}"]`).check({ force: true });
+    const keep = sheet.getByRole("button", { name: "Keep it" });
+    if (await keep.count()) await keep.click();
+    else await sheet.getByRole("button", { name: "Done" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(root).toHaveAttribute("data-look", id);
+  };
+  // Watched from inside the page, for how long it stays: a trip's page changes under the moment.
+  const watchMoment = () =>
+    page.evaluate(() => {
+      const seen: { word?: string | null; lasted?: number } = {};
+      (window as unknown as { seenMoment: typeof seen }).seenMoment = seen;
+      let began = 0;
+      const watch = new MutationObserver((changes) => {
+        for (const change of changes) {
+          for (const node of change.addedNodes) {
+            if (node instanceof HTMLElement && node.className === "ui-moment") {
+              seen.word = node.textContent;
+              began = performance.now();
+            }
+          }
+          for (const node of change.removedNodes) {
+            if (node instanceof HTMLElement && node.className === "ui-moment") {
+              seen.lasted = performance.now() - began;
+              watch.disconnect();
+            }
+          }
+        }
+      });
+      watch.observe(document.body, { childList: true, subtree: true });
+    });
+  const seenMoment = () => page.evaluate(() => (window as unknown as { seenMoment: { word?: string; lasted?: number } }).seenMoment);
+
+  try {
+    await wear("brut", "banana");
+    await page.goto("/meds");
+    await watchMoment();
+    await page.getByRole("button", { name: "Complete" }).first().click();
+    await expect.poll(async () => (await seenMoment()).word, { timeout: 10_000 }).toBe("DONE.");
+
+    await page.goto("/groceries/shop");
+    await watchMoment();
+    await page.getByRole("button", { name: "Finish trip" }).click();
+    await expect.poll(async () => (await seenMoment()).lasted, { timeout: 10_000 }).toBeGreaterThan(1_000);
+    expect((await seenMoment()).word).toBe("DONE.");
+  } finally {
+    await wear(start.look!, start.color!);
+  }
   problems.expectNone();
 });
 
