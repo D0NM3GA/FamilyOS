@@ -1544,10 +1544,9 @@ Vaporwave (last because it reshapes the most, with a taskbar and windows).
   `lib/looks.ts`. Everything else stays the app's normal words.
 - **Big buttons** keeps its size and layout in every look; Goth's headings use a readable gothic
   face there, for the kids it's made for.
-- **Japanese and kanji:** `next/font/google` keeps Google's unicode-range slices, so kana kickers
-  fetch one or two small files from the app. "蒸気波" is part of the art. About 15 more families
-  are fetched at build, as the three today are; if that makes the Docker build flaky, 58.2 moves
-  them to `next/font/local`.
+- **Japanese and kanji:** "蒸気波" is part of the art. Kana kickers weren't built, and fonts moved
+  to `next/font/local` after a failed Google download broke a build, leaving out kana. See
+  "Fonts from npm" in docs/BUILD.md; kickers would need those files added.
 - **Every look is checked on real pages,** not just Home: a long list (Groceries), a form (New
   chore), a table (Money), Calendar, a phone in Big buttons, and a dialog. Frames and tilted cards
   are the likeliest to break on dense pages, so tilts and heavy frames apply on Home and top-level
