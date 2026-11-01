@@ -5,7 +5,7 @@
  * Sticker Book's own look and changes nothing (globals.css already holds it). Pure.
  */
 
-type Tokens = { chrome: string; chromeHover: string; chromeActive: string; brand: string; brandHover: string };
+export type Tokens = { chrome: string; chromeHover: string; chromeActive: string; brand: string; brandHover: string };
 
 export type ThemeColor = { id: string; name: string; swatch: string; light: Tokens; dark: Tokens };
 
@@ -79,7 +79,7 @@ export function isThemeColorId(id: string): boolean {
   return THEME_COLORS.some((c) => c.id === id);
 }
 
-const vars = (t: Tokens) =>
+export const colorVars = (t: Tokens) =>
   `--chrome:${t.chrome};--chrome-hover:${t.chromeHover};--chrome-active:${t.chromeActive};--brand:${t.brand};--brand-hover:${t.brandHover};`;
 
 /**
@@ -90,5 +90,5 @@ const vars = (t: Tokens) =>
 export function themeColorCss(id: string | null | undefined): string {
   const color = themeColorOf(id);
   if (color.id === DEFAULT_THEME_COLOR) return "";
-  return `html:root{${vars(color.light)}}html.dark{${vars(color.dark)}}`;
+  return `html:root{${colorVars(color.light)}}html.dark{${colorVars(color.dark)}}`;
 }

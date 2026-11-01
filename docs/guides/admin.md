@@ -352,7 +352,8 @@ there: take their sign-in away first, or, for Microsoft people, remove them in E
 **Settings → Make it yours** (admins) changes things for the whole family, on every device:
 
 - **App name:** type the family's name and the app adds "OS". Blank means FamilyOS.
-- **Top bar color:** eight presets, all readable in light and dark mode.
+- **Family color:** eight presets, all readable in light and dark mode. It colors the sign-in page and
+  the app's icon, and it's the color of anyone who hasn't picked their own under **My look**.
 - **What the kids earn:** stickers (the default), stars, points, coins, gems, or your own word.
   Only the words change; balances stay.
 - **The mascot:** on for everyone (each person can still quiet him) or off, and his name.

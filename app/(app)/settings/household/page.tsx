@@ -80,7 +80,7 @@ export default async function HouseholdSettingsPage({
         </div>
         <Link
           href="/people/new"
-          className="inline-flex min-h-11 shrink-0 items-center rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-on-brand transition hover:scale-105 hover:-translate-y-0.5 hover:bg-brand-hover active:scale-95 sm:min-h-9"
+          className="ui-btn ui-btn-primary inline-flex min-h-11 shrink-0 items-center rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-on-brand transition hover:scale-105 hover:-translate-y-0.5 hover:bg-brand-hover active:scale-95 sm:min-h-9"
         >
           + Add member
         </Link>

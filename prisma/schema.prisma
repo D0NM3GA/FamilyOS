@@ -180,6 +180,13 @@ model Person {
   /// Phase 19.5: how much Bunson this person wants (corner nook + greetings, celebrations
   /// only, or none).
   bunsonVolume BunsonVolume @default(CHATTY)
+  /// Phase 58: this person's look and its color, ids from lib/looks.ts (null look is Sticker Book;
+  /// null color is the look's first, or the family's color in Sticker Book). A display choice,
+  /// never a permission.
+  look      String?
+  lookColor String?
+  /// Phase 58: when the once-only "pick your look" welcome was answered or closed.
+  lookPromptSeenAt DateTime?
 
   /// Profile photo pulled from Microsoft Graph. Never SELECT `photo` outside the
   /// dedicated photo route — use `photoContentType != null` as the cheap "has photo" check.

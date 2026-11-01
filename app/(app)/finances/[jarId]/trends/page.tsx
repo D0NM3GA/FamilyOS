@@ -131,11 +131,11 @@ export default async function TrendsPage({ params, searchParams }: { params: Pro
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
+            <div className="ui-card rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
               <div className="text-xs font-bold uppercase text-muted-foreground">Went out</div>
               <div className="text-xl font-extrabold">{money(shown.outCents)}</div>
             </div>
-            <div className="rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
+            <div className="ui-card rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
               <div className="text-xs font-bold uppercase text-muted-foreground">Came in</div>
               <div className="text-xl font-extrabold">{money(shown.incomeCents)}</div>
             </div>
@@ -149,7 +149,7 @@ export default async function TrendsPage({ params, searchParams }: { params: Pro
             </div>
           )}
 
-          <section className="mt-4 rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
+          <section className="ui-card mt-4 rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
             <h2 className="font-extrabold">Money out, month by month</h2>
             <ol aria-label="Money out by month" className="mt-3 flex h-52 gap-1 pt-4">
               {trend.months.map((m, i) => {
@@ -244,7 +244,7 @@ export default async function TrendsPage({ params, searchParams }: { params: Pro
               {slices.map((s) => {
                 const t = s.kind === "category" ? trend.categories.find((c) => c.category.id === s.category.id) : undefined;
                 return (
-                  <li key={s.kind === "category" ? s.category.id : s.kind} className="rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
+                  <li key={s.kind === "category" ? s.category.id : s.kind} className="ui-card rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xl" aria-hidden>
                         {s.kind === "category" ? s.category.emoji : s.kind === "surprises" ? "🎁" : "❓"}

@@ -21,20 +21,24 @@ function resolveDark(mode: Mode): boolean {
 
 function applyMode(mode: Mode) {
   document.documentElement.classList.toggle("dark", resolveDark(mode));
+  syncThemeColor(mode);
+}
 
-  // app/layout.tsx's viewport renders two OS-media-queried theme-color tags.
-  // Once the user pins an explicit mode, this single owned tag overrides both — browsers
-  // pick the *first* matching meta[name=theme-color] in document order, so this must be
-  // *prepended*, not appended, to actually win. Switching back to "system" removes it and
-  // lets those two take over again, rather than fighting the server-rendered tags directly.
+/**
+ * app/layout.tsx's viewport renders two OS-media-queried theme-color tags, in the family's color.
+ * This single owned tag overrides both: browsers pick the *first* matching meta[name=theme-color]
+ * in document order, so it must be *prepended*. Inside the app shell it's always there (Phase 58:
+ * the bar is the person's look, which the server's tags can't know). Elsewhere, following the OS
+ * removes it and lets those two take over.
+ */
+export function syncThemeColor(mode: Mode = readStoredMode()) {
   const existing = document.getElementById(THEME_COLOR_META_ID);
-  if (mode === "system") {
+  const root = document.querySelector("[data-app-root]");
+  if (mode === "system" && !root) {
     existing?.remove();
     return;
   }
-  // The top bar's own color (--chrome), now that the class above picked the theme: it's the
-  // family's (Settings → Make it yours), same as app/layout.tsx's viewport.
-  const color = getComputedStyle(document.documentElement).getPropertyValue("--chrome").trim() || (mode === "dark" ? "#0b1015" : "#1f2933");
+  const color = getComputedStyle(root ?? document.documentElement).getPropertyValue("--chrome").trim() || (resolveDark(mode) ? "#0b1015" : "#1f2933");
   if (existing) {
     existing.setAttribute("content", color);
   } else {

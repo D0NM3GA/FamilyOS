@@ -1139,3 +1139,23 @@ so a look can override them on `[data-app-root]`. `--on-brand`, `--on-chrome` an
 `var(--color-ink)`, which would resolve once on `:root`; `lib/look-tokens-guard.test.ts` holds these
 rules. Red, green and amber status colors were left alone (the scope's plan to tokenize them was
 dropped once measured): they already have day and night shades, and every look has both.
+
+### 58.1b — Names for a look's CSS to grab
+
+`components/styles.ts` strings gain `ui-card`, `ui-btn`, `ui-chip`, `ui-field` and friends, which
+style nothing themselves. Pages that spell out their own card or main button add the same name
+rather than moving to the shared string as first scoped: their spacing differs, and moving them
+would have shifted Sticker Book. `lib/look-tokens-guard.test.ts` checks new ones.
+
+### 58.2 — A look per person, tried on over the real page
+
+`Person.look`, `lookColor` and `lookPromptSeenAt`; `lib/looks.ts` lists the looks and their colors.
+`AppRoot` (`components/look.tsx`) replaces the shell's root `div`: the server says what's worn, so
+there's no flash and a shared tablet changes with the person, and trying one on is client state over
+that. The sheet (`components/look-sheet.tsx`) is reached from the name menu and Settings and opens
+over the page you're on, dropping the scope's hop to Home: that's the page you wanted to see. Only
+Keep it saves. Sticker Book's eight colors are the first choices, with `null` following the family's
+color. The welcome and the setup step wait for `LOOKS_TO_CHOOSE`, a second look. The browser's bar
+color now reads `--chrome` from the root, and stays owned in the shell in every mode.
+Waiting for the first look to need them (58.3): per-look CSS and its offline handling, and the demo
+family's mix of looks; the contrast test here already runs over whatever `lib/looks.ts` lists.

@@ -83,12 +83,12 @@ export function LookForm({ defaults }: { defaults: LookDefaults }) {
       </section>
 
       <fieldset className={`${card} space-y-3`}>
-        <legend className="sr-only">Top bar color</legend>
+        <legend className="sr-only">Family color</legend>
         <h2 aria-hidden className="font-heading text-xl font-extrabold">
-          Top bar color
+          Family color
         </h2>
         <p className="text-xs text-muted-foreground">
-          The bar across the top and the main buttons, in light and dark mode. Every color keeps white text easy to read.
+          For the sign-in page, the app&apos;s icon, and anyone who hasn&apos;t picked their own under My look. Every color keeps white text easy to read.
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {THEME_COLORS.map((c) => (

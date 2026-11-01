@@ -72,7 +72,7 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
       </div>
 
       {adult && (
-        <section id="orders" className="scroll-mt-20 rounded-3xl border-2 border-ink bg-card p-4 dark:border-white/20">
+        <section id="orders" className="ui-card scroll-mt-20 rounded-3xl border-2 border-ink bg-card p-4 dark:border-white/20">
           <h2 className="text-xl font-extrabold">
             🛍️ Orders to make happen {openOrders.length > 0 && <span className="ml-1 rounded-full bg-tomato px-2 text-base text-ink">{openOrders.length}</span>}
           </h2>

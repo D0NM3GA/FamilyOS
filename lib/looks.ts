@@ -1,0 +1,51 @@
+import { THEME_COLORS, colorVars, type Tokens } from "@/lib/theme-colors";
+
+/**
+ * Phase 58: the looks a person can wear (each has day and night) and the colors each offers. A
+ * look belongs to the person, not the family. Pure, so the client can use it too. Stored ids are
+ * checked here: an unknown one falls back rather than breaking the page.
+ */
+
+export type LookColor = {
+  id: string;
+  name: string;
+  swatch: string;
+  light: Tokens;
+  dark: Tokens;
+  /** Text on main buttons and the bar, where it isn't white. */
+  onBrand?: string;
+  onChrome?: string;
+};
+export type Look = { id: string; name: string; blurb: string; colors: readonly LookColor[] };
+
+export const DEFAULT_LOOK = "sticker";
+
+export const LOOKS: readonly Look[] = [
+  { id: DEFAULT_LOOK, name: "Sticker Book", blurb: "Warm paper, ink and sunshine.", colors: THEME_COLORS },
+];
+
+/** Once there's a real choice, new people are asked (Settings' setup step, the welcome). */
+export const LOOKS_TO_CHOOSE = LOOKS.length > 1;
+
+export const lookOf = (id: string | null | undefined): Look => LOOKS.find((l) => l.id === id) ?? LOOKS[0];
+
+export const lookColorOf = (look: Look, id: string | null | undefined): LookColor => look.colors.find((c) => c.id === id) ?? look.colors[0];
+
+export type Worn = { look: string; color: string };
+
+/** What a person wears: their own pick, or Sticker Book in the family's color. */
+export function wornLook(person: { look: string | null; lookColor: string | null }, familyColor: string): Worn {
+  const look = lookOf(person.look);
+  const fallback = look.id === DEFAULT_LOOK ? familyColor : null;
+  return { look: look.id, color: lookColorOf(look, person.lookColor ?? fallback).id };
+}
+
+/** Every look's colors as CSS on the app's root. Preset values only, never typed text. */
+export function lookColorsCss(): string {
+  return LOOKS.flatMap((look) =>
+    look.colors.map((c) => {
+      const on = `[data-app-root][data-look="${look.id}"][data-color="${c.id}"]`;
+      return `${on}{${colorVars(c.light)}}.dark ${on}{${colorVars(c.dark)}}`;
+    }),
+  ).join("");
+}

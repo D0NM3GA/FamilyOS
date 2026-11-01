@@ -9,6 +9,8 @@ import { BUNSON_VOLUMES, VIEW_MODES } from "@/lib/view-prefs";
 import { setMyBunsonVolume, setMyViewMode } from "./prefs-actions";
 import { captureError } from "@/lib/observability";
 import { useFamilyLook } from "@/components/family-look";
+import { useLook } from "@/components/look";
+import { btn } from "@/components/styles";
 
 export type Prefs = { viewMode: "BIG" | "FULL"; bunsonVolume: "CHATTY" | "CHEERS" | "OFF" };
 
@@ -72,6 +74,7 @@ export function ProfileMenu({
   prefs?: Prefs;
 }) {
   const { appName, mascot } = useFamilyLook();
+  const look = useLook();
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -147,7 +150,7 @@ export function ProfileMenu({
       {open && (
         <div
           id={menuId}
-          className="absolute right-0 top-full z-20 mt-1 w-72 max-w-[calc(100vw-1rem)] space-y-3 rounded-xl border-2 border-ink bg-card p-3 text-sm text-foreground shadow-lg dark:border-white/20"
+          className="ui-card absolute right-0 top-full z-20 mt-1 w-72 max-w-[calc(100vw-1rem)] space-y-3 rounded-xl border-2 border-ink bg-card p-3 text-sm text-foreground shadow-lg dark:border-white/20"
         >
           {optimistic && (
             <>
@@ -169,6 +172,11 @@ export function ProfileMenu({
                 />
               )}
             </>
+          )}
+          {look.available && (
+            <button type="button" onClick={() => { setOpen(false); look.openSheet(buttonRef.current); }} className={`${btn} w-full`}>
+              My look
+            </button>
           )}
           <div className="-mx-3 border-t-2 border-dashed border-border pt-1">
             <button

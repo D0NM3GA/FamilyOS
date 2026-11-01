@@ -115,7 +115,7 @@ function Tile({ tile }: { tile: HubTile }) {
       <Link
         href={tile.href}
         aria-describedby={describedBy}
-        className="flex h-full flex-wrap items-center gap-4 rounded-2xl border-2 border-border bg-card p-4 text-foreground transition hover:border-ring hover:bg-muted/40"
+        className="ui-card flex h-full flex-wrap items-center gap-4 rounded-2xl border-2 border-border bg-card p-4 text-foreground transition hover:border-ring hover:bg-muted/40"
       >
         <span className="flex min-w-0 flex-[1_1_16rem] items-center gap-4">
           <span className={`grid size-12 shrink-0 place-items-center rounded-xl ${tint}`}>

@@ -108,7 +108,7 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
     const stopped = f.stopped;
     const ask = f.isSubscription && !stopped && mark?.status !== "CANCEL" && (!mark || daysBetween(mark.reviewedAt.toISOString().slice(0, 10), today) > REVIEW_EVERY_DAYS);
     return (
-      <li key={f.key} className="flex flex-col gap-1 rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
+      <li key={f.key} className="ui-card flex flex-col gap-1 rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
         <div className="flex flex-wrap items-center gap-2">
           <span className="min-w-0 flex-1 font-extrabold break-words">
             {f.cardMemo && "🔒 "}
@@ -195,7 +195,7 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
             <p className="mt-1 text-sm">
               About <strong>{formatMoney(soon.totalCents)}</strong> in {soon.items.length} bill{soon.items.length === 1 ? "" : "s"}.
             </p>
-            <ul className="mt-2 flex flex-col divide-y divide-ink/10 rounded-2xl border-2 border-ink bg-card px-3 dark:divide-white/10 dark:border-white/20">
+            <ul className="ui-card mt-2 flex flex-col divide-y divide-ink/10 rounded-2xl border-2 border-ink bg-card px-3 dark:divide-white/10 dark:border-white/20">
               {soon.items.map((f) => (
                 <li key={f.key} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                   <span className="w-16 shrink-0 font-bold text-muted-foreground">{f.nextOn < today ? "late" : day(f.nextOn)}</span>
@@ -234,7 +234,7 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
         )}
         <details className="mt-2">
           <summary className={`${btnPrimary} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>+ Add a bill</summary>
-          <ActionForm action={addManualBill.bind(null, jar.id)} className="mt-2 flex flex-col gap-3 rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20" resetOnSuccess>
+          <ActionForm action={addManualBill.bind(null, jar.id)} className="ui-card mt-2 flex flex-col gap-3 rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20" resetOnSuccess>
             <BillFields today={today} choices={choices} />
             <Submit className={`${btnPrimary} self-start`}>Add the bill</Submit>
           </ActionForm>

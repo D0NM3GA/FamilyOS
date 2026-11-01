@@ -76,6 +76,10 @@ const checks = {
     // Phase 19.5: per-person view and Bunson preferences, not family data.
     | "viewMode"
     | "bunsonVolume"
+    // Phase 58: this person's look, a display preference too.
+    | "look"
+    | "lookColor"
+    | "lookPromptSeenAt"
     // Phase 20: the saving-up goal is a UI preference too.
     | "savingRewardId"
     // Phase 45.2: the Outlook calendar picked for Home, by Graph id: integration state.

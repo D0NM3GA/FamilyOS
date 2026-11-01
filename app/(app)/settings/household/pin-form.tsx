@@ -47,7 +47,7 @@ export function PinForm({ action, hasPin, kid }: { action: Action; hasPin: boole
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex min-h-11 items-center rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-on-brand hover:bg-brand-hover disabled:opacity-60 sm:min-h-0"
+        className="ui-btn ui-btn-primary inline-flex min-h-11 items-center rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-on-brand hover:bg-brand-hover disabled:opacity-60 sm:min-h-0"
       >
         {pending ? "Saving…" : "Save"}
       </button>

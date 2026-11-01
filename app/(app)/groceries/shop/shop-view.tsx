@@ -165,7 +165,7 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
           {hereCount === 0 ? (store ? `Nothing from ${store} on the list.` : "The list is empty.") : "Everything here is in the cart!"}
         </p>
       ) : (
-        <ul className="divide-y-2 divide-dashed divide-ink/10 overflow-hidden rounded-2xl border-2 border-ink bg-card shadow-[3px_3px_0_rgb(31_41_51/0.15)] dark:divide-white/10 dark:border-white/20">
+        <ul className="ui-card divide-y-2 divide-dashed divide-ink/10 overflow-hidden rounded-2xl border-2 border-ink bg-card shadow-[3px_3px_0_rgb(31_41_51/0.15)] dark:divide-white/10 dark:border-white/20">
           {toGet.map((r) => (
             <Row key={r.id} row={r} onTap={() => tap(r)} />
           ))}
@@ -184,7 +184,7 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
       )}
 
       {/* data-covers-bottom: tabbing to a row scrolls it clear of this panel (globals.css). */}
-      <div data-covers-bottom className="sticky bottom-[calc(var(--bottom-bar-h,0px)+0.5rem)] mt-2 flex flex-col gap-2 rounded-2xl border-2 border-ink bg-card p-3 shadow-lg dark:border-white/20">
+      <div data-covers-bottom className="ui-card sticky bottom-[calc(var(--bottom-bar-h,0px)+0.5rem)] mt-2 flex flex-col gap-2 rounded-2xl border-2 border-ink bg-card p-3 shadow-lg dark:border-white/20">
         {undo && (
           <div role="status" className="flex items-center justify-between gap-2 rounded-xl bg-ink py-0.5 pr-1 pl-3 text-sm font-bold text-paper">
             <span className="min-w-0 truncate">Checked off {undo.name}</span>

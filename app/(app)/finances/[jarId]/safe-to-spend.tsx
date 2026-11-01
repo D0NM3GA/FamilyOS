@@ -25,7 +25,7 @@ export function SafeToSpend({ f, jarId, today }: { f: Forecast; jarId: string; t
   }
   const tight = f.safeCents <= 0;
   return (
-    <section className="mt-4 rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
+    <section className="ui-card mt-4 rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
       <h2 className={sectionTitle}>
         💸 Safe to spend {f.payday ? `until payday, ${day(f.payday.nextOn)}` : `for the next ${daysUntil(today, f.until)} days`}
       </h2>

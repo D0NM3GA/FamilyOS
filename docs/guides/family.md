@@ -92,6 +92,13 @@ To change who's using the app, open your name at the top right and tap **Switch 
 
 <!-- screenshot: the profile picker -->
 
+### My look
+
+Your look is yours: nobody else sees it, and it follows you to every device. Open your name at the
+top right and tap **My look** (it's in Settings too). Tap a color and the app tries it on right
+there, over whatever page you're on. **Keep it** saves it; **Put it back** or Esc leaves things as
+they were. Day or night stays per device, so a tablet in a dark room can stay dark.
+
 ### Big buttons or Full app
 
 Open your name at the top right. Under "How the app looks for me":

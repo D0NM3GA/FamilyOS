@@ -3,6 +3,7 @@ import { Baloo_2, Gaegu, Nunito } from "next/font/google";
 import { connection } from "next/server";
 import { headers } from "next/headers";
 import { getFamilyLook } from "@/lib/household-settings";
+import { lookColorsCss } from "@/lib/looks";
 import { themeColorCss, themeColorOf } from "@/lib/theme-colors";
 import { serverSentryDsn } from "@/lib/observability/options";
 import "./globals.css";
@@ -107,6 +108,10 @@ export default async function RootLayout({
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         {/* Preset values only (lib/theme-colors.ts), never typed text. */}
         {themeCss && <style nonce={nonce} dangerouslySetInnerHTML={{ __html: themeCss }} />}
+        {/* Every look's colors, so trying one on only flips an attribute. Here because this layout
+            comes only with a full page load: a style in a nested layout can arrive by client
+            navigation, carrying a nonce the page's policy doesn't know. */}
+        <style nonce={nonce} dangerouslySetInnerHTML={{ __html: lookColorsCss() }} />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

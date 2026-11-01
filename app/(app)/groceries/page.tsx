@@ -180,7 +180,7 @@ export default async function GroceriesPage({
                   <span className="min-w-0 truncate">{group.storeName}</span>
                   <span className="rounded-full bg-muted px-2 text-xs">{group.items.filter((i) => !i.done).length}</span>
                 </h2>
-                <ul className="mt-2 divide-y-2 divide-dashed divide-ink/10 overflow-hidden rounded-2xl border-2 border-ink bg-card shadow-[3px_3px_0_rgb(31_41_51/0.15)] dark:border-white/20 dark:divide-white/10">
+                <ul className="ui-card mt-2 divide-y-2 divide-dashed divide-ink/10 overflow-hidden rounded-2xl border-2 border-ink bg-card shadow-[3px_3px_0_rgb(31_41_51/0.15)] dark:border-white/20 dark:divide-white/10">
                   {group.items.map((item) => (
                     <ListRow
                       key={item.id}

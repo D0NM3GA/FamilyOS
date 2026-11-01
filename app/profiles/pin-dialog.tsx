@@ -50,7 +50,7 @@ export function PinDialog({ personId, label, onClose }: { personId: string; labe
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="m-auto w-full max-w-xs rounded-3xl border-2 border-ink bg-card p-0 text-foreground shadow-xl backdrop:bg-black/50 animate-in zoom-in-95 duration-200 dark:border-white/20"
+      className="ui-card m-auto w-full max-w-xs rounded-3xl border-2 border-ink bg-card p-0 text-foreground shadow-xl backdrop:bg-black/50 animate-in zoom-in-95 duration-200 dark:border-white/20"
     >
       <form action={formAction} className="space-y-4 p-6">
         <input type="hidden" name="personId" value={personId} />
