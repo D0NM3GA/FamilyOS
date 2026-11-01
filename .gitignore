@@ -60,3 +60,5 @@ next-env.d.ts
 
 # barcode decoder wasm, copied from node_modules by scripts/copy-zxing-wasm.mjs
 /public/zxing
+# Art from scripts/looks-art.cjs, before it's compressed into public/looks.
+/scripts/design/

@@ -189,7 +189,6 @@ export function TaskInstanceCard({
   function handleComplete() {
     setFailed(false);
     setCelebrating(true);
-    celebrateLook();
     setTimeout(() => setCelebrating(false), 650);
     startTransition(async () => {
       setOptimisticStatus("DONE");
@@ -205,6 +204,8 @@ export function TaskInstanceCard({
         setFailed(true);
         return;
       }
+      // After the save, unlike the burst: the look says "done" only when it is.
+      celebrateLook();
       const milestone = result && typeof result === "object" ? result.milestone : null;
       if (milestone) {
         // Both fire: the in-place badge below covers the common case (a card that stays

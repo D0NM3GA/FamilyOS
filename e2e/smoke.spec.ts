@@ -448,13 +448,42 @@ test("finishing a chore is marked by the look, and takes no taps", async () => {
       await page.goto("/chores");
       const card = page.getByText("Water the plants").first();
       await expect(card).toBeVisible();
+      // Watched from inside the page: it only lasts two seconds, and a busy test machine can lose
+      // that between one check and the next. A copy stays behind, held still, for the screenshot.
+      await page.evaluate(() => {
+        const seen: Record<string, unknown> = {};
+        (window as unknown as { seenMoment: unknown }).seenMoment = seen;
+        const start = performance.now();
+        const watch = new MutationObserver((changes) => {
+          for (const change of changes) {
+            for (const node of change.addedNodes) {
+              if (!(node instanceof HTMLElement) || node.className !== "ui-moment" || node.id) continue;
+              const css = getComputedStyle(node);
+              Object.assign(seen, { word: node.textContent, taps: css.pointerEvents, shown: css.visibility });
+              const held = node.cloneNode(true) as HTMLElement;
+              held.id = "held-moment";
+              held.style.animation = "none";
+              node.parentElement!.append(held);
+            }
+            for (const node of change.removedNodes) {
+              if (node instanceof HTMLElement && node.className === "ui-moment" && !node.id) {
+                seen.lasted = performance.now() - start;
+                watch.disconnect();
+              }
+            }
+          }
+        });
+        watch.observe(document.body, { childList: true, subtree: true });
+      });
       await page.getByRole("button", { name: "Complete" }).first().click();
-      const moment = page.locator(".ui-moment");
-      await expect(moment).toHaveText(word);
+      const held = page.locator("#held-moment");
+      await expect(held).toHaveText(word);
+      if (shots) await page.screenshot({ path: `${shots}/moment-${id}.png` });
+      await held.evaluate((el) => el.remove());
       // It floats above the page without catching taps, and ends itself.
-      await expect(moment).toHaveCSS("pointer-events", "none");
-      if (shots) await page.screenshot({ path: `${shots}/moment-${id}.png` }).catch(() => {});
-      await expect(moment).toHaveCount(0, { timeout: 10_000 });
+      const seen = () => page.evaluate(() => (window as unknown as { seenMoment: Record<string, unknown> }).seenMoment);
+      await expect.poll(async () => (await seen()).lasted, { timeout: 10_000 }).toBeGreaterThan(0);
+      expect(await seen()).toMatchObject({ word, taps: "none", shown: "visible" });
       await page.getByRole("button", { name: "Undo" }).first().click();
       await expect(page.getByRole("button", { name: "Complete" }).first()).toBeVisible();
     }

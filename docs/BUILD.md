@@ -1203,8 +1203,9 @@ top bar stays at the top (search, bell and name open downward), so there's no fa
 
 Finishing a chore, taking a med or finishing a grocery trip gets the look's own mark: "DONE." slammed
 on, a wax seal, a self-closing dialog. It lives on `AppRoot` because the finished card leaves the page
-at once. Decorative, takes no taps, ends itself, and just shows and goes under reduced motion. Sticker
-Book keeps its burst, and every look keeps the mascot's. No sound, the owner's call for now.
+at once, and fires once the save worked. Decorative, takes no taps, ends itself, and just shows and
+goes under reduced motion. It plays alongside the card's existing burst and the mascot, in every look;
+Sticker Book has only those. No sound, the owner's call for now.
 
 ### 58.10 — Close
 
@@ -1212,4 +1213,7 @@ Book keeps its burst, and every look keeps the mascot's. No sound, the owner's c
 compressed to WebP in `public/looks/`). The prototype's CSS is gone. Each look's browser test wears it
 on seven pages in day and night and on a phone, with `axe`. Contrast over art can't be measured by
 `axe`, so scenes are checked by eye in `E2E_SHOTS` screenshots.
+
+Narrower than scoped: a look's voice is Home's greeting and the finish word only. Section and page
+title kickers, empty states and kana kickers weren't built; the other pages' words are the app's own.
 

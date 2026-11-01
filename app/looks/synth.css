@@ -309,7 +309,7 @@
   font: 700 clamp(1.5rem, 5vw, 2.5rem)/1.1 var(--face-heading);
   letter-spacing: 0.08em;
   box-shadow: 0 0 22px var(--synth-glow);
-  skew: -10deg;
+  transform: skewX(-10deg);
 }
 @media (prefers-reduced-motion: no-preference) {
   [data-look="synth"] .ui-moment { animation: moment-fly 1.2s ease-out forwards; }

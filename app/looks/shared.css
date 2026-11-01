@@ -37,9 +37,9 @@
   100% { opacity: 0; transform: translateY(-36px); visibility: hidden; }
 }
 @keyframes moment-fly {
-  0% { opacity: 0; transform: translateX(60px); }
-  20%, 75% { opacity: 1; transform: none; }
-  100% { opacity: 0; transform: translateY(-24px); visibility: hidden; }
+  0% { opacity: 0; transform: translateX(60px) skewX(-10deg); }
+  20%, 75% { opacity: 1; transform: skewX(-10deg); }
+  100% { opacity: 0; transform: translateY(-24px) skewX(-10deg); visibility: hidden; }
 }
 @keyframes moment-pop {
   0% { opacity: 0; scale: 0.3; }
