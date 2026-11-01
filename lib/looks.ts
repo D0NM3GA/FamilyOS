@@ -15,6 +15,8 @@ export type LookColor = {
   /** Text on main buttons and the bar, where it isn't white. */
   onBrand?: string;
   onChrome?: string;
+  /** The look's own variables for this color, day and night. Preset values only. */
+  vars?: { light: Record<string, string>; dark: Record<string, string> };
 };
 export type Look = {
   id: string;
@@ -28,6 +30,22 @@ export type Look = {
 const brutColor = (id: string, name: string, chrome: string, brand: string): LookColor => {
   const tokens = { chrome, chromeHover: chrome, chromeActive: chrome, brand, brandHover: brand };
   return { id, name, swatch: chrome, light: tokens, dark: tokens, onBrand: "#000000", onChrome: "#000000" };
+};
+
+const gothColor = (id: string, name: string, swatch: string, day: string, night: string, nightHover: string, glow: string, line: string): LookColor => {
+  const shared = { "--sun": glow, "--goth-frame-line": line };
+  return {
+    id,
+    name,
+    swatch,
+    light: { chrome: "#16120e", chromeHover: "#2a241c", chromeActive: "#352e24", brand: day, brandHover: day },
+    dark: { chrome: "#000000", chromeHover: "#1a1218", chromeActive: "#241a22", brand: night, brandHover: nightHover },
+    onChrome: "#eee6da",
+    vars: {
+      light: { ...shared, "--goth-title": day, "--brand-text": day, "--goth-frame": "url(/looks/goth-frame-day.webp)" },
+      dark: { ...shared, "--goth-title": glow, "--brand-text": glow, "--goth-frame": `url(/looks/goth-frame-${id}.webp)` },
+    },
+  };
 };
 
 export const DEFAULT_LOOK = "sticker";
@@ -46,6 +64,18 @@ export const LOOKS: readonly Look[] = [
     ],
     // No time of day: the banner stays up all day.
     hello: (firstName) => `Hey, ${firstName}.`,
+  },
+  {
+    id: "goth",
+    name: "Goth",
+    blurb: "A cathedral, then a grimoire.",
+    colors: [
+      gothColor("oxblood", "Oxblood", "#b3121f", "#9c1319", "#b3121f", "#c4182b", "#ff6a70", "#6b1a24"),
+      gothColor("absinthe", "Absinthe", "#2f7a2a", "#2c5e1e", "#2f7a2a", "#276a23", "#8fdc5a", "#2f5a24"),
+      gothColor("amethyst", "Amethyst", "#6d2fb8", "#54258f", "#6d2fb8", "#7a3bc6", "#c39bff", "#4a2a78"),
+      gothColor("rosewater", "Rosewater", "#b0386f", "#8f2a58", "#b0386f", "#bf467c", "#ff9ad0", "#6e2a50"),
+    ],
+    hello: (firstName) => `Good morrow, ${firstName}`,
   },
 ];
 
@@ -71,7 +101,8 @@ export function lookColorsCss(): string {
     look.colors.map((c) => {
       const on = `[data-app-root][data-look="${look.id}"][data-color="${c.id}"]`;
       const text = (c.onBrand ? `--on-brand:${c.onBrand};` : "") + (c.onChrome ? `--on-chrome:${c.onChrome};` : "");
-      return `${on}{${colorVars(c.light)}${text}}.dark ${on}{${colorVars(c.dark)}${text}}`;
+      const own = (v?: Record<string, string>) => Object.entries(v ?? {}).map(([k, x]) => `${k}:${x};`).join("");
+      return `${on}{${colorVars(c.light)}${text}${own(c.vars?.light)}}.dark ${on}{${colorVars(c.dark)}${text}${own(c.vars?.dark)}}`;
     }),
   ).join("");
 }

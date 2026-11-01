@@ -374,26 +374,31 @@ test("every look holds up on real pages, day and night", async () => {
     await expect(root).toHaveAttribute("data-look", look);
   };
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await wear("brut", "banana");
-  for (const scheme of ["light", "dark"] as const) {
-    await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
-    for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {
-      await page.goto(path);
-      await page.waitForLoadState("networkidle");
-      await expect(root).toHaveAttribute("data-look", "brut");
-      await expectAccessible(page, `brut ${scheme} ${path}`);
-      if (shots) await page.screenshot({ path: `${shots}/brut-${scheme}${path.replace(/\//g, "-")}.png` });
+  for (const [look, color] of [["brut", "banana"], ["goth", "oxblood"]]) {
+    await wear(look, color);
+    // The look's own stylesheet really applied, not only its colors: its type is not Sticker Book's.
+    const face = await root.evaluate((el) => getComputedStyle(el).getPropertyValue("--face-body"));
+    expect(face).not.toContain("--font-nunito");
+    for (const scheme of ["light", "dark"] as const) {
+      await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
+      for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {
+        await page.goto(path);
+        await page.waitForLoadState("networkidle");
+        await expect(root).toHaveAttribute("data-look", look);
+        await expectAccessible(page, `${look} ${scheme} ${path}`);
+        if (shots) await page.screenshot({ path: `${shots}/${look}-${scheme}${path.replace(/\//g, "-")}.png` });
+      }
     }
+    // The phone: the bottom bar, the scene and a long name's room.
+    const desktop = page.viewportSize()!;
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await expectAccessible(page, `${look} phone`);
+    if (shots) await page.screenshot({ path: `${shots}/${look}-phone.png` });
+    await page.setViewportSize(desktop);
+    await page.evaluate(() => localStorage.removeItem("theme"));
   }
-  // The phone: the bottom bar, the scene and a long name's room.
-  const desktop = page.viewportSize()!;
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  await expectAccessible(page, "brut phone");
-  if (shots) await page.screenshot({ path: `${shots}/brut-phone.png` });
-  await page.setViewportSize(desktop);
-  await page.evaluate(() => localStorage.removeItem("theme"));
   await page.emulateMedia({ reducedMotion: null });
   await wear(start.look!, start.color!);
   problems.expectNone();

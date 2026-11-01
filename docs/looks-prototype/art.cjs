@@ -2,7 +2,7 @@
 // Paints each look's art as SVG and rasterizes it (filters, grain and marble need a real renderer).
 const fs = require("fs"), path = require("path");
 const { chromium } = require("playwright");
-const OUT = path.join(__dirname, "design/art"); fs.mkdirSync(OUT, { recursive: true });
+const OUT = process.env.ART_OUT || path.join(__dirname, "design/art"); fs.mkdirSync(OUT, { recursive: true });
 let seed = 7; const rnd = (a = 1, b) => { seed = (seed * 16807) % 2147483647; const r = seed / 2147483647; return b === undefined ? r * a : a + r * (b - a); };
 const svg = (w, h, body, defs = "") => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs>${defs}</defs>${body}</svg>`;
 const A = {};
@@ -69,6 +69,10 @@ function scrollCorner(col, col2) {
 function frame(col, col2, W = 360) { const c = scrollCorner(col, col2); return svg(W, W, `<g>${c}</g><g transform="translate(${W} 0) scale(-1 1)">${c}</g><g transform="translate(0 ${W}) scale(1 -1)">${c}</g><g transform="translate(${W} ${W}) scale(-1 -1)">${c}</g><rect x="8" y="110" width="4" height="140" fill="${col}"/><rect x="16" y="110" width="1.5" height="140" fill="${col}"/><rect x="${W - 12}" y="110" width="4" height="140" fill="${col}"/><rect x="${W - 17.5}" y="110" width="1.5" height="140" fill="${col}"/><rect y="8" x="110" height="4" width="140" fill="${col}"/><rect y="16" x="110" height="1.5" width="140" fill="${col}"/><rect y="${W - 12}" x="110" height="4" width="140" fill="${col}"/><rect y="${W - 17.5}" x="110" height="1.5" width="140" fill="${col}"/>`); }
 A["goth-frame-night"] = [360, 360, frame("#c4182b", "#ff6a70")];
 A["goth-frame-day"] = [360, 360, frame("#16120e", "#9c1319")];
+A["goth-frame-oxblood"] = A["goth-frame-night"];
+A["goth-frame-absinthe"] = [360, 360, frame("#5fa82e", "#b6f07f")];
+A["goth-frame-amethyst"] = [360, 360, frame("#8a4fd0", "#c39bff")];
+A["goth-frame-rosewater"] = [360, 360, frame("#c9477f", "#ff9ad0")];
 const skull = (f, k) => svg(120, 120, `<path d="M60 10C30 10 16 30 18 56C19 68 26 74 32 78L34 96C34 102 40 104 44 102V94H52V104H68V94H76V102C80 104 86 102 86 96L88 78C94 74 101 68 102 56C104 30 90 10 60 10Z" fill="${f}"/><path d="M28 54C28 44 36 40 46 42C54 44 54 56 48 62C40 68 28 64 28 54ZM92 54C92 44 84 40 74 42C66 44 66 56 72 62C80 68 92 64 92 54Z" fill="${k}"/><path d="M60 62L54 78H66Z" fill="${k}"/><path d="M6 110L114 90M6 90L114 110" stroke="${f}" stroke-width="7" stroke-linecap="round"/>`);
 A["goth-skull"] = [120, 120, skull("#e5263a", "#0a090c")];
 

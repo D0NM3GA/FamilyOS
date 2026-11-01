@@ -1170,3 +1170,9 @@ All looks share one stylesheet rather than the scope's per-look files, once meas
 them inert and browsers fetch a look's art and fonts only when used, so wearers pay for theirs, there's
 no flash, try-on is instant and offline needs nothing new. `public/sw.js` caps saved fonts.
 
+### 58.4 — Goth
+
+A cathedral on Home by day (a woodcut on parchment) and by night (candlelit, with embers), framed
+Home cards with a skull crest, coffin-shaped main buttons, four colors. Blackletter is for titles;
+Big buttons swaps it for a plainer gothic, and a focused button squares off so its ring shows.
+

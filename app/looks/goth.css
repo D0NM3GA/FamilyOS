@@ -1,0 +1,299 @@
+/* Phase 58.4, Goth: a cathedral, then a grimoire. Day is woodcut on parchment, night is candlelight.
+   Blackletter is for titles only, body text stays a readable serif, and the Big buttons view swaps
+   blackletter for a plainer gothic. Each color sets --sun, --goth-title and --goth-frame. */
+[data-app-root][data-look="goth"] {
+  --face-body: var(--font-spectral);
+  --face-heading: var(--font-unifraktur);
+  --face-hand: var(--font-grenze);
+  --ink: #16120e;
+  --ink-soft: #574d42;
+  --paper: #cfc6b2;
+  --tomato: #c9262c;
+  --sky: #7f96b8;
+  --lime: #8fae6a;
+  --grape: #9a7cc0;
+  --background: #e8e1cf;
+  --foreground: #16120e;
+  --card: #e8e1cf;
+  --card-foreground: #16120e;
+  --popover: #e8e1cf;
+  --popover-foreground: #16120e;
+  --primary: #16120e;
+  --primary-foreground: #e8e1cf;
+  --secondary: #cfc6b2;
+  --secondary-foreground: #16120e;
+  --muted: #cfc6b2;
+  --muted-foreground: #4f463c;
+  --accent: #cfc6b2;
+  --accent-foreground: #16120e;
+  --border: #16120e;
+  --input: #16120e;
+  --ring: #16120e;
+  --grid-line: transparent;
+  --radius: 0.125rem;
+  --goth-line: #16120e;
+  --goth-art: url(/looks/goth-day.webp);
+  --goth-scene: #16120e;
+  --goth-scene-text: #e8e1cf;
+}
+.dark [data-app-root][data-look="goth"] {
+  --background: #0a090c;
+  --foreground: #eee6da;
+  --card: #15121a;
+  --card-foreground: #eee6da;
+  --popover: #15121a;
+  --popover-foreground: #eee6da;
+  --primary: #eee6da;
+  --primary-foreground: #0a090c;
+  --secondary: #0a090c;
+  --secondary-foreground: #eee6da;
+  --muted: #0a090c;
+  --muted-foreground: #a99fa6;
+  --accent: #0a090c;
+  --accent-foreground: #eee6da;
+  --border: #4a3a42;
+  --input: #6a5a62;
+  --ring: #eee6da;
+  --goth-line: #4a3a42;
+  --goth-art: url(/looks/goth-night.webp);
+  --goth-scene: #0a090c;
+  --goth-scene-text: #eee6da;
+}
+
+/* Grain over everything; nothing can tap it. */
+[data-look="goth"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  background: url(/looks/grain.webp);
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+}
+.dark [data-look="goth"]::after {
+  opacity: 0.45;
+  mix-blend-mode: overlay;
+}
+/* Embers rising at night, behind the page's content. */
+.dark [data-look="goth"]::before {
+  content: "";
+  position: fixed;
+  inset: -40% 0 0;
+  z-index: 50;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.6px 1.6px at 20% 30%, #ff8a3c, transparent),
+    radial-gradient(1.2px 1.2px at 70% 60%, #ffc26b, transparent),
+    radial-gradient(2px 2px at 40% 80%, #ff5a3c, transparent),
+    radial-gradient(1.2px 1.2px at 85% 20%, #ffc26b, transparent);
+  background-size: 300px 340px;
+}
+[data-look="goth"] main#main {
+  background-image: none;
+}
+.dark [data-look="goth"] main#main {
+  background-image: radial-gradient(120% 60% at 50% 0, color-mix(in srgb, var(--brand) 22%, transparent), transparent 70%);
+  background-size: auto;
+}
+
+/* The masthead. */
+[data-look="goth"] .ui-bar {
+  border-bottom: 3px double var(--goth-frame-line);
+}
+[data-look="goth"] .ui-wordmark {
+  font-size: 2.125rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+@media (max-width: 639px) {
+  [data-look="goth"] .ui-wordmark {
+    font-size: 1.625rem;
+  }
+}
+[data-look="goth"] .ui-rail {
+  border-right: 3px double var(--goth-frame-line);
+  font-style: italic;
+}
+[data-look="goth"] .ui-rail a {
+  border-radius: 0;
+  border-bottom: 1px solid var(--goth-frame-line);
+  width: 100%;
+}
+[data-look="goth"] .ui-rail a[aria-current],
+[data-look="goth"] .ui-bottom-bar a[aria-current] {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+[data-look="goth"] .ui-bottom-bar {
+  border-top: 3px double var(--goth-frame-line);
+  font-style: italic;
+}
+
+/* Titles. */
+[data-look="goth"] h1,
+[data-look="goth"] h2,
+[data-look="goth"] .ui-page-title {
+  font-weight: 700;
+  color: var(--goth-title);
+}
+[data-look="goth"] h2 {
+  font-size: 1.5em;
+  line-height: 1.1;
+}
+[data-look="goth"] h3 {
+  font-family: var(--font-grenze);
+  font-weight: 600;
+  font-size: 1.15em;
+}
+[data-view="BIG"][data-look="goth"] h1,
+[data-view="BIG"][data-look="goth"] h2,
+[data-view="BIG"][data-look="goth"] .ui-page-title {
+  font-family: var(--font-grenze);
+  font-weight: 600;
+}
+/* A title on a colored panel keeps the panel's own readable text color. */
+[data-look="goth"] :is(.bg-ink, .bg-sun, .bg-tomato, .bg-sky, .bg-lime, .bg-grape, .bg-chrome, .bg-brand) :is(h1, h2, h3) {
+  color: inherit;
+}
+[data-look="goth"] .ui-section-title,
+[data-look="goth"] .ui-field-label {
+  font-family: var(--face-body);
+  font-weight: 700;
+  color: var(--muted-foreground);
+  font-variant: small-caps;
+  text-transform: none;
+  letter-spacing: 0.06em;
+  font-size: 0.9375rem;
+}
+
+/* Everyday pieces: a double rule. */
+[data-look="goth"] .ui-card {
+  border: 1px solid var(--goth-line);
+  border-radius: 0;
+  box-shadow: 0 0 0 3px var(--card), 0 0 0 4px var(--goth-line);
+}
+[data-look="goth"] .ui-chip {
+  border-radius: 0;
+  border-width: 1px;
+  font-style: italic;
+}
+[data-look="goth"] .ui-field {
+  border-width: 1px;
+  border-radius: 0;
+}
+[data-look="goth"] .ui-btn {
+  border-radius: 0;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+/* Main buttons are coffins. A clip would cut a focus ring off, so focus squares it. */
+[data-look="goth"] .ui-btn-primary {
+  border: 0;
+  padding-inline: 1.75rem;
+  clip-path: polygon(9% 0, 91% 0, 100% 28%, 92% 100%, 8% 100%, 0 28%);
+}
+[data-look="goth"] .ui-btn-primary:focus-visible {
+  clip-path: none;
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Home: the cathedral, and Home's cards get the full frame and crest. */
+[data-look="goth"] .ui-scene {
+  display: block;
+  margin: -1rem -1rem 1.5rem;
+  padding: 12rem 1rem 1.25rem;
+  text-align: center;
+  background: var(--goth-art) center top/auto 11.5rem no-repeat;
+  background-color: var(--goth-scene);
+  color: var(--goth-scene-text);
+}
+@media (min-width: 640px) {
+  [data-look="goth"] .ui-scene {
+    margin: -1.5rem -1.5rem 1.5rem;
+    padding-top: 16rem;
+    background-size: auto 15.5rem;
+  }
+}
+[data-look="goth"] .ui-scene-hello {
+  display: block;
+  overflow-wrap: anywhere;
+  font: 700 clamp(2.5rem, 8vw, 3.75rem)/1 var(--face-heading);
+  text-shadow: 0 2px 14px #000000;
+}
+[data-view="BIG"][data-look="goth"] .ui-scene-hello {
+  font-family: var(--font-grenze);
+}
+[data-look="goth"] .ui-scene-hello::first-letter {
+  color: var(--sun);
+  font-size: 1.4em;
+}
+[data-look="goth"] .ui-scene-date {
+  display: block;
+  margin-top: 0.375rem;
+  font-style: italic;
+  font-size: 1.0625rem;
+}
+[data-look="goth"] .ui-scene-date::before,
+[data-look="goth"] .ui-scene-date::after {
+  content: "\2720";
+  margin-inline: 0.5rem;
+  color: var(--sun);
+  font-style: normal;
+}
+[data-look="goth"] .ui-home .ui-card:has(h2) {
+  position: relative;
+  border: 18px solid transparent;
+  border-image: var(--goth-frame) 220 / 52px / 0 stretch;
+  background-clip: border-box;
+  box-shadow: none;
+  padding: 0.25rem 0.625rem 0.5rem;
+  margin-top: 0.5rem;
+}
+[data-look="goth"] .ui-home .ui-card:has(h2)::before {
+  content: "";
+  position: absolute;
+  top: -2rem;
+  left: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: -1.25rem;
+  border-radius: 50%;
+  background: var(--card) url(/looks/goth-skull.webp) center/1.75rem no-repeat;
+  pointer-events: none;
+}
+[data-look="goth"] .ui-home .ui-card h2 {
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+/* The picker's poster. */
+[data-poster="goth"] {
+  min-height: 7rem;
+  background: url(/looks/goth-night.webp) center bottom/auto 4.5rem no-repeat, #0a090c;
+  color: #eee6da;
+  border-radius: 0;
+  border-color: #6b1a24;
+}
+[data-poster="goth"] b {
+  font: 700 1.625rem/1 var(--font-unifraktur);
+  color: #ff4a5b;
+  text-align: center;
+}
+[data-poster="goth"] span {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dark [data-look="goth"]::before { animation: goth-embers 16s linear infinite; }
+  [data-look="goth"] .ui-scene { animation: goth-candle 0.9s ease-out; }
+}
+@keyframes goth-embers { to { transform: translateY(340px); } }
+@keyframes goth-candle {
+  0% { filter: brightness(0); }
+  30% { filter: brightness(0.5); }
+  38% { filter: brightness(0.12); }
+  60% { filter: brightness(0.8); }
+  68% { filter: brightness(0.35); }
+}
