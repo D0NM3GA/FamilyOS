@@ -44,7 +44,8 @@ export const LOOKS: readonly Look[] = [
       brutColor("electric", "Electric", "#7fdcff", "#a7f070"),
       brutColor("tangerine", "Tangerine", "#ff9a3c", "#b9a5ff"),
     ],
-    hello: (firstName) => `Morning, ${firstName}.`,
+    // No time of day: the banner stays up all day.
+    hello: (firstName) => `Hey, ${firstName}.`,
   },
 ];
 
