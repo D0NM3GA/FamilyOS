@@ -28,7 +28,7 @@
   --accent-foreground: #4a1636;
   --border: #4a1636;
   --input: #4a1636;
-  --ring: #4a1636;
+  --ring: #c9186a;
   --grid-line: transparent;
   --radius: 1rem;
   --kawaii-line: #4a1636;
@@ -78,7 +78,6 @@
 /* The bar: a scalloped edge and a die-cut wordmark. */
 [data-look="kawaii"] .ui-bar {
   position: relative;
-  z-index: 1;
   margin-bottom: 0.625rem;
 }
 [data-look="kawaii"] .ui-bar::after {
@@ -87,12 +86,14 @@
   left: 0;
   right: 0;
   top: 100%;
+  z-index: 1;
   height: 0.75rem;
   pointer-events: none;
   background: radial-gradient(circle at 50% 0, var(--chrome) 11px, transparent 12px) 0 0/24px 12px repeat-x;
 }
 [data-look="kawaii"] .ui-wordmark {
   padding: 0.25rem 0.5rem;
+  line-height: 1.3;
   font-size: 1.625rem;
   font-weight: 400;
   color: #3e0f2c;
@@ -110,6 +111,8 @@
   color: #c9186a;
 }
 [data-look="kawaii"] .ui-rail {
+  padding-inline: 0.5rem;
+  overflow-x: hidden;
   background: transparent;
   gap: 0.5rem;
   color: var(--foreground);
@@ -133,6 +136,16 @@
 }
 [data-look="kawaii"] .ui-rail hr {
   border-color: var(--kawaii-line);
+}
+/* Whatever else sits on the bar: --sun is too close to these pale bars to read. */
+[data-look="kawaii"] .ui-bottom-bar button {
+  color: var(--on-chrome);
+}
+[data-look="kawaii"] .ui-bottom-bar button i {
+  background: var(--on-chrome);
+}
+[data-look="kawaii"] .ui-bar > button:first-child:focus-visible {
+  outline-color: var(--on-chrome);
 }
 [data-look="kawaii"] .ui-bottom-bar a[aria-current] {
   background: var(--sun);
@@ -264,6 +277,18 @@
 }
 [data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(4n + 3)::after {
   background-image: url(/looks/kawaii-cat3.webp);
+}
+
+[data-look="kawaii"] .ui-home .ui-card:has(h2):nth-child(4n)::after {
+  content: "";
+  position: absolute;
+  right: 0.25rem;
+  top: -1.75rem;
+  width: 2rem;
+  height: 4.75rem;
+  pointer-events: none;
+  background: url(/looks/kawaii-ramune.webp) center/contain no-repeat;
+  transform: rotate(10deg);
 }
 
 [data-poster="kawaii"] {

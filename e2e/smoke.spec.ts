@@ -357,53 +357,61 @@ test("a look is tried on over the real page, and only Keep it saves it", async (
   problems.expectNone();
 });
 
-test("every look holds up on real pages, day and night", async () => {
-  test.setTimeout(10 * 60_000); // Every look, on seven pages, twice over, each with an accessibility run.
-  const shots = process.env.E2E_SHOTS; // a folder to save screenshots in, for a person to look at
-  const root = page.locator("[data-app-root]");
-  const start = { look: await root.getAttribute("data-look"), color: await root.getAttribute("data-color") };
-  const sheet = page.getByRole("dialog", { name: "My look" });
-  const wear = async (look: string, color: string) => {
-    await page.goto("/settings");
-    await page.getByRole("button", { name: "My look" }).click();
-    await sheet.locator(`input[name="look"][value="${look}"]`).check({ force: true });
-    await sheet.locator(`input[name="color"][value="${color}"]`).check({ force: true });
-    const keep = sheet.getByRole("button", { name: "Keep it" });
-    if (await keep.count()) await keep.click();
-    else await sheet.getByRole("button", { name: "Done" }).click();
-    await expect(sheet).toBeHidden();
-    await expect(root).toHaveAttribute("data-look", look);
-  };
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const [look, color] of [["brut", "banana"], ["goth", "oxblood"], ["synth", "outrun"], ["kawaii", "ramune"]]) {
-    await wear(look, color);
-    // The look's own stylesheet really applied, not only its colors: its type is not Sticker Book's.
-    const face = await root.evaluate((el) => getComputedStyle(el).getPropertyValue("--face-body"));
-    expect(face).toContain({ brut: "Space Grotesk", goth: "Spectral", synth: "Exo 2", kawaii: "M PLUS Rounded 1c" }[look]);
-    for (const scheme of ["light", "dark"] as const) {
-      await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
-      for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {
-        await page.goto(path);
-        await page.waitForLoadState("networkidle");
-        await expect(root).toHaveAttribute("data-look", look);
-        await expectAccessible(page, `${look} ${scheme} ${path}`);
-        if (shots) await page.screenshot({ path: `${shots}/${look}-${scheme}${path.replace(/\//g, "-")}.png` });
-      }
-    }
-    // The phone: the bottom bar, the scene and a long name's room.
+for (const [look, color, face] of [
+  ["brut", "banana", "Space Grotesk"],
+  ["goth", "oxblood", "Spectral"],
+  ["synth", "outrun", "Exo 2"],
+  ["kawaii", "ramune", "M PLUS Rounded 1c"],
+]) {
+  test(`${look} holds up on real pages, day and night`, async () => {
+    test.setTimeout(4 * 60_000); // Seven pages, twice over, each with an accessibility run.
+    const shots = process.env.E2E_SHOTS; // a folder to save screenshots in, for a person to look at
+    const root = page.locator("[data-app-root]");
+    const start = { look: await root.getAttribute("data-look"), color: await root.getAttribute("data-color") };
+    const sheet = page.getByRole("dialog", { name: "My look" });
+    const wear = async (id: string, colorId: string) => {
+      await page.goto("/settings");
+      await page.getByRole("button", { name: "My look" }).click();
+      await sheet.locator(`input[name="look"][value="${id}"]`).check({ force: true });
+      await sheet.locator(`input[name="color"][value="${colorId}"]`).check({ force: true });
+      const keep = sheet.getByRole("button", { name: "Keep it" });
+      if (await keep.count()) await keep.click();
+      else await sheet.getByRole("button", { name: "Done" }).click();
+      await expect(sheet).toBeHidden();
+      await expect(root).toHaveAttribute("data-look", id);
+    };
     const desktop = page.viewportSize()!;
-    await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-    await expectAccessible(page, `${look} phone`);
-    if (shots) await page.screenshot({ path: `${shots}/${look}-phone.png` });
-    await page.setViewportSize(desktop);
-    await page.evaluate(() => localStorage.removeItem("theme"));
-  }
-  await page.emulateMedia({ reducedMotion: null });
-  await wear(start.look!, start.color!);
-  problems.expectNone();
-});
+    try {
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await wear(look, color);
+      // The look's own stylesheet really applied, not only its colors.
+      expect(await root.evaluate((el) => getComputedStyle(el).getPropertyValue("--face-body"))).toContain(face);
+      for (const scheme of ["light", "dark"] as const) {
+        await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
+        for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {
+          await page.goto(path);
+          await page.waitForLoadState("networkidle");
+          await expect(root).toHaveAttribute("data-look", look);
+          await expectAccessible(page, `${look} ${scheme} ${path}`);
+          if (shots) await page.screenshot({ path: `${shots}/${look}-${scheme}${path.replace(/\//g, "-")}.png` });
+        }
+      }
+      // The phone: the bottom bar, the scene and a long name's room.
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.goto("/");
+      await page.waitForLoadState("networkidle");
+      await expectAccessible(page, `${look} phone`);
+      if (shots) await page.screenshot({ path: `${shots}/${look}-phone.png` });
+    } finally {
+      // Whatever happened, the tests after this one don't wear a look.
+      await page.setViewportSize(desktop);
+      await page.evaluate(() => localStorage.removeItem("theme"));
+      await page.emulateMedia({ reducedMotion: null });
+      await wear(start.look!, start.color!);
+    }
+    problems.expectNone();
+  });
+}
 
 test("home location from a ZIP code, then from this device", async () => {
   await page.goto("/settings/household");
