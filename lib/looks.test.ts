@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LOOK, LOOKS, lookColorOf, lookColorsCss, lookOf, wornLook } from "./looks";
+import { APPS } from "./apps";
+import { DEFAULT_LOOK, LOOKS, VOICE_KICKERS, lookColorOf, lookColorsCss, lookOf, wornLook } from "./looks";
 
 describe("wornLook", () => {
   it("is Sticker Book in the family's color for someone who hasn't chosen", () => {
@@ -88,3 +89,19 @@ describe("every color of every look", () => {
   });
 });
 
+describe("a look's voice", () => {
+  const voiced = LOOKS.filter((l) => l.id !== DEFAULT_LOOK);
+  it("every other look has a line for every kicker, short enough to sit on one", () => {
+    for (const look of voiced) {
+      expect(look.voice, look.id).toBeDefined();
+      for (const id of VOICE_KICKERS) {
+        const line = look.voice!.kickers[id];
+        expect(line, `${look.id} ${id}`).toBeTruthy();
+        expect(line.length, `${look.id} ${id}`).toBeLessThanOrEqual(32);
+      }
+    }
+  });
+  it("covers every app's own page but the ones with no title of their own", () => {
+    for (const app of APPS.filter((a) => a.id !== "home")) expect(VOICE_KICKERS as readonly string[], app.id).toContain(app.id);
+  });
+});

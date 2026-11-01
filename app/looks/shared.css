@@ -54,3 +54,27 @@
 @keyframes moment-stamp {
   0% { transform: scale(3) rotate(-18deg); opacity: 0; }
 }
+
+/* A look's voice: small lines beside the app's plain words. Each look can dress its own. */
+.ui-kicker {
+  display: block;
+  font-family: var(--face-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--muted-foreground);
+}
+.ui-quiet {
+  font-style: italic;
+}
+[data-look="brut"] .ui-kicker { font-family: var(--face-heading); font-weight: 400; letter-spacing: 0.04em; }
+[data-look="goth"] .ui-kicker,
+[data-look="acanthus"] .ui-kicker { font-style: italic; font-weight: 400; font-size: 0.875rem; }
+[data-look="synth"] .ui-kicker { letter-spacing: 0.14em; color: var(--brand-text); }
+[data-look="kawaii"] .ui-kicker { color: var(--brand-text); }
+[data-look="vapor"] .ui-kicker { font-family: var(--face-heading); font-weight: 400; }
+[data-look="acanthus"] .ui-home .ui-kicker,
+[data-look="goth"] .ui-home .ui-kicker { text-align: center; }
+/* Big buttons keeps its size and layout in every look. */
+[data-view="BIG"] .ui-kicker,
+[data-view="BIG"] .ui-quiet { display: none; }

@@ -389,6 +389,10 @@ for (const [look, color, face] of [
       await wear(look, color);
       // The look's own stylesheet really applied, not only its colors.
       expect(await root.evaluate((el) => getComputedStyle(el).getPropertyValue("--face-body"))).toContain(face);
+      // Its voice sits beside the app's plain words, which stay as they are.
+      await page.goto("/chores");
+      await expect(page.locator(".ui-kicker").first()).toHaveText(lookOf(look).voice!.kickers.chores);
+      await expect(page.getByRole("heading", { level: 1 })).toContainText("Chores");
       // Its font files really load: the Latin face, and the Latin Extended one for an accented name.
       const faces = await page.evaluate(async (family) => {
         const load = async (text: string) => (await document.fonts.load(`16px ${family}`, text)).map((f) => f.unicodeRange);

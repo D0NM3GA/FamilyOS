@@ -1,3 +1,4 @@
+import { LookKicker } from "@/components/look-voice";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
@@ -48,6 +49,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="mx-auto max-w-3xl p-4 pb-24 sm:p-6">
+      <LookKicker id="money" />
       <h1 className="text-4xl font-extrabold">💰 Your jars</h1>
       <p className="text-muted-foreground">Each jar keeps its own accounts and is private to the people in it.</p>
 

@@ -27,7 +27,17 @@ export type Look = {
   hello?: (firstName: string) => string;
   /** The word when someone finishes something (app/looks/*.css draws it). Sticker Book has its own. */
   moment?: string;
+  /** A little more of it: small lines beside the app's own words, which still say what's what. */
+  voice?: LookVoice;
 };
+export type LookVoice = {
+  /** By app id for a page's title, and by section for Home's other cards. */
+  kickers: Record<VoiceKicker, string>;
+  /** Beside "Nothing due today." */
+  quiet: string;
+};
+export const VOICE_KICKERS = ["people", "calendar", "chores", "meds", "groceries", "school", "money", "store", "pet", "cars", "garage", "data", "settings", "dates", "stale", "activity"] as const;
+export type VoiceKicker = (typeof VOICE_KICKERS)[number];
 
 const brutColor = (id: string, name: string, chrome: string, brand: string): LookColor => {
   const tokens = { chrome, chromeHover: chrome, chromeActive: chrome, brand, brandHover: brand };
@@ -123,6 +133,27 @@ export const LOOKS: readonly Look[] = [
     // No time of day: the banner stays up all day.
     hello: (firstName) => `Hey, ${firstName}.`,
     moment: "DONE.",
+    voice: {
+      kickers: {
+        people: "THE CREW.",
+        calendar: "WHEN.",
+        chores: "DO IT.",
+        meds: "TAKE IT.",
+        groceries: "BUY IT.",
+        school: "LEARN IT.",
+        money: "COUNT IT.",
+        store: "SPEND IT.",
+        pet: "FEED IT.",
+        cars: "FIX IT.",
+        garage: "STOCK IT.",
+        data: "KEEP IT.",
+        settings: "CHANGE IT.",
+        dates: "MARK IT.",
+        stale: "CALL THEM.",
+        activity: "IT HAPPENED.",
+      },
+      quiet: "Zero. Nice.",
+    },
   },
   {
     id: "goth",
@@ -136,6 +167,27 @@ export const LOOKS: readonly Look[] = [
     ],
     hello: (firstName) => `Well met, ${firstName}`,
     moment: "So it is done",
+    voice: {
+      kickers: {
+        people: "Thy kith and kin",
+        calendar: "The days to come",
+        chores: "Labours of the household",
+        meds: "The apothecary",
+        groceries: "Provisions for the larder",
+        school: "The scholars' ledger",
+        money: "The counting house",
+        store: "Treasures to be claimed",
+        pet: "The familiar",
+        cars: "The carriage house",
+        garage: "The undercroft stores",
+        data: "The archive",
+        settings: "The inner workings",
+        dates: "Days of note",
+        stale: "Long unspoken",
+        activity: "Lately recorded",
+      },
+      quiet: "All is still.",
+    },
   },
   {
     id: "synth",
@@ -149,6 +201,27 @@ export const LOOKS: readonly Look[] = [
     ],
     hello: (firstName) => `Welcome back, ${firstName}`,
     moment: "BONUS!",
+    voice: {
+      kickers: {
+        people: "PLAYER SELECT",
+        calendar: "NEXT LEVELS",
+        chores: "MISSION LOG",
+        meds: "POWER-UPS",
+        groceries: "SUPPLY RUN",
+        school: "TRAINING MODE",
+        money: "CREDITS",
+        store: "BONUS SHOP",
+        pet: "SIDEKICK",
+        cars: "FULL THROTTLE",
+        garage: "PARTS BAY",
+        data: "SAVE FILES",
+        settings: "OPTIONS MENU",
+        dates: "COMING UP",
+        stale: "RECONNECT",
+        activity: "REPLAY",
+      },
+      quiet: "Stage clear.",
+    },
   },
   {
     id: "kawaii",
@@ -162,6 +235,27 @@ export const LOOKS: readonly Look[] = [
     ],
     hello: (firstName) => `Welcome back, ${firstName}!`,
     moment: "Yay!!",
+    voice: {
+      kickers: {
+        people: "Your favorite people!",
+        calendar: "So many fun days!",
+        chores: "Little helper tasks!",
+        meds: "Feel-good time!",
+        groceries: "Snack patrol!",
+        school: "Study buddies!",
+        money: "Piggy bank time!",
+        store: "Treats to earn!",
+        pet: "Your tiny friend!",
+        cars: "Vroom vroom!",
+        garage: "Cozy car things!",
+        data: "Safe and snug!",
+        settings: "Make it cute!",
+        dates: "Don't forget!",
+        stale: "Say hi!",
+        activity: "Just happened!",
+      },
+      quiet: "All clear, yay!",
+    },
   },
   {
     id: "acanthus",
@@ -175,6 +269,27 @@ export const LOOKS: readonly Look[] = [
     ],
     hello: (firstName) => `Welcome home, ${firstName}`,
     moment: "Duly attested",
+    voice: {
+      kickers: {
+        people: "The household and its friends",
+        calendar: "An almanack of days",
+        chores: "The day's good work",
+        meds: "The still-room",
+        groceries: "The pantry book",
+        school: "Lessons and learning",
+        money: "The household accounts",
+        store: "Honest rewards",
+        pet: "A faithful companion",
+        cars: "The coach house",
+        garage: "Stores and sundries",
+        data: "The muniment room",
+        settings: "Arrangements",
+        dates: "Days to remember",
+        stale: "Letters owed",
+        activity: "From the daybook",
+      },
+      quiet: "All in good order.",
+    },
   },
   {
     id: "vapor",
@@ -189,6 +304,27 @@ export const LOOKS: readonly Look[] = [
     // No time of day: the banner stays up all day.
     hello: (firstName) => `Hello, ${firstName}`,
     moment: "Task complete.",
+    voice: {
+      kickers: {
+        people: "contacts.dir",
+        calendar: "calendar.exe",
+        chores: "tasks.exe",
+        meds: "wellness.exe",
+        groceries: "mall_run.exe",
+        school: "study.exe",
+        money: "wallet.exe",
+        store: "shop.exe",
+        pet: "virtual_pet.exe",
+        cars: "cruise.exe",
+        garage: "parts.dir",
+        data: "backup.exe",
+        settings: "control_panel",
+        dates: "reminders.txt",
+        stale: "dial_up.exe",
+        activity: "event.log",
+      },
+      quiet: "No tasks running.",
+    },
   },
 ];
 

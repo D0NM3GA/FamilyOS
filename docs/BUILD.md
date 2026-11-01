@@ -1214,8 +1214,7 @@ compressed to WebP in `public/looks/`). The prototype's CSS is gone. Each look's
 on seven pages in day and night and on a phone, with `axe`. Contrast over art can't be measured by
 `axe`, so scenes are checked by eye in `E2E_SHOTS` screenshots.
 
-Narrower than scoped: a look's voice is Home's greeting and the finish word only. Section and page
-title kickers, empty states and kana kickers weren't built; the other pages' words are the app's own.
+First shipped with a narrower voice than scoped; see "Looks: voice" below. Kana kickers weren't built.
 
 ### Fonts from npm, after Phase 58
 
@@ -1236,3 +1235,11 @@ and a test finishes a med and a shopping trip with a look on. Looking at those s
 `axe` can't: Kawaii's night tape read as caution tape, hatching behind Acanthus's house ended in a
 hard box, and Vaporwave's palm showed only as fragments between windows, so it moved up beside the
 bust. Goth's greeting no longer says "morrow" in the evening.
+
+### Looks: voice
+
+The rest of the scoped voice: a line above each app's page title, one under each Home card's title,
+and one beside "Nothing due today." on Chores and Meds. They're in each look's `voice` in
+`lib/looks.ts`, decoration beside the app's plain words: hidden from screen readers and in Big
+buttons, and on an app's own page only, not deeper. Sticker Book has none. `lib/looks.test.ts` checks
+every look has every line, and that a new app can't be left without one.

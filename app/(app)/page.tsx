@@ -1,3 +1,5 @@
+import { LookKicker } from "@/components/look-voice";
+import type { VoiceKicker } from "@/lib/looks";
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireActiveProfile, isSessionOwner } from "@/lib/active-profile";
@@ -179,7 +181,7 @@ export default async function HomePage() {
       )}
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card title="Upcoming dates" index={index("dates")}>
+        <Card title="Upcoming dates" kicker="dates" index={index("dates")}>
           {upcomingDates.length === 0 ? (
             <EmptyNote>Nothing in the next 30 days. Add birthdays from a person&apos;s page.</EmptyNote>
           ) : (
@@ -202,7 +204,7 @@ export default async function HomePage() {
           )}
         </Card>
 
-        <Card title="Haven't talked in a while" index={index("stale")}>
+        <Card title="Haven't talked in a while" kicker="stale" index={index("stale")}>
           {stale.length === 0 ? (
             <EmptyNote>No one&apos;s overdue for a check-in right now.</EmptyNote>
           ) : (
@@ -236,7 +238,7 @@ export default async function HomePage() {
         </Card>
 
         {on("chores") && (
-          <Card title="Today's chores" index={index("chores")}>
+          <Card title="Today's chores" kicker="chores" index={index("chores")}>
             <HomeTasks
               board={choreBoard}
               href="/chores"
@@ -251,7 +253,7 @@ export default async function HomePage() {
         )}
 
         {on("meds") && (
-          <Card title="Today's meds" index={index("meds")}>
+          <Card title="Today's meds" kicker="meds" index={index("meds")}>
             <HomeTasks
               board={medBoard}
               href="/meds"
@@ -266,7 +268,7 @@ export default async function HomePage() {
         )}
 
         {on("cars") && (
-          <Card title="Vehicle maintenance" index={index("cars")}>
+          <Card title="Vehicle maintenance" kicker="cars" index={index("cars")}>
             {overdueMaintenance.length === 0 ? (
               <EmptyNote>Nothing overdue.</EmptyNote>
             ) : (
@@ -288,7 +290,7 @@ export default async function HomePage() {
         )}
 
         {on("school") && (
-          <Card title="School this week" index={index("school")}>
+          <Card title="School this week" kicker="school" index={index("school")}>
             {schoolEvents.length > 0 && (
               <ul className="mb-2 space-y-1">
                 {schoolEvents.slice(0, 3).map((e) => (
@@ -332,7 +334,7 @@ export default async function HomePage() {
         {outlookCard && (
           <Suspense
             fallback={
-              <Card title="This week's calendar" index={index("calendar")}>
+              <Card title="This week's calendar" kicker="calendar" index={index("calendar")}>
                 <EmptyNote>Checking the calendar…</EmptyNote>
               </Card>
             }
@@ -348,7 +350,7 @@ export default async function HomePage() {
           </Suspense>
         )}
 
-        <Card title="Recent activity" index={index("activity")}>
+        <Card title="Recent activity" kicker="activity" index={index("activity")}>
           {activity.length === 0 ? (
             <EmptyNote>Nothing logged yet.</EmptyNote>
           ) : (
@@ -376,14 +378,14 @@ async function CalendarCard({ load, index }: { load: Promise<ThisWeekResult>; in
   const result = await load;
   if (!result.ok) {
     return (
-      <Card title="This week's calendar" index={index}>
+      <Card title="This week's calendar" kicker="calendar" index={index}>
         <EmptyNote>{result.error}</EmptyNote>
       </Card>
     );
   }
 
   return (
-    <Card title="This week's calendar" index={index}>
+    <Card title="This week's calendar" kicker="calendar" index={index}>
       {result.events.length === 0 ? (
         <EmptyNote>Nothing on the calendar this week.</EmptyNote>
       ) : (
@@ -478,10 +480,12 @@ function HomeTasks({
 // tilt now. The staggered pop-in stays so the page still visibly arrives.
 function Card({
   title,
+  kicker,
   index,
   children,
 }: {
   title: string;
+  kicker: VoiceKicker;
   index: number;
   children: React.ReactNode;
 }) {
@@ -491,6 +495,7 @@ function Card({
       className={`ui-card animate-in fade-in zoom-in-90 slide-in-from-bottom-4 fill-mode-backwards duration-500 rounded-2xl bg-card p-4 shadow-[3px_3px_0_rgb(31_41_51/0.12)] ring-1 ring-border transition hover:-translate-y-0.5`}
     >
       <h2 className="text-lg font-bold leading-tight text-foreground">{title}</h2>
+      <LookKicker id={kicker} />
       <div className="mt-2">{children}</div>
     </div>
   );
