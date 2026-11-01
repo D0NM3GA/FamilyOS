@@ -58,6 +58,11 @@ describe("every color of every look", () => {
     for (const surface of ["#30254f", "#221a3a"]) expect(contrast(c.vars!.dark["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it.each(LOOKS.find((l) => l.id === "acanthus")!.colors.map((c) => [c.id, c] as const))("acanthus/%s keeps links readable", (_id, c) => {
+    for (const surface of ["#fbf7ec", "#efe8d8"]) expect(contrast(c.vars!.light["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
+    for (const surface of ["#1b2840", "#121b2c", "#0c1321"]) expect(contrast(c.vars!.dark["--brand-text"], surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
   // Goth's accents, on the page and card each mode draws them on, and the ink on top of --sun.
   it.each(LOOKS.find((l) => l.id === "goth")!.colors.map((c) => [c.id, c] as const))("goth/%s keeps its titles and links readable", (_id, c) => {
     expect(contrast(c.vars!.light["--goth-title"], "#e8e1cf")).toBeGreaterThanOrEqual(4.5);

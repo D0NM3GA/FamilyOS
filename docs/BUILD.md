@@ -1186,3 +1186,9 @@ slanted buttons; four colors. Night is neon on violet, day a sunset.
 A speech bubble with a bobbing cat on Home, die-cut stickers and washi tape on its cards, a scalloped
 bar and pill nav, four colors. Home's cards tilt; lists and forms stay straight.
 
+### 58.7 — Acanthus
+
+A gilded bookplate with an engraved library on Home, on Morris-style wallpaper; a ribbon of the
+wallpaper under the bar elsewhere, since other pages have words right on the page; a Roman-numeral
+index for the nav; four colors.
+

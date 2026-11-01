@@ -76,6 +76,18 @@ const kawaiiColor = (id: string, name: string, day: [string, string, string, str
   };
 };
 
+const acanthusColor = (id: string, name: string, day: string, dayHover: string, dayLink: string, night: string, nightHover: string, nightLink: string): LookColor => ({
+  id,
+  name,
+  swatch: day,
+  light: { chrome: "#fbf7ec", chromeHover: "#efe8d8", chromeActive: "#e6dec8", brand: day, brandHover: dayHover },
+  dark: { chrome: "#0c1321", chromeHover: "#1b2840", chromeActive: "#243450", brand: night, brandHover: nightHover },
+  vars: {
+    light: { "--on-chrome": "#23302c", "--on-brand": "#ffffff", "--brand-text": dayLink },
+    dark: { "--on-chrome": "#f2ead7", "--on-brand": "#141b28", "--brand-text": nightLink },
+  },
+});
+
 export const DEFAULT_LOOK = "sticker";
 
 export const LOOKS: readonly Look[] = [
@@ -128,6 +140,18 @@ export const LOOKS: readonly Look[] = [
       kawaiiColor("lavender", "Lavender", ["#cdb8ff", "#2a1563", "#6a3fd0", "#5f37bd", "#5b33bd"], ["#3a2a63", "#c4a8ff", "#d4beff", "#1e0f48", "#d6c4ff"]),
     ],
     hello: (firstName) => `Welcome back, ${firstName}!`,
+  },
+  {
+    id: "acanthus",
+    name: "Acanthus",
+    blurb: "A bookplate on Morris wallpaper.",
+    colors: [
+      acanthusColor("leicester", "Leicester", "#2c5a4a", "#254d3f", "#8a3d2c", "#dcb862", "#e6c87e", "#f0a093"),
+      acanthusColor("thief", "Strawberry", "#8a2a34", "#7a242d", "#2c5a4a", "#e58b7e", "#eda398", "#dcb862"),
+      acanthusColor("lily", "Golden Lily", "#7a5a1e", "#6c4f19", "#8a3d2c", "#e8c56a", "#f0d488", "#9fc3a0"),
+      acanthusColor("willow", "Willow", "#2f4a7a", "#29416b", "#7a3d2c", "#9db6d6", "#b4c8e2", "#e6c87e"),
+    ],
+    hello: (firstName) => `Welcome home, ${firstName}`,
   },
 ];
 
