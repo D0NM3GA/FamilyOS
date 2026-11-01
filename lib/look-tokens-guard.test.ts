@@ -24,10 +24,10 @@ const SOURCE = [...filesUnder(path.join(ROOT, "app")), ...filesUnder(path.join(R
 describe("what a look can change stays changeable", () => {
   test("the theme block holds no fixed palette colors", () => {
     const css = fs.readFileSync(path.join(ROOT, "app/globals.css"), "utf8");
-    const theme = css.slice(css.indexOf("@theme inline"), css.indexOf(":root {"));
+    const theme = css.slice(css.indexOf("@theme inline"), css.indexOf(":root {")).replace(/\/\*[\s\S]*?\*\//g, "");
     expect(theme).toContain("--color-ink");
-    expect(theme).not.toMatch(/--color-[\w-]+:\s*(?!var\()/);
-    expect(theme).not.toMatch(/--font-[\w-]+:\s*(?!var\(--face-)/);
+    expect(theme).not.toMatch(/--color-[\w-]+:(?!\s*var\()/);
+    expect(theme).not.toMatch(/--font-[\w-]+:(?!\s*var\(--face-)/);
   });
 
   test("code reads the inner variable, because --color-* resolves once on :root", () => {
