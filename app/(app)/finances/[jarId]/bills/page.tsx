@@ -1,3 +1,4 @@
+import { tidyMerchantName } from "@/lib/finance/merchant-name";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
@@ -16,7 +17,7 @@ import { btn, btnPrimary, field, fieldLabel, sectionTitle } from "@/components/s
 import { requireAppOn } from "@/lib/app-guard";
 import { SubmitButton } from "@/components/submit";
 
-export const metadata: Metadata = { title: "Bills & ahead" };
+export const metadata: Metadata = { title: "Upcoming" };
 
 const REVIEW_EVERY_DAYS = 90;
 const quiet = "inline-flex min-h-11 items-center rounded-xl px-2 text-xs text-muted-foreground underline hover:bg-muted sm:min-h-9";
@@ -80,7 +81,7 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
   ]);
   const shaped = rows.map((r) => ({
     key: r.merchantKey === "-" ? "" : r.merchantKey,
-    label: r.merchantName ?? r.payee ?? r.description,
+    label: r.merchantName ?? tidyMerchantName(r.payee ?? r.description),
     postedOn: r.postedOn.toISOString().slice(0, 10),
     amountCents: r.amountCents,
     privacyCardToken: r.privacyCharges[0]?.cardToken ?? null,
@@ -241,7 +242,7 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
         </details>
       </section>
       {section("Subscriptions", subs, "No subscriptions spotted yet. They show up after a couple of months of charges.")}
-      {section("Other regular bills", others, "None spotted yet.")}
+      {section("Other regular charges", others, "None spotted yet.")}
 
       {hidden.length > 0 && (
         <section className="mt-6">

@@ -89,8 +89,8 @@ export function parseWeekParam(value: string | string[] | undefined, today: Date
 }
 
 /** The seven local midnights of the week starting `start`. */
-export function weekDays(start: Date): Date[] {
-  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+export function weekDays(start: Date, days = 7): Date[] {
+  return Array.from({ length: days }, (_, i) => addDays(start, i));
 }
 
 /** "Oct 4 – 10, 2026", "Sep 27 – Oct 3, 2026", "Dec 27, 2026 – Jan 2, 2027". */
@@ -140,9 +140,9 @@ export function compareAgendaItems(a: AgendaItem, b: AgendaItem): number {
 }
 
 /** The week's seven days, each with its items in order. Items outside the week are dropped. */
-export function groupIntoDays(items: readonly AgendaItem[], start: Date, today: Date): AgendaDay[] {
+export function groupIntoDays(items: readonly AgendaItem[], start: Date, today: Date, count = 7): AgendaDay[] {
   const todayKey = dayKey(today);
-  const days = weekDays(start).map((date) => {
+  const days = weekDays(start, count).map((date) => {
     const key = dayKey(date);
     return { key, date, isToday: key === todayKey, isPast: key < todayKey, items: [] as AgendaItem[] };
   });
@@ -180,9 +180,9 @@ export function emptyDayLine(day: AgendaDay): string {
  * shows on Feb 28 in other years (as Outlook does), and nothing shows before the year it
  * happened, when that's known.
  */
-export function importantDateItems(dates: readonly ImportantDateRow[], start: Date): AgendaItem[] {
+export function importantDateItems(dates: readonly ImportantDateRow[], start: Date, days = 7): AgendaItem[] {
   const items: AgendaItem[] = [];
-  for (const date of weekDays(start)) {
+  for (const date of weekDays(start, days)) {
     const y = date.getFullYear();
     const m = date.getMonth() + 1;
     const d = date.getDate();
@@ -247,11 +247,11 @@ export function schoolDueItems(rows: readonly SchoolDueRow[]): AgendaItem[] {
  * An all-day event (UTC-midnight dates, end exclusive) on each day of the week it covers.
  * One that ends where it starts still lasts its day (lib/school/feeds/parse.ts).
  */
-function allDaySpan(startsAt: Date, endsAt: Date, start: Date): { day: string; multiDay: boolean }[] {
+function allDaySpan(startsAt: Date, endsAt: Date, start: Date, days: number): { day: string; multiDay: boolean }[] {
   const first = utcDayKey(startsAt);
   const lastExclusive = endsAt > startsAt ? utcDayKey(endsAt) : null;
   const multiDay = lastExclusive != null && utcDayKey(new Date(endsAt.getTime() - 86_400_000)) !== first;
-  return weekDays(start)
+  return weekDays(start, days)
     .map(dayKey)
     .filter((key) => (lastExclusive == null ? key === first : key >= first && key < lastExclusive))
     .map((day) => ({ day, multiDay }));
@@ -268,9 +268,10 @@ function eventItems(
   e: { key: string; title: string; startsAt: Date; endsAt: Date; allDay: boolean; place: string | null },
   start: Date,
   timeZone: string,
+  days: number,
 ): { day: string; minutes: number | null; note: string | null; key: string }[] {
   if (e.allDay) {
-    return allDaySpan(e.startsAt, e.endsAt, start).map(({ day, multiDay }) => ({
+    return allDaySpan(e.startsAt, e.endsAt, start, days).map(({ day, multiDay }) => ({
       day,
       minutes: null,
       note: multiDay ? throughNote(e.endsAt) : e.place,
@@ -281,9 +282,9 @@ function eventItems(
   return [{ day, minutes, note: e.place, key: e.key }];
 }
 
-export function schoolEventItems(rows: readonly SchoolEventRow[], start: Date, timeZone: string): AgendaItem[] {
+export function schoolEventItems(rows: readonly SchoolEventRow[], start: Date, timeZone: string, days = 7): AgendaItem[] {
   return rows.flatMap((r) =>
-    eventItems({ key: `feed:${r.key}`, title: r.title, startsAt: r.startsAt, endsAt: r.endsAt, allDay: r.allDay, place: r.location }, start, timeZone).map(
+    eventItems({ key: `feed:${r.key}`, title: r.title, startsAt: r.startsAt, endsAt: r.endsAt, allDay: r.allDay, place: r.location }, start, timeZone, days).map(
       (at) => ({
         ...at,
         kind: "schoolEvent" as const,
@@ -314,9 +315,9 @@ export function vehicleItems(rows: readonly VehicleDueRow[]): AgendaItem[] {
   }));
 }
 
-export function outlookItems(events: readonly CalendarEvent[], start: Date, timeZone: string): AgendaItem[] {
+export function outlookItems(events: readonly CalendarEvent[], start: Date, timeZone: string, days = 7): AgendaItem[] {
   return events.flatMap((e) =>
-    eventItems({ key: `outlook:${e.id}`, title: e.subject, startsAt: e.start, endsAt: e.end, allDay: e.isAllDay, place: e.location }, start, timeZone).map(
+    eventItems({ key: `outlook:${e.id}`, title: e.subject, startsAt: e.start, endsAt: e.end, allDay: e.isAllDay, place: e.location }, start, timeZone, days).map(
       (at) => ({
         ...at,
         kind: "outlook" as const,
@@ -330,3 +331,32 @@ export function outlookItems(events: readonly CalendarEvent[], start: Date, time
     ),
   );
 }
+
+/** Kinds whose `who` is a family member's first name (a car's name or a contact's full name isn't). */
+const PERSON_KINDS: ReadonlySet<AgendaKind> = new Set(["chore", "med", "school", "homework", "schoolEvent"]);
+
+/** The family member a row belongs to, if any. Matched by first name, so two sharing one share a color. */
+export function itemPerson(item: AgendaItem, members: ReadonlySet<string>): string | null {
+  return PERSON_KINDS.has(item.kind) && item.who && members.has(item.who) ? item.who : null;
+}
+
+/** One person's rows, plus what's nobody's in particular (a birthday, a school event). */
+export function itemsForPerson(items: readonly AgendaItem[], who: string, members: ReadonlySet<string>): AgendaItem[] {
+  return items.filter((item) => (itemPerson(item, members) ?? who) === who);
+}
+
+/** The first of the month a `?month=YYYY-MM` link asks for; anything else, or too far away, is this month. */
+export function parseMonthParam(value: string | string[] | undefined, today: Date): Date {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const match = raw ? /^(\d{4})-(0[1-9]|1[0-2])$/.exec(raw.trim()) : null;
+  const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  if (!match) return thisMonth;
+  const asked = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+  return Math.abs(asked.getFullYear() - today.getFullYear()) > 10 ? thisMonth : asked;
+}
+
+export const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+export const shiftMonth = (first: Date, by: number) => new Date(first.getFullYear(), first.getMonth() + by, 1);
+export const monthLabel = (first: Date) => first.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+/** A month's grid is always six weeks, starting on the Sunday on or before the 1st. */
+export const MONTH_GRID_DAYS = 42;

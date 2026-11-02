@@ -1,6 +1,7 @@
 import { Prisma } from "@/app/generated/prisma/client";
 import type { NotificationKind } from "@/app/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
+import { tidyMerchantName } from "@/lib/finance/merchant-name";
 import { captureError } from "@/lib/observability";
 import { getAppName } from "@/lib/household-settings";
 import { householdWithAppOn } from "@/lib/app-switches";
@@ -253,7 +254,7 @@ async function evaluateJar(
   const feedBroken = connections.some((c) => c.provider === "SIMPLEFIN" && c.lastError);
   const recurringRow = (r: (typeof rows)[number]) => ({
     key: r.merchantKey === "-" ? "" : r.merchantKey,
-    label: r.merchantName ?? r.payee ?? r.description,
+    label: r.merchantName ?? tidyMerchantName(r.payee ?? r.description),
     postedOn: r.postedOn.toISOString().slice(0, 10),
     amountCents: r.amountCents,
     privacyCardToken: r.privacyCharges[0]?.cardToken ?? null,

@@ -142,6 +142,7 @@ const PAGES = [
     ...APPS.map((app) => app.href),
     "/people/new",
     "/vehicles/new",
+    "/calendar?view=month",
     "/groceries/shop",
     "/notifications",
     "/search?q=eggs",

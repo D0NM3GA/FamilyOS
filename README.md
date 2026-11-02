@@ -610,7 +610,7 @@ served from this app).
 
 The **Calendar** app (`/calendar`) shows the family's week in one place: chores and doses,
 birthdays and dates, homework and school calendars, car maintenance, and (for the signed-in
-account's own profile only) its Outlook events. Each item links to where it lives. Kids have it too:
+account's own profile only) its Outlook events. `?view=month` shows a month of events, and grown-ups can filter by person (`?who=`). Each item links to where it lives. Kids have it too:
 they see only their own school things, no cars and no Outlook.
 
 ### In Outlook
@@ -856,7 +856,7 @@ counted once. Anyone in the jar sees them; they're in both money backups.
 
 ### Activity
 
-One month at a time (← Older / Newer →), with a chip for every category. Tap a charge for its
+One month at a time (← Older / Newer →), with a filter for every category. Tap a charge for its
 details and everything you can do with it: category ("just this one" or "always for this
 merchant"), the order it paid for, the grocery trip, a 🎁 surprise. **Spreadsheet** at the bottom
 downloads this month or everything as a CSV for Excel: only members can, surprises hidden from
@@ -880,7 +880,7 @@ ignoring case; the emoji is optional, one emoji.
 
 ### 💸 Safe to spend
 
-On the **Bills & ahead** tab: how much is free until the next payday. In Settings → **Safe to
+On the **Upcoming** tab: how much is free until the next payday. In Settings → **Safe to
 spend**, tick the day-to-day spending accounts (checking; not credit cards or savings) and,
 if you like, a cushion ("keep at least $500 in checking"). It starts from those accounts'
 balance (the bank's available balance, with its "as of" time), takes off every regular bill,

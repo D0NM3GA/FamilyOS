@@ -13,7 +13,9 @@ import { isUnrevealed, MAX_REVEAL_DAYS, visibleIssueWhere } from "@/lib/finance/
 import { orderItems, ordersOnCharges, RETAILER_NAME, unmatchedOrders, type OrderView } from "@/lib/finance/order-mail/orders";
 import { scheduleOrderScan } from "@/lib/finance/order-mail/scan";
 import { jarHistory, merchantLabel } from "@/lib/finance/history";
-import { btn, chip, chipRow, field, sectionTitle } from "@/components/styles";
+import { btn, field, sectionTitle } from "@/components/styles";
+import { CategoryFilter } from "./category-filter";
+import { tidyMerchantName } from "@/lib/finance/merchant-name";
 import { linkOrder, linkTrip, markGift, markOrderGift, revealGift, revealOrderGift, unlinkOrder, unlinkTrip } from "../actions";
 import { ActionForm, Submit } from "../forms";
 import { JarHeader } from "./jar-header";
@@ -182,22 +184,26 @@ export default async function JarPage({
           </p>
         </div>
       ) : (
-        <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        <ul className="ui-card mt-5 divide-y divide-ink/10 overflow-hidden rounded-2xl border-2 border-ink bg-card dark:divide-white/10 dark:border-white/20">
           {accounts.map((a) => (
             <li key={a.id}>
               <Link
                 href={href({ account: shownAccount?.id === a.id ? null : a.id })}
                 aria-current={shownAccount?.id === a.id ? "true" : undefined}
-                className="ui-card flex flex-col rounded-2xl border-2 border-ink bg-card p-3 aria-[current=true]:bg-sun/20 dark:border-white/20"
+                className="flex min-h-11 items-center gap-3 px-3 py-2 transition hover:bg-muted aria-[current=true]:bg-sun/20"
               >
-                <span className="text-sm text-muted-foreground">
-                  {a.org ? `${a.org} · ` : ""}
-                  {a.source === "MANUAL" ? "from statements" : "bank feed"}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-bold">{a.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {a.org ? `${a.org} · ` : ""}
+                    {a.source === "MANUAL" ? "from statements" : "bank feed"}
+                  </span>
+                  {leftOut.has(a.id) && <span className="block text-xs font-bold text-muted-foreground">Left out of the totals</span>}
                 </span>
-                <span className="font-extrabold break-words">{a.name}</span>
-                {leftOut.has(a.id) && <span className="text-xs font-bold text-muted-foreground">Left out of the totals</span>}
-                <span className="text-2xl font-extrabold">{a.balanceCents != null ? formatMoney(a.balanceCents, a.currency) : "—"}</span>
-                {a.balanceAt && <span className="text-xs text-muted-foreground">as of {a.balanceAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                <span className="shrink-0 text-right">
+                  <span className="block font-extrabold tabular-nums">{a.balanceCents != null ? formatMoney(a.balanceCents, a.currency) : "—"}</span>
+                  {a.balanceAt && <span className="block text-xs text-muted-foreground">as of {a.balanceAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                </span>
               </Link>
             </li>
           ))}
@@ -224,24 +230,17 @@ export default async function JarPage({
             )}
           </nav>
 
-          <nav aria-label="Filter by category" className={`mt-3 ${chipRow}`}>
-            <Link href={href({ category: null })} aria-current={!shownCategory ? "page" : undefined} className={chip}>
-              All {monthTotal > 0 && <span className="font-normal">{monthTotal}</span>}
-            </Link>
-            {(uncategorized > 0 || shownCategory === "none") && (
-              <Link href={href({ category: "none" })} aria-current={shownCategory === "none" ? "page" : undefined} className={chip}>
-                Uncategorized <span className="font-normal">{uncategorized}</span>
-              </Link>
-            )}
-            {categories.map((c) => {
-              const n = countOf.get(c.id) ?? 0;
-              return (
-                <Link key={c.id} href={href({ category: c.id })} aria-current={filters.category === c.id ? "page" : undefined} className={chip}>
-                  {c.emoji} {c.name} {n > 0 && <span className="font-normal">{n}</span>}
-                </Link>
-              );
-            })}
-          </nav>
+          <CategoryFilter
+            current={shownCategory === "none" ? "none" : (filters.category ?? "")}
+            options={[
+              { value: "", label: `All categories${monthTotal > 0 ? ` (${monthTotal})` : ""}`, href: href({ category: null }) },
+              ...(uncategorized > 0 || shownCategory === "none" ? [{ value: "none", label: `Uncategorized (${uncategorized})`, href: href({ category: "none" }) }] : []),
+              ...categories.map((c) => {
+                const n = countOf.get(c.id) ?? 0;
+                return { value: c.id, label: `${c.emoji ?? ""} ${c.name}${n > 0 ? ` (${n})` : ""}`.trim(), href: href({ category: c.id }) };
+              }),
+            ]}
+          />
         </>
       )}
 
@@ -259,7 +258,7 @@ export default async function JarPage({
       {txns.length > 0 && (
         <ul className="ui-card mt-3 divide-y-2 divide-dashed divide-ink/10 overflow-hidden rounded-2xl border-2 border-ink bg-card dark:divide-white/10 dark:border-white/20">
           {txns.map((t) => {
-            const name = t.merchantName ?? t.payee ?? t.description;
+            const name = t.merchantName ?? tidyMerchantName(t.payee ?? t.description);
             const cat = t.categoryId ? (catById.get(t.categoryId) ?? null) : null;
             const merchant = t.merchantKey === "-" ? "" : t.merchantKey;
             const amount = formatMoney(t.amountCents, t.account.currency);
@@ -422,7 +421,7 @@ export default async function JarPage({
                       <select name="txnId" aria-label="Which charge?" className={`${field} max-w-full min-w-0 flex-1`}>
                         {near.map((t) => (
                           <option key={t.id} value={t.id}>
-                            {utcDay(t.postedOn)} · {formatMoney(t.amountCents, t.account.currency)} · {(t.merchantName ?? t.payee ?? t.description).slice(0, 40)}
+                            {utcDay(t.postedOn)} · {formatMoney(t.amountCents, t.account.currency)} · {(t.merchantName ?? tidyMerchantName(t.payee ?? t.description)).slice(0, 40)}
                           </option>
                         ))}
                       </select>

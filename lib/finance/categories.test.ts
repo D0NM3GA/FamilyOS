@@ -116,7 +116,7 @@ describe("Phase 37: a jar's own categories", () => {
       "Charges the app would have put in Groceries go to the one you pick. Grocery trips get matched to charges in the one you pick instead.",
     );
     expect(keyNote({ name: "Fixed costs", key: "fixed-costs-k3x9q2", absorbedKeys: ["subscriptions"] })).toBe(
-      "Charges the app would have put in Fixed costs go to the one you pick. Bills & ahead treats regular charges in the one you pick as bills, as it did here.",
+      "Charges the app would have put in Fixed costs go to the one you pick. Upcoming treats regular charges in the one you pick as bills, as it did here.",
     );
     // Fun is never guessed, and a family's own category means nothing special.
     expect(keyNote({ name: "Fun", key: "fun", absorbedKeys: [] })).toBeNull();

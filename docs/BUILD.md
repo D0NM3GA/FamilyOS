@@ -1293,3 +1293,12 @@ on edits and after an error. Nothing in it may be `required`: the browser can't 
 field, so the server checks the start date instead. Contacts have no type, so Prescriber and Pharmacy
 list those already used in that role first. Pantry has one box: typing narrows the list, and a new name
 offers **+ Add**. Enter searches; it no longer adds.
+
+### Usability pass, batch 4: Calendar and Money
+
+A week's rows carry their person's color, with filter chips as the legend, matched by first name, so two members sharing one share a color. Chips are for grown-ups: a kid's calendar is already their own. A
+day's doses share one row. `?view=month` shows six weeks of what's happening; chores and doses stay on the
+weeks, which also stops a month planning far ahead. Money: accounts are a compact list, categories one
+select, and all-capitals bank names read as a person would write them (`tidyMerchantName`, display only).
+Left for the owner: whether weekly and variable shops should count in Safe to spend. They do today,
+and the card now says so.

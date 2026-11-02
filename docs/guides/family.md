@@ -168,8 +168,9 @@ The family's address book: everyone in the house, plus grandparents, friends, te
 
 The family's whole week in one place: chores and meds, birthdays and dates, homework and school
 calendars, car maintenance, and your own Outlook events (on your own profile, if you sign in with
-Microsoft). Tap anything to go where it lives. **Previous week**, **Next week** and **Today** move
-around.
+Microsoft). Tap anything to go where it lives. The arrows and **Today** move around, and **Month** shows the
+whole month's events (chores and doses stay on the weeks). Grown-ups can pick one person with the
+name chips: each row's color shows whose it is. A day's doses share one row; tap it to see them.
 
 Kids see the family calendar too, with their own school things (no cars, no Outlook).
 
@@ -326,7 +327,7 @@ Inside a jar:
   store"), link the order or grocery trip, or make it a **🎁 Surprise** (hidden from chosen people
   until a day you pick).
 - **🎯 Budget**: a monthly budget per category, and saving up for lumpy costs.
-- **🔁 Bills & ahead**: bills and subscriptions, what's due in the next 30 days, and **💸 Safe to
+- **🔁 Upcoming**: bills and subscriptions, what's due in the next 30 days, and **💸 Safe to
   spend** until payday.
 - **📈 Trends**: money out month by month, and where it went.
 - **💎 Net worth**: what the jar has, minus what it owes.

@@ -8,7 +8,7 @@ export function JarTabs({ jarId, active }: { jarId: string; active: JarTab }) {
   const tabs = [
     ["activity", "📒 Activity", `/finances/${jarId}`],
     ["budget", "🎯 Budget", `/finances/${jarId}/budget`],
-    ["bills", "🔁 Bills & ahead", `/finances/${jarId}/bills`],
+    ["bills", "🔁 Upcoming", `/finances/${jarId}/bills`],
     ["trends", "📈 Trends", `/finances/${jarId}/trends`],
     ["net-worth", "💎 Net worth", `/finances/${jarId}/net-worth`],
   ] as const;
