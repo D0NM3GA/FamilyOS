@@ -9,6 +9,9 @@ describe("wornLook", () => {
   it("keeps a person's own color over the family's", () => {
     expect(wornLook({ look: null, lookColor: "berry" }, "ocean")).toEqual({ look: DEFAULT_LOOK, color: "berry" });
   });
+  it("keeps the family's color when a stored look and color no longer exist", () => {
+    expect(wornLook({ look: "gone", lookColor: "gone" }, "ocean")).toEqual({ look: DEFAULT_LOOK, color: "ocean" });
+  });
   it("falls back for ids that no longer exist", () => {
     expect(wornLook({ look: "gone", lookColor: "gone" }, "ink")).toEqual({ look: DEFAULT_LOOK, color: LOOKS[0].colors[0].id });
     expect(lookOf("gone").id).toBe(DEFAULT_LOOK);

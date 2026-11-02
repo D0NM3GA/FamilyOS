@@ -223,6 +223,10 @@
   color: #ffffff;
   box-shadow: inset 2px 2px 0 #000000;
 }
+.dark [data-look="vapor"] .ui-chip:is([aria-pressed="true"], [aria-current="page"]) {
+  background: var(--brand);
+  color: var(--on-brand);
+}
 [data-look="vapor"] .ui-field {
   border: 0;
   border-radius: 0;

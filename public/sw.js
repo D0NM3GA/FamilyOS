@@ -26,9 +26,9 @@ const SAVEABLE_MARK = "data-shop-saveable";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // A page names a few dozen chunks; anything past this is not a page this worker should save.
 const MAX_ASSETS = 200;
-// Phase 58: one stylesheet declares every look's fonts, and the Shop copy doesn't need them all.
-// Sticker Book's come first; a font left out just falls back.
-const MAX_FONTS = 24;
+// Phase 58: one stylesheet declares every look's fonts, about 1.5MB in all, and the worker can't
+// tell who's wearing what, so the Shop copy keeps them. A font past this just falls back.
+const MAX_FONTS = 64;
 // Pages opened from the saved copy, by their window's id: the page asks, to say it's the saved
 // list. Capped, for pages that never ask (their script didn't run).
 const fromCopy = new Set();
