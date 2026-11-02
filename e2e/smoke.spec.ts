@@ -595,6 +595,8 @@ test("finishing a chore is marked by the look, and takes no taps", async () => {
 });
 
 test("a chore's less-used actions wait behind its menu, and what's ahead stays folded", async () => {
+  // Rows revealed by the fold fade in, and a scan mid-fade reads their text as too faint.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/chores");
   const upcoming = page.locator("details", { has: page.locator("summary", { hasText: /^Next \d+ days/ }) });
   await expect(upcoming).not.toHaveAttribute("open");
@@ -615,6 +617,7 @@ test("a chore's less-used actions wait behind its menu, and what's ahead stays f
   await expect(page.getByRole("link", { name: "Print" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Export" })).toBeVisible();
   await page.keyboard.press("Escape");
+  await page.emulateMedia({ reducedMotion: null });
 });
 
 test("Pantry has one box: it finds as you type, and offers to add what's new", async () => {
