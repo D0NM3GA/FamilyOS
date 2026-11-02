@@ -53,3 +53,6 @@ export const card = "ui-card rounded-2xl border-2 border-ink bg-card p-4 dark:bo
 
 /** A line in a ⋯ menu. */
 export const menuItem = "flex min-h-11 w-full items-center rounded-lg px-3 text-left text-sm font-bold whitespace-nowrap hover:bg-muted";
+
+/** A long form's Save and Cancel, kept in view while it scrolls. */
+export const formActions = "sticky bottom-0 z-10 flex flex-wrap gap-2 bg-muted/85 py-3 backdrop-blur-sm";

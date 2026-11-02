@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
-import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
+import { btn, btnPrimary, field, fieldLabel, formActions } from "@/components/styles";
 import { VinScanner } from "@/components/vehicles/vin-scanner";
 import { useCameraSupported } from "@/components/camera";
 import type { VinDecode } from "@/lib/vehicles/vpic";
@@ -113,7 +113,7 @@ export function VehicleForm({
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
 
-      <div className="flex flex-wrap gap-2">
+      <div data-covers-bottom className={formActions}>
         <button type="submit" disabled={pending} className={btnPrimary}>
           {pending ? "Saving…" : submitLabel}
         </button>

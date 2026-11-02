@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useActionState, useState, useEffect, useId, useRef } from "react";
-import { btn, btnPrimary, chip, field, fieldLabel } from "@/components/styles";
+import { MoreOptions } from "@/components/more-options";
+import { btn, btnPrimary, chip, field, fieldLabel, formActions } from "@/components/styles";
 import { searchMedicationNames } from "./actions";
 import type { TaskFormState } from "./actions";
 import { stripDosageForm } from "@/lib/meds/rxterms";
@@ -15,8 +16,8 @@ const FREQUENCIES = [
   { value: "DAILY", label: "Daily" },
   { value: "WEEKLY", label: "Weekly" },
   { value: "MONTHLY", label: "Monthly" },
-  { value: "INTERVAL_DAYS", label: "Every N days" },
-  { value: "DAYS_OF_WEEK", label: "Specific days of the week" },
+  { value: "INTERVAL_DAYS", label: "Every few days" },
+  { value: "DAYS_OF_WEEK", label: "On certain days" },
 ];
 
 const WEEKDAYS = [
@@ -60,6 +61,8 @@ export function TaskDefinitionForm({
   defaults,
   members,
   contacts,
+  usedPrescriberIds = [],
+  usedPharmacyIds = [],
   submitLabel,
   cancelHref,
 }: {
@@ -67,6 +70,8 @@ export function TaskDefinitionForm({
   defaults?: Defaults;
   members: Member[];
   contacts: Contact[];
+  usedPrescriberIds?: string[];
+  usedPharmacyIds?: string[];
   submitLabel: string;
   cancelHref: string;
 }) {
@@ -176,6 +181,7 @@ export function TaskDefinitionForm({
             if (suggestionsOpen) moveFocus(e, -1);
           }}
           required
+          autoFocus={!defaults}
           autoComplete="off"
           className={`${field} mt-1 w-full`}
         />
@@ -184,7 +190,7 @@ export function TaskDefinitionForm({
             id={`${titleId}-suggestions`}
             ref={suggestionsRef}
             aria-label="Suggested medication names"
-            className="ui-card absolute z-10 mt-1 w-full overflow-hidden rounded-xl bg-card py-1 shadow-lg ring-1 ring-border"
+            className="ui-card absolute z-20 mt-1 w-full overflow-hidden rounded-xl bg-card py-1 shadow-lg ring-1 ring-border"
           >
             {nameSuggestions.map((s, i) => (
               <li key={s}>
@@ -282,10 +288,10 @@ export function TaskDefinitionForm({
         <Field
           label={
             frequency === "WEEKLY"
-              ? "Every N weeks"
+              ? "Every how many weeks?"
               : frequency === "MONTHLY"
-                ? "Every N months"
-                : "Every N days"
+                ? "Every how many months?"
+                : "Every how many days?"
           }
           name="interval"
           type="number"
@@ -313,16 +319,6 @@ export function TaskDefinitionForm({
         </fieldset>
       )}
 
-      <Field
-        label="Starting"
-        name="startDate"
-        type="date"
-        defaultValue={toISODate(defaults?.startDate ?? new Date(), zone)}
-        required
-      />
-
-      <Field label={<><RewardWord cap /> ⭐</>} name="points" type="number" defaultValue={String(defaults?.points ?? 0)} />
-
       <fieldset>
         <legend className={fieldLabel}>For</legend>
         <div className="mt-1 flex flex-wrap gap-2">
@@ -343,45 +339,56 @@ export function TaskDefinitionForm({
         </div>
       </fieldset>
 
-      <fieldset aria-describedby={stockHintId} className="space-y-3 rounded-xl border-2 border-input p-3">
-        <legend className={`${fieldLabel} px-1`}>Stock tracking (optional)</legend>
-        <div className="grid grid-cols-3 gap-3">
-          <Field
-            label="On hand"
-            name="quantityOnHand"
-            type="number"
-            step="any"
-            defaultValue={defaults?.quantityOnHand != null ? String(defaults.quantityOnHand) : ""}
-          />
-          <Field
-            label="Per dose"
-            name="doseAmount"
-            type="number"
-            step="any"
-            defaultValue={defaults?.doseAmount != null ? String(defaults.doseAmount) : ""}
-          />
-          <Field
-            label="Refill at"
-            name="refillThresholdQuantity"
-            type="number"
-            step="any"
-            defaultValue={
-              defaults?.refillThresholdQuantity != null ? String(defaults.refillThresholdQuantity) : ""
-            }
-          />
+      <MoreOptions open={Boolean(defaults) || Boolean(state.error)} summary="Start date, rewards, stock, prescriber, pharmacy">
+        <Field
+          label="Starting"
+          name="startDate"
+          type="date"
+          defaultValue={toISODate(defaults?.startDate ?? new Date(), zone)}
+        />
+  
+        <Field label={<><RewardWord cap /> ⭐</>} name="points" type="number" defaultValue={String(defaults?.points ?? 0)} />
+  
+        <fieldset aria-describedby={stockHintId} className="space-y-3 rounded-xl border-2 border-input p-3">
+          <legend className={`${fieldLabel} px-1`}>Stock tracking (optional)</legend>
+          <div className="grid grid-cols-3 gap-3">
+            <Field
+              label="On hand"
+              name="quantityOnHand"
+              type="number"
+              step="any"
+              defaultValue={defaults?.quantityOnHand != null ? String(defaults.quantityOnHand) : ""}
+            />
+            <Field
+              label="Per dose"
+              name="doseAmount"
+              type="number"
+              step="any"
+              defaultValue={defaults?.doseAmount != null ? String(defaults.doseAmount) : ""}
+            />
+            <Field
+              label="Refill at"
+              name="refillThresholdQuantity"
+              type="number"
+              step="any"
+              defaultValue={
+                defaults?.refillThresholdQuantity != null ? String(defaults.refillThresholdQuantity) : ""
+              }
+            />
+          </div>
+          <p id={stockHintId} className="text-xs text-muted-foreground">
+            Fill in &ldquo;On hand&rdquo; and &ldquo;Per dose&rdquo; to have completing a dose
+            count down automatically. &ldquo;Refill at&rdquo; adds it to the grocery list once
+            the count drops that low.
+          </p>
+        </fieldset>
+  
+        {/* Stacked on a phone: half-width selects clip a prescriber's full name. */}
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
+          <ContactSelect label="Prescriber" name="prescriberId" defaultValue={defaults?.prescriberId} contacts={contacts} usedIds={usedPrescriberIds} />
+          <ContactSelect label="Pharmacy" name="pharmacyId" defaultValue={defaults?.pharmacyId} contacts={contacts} usedIds={usedPharmacyIds} />
         </div>
-        <p id={stockHintId} className="text-xs text-muted-foreground">
-          Fill in &ldquo;On hand&rdquo; and &ldquo;Per dose&rdquo; to have completing a dose
-          count down automatically. &ldquo;Refill at&rdquo; adds it to the grocery list once
-          the count drops that low.
-        </p>
-      </fieldset>
-
-      {/* Stacked on a phone: half-width selects clip a prescriber's full name. */}
-      <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
-        <ContactSelect label="Prescriber" name="prescriberId" defaultValue={defaults?.prescriberId} contacts={contacts} />
-        <ContactSelect label="Pharmacy" name="pharmacyId" defaultValue={defaults?.pharmacyId} contacts={contacts} />
-      </div>
+      </MoreOptions>
 
       {state.error && (
         <p role="alert" className="text-sm text-destructive">
@@ -389,7 +396,7 @@ export function TaskDefinitionForm({
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      <div data-covers-bottom className={formActions}>
         <button type="submit" disabled={pending} className={btnPrimary}>
           {pending ? "Saving…" : submitLabel}
         </button>
@@ -406,23 +413,36 @@ function ContactSelect({
   name,
   defaultValue,
   contacts,
+  usedIds,
 }: {
   label: string;
   name: string;
   defaultValue?: string | null;
   contacts: Contact[];
+  usedIds: string[];
 }) {
+  const options = (people: Contact[]) =>
+    people.map((c) => (
+      <option key={c.id} value={c.id}>
+        {c.firstName}
+        {c.lastName ? ` ${c.lastName}` : ""}
+      </option>
+    ));
+  const used = contacts.filter((c) => usedIds.includes(c.id));
+  const rest = contacts.filter((c) => !usedIds.includes(c.id));
   return (
     <label className="block min-w-0">
       <span className={`${fieldLabel} block`}>{label}</span>
       <select name={name} defaultValue={defaultValue ?? ""} className={`${field} mt-1 w-full`}>
         <option value="">None</option>
-        {contacts.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.firstName}
-            {c.lastName ? ` ${c.lastName}` : ""}
-          </option>
-        ))}
+        {used.length > 0 ? (
+          <>
+            <optgroup label="Used before">{options(used)}</optgroup>
+            {rest.length > 0 && <optgroup label="Everyone else">{options(rest)}</optgroup>}
+          </>
+        ) : (
+          options(rest)
+        )}
       </select>
     </label>
   );

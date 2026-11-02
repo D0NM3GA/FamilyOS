@@ -1,3 +1,4 @@
+import { productNameKey } from "@/lib/product-name";
 import { prisma } from "@/lib/prisma";
 import { computePantrySuggestions, type PurchaseHistoryRow } from "./pantry";
 import { STARTING_SECTIONS } from "./sections";
@@ -281,6 +282,12 @@ export async function getKidTiles(householdId: string, kidId: string, onList: Se
 export function pantrySearchTerms(query: string | null | undefined): string[] {
   const words = (query ?? "").toLowerCase().split(/\s+/).filter(Boolean);
   return [...new Set(words.map((w) => w.slice(0, 40)))].slice(0, 5);
+}
+
+/** Every Pantry name, whatever's being searched, so "+ Add" isn't offered for what's already there. */
+export async function getPantryNameKeys(householdId: string) {
+  const products = await prisma.product.findMany({ where: { householdId }, select: { name: true } });
+  return products.map((p) => productNameKey(p.name));
 }
 
 /** The whole Pantry (or what matches the search box), for its tidy-up page. */

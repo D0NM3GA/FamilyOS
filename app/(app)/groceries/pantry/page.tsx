@@ -1,18 +1,16 @@
 import Link from "next/link";
-import Form from "next/form";
 import type { Metadata } from "next";
+import { PantryBox } from "./pantry-box";
 import { requireActiveProfile } from "@/lib/active-profile";
-import { ensureStartingSections, getPantryItems, getSections, getUsuals } from "@/lib/groceries/queries";
+import { ensureStartingSections, getPantryItems, getPantryNameKeys, getSections, getUsuals } from "@/lib/groceries/queries";
 import { getLastPrices, type LastPrice } from "@/lib/groceries/receipts";
 import { formatMoney } from "@/lib/money";
 import { isAdult } from "@/lib/authz";
 import { amountLabel, describeSize, needsSize } from "@/lib/groceries/size";
 import { describeEvery } from "@/lib/groceries/usual";
-import { createPantryItem } from "../actions";
 import { ItemSheet } from "../item-sheet";
-import { backLink, btn, btnPrimary, chip, chipRow, field } from "@/components/styles";
+import { backLink, btn, chip, chipRow } from "@/components/styles";
 import { requireAppOn } from "@/lib/app-guard";
-import { SubmitButton } from "@/components/submit";
 
 export const metadata: Metadata = { title: "Pantry" };
 
@@ -39,8 +37,9 @@ export default async function PantryPage({
   await ensureStartingSections(profile.householdId);
   // Prices are money: grown-ups only (Phase 24).
   const adult = isAdult(profile);
-  const [items, sections, usuals, prices] = await Promise.all([
+  const [items, nameKeys, sections, usuals, prices] = await Promise.all([
     getPantryItems(profile.householdId, q),
+    getPantryNameKeys(profile.householdId),
     getSections(profile.householdId),
     getUsuals(profile.householdId),
     adult ? getLastPrices(profile.householdId) : Promise.resolve(new Map<string, LastPrice>()),
@@ -50,7 +49,8 @@ export default async function PantryPage({
   const needsDetails = (r: (typeof rows)[number]) => needsSize(r) || !r.defaultStore;
   const needsCount = rows.filter(needsDetails).length;
   const shown = rows.filter((r) => (filter === "needs" ? needsDetails(r) : filter === "all" ? true : r.groupId === filter));
-  const usedSections = sections.filter((s) => rows.some((r) => r.groupId === s.id));
+  // The chip in use stays, even when the search empties it, so it can be seen and changed.
+  const usedSections = sections.filter((s) => s.id === filter || rows.some((r) => r.groupId === s.id));
 
   // Every link keeps the other half: a chip keeps the search, clearing the search keeps the chip.
   const pantryHref = (opts: { filter: string; q: string; item?: string }) => {
@@ -84,38 +84,9 @@ export default async function PantryPage({
             </Link>
           )}
         </div>
-        <form action={createPantryItem} className="flex w-full gap-2 sm:w-auto">
-          <input name="name" required maxLength={120} placeholder="Something new…" aria-label="New Pantry item" className={`${field} min-w-0 flex-1 sm:w-44 sm:flex-none`} />
-          <SubmitButton className={`${btnPrimary} shrink-0`}>
-            + Add
-          </SubmitButton>
-        </form>
       </div>
 
-      {/* A GET form: the search lives in the URL (?q=), so Back and a shared link keep it. */}
-      <Form action="/groceries/pantry" replace scroll={false} role="search" className="mt-4 flex gap-2">
-        {filter !== "all" && <input type="hidden" name="filter" value={filter} />}
-        {/* Keyed on the search: Clear and Back change the URL, and the box must follow it. */}
-        <input
-          key={q}
-          type="search"
-          name="q"
-          defaultValue={q}
-          maxLength={120}
-          enterKeyHint="search"
-          placeholder="Find in the Pantry…"
-          aria-label="Find in the Pantry"
-          className={`${field} min-w-0 flex-1 sm:max-w-xs`}
-        />
-        <button type="submit" className={`${btn} shrink-0`}>
-          Find
-        </button>
-        {q && (
-          <Link href={pantryHref({ filter, q: "" })} replace scroll={false} className={`${btn} shrink-0`}>
-            Clear
-          </Link>
-        )}
-      </Form>
+      <PantryBox q={q} filter={filter} nameKeys={nameKeys} clearHref={pantryHref({ filter, q: "" })} />
 
       <nav aria-label="Filter the Pantry" className={`mt-3 ${chipRow}`}>
         {filterChip("all", `Everything ${rows.length}`)}
@@ -127,7 +98,7 @@ export default async function PantryPage({
         <p className="mt-6 text-muted-foreground">
           {q
             ? filter === "all"
-              ? `Nothing in the Pantry matches “${q}”. Something new? Add it with + Add above.`
+              ? `Nothing in the Pantry matches “${q}”. Something new? Add it with the button above.`
               : `Nothing here matches “${q}”. Try Everything, or clear the search.`
             : filter === "needs"
               ? "Nothing needs details. Nice and tidy!"

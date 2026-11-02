@@ -4,6 +4,7 @@ import { isAdult } from "@/lib/authz";
 import { getHouseholdMembers, listPeople } from "@/lib/people";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
+import { getMedContactsUsed } from "@/lib/meds/contacts-used";
 import { updateTaskDefinition } from "../../actions";
 import { TaskDefinitionForm } from "../../task-definition-form";
 import { requireAppOn } from "@/lib/app-guard";
@@ -26,13 +27,14 @@ export default async function EditMedPage({
 
   const { id } = await params;
 
-  const [definition, householdMembers, contactPeople] = await Promise.all([
+  const [definition, householdMembers, contactPeople, used] = await Promise.all([
     prisma.taskDefinition.findFirst({
       where: { id, householdId: profile.householdId, domain: "MED" },
       include: { assignees: { omit: { photo: true } }, medication: true },
     }),
     getHouseholdMembers(profile.householdId),
     listPeople(profile.householdId, { filter: "contact" }),
+    getMedContactsUsed(profile.householdId),
   ]);
   if (!definition) notFound();
 
@@ -53,6 +55,8 @@ export default async function EditMedPage({
           action={updateTaskDefinition.bind(null, definition.id)}
           members={members}
           contacts={contacts}
+          usedPrescriberIds={used.prescriberIds}
+          usedPharmacyIds={used.pharmacyIds}
           submitLabel="Save changes"
           cancelHref="/meds/manage"
           defaults={{
