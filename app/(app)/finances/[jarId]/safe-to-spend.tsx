@@ -50,7 +50,7 @@ export function SafeToSpend({ f, jarId, today }: { f: Forecast; jarId: string; t
           No payday found yet, so this looks two weeks ahead. Not seeing your paycheck? Put it in 💵 Income on Activity.
         </p>
       )}
-      <p className="mt-1 text-xs text-muted-foreground">Bank balance as of {when(f.asOf)}. A plan, not a promise: only regular bills (and ✍️ ones added by hand) are counted.</p>
+      <p className="mt-1 text-xs text-muted-foreground">Bank balance as of {when(f.asOf)}. A plan, not a promise: only regular charges, weekly shops included (and ✍️ ones added by hand), are counted.</p>
       <details className="mt-2 text-sm">
         <summary className="cursor-pointer py-3 font-bold sm:py-1">How it&apos;s worked out</summary>
         <ul className="mt-2 flex flex-col divide-y divide-ink/10 dark:divide-white/10">

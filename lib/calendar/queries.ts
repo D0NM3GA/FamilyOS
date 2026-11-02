@@ -30,16 +30,18 @@ export type AgendaWeek = {
  */
 export async function getAgendaWeek(
   viewer: Viewer,
-  opts: { start: Date; timeZone: string; now?: Date; disabledApps?: readonly string[] },
+  opts: { start: Date; days?: number; eventsOnly?: boolean; timeZone: string; now?: Date; disabledApps?: readonly string[] },
 ): Promise<AgendaWeek> {
   const { start, timeZone } = opts;
-  const end = addDays(start, 7);
+  const days = opts.days ?? 7;
+  const end = addDays(start, days);
   const today = atMidnight(opts.now ?? new Date());
   const lastPlanned = addDays(today, AGENDA_TASK_HORIZON_DAYS);
   const tasksUntil = end < addDays(lastPlanned, 1) ? end : addDays(lastPlanned, 1);
   const adult = isAdult(viewer);
   const on = (app: string) => isAppOn(opts.disabledApps ?? [], app);
-  const domains = [...(on("chores") ? (["CHORE"] as const) : []), ...(on("meds") ? (["MED"] as const) : [])];
+  // A month shows what's happening, not each day's chores and doses: those stay unplanned and unread.
+  const domains = opts.eventsOnly ? [] : [...(on("chores") ? (["CHORE"] as const) : []), ...(on("meds") ? (["MED"] as const) : [])];
 
   // Like the boards, roll instances forward on read (there's no cron), only as far as shown.
   if (tasksUntil > today && tasksUntil > start) {
@@ -58,10 +60,10 @@ export async function getAgendaWeek(
 
   return {
     items: [
-      ...importantDateItems(dates, start),
+      ...importantDateItems(dates, start, days),
       ...taskItems(tasks),
       ...schoolDueItems(school),
-      ...schoolEventItems(events, start, timeZone),
+      ...schoolEventItems(events, start, timeZone, days),
       ...vehicleItems(vehicles),
     ],
     tasksPlannedThrough: domains.length > 0 && end > addDays(lastPlanned, 1) ? lastPlanned : null,

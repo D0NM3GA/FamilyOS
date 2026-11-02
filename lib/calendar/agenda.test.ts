@@ -5,6 +5,10 @@ import {
   emptyDayLine,
   groupIntoDays,
   importantDateItems,
+  itemPerson,
+  itemsForPerson,
+  parseMonthParam,
+  shiftMonth,
   isLate,
   outlookItems,
   parseWeekParam,
@@ -242,5 +246,34 @@ describe("outside calendars", () => {
 
   it("day keys are local dates", () => {
     expect(dayKey(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
+  });
+});
+
+describe("whose rows, and which month", () => {
+  const row = (kind: AgendaItem["kind"], who: string | null) => ({ key: `${kind}:${who}`, kind, who }) as AgendaItem;
+  const members = new Set(["Ivy", "Max"]);
+
+  it("keeps one person's rows and what's nobody's", () => {
+    const items = [row("chore", "Ivy"), row("chore", "Max"), row("date", "Tom Parker"), row("vehicle", "Family Van"), row("schoolEvent", null)];
+    expect(itemsForPerson(items, "Ivy", members).map((i) => i.key)).toEqual(["chore:Ivy", "date:Tom Parker", "vehicle:Family Van", "schoolEvent:null"]);
+  });
+
+  it("doesn't take a car or a contact for a person", () => {
+    expect(itemPerson(row("vehicle", "Max"), members)).toBeNull();
+    expect(itemPerson(row("homework", "Max"), members)).toBe("Max");
+  });
+
+  it("reads a month and falls back to this one", () => {
+    const today = new Date(2026, 10, 15);
+    expect(parseMonthParam("2026-12", today)).toEqual(new Date(2026, 11, 1));
+    expect(parseMonthParam("2026-13", today)).toEqual(new Date(2026, 10, 1));
+    expect(parseMonthParam("1900-01", today)).toEqual(new Date(2026, 10, 1));
+    expect(shiftMonth(new Date(2026, 11, 1), 1)).toEqual(new Date(2027, 0, 1));
+  });
+
+  it("finds birthdays anywhere in a month's grid", () => {
+    const dates = [{ id: "d", kind: "OTHER", label: "Trip", month: 12, day: 20, year: null, personName: "Tom Parker" }] as never;
+    expect(importantDateItems(dates, new Date(2026, 10, 29)).length).toBe(0);
+    expect(importantDateItems(dates, new Date(2026, 10, 29), 42).length).toBe(1);
   });
 });

@@ -181,7 +181,7 @@ export function keyNote(removed: CategoryKeys & { name: string }): string | null
   const lines: string[] = [];
   if (keys.some((k) => KEYWORDS.some(([guessed]) => guessed === k))) lines.push(`Charges the app would have put in ${removed.name} go to the one you pick.`);
   if (keys.includes("groceries")) lines.push("Grocery trips get matched to charges in the one you pick instead.");
-  if (keys.includes("bills") || keys.includes("subscriptions")) lines.push("Bills & ahead treats regular charges in the one you pick as bills, as it did here.");
+  if (keys.includes("bills") || keys.includes("subscriptions")) lines.push("Upcoming treats regular charges in the one you pick as bills, as it did here.");
   return lines.length ? lines.join(" ") : null;
 }
 

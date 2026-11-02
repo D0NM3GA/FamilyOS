@@ -24,7 +24,7 @@ const KIND_LOOK: Record<AgendaKind, { stripe: string; label: string }> = {
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export function AgendaWeek({ days, notes = [] }: { days: AgendaDay[]; notes?: React.ReactNode[] }) {
+export function AgendaWeek({ days, notes = [], colorOf }: { days: AgendaDay[]; notes?: React.ReactNode[]; colorOf: (item: AgendaItem) => string | null }) {
   return (
     <>
       {notes.length > 0 && (
@@ -38,19 +38,25 @@ export function AgendaWeek({ days, notes = [] }: { days: AgendaDay[]; notes?: Re
       )}
       <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-7 xl:gap-2">
         {days.map((day) => (
-          <DayCard key={day.key} day={day} />
+          <DayCard key={day.key} day={day} colorOf={colorOf} />
         ))}
       </div>
     </>
   );
 }
 
-function DayCard({ day }: { day: AgendaDay }) {
+function DayCard({ day, colorOf }: { day: AgendaDay; colorOf: (item: AgendaItem) => string | null }) {
   const weekday = WEEKDAYS[day.date.getDay()];
-  const headingId = `day-${day.key}`;
+  const headingId = `day-title-${day.key}`;
+  // Several doses a day would bury everything else, so they share one row.
+  const doses = day.items.filter((item) => item.kind === "med");
+  const folded = doses.length >= 2;
+  const rows = folded ? day.items.filter((item) => item.kind !== "med") : day.items;
+  const left = doses.filter((item) => item.status === "open").length;
+  const late = doses.some((item) => isLate(item, day));
   return (
     <section
-      id={day.isToday ? "today" : undefined}
+      id={`day-${day.key}`}
       aria-labelledby={headingId}
       className={`min-w-0 scroll-mt-4 rounded-2xl p-3 ${
         day.isToday
@@ -70,9 +76,25 @@ function DayCard({ day }: { day: AgendaDay }) {
         <p className="mt-1 font-hand text-lg leading-snug text-muted-foreground">{emptyDayLine(day)}</p>
       ) : (
         <ul className="mt-2 space-y-1.5">
-          {day.items.map((item) => (
-            <ItemRow key={item.key} item={item} late={isLate(item, day)} />
+          {rows.map((item) => (
+            <ItemRow key={item.key} item={item} late={isLate(item, day)} color={colorOf(item)} />
           ))}
+          {folded && (
+            <li>
+              <details className="rounded-lg border-l-4 border-l-tomato bg-muted/60 text-sm">
+                <summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-x-2 px-2 py-1.5 font-bold text-foreground">
+                  <span aria-hidden>💊</span> {doses.length} doses
+                  <span className="text-xs font-normal text-muted-foreground">{left === 0 ? "all done ✓" : `${left} left`}</span>
+                  {late && <span className="text-xs text-destructive">not done</span>}
+                </summary>
+                <ul className="space-y-1.5 p-1">
+                  {doses.map((item) => (
+                    <ItemRow key={item.key} item={item} late={isLate(item, day)} color={colorOf(item)} />
+                  ))}
+                </ul>
+              </details>
+            </li>
+          )}
         </ul>
       )}
     </section>
@@ -85,7 +107,7 @@ function atClock(day: string, minutes: number): Date {
   return new Date(y, m - 1, d, Math.floor(minutes / 60), minutes % 60);
 }
 
-function ItemRow({ item, late }: { item: AgendaItem; late: boolean }) {
+function ItemRow({ item, late, color }: { item: AgendaItem; late: boolean; color: string | null }) {
   const look = KIND_LOOK[item.kind];
   const meta: React.ReactNode[] = [];
   if (item.minutes != null) {
@@ -129,17 +151,19 @@ function ItemRow({ item, late }: { item: AgendaItem; late: boolean }) {
     item.status === "open" ? "" : "opacity-60"
   } ${item.href ? "transition hover:bg-muted" : ""}`;
 
+  // The person's color when it's someone's, so a day shows at a glance whose it is.
+  const stripe = color ? { borderLeftColor: color } : undefined;
   return (
     <li>
       {!item.href ? (
-        <div className={className}>{body}</div>
+        <div className={className} style={stripe}>{body}</div>
       ) : item.external ? (
-        <a href={item.href} target="_blank" rel="noopener noreferrer" className={className}>
+        <a href={item.href} target="_blank" rel="noopener noreferrer" className={className} style={stripe}>
           {body}
           <span className="sr-only"> (opens in Outlook)</span>
         </a>
       ) : (
-        <Link href={item.href} className={className}>
+        <Link href={item.href} className={className} style={stripe}>
           {body}
         </Link>
       )}
