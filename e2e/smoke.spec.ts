@@ -594,6 +594,29 @@ test("finishing a chore is marked by the look, and takes no taps", async () => {
   problems.expectNone();
 });
 
+test("a chore's less-used actions wait behind its menu, and what's ahead stays folded", async () => {
+  await page.goto("/chores");
+  const upcoming = page.locator("details", { has: page.locator("summary", { hasText: /^Next \d+ days/ }) });
+  await expect(upcoming).not.toHaveAttribute("open");
+  await upcoming.locator("summary").click();
+  await expect(page.getByRole("combobox", { name: "Reassign to" })).toHaveCount(0);
+  const more = page.getByRole("button", { name: /^More for / }).first();
+  await more.click();
+  const menu = page.getByRole("group", { name: /^More for / }).first();
+  await expect(menu).toBeVisible();
+  const first = menu.getByRole("button").first();
+  await expect(first).toBeFocused();
+  await expectAccessible(page, "chore menu open");
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(more).toBeFocused();
+  // The page's own: Print and Export together.
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await expect(page.getByRole("link", { name: "Print" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Export" })).toBeVisible();
+  await page.keyboard.press("Escape");
+});
+
 test("home location from a ZIP code, then from this device", async () => {
   await page.goto("/settings/household");
   await expect(page.getByPlaceholder("Latitude")).toHaveCount(0);

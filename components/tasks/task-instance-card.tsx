@@ -1,8 +1,10 @@
 "use client";
 
 import { useLook } from "@/components/look";
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { Check, Undo2, CloudRain, Minus } from "lucide-react";
+import { MoreMenu } from "@/components/more-menu";
+import { btn, menuItem } from "@/components/styles";
 import { formatRelative } from "@/lib/format";
 import { useHouseholdZone } from "@/components/household-zone";
 import { AwayTime } from "@/components/away-time";
@@ -107,6 +109,7 @@ export function TaskInstanceCard({
   index = 0,
   size = "normal",
   completeLabel = "Done",
+  quietDone = false,
 }: {
   instance: Instance;
   viewerId: string;
@@ -154,6 +157,8 @@ export function TaskInstanceCard({
    * assignee's name is dropped (it's always "my" list there).
    */
   size?: "normal" | "big";
+  /** For what isn't due yet: Done stays reachable, without competing with what is. */
+  quietDone?: boolean;
   /** The complete button's label, e.g. "Done!" for chores or "Taken" for meds. */
   completeLabel?: string;
 }) {
@@ -182,9 +187,18 @@ export function TaskInstanceCard({
   const canUndo =
     optimisticStatus === "DONE" &&
     (viewerIsAdult || instance.completedBy?.id === viewerId);
-  const canReassign = Boolean(onReassign && reassignCandidates?.length) && viewerIsAdult && optimisticStatus === "PENDING";
+  const others = (reassignCandidates ?? []).filter((m) => m.id !== instance.assignedTo?.id);
+  const canReassign = Boolean(onReassign) && others.length > 0 && viewerIsAdult && optimisticStatus === "PENDING";
   const canSkip = Boolean(onSkip) && viewerIsAdult && optimisticStatus === "PENDING";
   const canUnskip = Boolean(onUnskip) && viewerIsAdult && optimisticStatus === "SKIPPED";
+
+  // Skipping takes away the menu the focus was in, so it moves on to the Undo that replaces it.
+  const undoButton = useRef<HTMLButtonElement>(null);
+  const focusUndo = useRef(false);
+  useEffect(() => {
+    if (canUnskip && focusUndo.current) undoButton.current?.focus();
+    focusUndo.current = false;
+  }, [canUnskip]);
 
   function handleComplete() {
     setFailed(false);
@@ -239,6 +253,7 @@ export function TaskInstanceCard({
 
   function handleSkip() {
     setFailed(false);
+    focusUndo.current = true;
     startTransition(async () => {
       setOptimisticStatus("SKIPPED");
       try {
@@ -252,7 +267,15 @@ export function TaskInstanceCard({
 
   function handleReassign(newAssigneeId: string) {
     if (!newAssigneeId || !onReassign) return;
-    startTransition(() => onReassign(instance.id, newAssigneeId));
+    setFailed(false);
+    startTransition(async () => {
+      try {
+        await onReassign(instance.id, newAssigneeId);
+      } catch (err) {
+        console.error("[task-card] reassign failed", err);
+        setFailed(true);
+      }
+    });
   }
 
   const dateLabel = [showDate ? formatRelative(instance.dueDate, zone) : null, timeLabel]
@@ -340,39 +363,20 @@ export function TaskInstanceCard({
 
         {(canReassign || canSkip || canComplete || canUndo || canUnskip) && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {canReassign && (
-              <select
-                defaultValue=""
-                onChange={(e) => {
-                  handleReassign(e.target.value);
-                  e.target.value = "";
-                }}
-                aria-label="Reassign to"
-                title="Reassign"
-                className="min-h-11 shrink-0 rounded-xl border-2 border-input bg-card px-2 text-sm text-muted-foreground focus:border-ring focus:outline-none sm:min-h-9"
-              >
-                <option value="" disabled>
-                  Reassign…
-                </option>
-                {reassignCandidates!
-                  .filter((m) => m.id !== instance.assignedTo?.id)
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.firstName}
-                    </option>
+            {(canReassign || canSkip) && (
+              <MoreMenu label={`More for ${instance.definition.title}`} big={big}>
+                {canSkip && (
+                  <button type="button" onClick={handleSkip} title={`Nobody does this one: no ${reward.many}`} className={menuItem}>
+                    {skipLabel}
+                  </button>
+                )}
+                {canReassign &&
+                  others.map((m) => (
+                    <button key={m.id} type="button" onClick={() => handleReassign(m.id)} className={menuItem}>
+                      Give to {m.firstName}
+                    </button>
                   ))}
-              </select>
-            )}
-
-            {canSkip && (
-              <button
-                type="button"
-                onClick={handleSkip}
-                title={`Nobody does this one: no ${reward.many}`}
-                className="min-h-11 shrink-0 rounded-xl px-3 text-sm font-bold text-muted-foreground ring-1 ring-input transition hover:bg-muted hover:text-foreground sm:min-h-9"
-              >
-                {skipLabel}
-              </button>
+              </MoreMenu>
             )}
             {canComplete && (
               <button
@@ -381,7 +385,9 @@ export function TaskInstanceCard({
                 className={
                   big
                     ? "min-h-14 shrink-0 rounded-2xl border-2 border-ink bg-lime px-5 text-base font-extrabold text-ink shadow-[3px_3px_0_var(--ink)] transition hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none"
-                    : "ui-btn ui-btn-primary min-h-11 shrink-0 rounded-xl bg-brand px-4 text-sm font-bold text-on-brand transition hover:-translate-y-0.5 hover:scale-105 hover:rotate-2 hover:bg-brand-hover hover:shadow-md active:translate-y-0 active:scale-100 active:rotate-0 sm:min-h-9"
+                    : quietDone
+                      ? `${btn} shrink-0`
+                      : "ui-btn ui-btn-primary min-h-11 shrink-0 rounded-xl bg-brand px-4 text-sm font-bold text-on-brand transition hover:-translate-y-0.5 hover:scale-105 hover:rotate-2 hover:bg-brand-hover hover:shadow-md active:translate-y-0 active:scale-100 active:rotate-0 sm:min-h-9"
                 }
               >
                 {completeLabel}
@@ -390,6 +396,7 @@ export function TaskInstanceCard({
             {(canUndo || canUnskip) && (
               <button
                 type="button"
+                ref={undoButton}
                 onClick={handleUndo}
                 title="Undo"
                 aria-label="Undo"

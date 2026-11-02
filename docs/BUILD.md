@@ -1275,3 +1275,13 @@ One word per action: **Done** for chores, **Taken** for doses, **Add** to create
 The hand font is for large, decorative text, not data: its 1 reads as an I. Safe to spend's headline
 rounds down (`roundEstimateCents`), while its workings keep the cents. On touch screens the corner mascot steps aside while the page
 scrolls and whenever he'd sit on something tappable (`lib/bunson-cover.ts`).
+
+### Usability pass, batch 2: Home and lists
+
+Home leads with one **Today** card. It's above the grid, so it doesn't disturb the looks' nth-child
+rhythm, and it opts out of their tilts and corner stickers. Outlook events stay in their own card:
+they're streamed and cover the week. A finished item moves into the fold when the page refreshes;
+that jump is accepted, including keyboard focus returning to the page's start. Skipped items leave Home. Each row and page shows one main action: the rest are behind `MoreMenu`, a native popover
+(none on a browser too old to have one, so they lose those actions until updated). `PageMore` never
+puts a single item behind a ⋯. Upcoming lists are folded, except someone's own short list in Big buttons on Chores; Chrome opens a fold
+for find-in-page, Safari doesn't.

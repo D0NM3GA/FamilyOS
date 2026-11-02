@@ -14,6 +14,8 @@ import { toCardInstance } from "@/lib/tasks/card";
 import { MilestoneToastBoard } from "@/components/tasks/milestone-toast";
 import { PointsPill, PointsPills } from "@/components/tasks/points-pill";
 import { PageHeader } from "@/components/page-header";
+import { PageMore } from "@/components/more-menu";
+import { UpcomingFold } from "@/components/tasks/upcoming-fold";
 import { btn, btnPrimary, chip, chipRow, sectionTitle } from "@/components/styles";
 import { completeInstance, uncompleteInstance, reassignInstance, skipInstance, unskipInstance, markOlderMissed } from "./actions";
 import { BunsonMoment } from "@/components/bunson-moment";
@@ -75,27 +77,27 @@ export default async function ChoresPage({
   return (
     <div className="p-4 sm:p-6">
       <PageHeader title="🧹 Chores">
+        {viewerIsAdult && (
+          <Link href="/chores/new" className={btnPrimary}>
+            + New chore
+          </Link>
+        )}
         {storeOn && (
           <Link href="/points" className={btn}>
             ⭐ Rewards
           </Link>
         )}
-        <Link href="/print/chores" className={btn}>
-          Print
-        </Link>
         {viewerIsAdult && (
-          <>
-            <Link href="/data#chores" className={btn}>
-              Export
-            </Link>
-            <Link href="/chores/manage" className={btn}>
-              Manage
-            </Link>
-            <Link href="/chores/new" className={btnPrimary}>
-              + New chore
-            </Link>
-          </>
+          <Link href="/chores/manage" className={btn}>
+            Manage
+          </Link>
         )}
+        <PageMore
+          items={[
+            { label: "Print", href: "/print/chores" },
+            ...(viewerIsAdult ? [{ label: "Export", href: "/data#chores" }] : []),
+          ]}
+        />
       </PageHeader>
 
       {/* Phase 45.1: an admin sets home right here, from this device or a ZIP code. */}
@@ -204,13 +206,15 @@ export default async function ChoresPage({
             )}
           </Section>
 
-          <Section title="Upcoming">
-            {upcoming.length === 0 ? (
+          {upcoming.length === 0 ? (
+            <Section title="Upcoming">
               <li>
                 <EmptyNote>Nothing else in the next {horizonDays} days.</EmptyNote>
               </li>
-            ) : (
-              upcoming.map((i, idx) => (
+            </Section>
+          ) : (
+            <UpcomingFold days={horizonDays} count={upcoming.length} open={bigCards}>
+              {upcoming.map((i, idx) => (
                 <TaskInstanceCard
                   key={i.id}
                   instance={toCardInstance(i)}
@@ -223,12 +227,13 @@ export default async function ChoresPage({
                   reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
                   weatherNote={weatherNoteFor(i)}
                   disappearsOnComplete
+                  quietDone
                   index={idx}
                   {...cardLook}
                 />
-              ))
-            )}
-          </Section>
+              ))}
+            </UpcomingFold>
+          )}
         </div>
       </MilestoneToastBoard>
     </div>

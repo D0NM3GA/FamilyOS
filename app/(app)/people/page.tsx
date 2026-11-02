@@ -4,6 +4,7 @@ import { isAdult } from "@/lib/authz";
 import { listPeople, fullName, type PeopleFilter } from "@/lib/people";
 import { Avatar } from "@/components/avatar";
 import { PageHeader } from "@/components/page-header";
+import { PageMore } from "@/components/more-menu";
 import { btn, btnPrimary, chip, chipRow, field } from "@/components/styles";
 
 const FILTERS: { value: PeopleFilter; label: string }[] = [
@@ -27,21 +28,16 @@ export default async function PeoplePage({
   return (
     <div className="p-4 sm:p-6">
       <PageHeader title="👪 People">
-        {isAdult(profile) && (
-          <Link href="/data#people" className={btn}>
-            Export
-          </Link>
-        )}
-        {/* Prints exactly the list below — same search and filter. */}
-        <Link
-          href={{ pathname: "/print/people", query: { ...(q ? { q } : {}), ...(filter !== "all" ? { filter } : {}) } }}
-          className={btn}
-        >
-          Print
-        </Link>
         <Link href="/people/new" className={btnPrimary}>
           + Add person
         </Link>
+        {/* Print gives exactly the list below: same search and filter. */}
+        <PageMore
+          items={[
+            { label: "Print", href: { pathname: "/print/people", query: { ...(q ? { q } : {}), ...(filter !== "all" ? { filter } : {}) } } },
+            ...(isAdult(profile) ? [{ label: "Export", href: "/data#people" }] : []),
+          ]}
+        />
       </PageHeader>
 
       <form className="mt-4 flex items-center gap-2" action="/people">

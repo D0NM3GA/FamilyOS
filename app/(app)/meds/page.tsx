@@ -7,6 +7,8 @@ import { formatTimeOfDay } from "@/lib/format";
 import { addDays } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
 import { getBoardInstances, getPointsTally } from "@/lib/tasks/queries";
+import { PageMore } from "@/components/more-menu";
+import { UpcomingFold } from "@/components/tasks/upcoming-fold";
 import { TaskInstanceCard } from "@/components/tasks/task-instance-card";
 import { toCardInstance } from "@/lib/tasks/card";
 import { BunsonMoment } from "@/components/bunson-moment";
@@ -43,6 +45,11 @@ export default async function MedsPage({
   return (
     <div className="p-4 sm:p-6">
       <PageHeader title="💊 Meds">
+        {viewerIsAdult && (
+          <Link href="/meds/new" className={btnPrimary}>
+            + New medication
+          </Link>
+        )}
         {storeOn && (
           <Link href="/points" className={btn}>
             ⭐ Rewards
@@ -50,19 +57,16 @@ export default async function MedsPage({
         )}
         {viewerIsAdult && (
           <>
-            <Link href="/data#meds" className={btn}>
-              Export
-            </Link>
-            {/* Adult-only, like the print page itself (stock + prescriber/pharmacy). */}
-            <Link href="/print/meds" className={btn}>
-              Print
-            </Link>
             <Link href="/meds/manage" className={btn}>
               Manage
             </Link>
-            <Link href="/meds/new" className={btnPrimary}>
-              + New medication
-            </Link>
+            {/* Print is adult-only, like the print page itself (stock + prescriber/pharmacy). */}
+            <PageMore
+              items={[
+                { label: "Print", href: "/print/meds" },
+                { label: "Export", href: "/data#meds" },
+              ]}
+            />
           </>
         )}
       </PageHeader>
@@ -157,13 +161,15 @@ export default async function MedsPage({
           )}
         </Section>
 
-        <Section title="Upcoming">
-          {upcoming.length === 0 ? (
+        {upcoming.length === 0 ? (
+          <Section title="Upcoming">
             <li>
               <EmptyNote>Nothing else in the next 14 days.</EmptyNote>
             </li>
-          ) : (
-            upcoming.map((i, idx) => (
+          </Section>
+        ) : (
+          <UpcomingFold days={14} count={upcoming.length}>
+            {upcoming.map((i, idx) => (
               <TaskInstanceCard
                 completeLabel="Taken"
                 key={i.id}
@@ -175,11 +181,12 @@ export default async function MedsPage({
                 subtitle={i.definition.notes ?? undefined}
                 timeLabel={formatTimeOfDay(i.dueDate)}
                 disappearsOnComplete
+                quietDone
                 index={idx}
               />
-            ))
-          )}
-        </Section>
+            ))}
+          </UpcomingFold>
+        )}
       </div>
     </div>
   );
