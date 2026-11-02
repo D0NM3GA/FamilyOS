@@ -116,7 +116,7 @@ export function ThisDevice({ vapidPublicKey }: { vapidPublicKey: string | null }
       body = <p className="text-sm text-muted-foreground">Checking this phone…</p>;
       break;
     case "noServer":
-      body = <p className="text-sm text-muted-foreground">Phone alerts aren&apos;t set up on the server yet (README, Alerts).</p>;
+      body = <p className="text-sm text-muted-foreground">Phone alerts aren&apos;t set up on the server yet (ask whoever runs the app).</p>;
       break;
     case "insecure":
       body = (

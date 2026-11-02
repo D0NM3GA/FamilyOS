@@ -1267,3 +1267,11 @@ border art, gives buttons, chips and cards a real edge, and marks selected items
 outline, since a fill or ring is what forced colors drop. Pet games' gradients stay (they are the
 game). In Big buttons, Neo-brutal's phone bar uses its body face in normal case, because its wide
 capitals ran together at Big's size. The look's browser test checks both.
+
+### Usability pass, batch 1: words and reading
+
+One word per action: **Done** for chores, **Taken** for doses, **Add** to create, **Save** to edit,
+**Turn off/on** for what used to be Deactivate. Long paragraphs stop at 70 characters (`globals.css`).
+The hand font is for large, decorative text, not data: its 1 reads as an I. Safe to spend's headline
+rounds down (`roundEstimateCents`), while its workings keep the cents. On touch screens the corner mascot steps aside while the page
+scrolls and whenever he'd sit on something tappable (`lib/bunson-cover.ts`).

@@ -101,6 +101,7 @@ export default async function MedsPage({
           <Section title="Overdue" tone="text-destructive">
             {overdue.map((i, idx) => (
               <TaskInstanceCard
+                completeLabel="Taken"
                 key={i.id}
                 instance={toCardInstance(i)}
                 viewerId={profile.id}
@@ -138,6 +139,7 @@ export default async function MedsPage({
           ) : (
             dueToday.map((i, idx) => (
               <TaskInstanceCard
+                completeLabel="Taken"
                 key={i.id}
                 instance={toCardInstance(i)}
                 viewerId={profile.id}
@@ -163,6 +165,7 @@ export default async function MedsPage({
           ) : (
             upcoming.map((i, idx) => (
               <TaskInstanceCard
+                completeLabel="Taken"
                 key={i.id}
                 instance={toCardInstance(i)}
                 viewerId={profile.id}

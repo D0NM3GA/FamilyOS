@@ -87,8 +87,9 @@ export function destructiveActions(text: string): string[] {
 /** Rule 2: where a file runs one of `names` without asking first ("file:line name"). */
 export function unaskedUses(file: string, text: string, names: string[]): string[] {
   return names.flatMap((name) =>
-    // A use is a call, a .bind or a `{name}` prop; not prose like yes="Yes, disconnect".
-    [...text.matchAll(new RegExp(`\\b${name}\\b(?=\\s*(?:\\(|\\.bind\\b|\\}))`, "g"))]
+    // A use is a call, a .bind or a `{name}` prop; not prose like yes="Yes, disconnect", or an
+    // object's own method like observer.disconnect().
+    [...text.matchAll(new RegExp(`(?<![\\w.])${name}\\b(?=\\s*(?:\\(|\\.bind\\b|\\}))`, "g"))]
       .filter((m) => !inImport(text, m.index))
       .flatMap((m) => {
         const where = `${file}:${lineOf(text, m.index)} ${name}`;

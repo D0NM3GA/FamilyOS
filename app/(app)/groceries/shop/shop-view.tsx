@@ -66,7 +66,7 @@ function Row({ row, onTap }: { row: ShopRow; onTap: () => void }) {
           <span className={`block text-lg font-extrabold leading-tight break-words ${row.done ? "text-muted-foreground line-through" : ""}`}>
             {row.name}
           </span>
-          <span className="block font-hand text-base text-muted-foreground">
+          <span className="block text-sm text-muted-foreground">
             {[row.size, row.forName ? `for ${row.forName}` : null].filter(Boolean).join(" · ")}
           </span>
         </span>

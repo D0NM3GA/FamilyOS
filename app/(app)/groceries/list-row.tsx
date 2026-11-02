@@ -71,7 +71,7 @@ export function ListRow({ item, href, vetoable = false }: { item: ListRowItem; h
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             {size ? (
-              <span className="font-hand text-base leading-tight text-muted-foreground">{size}</span>
+              <span className="text-sm leading-tight text-muted-foreground">{size}</span>
             ) : (
               <span className="inline-block -rotate-1 rounded-md bg-sun px-1.5 text-xs font-bold text-ink">
                 Needs details

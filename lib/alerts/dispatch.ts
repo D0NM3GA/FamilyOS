@@ -50,7 +50,7 @@ const defaultSenders: Senders = {
 export function pushProblem(state: Extract<VapidState, { ok: false }>): string {
   switch (state.reason) {
     case "noSubject":
-      return "Phone alerts need a contact address for this install: set CONTACT_EMAIL, or serve the app over https. See README, Alerts.";
+      return "Phone alerts need a contact address for this install: set CONTACT_EMAIL, or serve the app over https. See the admin guide.";
     case "badSubject":
       return "VAPID_SUBJECT in .env isn't a mailto: address or an https:// address. Fix it, or remove it to use CONTACT_EMAIL. See README, Alerts.";
     case "badEnv":

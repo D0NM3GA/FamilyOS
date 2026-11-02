@@ -53,10 +53,10 @@ export default async function ManageVehiclesPage() {
                   </Link>
                   <form action={setVehicleActive.bind(null, vehicle.id, !vehicle.active)}>
                     <SubmitButton
-                      aria-label={`${vehicle.active ? "Deactivate" : "Reactivate"} ${vehicle.name}`}
+                      aria-label={`${vehicle.active ? "Turn off" : "Turn on"} ${vehicle.name}`}
                       className={btn}
                     >
-                      {vehicle.active ? "Deactivate" : "Reactivate"}
+                      {vehicle.active ? "Turn off" : "Turn on"}
                     </SubmitButton>
                   </form>
                 </div>
@@ -86,10 +86,10 @@ export default async function ManageVehiclesPage() {
                         </Link>
                         <form action={setMaintenanceItemActive.bind(null, item.id, !item.active)}>
                           <SubmitButton
-                            aria-label={`${item.active ? "Deactivate" : "Reactivate"} ${item.title}`}
+                            aria-label={`${item.active ? "Turn off" : "Turn on"} ${item.title}`}
                             className={btn}
                           >
-                            {item.active ? "Deactivate" : "Reactivate"}
+                            {item.active ? "Turn off" : "Turn on"}
                           </SubmitButton>
                         </form>
                       </div>

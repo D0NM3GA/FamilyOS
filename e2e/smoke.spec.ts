@@ -199,6 +199,13 @@ test("every page is accessible, light at desktop width and dark at phone width",
         await test.step(`${path} (${scheme}, ${size.width}px)`, async () => {
           await page.goto(path);
           await expectAccessible(page, `${path} in ${scheme} at ${size.width}px`);
+          // Nothing widens the page: something hidden escaping its box shows on the document,
+          // anything else too wide on main, which does the scrolling.
+          const extra = await page.evaluate(() => {
+            const main = document.getElementById("main")!;
+            return [document.documentElement.scrollWidth - innerWidth, main.scrollWidth - main.clientWidth];
+          });
+          expect(extra, `${path} width`).toEqual([0, 0]);
         });
       }
     }
@@ -563,7 +570,7 @@ test("finishing a chore is marked by the look, and takes no taps", async () => {
         });
         watch.observe(document.body, { childList: true, subtree: true });
       });
-      await page.getByRole("button", { name: "Complete" }).first().click();
+      await page.getByRole("button", { name: "Done", exact: true }).first().click();
       const held = page.locator("#held-moment");
       await expect(held).toHaveText(word);
       if (shots) await page.screenshot({ path: `${shots}/moment-${id}.png` });
@@ -573,12 +580,12 @@ test("finishing a chore is marked by the look, and takes no taps", async () => {
       await expect.poll(async () => (await seen()).lasted, { timeout: 10_000 }).toBeGreaterThan(0);
       expect(await seen()).toMatchObject({ word, taps: "none", shown: "visible", after: "visible", opacity: "1" });
       await page.getByRole("button", { name: "Undo" }).first().click();
-      await expect(page.getByRole("button", { name: "Complete" }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Done", exact: true }).first()).toBeVisible();
     }
     // Sticker Book keeps its own celebration.
     await wear("sticker", "ink");
     await page.goto("/chores");
-    await page.getByRole("button", { name: "Complete" }).first().click();
+    await page.getByRole("button", { name: "Done", exact: true }).first().click();
     await expect(page.locator(".ui-moment")).toHaveCount(0);
   } finally {
     await page.emulateMedia({ reducedMotion: null });
@@ -776,7 +783,7 @@ test("taking a med and finishing a shopping trip are marked by the look too", as
     await wear("brut", "banana");
     await page.goto("/meds");
     await watchMoment();
-    await page.getByRole("button", { name: "Complete" }).first().click();
+    await page.getByRole("button", { name: "Taken", exact: true }).first().click();
     await expect.poll(async () => (await seenMoment()).word, { timeout: 10_000 }).toBe("DONE.");
 
     await page.goto("/groceries/shop");
@@ -897,7 +904,7 @@ test("a card statement CSV is checked on a few rows, imported, and removed again
   // Phase 52: a made-up card export (charges positive, a payment negative).
   await page.goto("/finances");
   await page.getByLabel("Jar name").fill("Family money");
-  await page.getByRole("button", { name: "Make it" }).click();
+  await page.getByRole("button", { name: "Add jar" }).click();
   await expect(page).toHaveURL(/\/finances\/[^/]+\/settings$/);
   const csv = [
     "Trans. Date,Post Date,Description,Amount,Category",

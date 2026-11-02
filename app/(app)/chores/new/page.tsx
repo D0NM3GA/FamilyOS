@@ -29,7 +29,7 @@ export default async function NewChorePage() {
         <TaskDefinitionForm
           action={createTaskDefinition}
           members={members}
-          submitLabel="Create chore"
+          submitLabel="Add chore"
           cancelHref="/chores"
         />
       </div>

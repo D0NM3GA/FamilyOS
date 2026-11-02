@@ -83,7 +83,7 @@ export default async function ManageChoresPage() {
                   </Link>
                   <form action={setDefinitionActive.bind(null, def.id, !def.active)}>
                     <SubmitButton className={btn}>
-                      {def.active ? "Deactivate" : "Reactivate"}
+                      {def.active ? "Turn off" : "Turn on"}
                       <span className="sr-only"> {def.title}</span>
                     </SubmitButton>
                   </form>

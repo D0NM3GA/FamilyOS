@@ -236,7 +236,7 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
                       className={`${field} w-24`}
                     />
                   </label>
-                  <Submit className={btn}>Set</Submit>
+                  <Submit className={btn}>Save</Submit>
                 </ActionForm>
               )}
               {l.budgetCents != null && month === current && (
@@ -267,7 +267,7 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
                         <span className="text-muted-foreground">by</span>
                         <input name="by" type="month" min={current} defaultValue={c.goalMonth ?? ""} aria-label={`Goal month for ${l.category.name}`} className={field} />
                       </label>
-                      <Submit className={btn}>Set goal</Submit>
+                      <Submit className={btn}>Save goal</Submit>
                     </ActionForm>
                   </div>
                 </details>

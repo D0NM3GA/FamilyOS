@@ -85,8 +85,7 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
             meds, contacts, notes and your home location, so store it somewhere private — not a shared folder.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Everyone&apos;s money jars are in it too, <strong>sealed</strong>: you can&apos;t open them, only this server can (with its{" "}
-            <code>INTEGRATION_ENCRYPTION_KEY</code>, so keep that key safe alongside your backups). The other admins and everyone in a
+            Everyone&apos;s money jars are in it too, <strong>sealed</strong>: you can&apos;t open them, only this server can, using a key kept with the server (the admin guide has more). The other admins and everyone in a
             money jar are told when a backup is made.
           </p>
           {stepup === "blocked" && (
@@ -119,8 +118,7 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
             </form>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
-            This is different from <code>npm run db:backup</code>, which copies the entire database (including sign-in and
-            security data) for disaster recovery on this machine. This file is readable, portable, and household-only.
+            This is different from the server&apos;s full backup (see the admin guide), which also covers sign-ins and security data. This file is readable, portable, and only about your household.
           </p>
 
           <h3 className="mt-5 text-sm font-semibold text-foreground">Restore from a backup</h3>

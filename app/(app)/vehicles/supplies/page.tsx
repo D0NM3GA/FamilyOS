@@ -61,8 +61,8 @@ export default async function SuppliesPage() {
                     Edit
                   </Link>
                   <form action={setSupplyActive.bind(null, s.id, !s.active)}>
-                    <SubmitButton aria-label={`${s.active ? "Deactivate" : "Reactivate"} ${s.name}`} className={btn}>
-                      {s.active ? "Deactivate" : "Reactivate"}
+                    <SubmitButton aria-label={`${s.active ? "Turn off" : "Turn on"} ${s.name}`} className={btn}>
+                      {s.active ? "Turn off" : "Turn on"}
                     </SubmitButton>
                   </form>
                 </div>

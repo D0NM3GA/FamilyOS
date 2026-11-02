@@ -181,7 +181,7 @@ An admin can also keep a shared calendar in Outlook filled with birthdays and ca
 
 The chores board shows what's **due today**, what's **late**, and what's coming up.
 
-- Tick a chore off when it's done (**Complete** on the board, **Done** on Home, **Done!** in Big
+- Tick a chore off when it's done (**Done** on the board and Home, **Done!** in Big
   buttons). Made a mistake? Tap the undo arrow. Kids tick their own chores and Anyone chores.
 - **Anyone: grab it!** chores are for whoever gets there first; kids can grab them too.
 - Grown-ups can **Skip** a chore (it's called **Missed** once it's overdue: nobody gets stickers
@@ -251,7 +251,7 @@ The pet has nothing to do with stickers: it never costs any, and nothing in it i
 ## Meds
 
 Like chores, for medicine: what's due today and what's coming up in the next two weeks. Tick
-a dose when it's taken (**Taken** on Home, **Complete** on the Meds page); the undo arrow if it
+a dose when it's taken (**Taken** on Home and the Meds page); the undo arrow if it
 wasn't. Doses can be several times a day. Kids can earn
 stickers for taking theirs.
 

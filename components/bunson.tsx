@@ -1,5 +1,6 @@
 "use client";
 
+import { coversControl } from "@/lib/bunson-cover";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { HOP_FRAME_COUNT, hopFrameIndex } from "@/lib/bunson-hop";
@@ -217,6 +218,7 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
   const currentX = useRef(0);
   const reducedMotionRef = useRef(false);
   const chaseActiveRef = useRef(false);
+  const hitRef = useRef<HTMLButtonElement>(null);
   const hasInteractedRef = useRef(false);
   const startChaseRef = useRef<() => void>(() => {});
   const scheduleLocoRef = useRef<() => void>(() => {});
@@ -242,6 +244,48 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
   // (once-ever) entering hop has resolved. Everything about the periscope
   // crossfade and the taller clip tier below reads this, not `revealed`.
   const speaking = bubble !== null && !entering;
+  // On a touch screen he can't dodge a finger as he does a mouse, so he's out of the way while
+  // the page scrolls and while he'd sit on something tappable.
+  const [stepAside, setStepAside] = useState(false);
+  const busyRef = useRef(false);
+  useEffect(() => {
+    busyRef.current = bubble !== null || entering;
+    if (busyRef.current) setStepAside(false);
+  }, [bubble, entering]);
+  useEffect(() => {
+    if (!matchMedia("(pointer: coarse)").matches) return;
+    const main = document.getElementById("main");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const check = () => {
+      const hit = hitRef.current;
+      const wrapper = wrapperRef.current;
+      if (busyRef.current || !hit || !wrapper || hit === document.activeElement || getComputedStyle(wrapper).display === "none") {
+        setStepAside(false);
+        return;
+      }
+      setStepAside(coversControl(hit.getBoundingClientRect(), (x, y) => document.elementsFromPoint(x, y), hit));
+    };
+    const soon = () => {
+      clearTimeout(timer);
+      timer = setTimeout(check, 200);
+    };
+    const onScroll = () => {
+      if (!busyRef.current && document.activeElement !== hitRef.current) setStepAside(true);
+      soon();
+    };
+    soon();
+    // Streamed parts, an opened panel or a new row can land under him with no scroll at all.
+    const changes = new MutationObserver(soon);
+    if (main) changes.observe(main, { subtree: true, childList: true, attributes: true, attributeFilter: ["open"] });
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("resize", soon);
+    return () => {
+      clearTimeout(timer);
+      changes.disconnect();
+      document.removeEventListener("scroll", onScroll, { capture: true });
+      window.removeEventListener("resize", soon);
+    };
+  }, []);
   // Which way LOCO_FRAMES should face — set once per hop launch (see
   // launchHop), not per frame, so this is plain React state rather than
   // something written imperatively like `left`.
@@ -758,7 +802,7 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
     <div
       ref={wrapperRef}
       data-bunson-corner
-      className="pointer-events-none fixed bottom-[var(--bottom-bar-h,0px)]"
+      className={`pointer-events-none fixed bottom-[var(--bottom-bar-h,0px)] ${stepAside ? "invisible" : ""}`}
       style={
         {
           // No explicit z-index on purpose: Bunson is DOM-last in the app
@@ -856,6 +900,7 @@ export function Bunson({ factsUrl, offApps = [] }: { factsUrl?: string; offApps?
           mostly-transparent 136x136 canvas) so Bunson doesn't steal clicks
           from page UI as he follows the cursor along the bottom edge. */}
       <button
+        ref={hitRef}
         type="button"
         onClick={handleClick}
         aria-label={`Say hi to ${mascot.name}, the household's rabbit mascot`}

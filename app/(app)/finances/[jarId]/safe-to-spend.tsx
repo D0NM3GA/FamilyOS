@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Forecast } from "@/lib/finance/forecast";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatWholeDollars, roundEstimateCents } from "@/lib/money";
 import { sectionTitle } from "@/components/styles";
 
 const day = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
@@ -23,14 +23,15 @@ export function SafeToSpend({ f, jarId, today }: { f: Forecast; jarId: string; t
       </section>
     );
   }
-  const tight = f.safeCents <= 0;
+  const safe = roundEstimateCents(f.safeCents);
+  const tight = safe === 0;
   return (
     <section className="ui-card mt-4 rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
       <h2 className={sectionTitle}>
         💸 Safe to spend {f.payday ? `until payday, ${day(f.payday.nextOn)}` : `for the next ${daysUntil(today, f.until)} days`}
       </h2>
       <p className={`mt-1 text-3xl font-extrabold ${tight ? "text-tomato" : ""}`}>
-        {tight ? "$0 (it's tight)" : `about ${formatMoney(f.safeCents)}`}
+        {tight ? "$0 (it's tight)" : `about ${formatWholeDollars(safe)}`}
       </p>
       <p className="mt-1 text-sm">
         Lowest point: about <strong>{formatMoney(f.lowest.cents)}</strong>

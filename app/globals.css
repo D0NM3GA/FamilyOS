@@ -250,6 +250,10 @@ main#main,
 }
 
 @layer base {
+  /* Long lines tire the eye. Not centered text, boxes or rows, which fill their space. */
+  main p:where(:not(.text-center, .text-center *, [role="alert"], .flex, .truncate, [class*="bg-"], [class*="ring-"], [class*="border"])) {
+    max-width: 70ch;
+  }
   * {
     @apply border-border outline-ring/50;
   }
