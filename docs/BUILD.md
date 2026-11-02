@@ -1285,3 +1285,11 @@ that jump is accepted, including keyboard focus returning to the page's start. S
 (none on a browser too old to have one, so they lose those actions until updated). `PageMore` never
 puts a single item behind a ⋯. Upcoming lists are folded, except someone's own short list in Big buttons on Chores; Chrome opens a fold
 for find-in-page, Safari doesn't.
+
+### Usability pass, batch 3: forms
+
+New chore, medication and person forms start in their first field, with less-used fields under **More options** (`MoreOptions`), which is open
+on edits and after an error. Nothing in it may be `required`: the browser can't point at a hidden
+field, so the server checks the start date instead. Contacts have no type, so Prescriber and Pharmacy
+list those already used in that role first. Pantry has one box: typing narrows the list, and a new name
+offers **+ Add**. Enter searches; it no longer adds.

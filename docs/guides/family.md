@@ -191,8 +191,8 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
   marked can be cleared with **Mark them missed**.
 - Outdoor chores show a rain warning when rain is likely (once an admin has set where home is).
 - Each chore earns stickers for whoever did it.
-- Grown-ups: **+ New chore** to add one (how often, who's on it, whose turn it rotates to, how
-  many stickers), **Manage** to change them, **⋯ → Print** for the fridge.
+- Grown-ups: **+ New chore** to add one (a title, who, and how often; notes, start date and stickers
+  are under **More options**), **Manage** to change them, **⋯ → Print** for the fridge.
 
 <!-- screenshot: the chores board -->
 
@@ -257,7 +257,8 @@ a dose when it's taken (**Taken** on Home and the Meds page); the undo arrow if 
 wasn't. Doses can be several times a day. Kids can earn
 stickers for taking theirs.
 
-Grown-ups: **+ New medication** and **Manage**.
+Grown-ups: **+ New medication** and **Manage**. Stock, prescriber and pharmacy are under **More
+options**; people already used as a prescriber or pharmacy come first in those lists.
 
 **Away from home.** On a trip to another time zone, times show home's first and then where you
 are ("8:00 AM at home · 2:00 PM here"), so doses stay on their usual schedule. Days stay home's
@@ -296,7 +297,7 @@ them to what you bought, so next time you'll see what you paid. Nobody types pri
 isn't kept. A line it isn't sure about: type a few letters of the item to find it (this trip's
 items come first, then the whole Pantry).
 
-Also here: **🥫 Pantry** (everything the family buys, and tidying up duplicates) and **🧾 Past
+Also here: **🥫 Pantry** (everything the family buys, and tidying up duplicates; one box finds things as you type, and offers **+ Add** for anything new) and **🧾 Past
 trips**.
 
 <!-- screenshot: the list, the Shop view, the scanner -->

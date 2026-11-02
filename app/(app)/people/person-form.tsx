@@ -5,7 +5,8 @@ import { useActionState, useState } from "react";
 import type { PersonFormState } from "./actions";
 import type { PersonColor } from "@/app/generated/prisma/enums";
 import { PERSON_COLORS, PERSON_COLOR_KEYS } from "@/lib/person-color";
-import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
+import { MoreOptions } from "@/components/more-options";
+import { formActions, btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 
 type Action = (prevState: PersonFormState, formData: FormData) => Promise<PersonFormState>;
 
@@ -53,39 +54,6 @@ export function PersonForm({
 
       <Field label="Email" name="email" type="email" defaultValue={defaults?.email ?? ""} />
       <Field label="Phone" name="phone" type="tel" defaultValue={defaults?.phone ?? ""} />
-
-      <label className="block">
-        <span className={`${fieldLabel} block`}>Notes</span>
-        <textarea
-          name="notes"
-          defaultValue={defaults?.notes ?? ""}
-          rows={3}
-          className={`${field} mt-1 w-full`}
-        />
-      </label>
-      <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
-        <input type="checkbox" name="notesAdultsOnly" defaultChecked={defaults?.notesAdultsOnly ?? false} className="size-4" />
-        🔒 Notes are for grown-ups only (kids don&apos;t see them)
-      </label>
-
-      <div>
-        <label className="block">
-          <span className={`${fieldLabel} block`}>Check-in reminder (days)</span>
-          <input
-            type="number"
-            name="contactCadenceDays"
-            min={1}
-            defaultValue={defaults?.contactCadenceDays ?? ""}
-            placeholder="21"
-            className={`${field} mt-1 w-full`}
-          />
-        </label>
-        <p className="mt-1 text-xs text-muted-foreground">
-          How often Home&apos;s &ldquo;Haven&apos;t talked in a while&rdquo; card should nag
-          about this person. Household members are skipped unless you set this — handy for a
-          kid away at college.
-        </p>
-      </div>
 
       <label className="flex min-h-11 items-center gap-2 text-sm text-foreground sm:min-h-9">
         <input
@@ -151,9 +119,42 @@ export function PersonForm({
         </fieldset>
       )}
 
+      <MoreOptions open={Boolean(defaults) || Boolean(state.error)} summary="Notes, check-in reminder">
+        <label className="block">
+          <span className={`${fieldLabel} block`}>Notes</span>
+          <textarea
+            name="notes"
+            defaultValue={defaults?.notes ?? ""}
+            rows={3}
+            className={`${field} mt-1 w-full`}
+          />
+        </label>
+        <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
+          <input type="checkbox" name="notesAdultsOnly" defaultChecked={defaults?.notesAdultsOnly ?? false} className="size-4" />
+          🔒 Notes are for grown-ups only (kids don&apos;t see them)
+        </label>
+  
+        <div>
+          <label className="block">
+            <span className={`${fieldLabel} block`}>Check-in reminder (days)</span>
+            <input
+              type="number"
+              name="contactCadenceDays"
+                defaultValue={defaults?.contactCadenceDays ?? ""}
+              placeholder="21"
+              className={`${field} mt-1 w-full`}
+            />
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            How often Home&apos;s &ldquo;Haven&apos;t talked in a while&rdquo; card reminds you about
+            them. Household members are left out unless you set this, say for a kid away at college.
+          </p>
+        </div>
+      </MoreOptions>
+
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
 
-      <div className="flex flex-wrap gap-2">
+      <div data-covers-bottom className={formActions}>
         <button type="submit" disabled={pending} className={btnPrimary}>
           {pending ? "Saving…" : submitLabel}
         </button>

@@ -620,6 +620,26 @@ test("a chore's less-used actions wait behind its menu, and what's ahead stays f
   await page.emulateMedia({ reducedMotion: null });
 });
 
+test("Pantry has one box: it finds as you type, and offers to add what's new", async () => {
+  await page.goto("/groceries/pantry");
+  const box = page.getByLabel("Find or add something");
+  await box.pressSequentially("Zucchini bread");
+  await expect(page).toHaveURL(/q=Zucchini/);
+  await page.getByRole("button", { name: "+ Add \u201cZucchini bread\u201d" }).click();
+  await expect(page).toHaveURL(/item=/);
+  await page.goto("/groceries/pantry?q=Zucchini%20bread");
+  await expect(page.getByRole("button", { name: /^\+ Add/ })).toHaveCount(0);
+  await page.getByRole("link", { name: "Clear" }).click();
+  await expect(box).toHaveValue("");
+  // A filter tapped just after typing stays, and the search joins it.
+  await box.pressSequentially("Zucc");
+  await page.getByRole("link", { name: /Needs details/ }).click();
+  await expect(page).toHaveURL(/filter=needs/);
+  await expect(page).toHaveURL(/q=Zucc/);
+  await expect(page).toHaveURL(/filter=needs/);
+  problems.expectNone();
+});
+
 test("home location from a ZIP code, then from this device", async () => {
   await page.goto("/settings/household");
   await expect(page.getByPlaceholder("Latitude")).toHaveCount(0);

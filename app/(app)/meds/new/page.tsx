@@ -2,6 +2,7 @@ import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
 import { getHouseholdMembers, listPeople } from "@/lib/people";
 import { PageHeader } from "@/components/page-header";
+import { getMedContactsUsed } from "@/lib/meds/contacts-used";
 import { createTaskDefinition } from "../actions";
 import { TaskDefinitionForm } from "../task-definition-form";
 import { requireAppOn } from "@/lib/app-guard";
@@ -18,7 +19,7 @@ export default async function NewMedPage() {
     );
   }
 
-  const [members, contacts] = await Promise.all([
+  const [members, contacts, used] = await Promise.all([
     getHouseholdMembers(profile.householdId).then((people) =>
       people.map(({ id, firstName, lastName }) => ({ id, firstName, lastName })),
     ),
@@ -27,6 +28,7 @@ export default async function NewMedPage() {
     listPeople(profile.householdId, { filter: "contact" }).then((people) =>
       people.map(({ id, firstName, lastName }) => ({ id, firstName, lastName })),
     ),
+    getMedContactsUsed(profile.householdId),
   ]);
 
   return (
@@ -37,6 +39,8 @@ export default async function NewMedPage() {
           action={createTaskDefinition}
           members={members}
           contacts={contacts}
+          usedPrescriberIds={used.prescriberIds}
+          usedPharmacyIds={used.pharmacyIds}
           submitLabel="Add medication"
           cancelHref="/meds"
         />
