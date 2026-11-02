@@ -20,6 +20,7 @@ import { ListDock } from "./list-undo";
 import { KidTiles } from "./kid-tiles";
 import { QueueStatus } from "./shop-queue";
 import { PageHeader } from "@/components/page-header";
+import { PageMore } from "@/components/more-menu";
 import { btn, btnPrimary, chipRow, sectionTitle } from "@/components/styles";
 import { requireAppOn } from "@/lib/app-guard";
 import { SubmitButton } from "@/components/submit";
@@ -84,14 +85,12 @@ export default async function GroceriesPage({
         <Link href="/groceries/trips" className={`${stickerBtn} hover:bg-muted dark:border-white/20`}>
           🧾 Past trips
         </Link>
-        <Link href="/print/groceries" className={btn}>
-          Print
-        </Link>
-        {adult && (
-          <Link href="/data#groceries" className={btn}>
-            Export
-          </Link>
-        )}
+        <PageMore
+          items={[
+            { label: "Print", href: "/print/groceries" },
+            ...(adult ? [{ label: "Export", href: "/data#groceries" }] : []),
+          ]}
+        />
       </PageHeader>
 
       {trip === "saved" && (

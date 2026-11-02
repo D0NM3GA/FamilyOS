@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { LookKicker } from "@/components/look-voice";
 import type { VoiceKicker } from "@/lib/looks";
 import Link from "next/link";
@@ -17,6 +18,7 @@ import { scheduleFeedRefresh } from "@/lib/school/feeds/schedule";
 import { getHouseholdSettings, getRewardWords } from "@/lib/household-settings";
 import { formatDateTime, formatEventWhen } from "@/lib/format";
 import { BunsonMoment } from "@/components/bunson-moment";
+import { MilestoneToastBoard } from "@/components/tasks/milestone-toast";
 import { TaskInstanceCard } from "@/components/tasks/task-instance-card";
 import { iconBtn } from "@/components/styles";
 import { logQuickContact } from "./people/[id]/actions";
@@ -135,7 +137,10 @@ export default async function HomePage() {
   // The app cards are named by their app's id; the rest aren't switchable, so always on.
   // Phase 40.1b: the calendar card is Outlook's, so an install without Microsoft has none.
   const outlookCard = on("calendar") && microsoftEnabled();
-  const cards = ["dates", "stale", "chores", "meds", "cars", "school", "calendar", "activity"].filter((c) => (c === "calendar" ? outlookCard : on(c)));
+  const showToday = on("chores") || on("meds");
+  const cards = ["today", "calendar", "school", "dates", "stale", "cars", "activity"].filter((c) =>
+    c === "today" ? showToday : c === "calendar" ? outlookCard : on(c),
+  );
   const index = (card: string) => cards.indexOf(card);
 
   // Vehicle maintenance has no notification/cron surface of its own (see
@@ -161,6 +166,45 @@ export default async function HomePage() {
         text={greetingLine(profile.firstName, currentHour(zone), on("chores") ? choreProgressFor(profile.id, choreBoard) : null, words)}
       />
 
+      {showToday && (
+        <MilestoneToastBoard>
+          <Card title="Today" kicker="chores" index={index("today")} className="ui-today mt-6">
+            <div className={`grid gap-6 ${on("chores") && on("meds") ? "lg:grid-cols-2" : ""}`}>
+              {on("chores") && (
+                <section>
+                  <h3 className="mb-2 font-bold text-foreground">Chores</h3>
+                  <HomeTasks
+                    board={choreBoard}
+                    href="/chores"
+                    noun="chores"
+                    viewerId={profile.id}
+                    viewerIsAdult={isAdult(profile)}
+                    onComplete={completeChore}
+                    onUndo={undoChore}
+                    claimable
+                  />
+                </section>
+              )}
+              {on("meds") && (
+                <section>
+                  <h3 className="mb-2 font-bold text-foreground">Meds</h3>
+                  <HomeTasks
+                    board={medBoard}
+                    href="/meds"
+                    noun="doses"
+                    viewerId={profile.id}
+                    viewerIsAdult={isAdult(profile)}
+                    onComplete={completeMed}
+                    onUndo={undoMed}
+                    timed
+                  />
+                </section>
+              )}
+            </div>
+          </Card>
+        </MilestoneToastBoard>
+      )}
+
       {openOrders.length > 0 && (
         <Link
           href="/points#orders"
@@ -181,6 +225,67 @@ export default async function HomePage() {
       )}
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Outlook is the slowest thing on Home (a network hop per call), so the rest of the
+            page shows first and the calendar fills in. */}
+        {outlookCard && (
+          <Suspense
+            fallback={
+              <Card title="This week's calendar" kicker="calendar" index={index("calendar")}>
+                <EmptyNote>Checking the calendar…</EmptyNote>
+              </Card>
+            }
+          >
+            <CalendarCard
+              load={
+                showCalendar && profile.authUserId
+                  ? getThisWeekEvents(profile.authUserId, profile.homeCalendarId)
+                  : Promise.resolve<ThisWeekResult>({ ok: false, error: "Outlook shows here for whoever signed in with Microsoft, on their own profile." })
+              }
+              index={index("calendar")}
+            />
+          </Suspense>
+        )}
+
+        {on("school") && (
+          <Card title="School this week" kicker="school" index={index("school")}>
+            {schoolEvents.length > 0 && (
+              <ul className="mb-2 space-y-1">
+                {schoolEvents.slice(0, 3).map((e) => (
+                  <li key={`${e.feedId}-${e.occurrenceKey}`} className="flex justify-between gap-2 px-1 text-sm text-muted-foreground">
+                    <span className="truncate">📅 {e.title}</span>
+                    <span className="shrink-0 text-xs">
+                      {formatEventWhen(e, zone)}
+                      {!e.allDay && <AwayTime at={e.startsAt} />}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {schoolDue.length === 0 ? (
+              <EmptyNote>No homework or forms due. 🎒</EmptyNote>
+            ) : (
+              <ul className="space-y-1 sm:space-y-2">
+                {schoolDue.slice(0, 6).map((item) => (
+                  <li key={`${item.kind}-${item.id}`}>
+                    <Link
+                      href={item.href}
+                      className="flex min-h-11 items-center justify-between gap-2 rounded-md px-1 py-1 text-sm sm:min-h-0 text-muted-foreground transition hover:translate-x-1 hover:text-foreground"
+                    >
+                      <span className="truncate">
+                        {item.title}
+                        {item.who && <span className="text-xs"> · {item.who}</span>}
+                      </span>
+                      <span className={`shrink-0 text-xs ${item.overdue ? "text-destructive" : ""}`}>
+                        {item.dueDate ? formatMonthDay(item.dueDate.getMonth() + 1, item.dueDate.getDate()) : ""}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
+
         <Card title="Upcoming dates" kicker="dates" index={index("dates")}>
           {upcomingDates.length === 0 ? (
             <EmptyNote>Nothing in the next 30 days. Add birthdays from a person&apos;s page.</EmptyNote>
@@ -237,36 +342,6 @@ export default async function HomePage() {
           )}
         </Card>
 
-        {on("chores") && (
-          <Card title="Today's chores" kicker="chores" index={index("chores")}>
-            <HomeTasks
-              board={choreBoard}
-              href="/chores"
-              noun="chores"
-              viewerId={profile.id}
-              viewerIsAdult={isAdult(profile)}
-              onComplete={completeChore}
-              onUndo={undoChore}
-              claimable
-            />
-          </Card>
-        )}
-
-        {on("meds") && (
-          <Card title="Today's meds" kicker="meds" index={index("meds")}>
-            <HomeTasks
-              board={medBoard}
-              href="/meds"
-              noun="doses"
-              viewerId={profile.id}
-              viewerIsAdult={isAdult(profile)}
-              onComplete={completeMed}
-              onUndo={undoMed}
-              timed
-            />
-          </Card>
-        )}
-
         {on("cars") && (
           <Card title="Vehicle maintenance" kicker="cars" index={index("cars")}>
             {overdueMaintenance.length === 0 ? (
@@ -287,67 +362,6 @@ export default async function HomePage() {
               </ul>
             )}
           </Card>
-        )}
-
-        {on("school") && (
-          <Card title="School this week" kicker="school" index={index("school")}>
-            {schoolEvents.length > 0 && (
-              <ul className="mb-2 space-y-1">
-                {schoolEvents.slice(0, 3).map((e) => (
-                  <li key={`${e.feedId}-${e.occurrenceKey}`} className="flex justify-between gap-2 px-1 text-sm text-muted-foreground">
-                    <span className="truncate">📅 {e.title}</span>
-                    <span className="shrink-0 text-xs">
-                      {formatEventWhen(e, zone)}
-                      {!e.allDay && <AwayTime at={e.startsAt} />}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {schoolDue.length === 0 ? (
-              <EmptyNote>No homework or forms due. 🎒</EmptyNote>
-            ) : (
-              <ul className="space-y-1 sm:space-y-2">
-                {schoolDue.slice(0, 6).map((item) => (
-                  <li key={`${item.kind}-${item.id}`}>
-                    <Link
-                      href={item.href}
-                      className="flex min-h-11 items-center justify-between gap-2 rounded-md px-1 py-1 text-sm sm:min-h-0 text-muted-foreground transition hover:translate-x-1 hover:text-foreground"
-                    >
-                      <span className="truncate">
-                        {item.title}
-                        {item.who && <span className="text-xs"> · {item.who}</span>}
-                      </span>
-                      <span className={`shrink-0 text-xs ${item.overdue ? "text-destructive" : ""}`}>
-                        {item.dueDate ? formatMonthDay(item.dueDate.getMonth() + 1, item.dueDate.getDate()) : ""}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        )}
-
-        {/* Outlook is the slowest thing on Home (a network hop per call), so the rest of the
-            page shows first and the calendar fills in. */}
-        {outlookCard && (
-          <Suspense
-            fallback={
-              <Card title="This week's calendar" kicker="calendar" index={index("calendar")}>
-                <EmptyNote>Checking the calendar…</EmptyNote>
-              </Card>
-            }
-          >
-            <CalendarCard
-              load={
-                showCalendar && profile.authUserId
-                  ? getThisWeekEvents(profile.authUserId, profile.homeCalendarId)
-                  : Promise.resolve<ThisWeekResult>({ ok: false, error: "Outlook shows here for whoever signed in with Microsoft, on their own profile." })
-              }
-              index={index("calendar")}
-            />
-          </Suspense>
         )}
 
         <Card title="Recent activity" kicker="activity" index={index("activity")}>
@@ -446,28 +460,36 @@ function HomeTasks({
   claimable?: boolean;
 }) {
   const overdueIds = new Set(board.overdue.map((i) => i.id));
-  const all = [...board.overdue, ...board.dueToday];
-  if (all.length === 0) return <EmptyNote>Nothing due today.</EmptyNote>;
+  const all = [...board.overdue, ...board.dueToday.filter((i) => i.status === "PENDING")];
+  const finished = board.dueToday.filter((i) => i.status === "DONE");
+  if (all.length === 0 && finished.length === 0) return <EmptyNote>Nothing due today.</EmptyNote>;
   const shown = all.slice(0, HOME_TASKS);
+  const card = (i: (typeof all)[number], idx: number) => (
+    <TaskInstanceCard
+      key={i.id}
+      instance={toCardInstance(i)}
+      viewerId={viewerId}
+      viewerIsAdult={viewerIsAdult}
+      onComplete={onComplete}
+      onUndo={onUndo}
+      showDate={overdueIds.has(i.id)}
+      timeLabel={timed ? formatTimeOfDay(i.dueDate) : null}
+      completeLabel={timed ? "Taken" : "Done"}
+      claimable={claimable}
+      index={idx}
+    />
+  );
   return (
     <>
-      <ul className="space-y-2">
-        {shown.map((i, idx) => (
-          <TaskInstanceCard
-            key={i.id}
-            instance={toCardInstance(i)}
-            viewerId={viewerId}
-            viewerIsAdult={viewerIsAdult}
-            onComplete={onComplete}
-            onUndo={onUndo}
-            showDate={overdueIds.has(i.id)}
-            timeLabel={timed ? formatTimeOfDay(i.dueDate) : null}
-            completeLabel={timed ? "Taken" : "Done"}
-            claimable={claimable}
-            index={idx}
-          />
-        ))}
-      </ul>
+      {shown.length > 0 ? <ul className="space-y-2">{shown.map(card)}</ul> : <EmptyNote>All done for today.</EmptyNote>}
+      {finished.length > 0 && (
+        <details className="group mt-1">
+          <summary className="flex min-h-11 cursor-pointer items-center gap-1 text-xs font-bold text-muted-foreground">
+            <ChevronRight size={14} aria-hidden className="transition-transform group-open:rotate-90" />✓ {finished.length} done
+          </summary>
+          <ul className="space-y-2">{finished.map(card)}</ul>
+        </details>
+      )}
       <Link href={href} className="mt-1 inline-flex min-h-11 items-center text-xs font-bold text-muted-foreground underline hover:text-foreground sm:min-h-0">
         {all.length > shown.length ? `${all.length - shown.length} more ${noun} — see all` : `All ${noun} →`}
         {board.overdue.length > 0 && <span className="ml-1 text-destructive">({board.overdue.length} overdue)</span>}
@@ -482,17 +504,19 @@ function Card({
   title,
   kicker,
   index,
+  className = "",
   children,
 }: {
   title: string;
   kicker: VoiceKicker;
   index: number;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
     <div
       style={{ animationDelay: `${index * 90}ms` }}
-      className={`ui-card animate-in fade-in zoom-in-90 slide-in-from-bottom-4 fill-mode-backwards duration-500 rounded-2xl bg-card p-4 shadow-[3px_3px_0_rgb(31_41_51/0.12)] ring-1 ring-border transition hover:-translate-y-0.5`}
+      className={`ui-card ${className} animate-in fade-in zoom-in-90 slide-in-from-bottom-4 fill-mode-backwards duration-500 rounded-2xl bg-card p-4 shadow-[3px_3px_0_rgb(31_41_51/0.12)] ring-1 ring-border transition hover:-translate-y-0.5`}
     >
       <h2 className="text-lg font-bold leading-tight text-foreground">{title}</h2>
       <LookKicker id={kicker} />

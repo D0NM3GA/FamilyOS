@@ -22,6 +22,9 @@ export default async function VehiclesPage() {
   return (
     <div className="p-4 sm:p-6">
       <PageHeader title="🚗 Cars">
+        <Link href="/vehicles/new" className={btnPrimary}>
+          + New vehicle
+        </Link>
         <Link href="/vehicles/supplies" className={btn}>
           🧰 Garage
           {lowSupplies > 0 && (
@@ -34,9 +37,6 @@ export default async function VehiclesPage() {
           </Link>
           <Link href="/vehicles/manage" className={btn}>
             Manage
-          </Link>
-          <Link href="/vehicles/new" className={btnPrimary}>
-            + New vehicle
           </Link>
         </>
       </PageHeader>

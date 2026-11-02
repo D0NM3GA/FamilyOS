@@ -60,6 +60,21 @@
 .dark [data-look="goth"] .text-tomato { color: #ff8a80; }
 [data-look="goth"] .bg-tomato { color: #ffffff; }
 
+/* Home's Today spans the page, where a tilt or a corner sticker meant for a small card gets loud. */
+[data-look="brut"] .ui-home .ui-card.ui-today,
+[data-look="kawaii"] .ui-home .ui-card.ui-today {
+  transform: none !important;
+}
+[data-look="brut"] .ui-home .ui-today::after,
+[data-look="kawaii"] .ui-home .ui-today::after {
+  content: none !important;
+}
+
+/* A browser without popovers would show every ⋯ menu open. */
+@supports not selector(:popover-open) {
+  [popover] { display: none; }
+}
+
 /* A look's voice: small lines beside the app's plain words. Each look can dress its own. */
 .ui-kicker {
   display: block;
@@ -100,7 +115,8 @@
     border: 2px solid ButtonText !important;
     clip-path: none !important;
   }
-  .ui-card {
+  .ui-card,
+  .ui-menu {
     border: 1px solid CanvasText !important;
   }
   /* The room these keep for their art. */

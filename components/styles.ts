@@ -50,3 +50,6 @@ export const field = "ui-field min-h-11 rounded-xl border-2 border-input bg-back
 export const fieldLabel = "ui-field-label text-xs font-extrabold uppercase tracking-wide text-muted-foreground";
 
 export const card = "ui-card rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20";
+
+/** A line in a ⋯ menu. */
+export const menuItem = "flex min-h-11 w-full items-center rounded-lg px-3 text-left text-sm font-bold whitespace-nowrap hover:bg-muted";

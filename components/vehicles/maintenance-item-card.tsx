@@ -112,7 +112,7 @@ export function MaintenanceItemCard({
               type="button"
               aria-expanded={formOpen}
               onClick={() => (formOpen ? setFormOpen(false) : openForm())}
-              className={btnPrimary}
+              className={item.status === "OK" ? btn : btnPrimary}
             >
               Log service
             </button>

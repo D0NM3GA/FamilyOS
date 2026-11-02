@@ -133,9 +133,10 @@ grown-ups.
 
 ## Home
 
-Your day at a glance: **Today's chores** (tick them off right there), **Today's meds**, **School
-this week**, **This week's calendar**, **Upcoming dates** (birthdays and anniversaries), **Vehicle
-maintenance**, and **Recent activity**.
+Your day at a glance. **Today** comes first: chores and meds to tick off right there, with what's
+finished folded under **✓ done** (Undo is in there). Then **This week's calendar**, **School this
+week**, **Upcoming dates** (birthdays and anniversaries), **Vehicle maintenance**, and **Recent
+activity**.
 
 **Haven't talked in a while** lists people you haven't been in touch with lately, with a quick
 📞 or 💬 to log it ("Just called", "Just texted").
@@ -184,13 +185,14 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
 - Tick a chore off when it's done (**Done** on the board and Home, **Done!** in Big
   buttons). Made a mistake? Tap the undo arrow. Kids tick their own chores and Anyone chores.
 - **Anyone: grab it!** chores are for whoever gets there first; kids can grab them too.
-- Grown-ups can **Skip** a chore (it's called **Missed** once it's overdue: nobody gets stickers
-  for it) and **Reassign…** it to someone else. Chores from before last week that were never
+- What's after today is folded under **Next 14 days**. Tap it to look ahead.
+- Grown-ups have a **⋯** on each chore: **Skip** it (it's called **Missed** once it's overdue:
+  nobody gets stickers for it) or **Give to** someone else. Chores from before last week that were never
   marked can be cleared with **Mark them missed**.
 - Outdoor chores show a rain warning when rain is likely (once an admin has set where home is).
 - Each chore earns stickers for whoever did it.
 - Grown-ups: **+ New chore** to add one (how often, who's on it, whose turn it rotates to, how
-  many stickers), **Manage** to change them, **Print** for the fridge.
+  many stickers), **Manage** to change them, **⋯ → Print** for the fridge.
 
 <!-- screenshot: the chores board -->
 
