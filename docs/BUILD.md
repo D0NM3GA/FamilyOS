@@ -1259,3 +1259,11 @@ Tests added: error text and badge contrast in every look, the moment still showi
 name fitting a phone, and a form page. Accepted: opening the setup step marks the look prompt seen (a
 write on a page load, but it only ever goes from unset to set). Not checked: a Big buttons pass per
 look in the browser, and Windows high contrast.
+
+### Forced colors and Big buttons, after Phase 58
+
+Under forced colors (Windows contrast themes) `app/looks/shared.css` removes every look's background and
+border art, gives buttons, chips and cards a real edge, and marks selected items with a Highlight
+outline, since a fill or ring is what forced colors drop. Pet games' gradients stay (they are the
+game). In Big buttons, Neo-brutal's phone bar uses its body face in normal case, because its wide
+capitals ran together at Big's size. The look's browser test checks both.

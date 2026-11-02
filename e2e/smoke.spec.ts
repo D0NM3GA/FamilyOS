@@ -462,11 +462,39 @@ for (const [look, color, face] of [
       const mark = page.locator(".ui-wordmark");
       expect(await mark.evaluate((el) => el.scrollWidth - el.clientWidth), `${look} phone name`).toBeLessThanOrEqual(0);
       if (shots) await page.screenshot({ path: `${shots}/${look}-phone.png` });
+      // Big buttons' larger labels still sit apart on the bottom bar.
+      await root.evaluate((el) => el.setAttribute("data-view", "BIG"));
+      const labels = await page.locator(".ui-bottom-bar a").evaluateAll((links) =>
+        links.map((link) => {
+          const range = document.createRange();
+          range.selectNodeContents(link);
+          const { left, right } = range.getBoundingClientRect();
+          return { left, right };
+        }),
+      );
+      for (const [i, label] of labels.slice(1).entries()) {
+        expect(label.left, `${look} Big buttons bar label ${i + 1}`).toBeGreaterThanOrEqual(labels[i].right);
+      }
+      await page.setViewportSize(desktop);
+      // Forced colors: no art, and buttons and the selected filter keep a mark of their own.
+      await page.emulateMedia({ forcedColors: "active" });
+      await page.goto("/chores");
+      await page.waitForLoadState("networkidle");
+      const forced = await page.evaluate(() => {
+        const css = (selector: string) => getComputedStyle(document.querySelector(selector)!);
+        return {
+          art: css("[data-app-root]").backgroundImage,
+          button: css(".ui-btn").borderTopStyle,
+          selected: css(".ui-chip[aria-current]").outlineStyle,
+          nav: css(".ui-rail a[aria-current]").outlineStyle,
+        };
+      });
+      expect(forced, `${look} forced colors`).toEqual({ art: "none", button: "solid", selected: "solid", nav: "solid" });
     } finally {
       // Whatever happened, the tests after this one don't wear a look.
       await page.setViewportSize(desktop);
       await page.evaluate(() => localStorage.removeItem("theme"));
-      await page.emulateMedia({ reducedMotion: null });
+      await page.emulateMedia({ reducedMotion: null, forcedColors: null });
       await wear(start.look!, start.color!);
     }
     problems.expectNone();
