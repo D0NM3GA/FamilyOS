@@ -124,7 +124,7 @@
 }
 [data-look="brut"] .ui-ticker::before,
 [data-look="brut"] .ui-ticker::after {
-  content: "Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * Chores * Groceries * Money * Calendar * ";
+  content: "Today * Tomorrow * This week * Home * Today * Tomorrow * This week * Home * Today * Tomorrow * This week * Home * Today * Tomorrow * This week * Home * Today * Tomorrow * This week * Home * ";
   display: inline-block;
 }
 
@@ -168,8 +168,10 @@
   font-family: var(--face-heading);
   font-weight: 400;
   text-transform: uppercase;
-  font-size: 0.625rem;
   color: var(--on-chrome);
+}
+[data-look="brut"] :is(.ui-rail, .ui-bottom-bar) a:not([data-view="BIG"] *) {
+  font-size: 0.625rem;
 }
 [data-look="brut"] .ui-bottom-bar a[aria-current] {
   background: #000000;
@@ -186,6 +188,9 @@
 [data-look="brut"] .ui-bar > button:first-child {
   background: var(--on-chrome);
   color: var(--chrome);
+}
+[data-look="brut"] .ui-bar > button:first-child:focus-visible {
+  outline-color: var(--on-chrome);
 }
 [data-look="brut"] .ui-bar > button:first-child i {
   background: var(--chrome);
@@ -252,6 +257,7 @@
   display: block;
   max-width: calc(100% - 3.5rem);
   overflow-wrap: anywhere;
+  hyphens: auto;
   font: 400 clamp(2rem, 9vw, 4rem)/0.92 var(--face-heading);
   letter-spacing: -0.03em;
   text-transform: uppercase;

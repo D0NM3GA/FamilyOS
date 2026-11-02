@@ -116,7 +116,8 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
     startFinish(async () => {
       try {
         const result = await completeTrip();
-        celebrate();
+        // Another device may have finished the trip first: nothing saved, nothing to mark.
+        if (result.saved) celebrate();
         router.replace(tripSavedHref(result.saved ? result.purchaseId : null));
       } catch (err) {
         // A signed-out profile redirects; let that navigation happen without a scary note.

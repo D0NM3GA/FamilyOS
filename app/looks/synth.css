@@ -149,6 +149,8 @@
   border-radius: 0;
   font-weight: 600;
   text-transform: uppercase;
+}
+[data-look="synth"] :is(.ui-rail, .ui-bottom-bar) a:not([data-view="BIG"] *) {
   font-size: 0.625rem;
 }
 [data-look="synth"] .ui-rail a[aria-current],
@@ -169,7 +171,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-[data-look="synth"] h2 {
+[data-look="synth"] .ui-home h2 {
   font-size: 1em;
 }
 [data-look="synth"] h3 {
@@ -194,9 +196,11 @@
   border-radius: 0;
   transform: skewX(-10deg);
   font-family: var(--face-heading);
-  font-size: 0.6875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+[data-look="synth"] :is(.ui-chip, .ui-btn):not([data-view="BIG"] *) {
+  font-size: 0.6875rem;
 }
 [data-look="synth"] .ui-field {
   border-width: 1px;

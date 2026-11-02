@@ -107,7 +107,8 @@
 }
 @media (max-width: 639px) {
   [data-look="kawaii"] .ui-wordmark {
-    font-size: 1.0625rem;
+    padding-inline: 0.125rem;
+    font-size: 1rem;
     -webkit-text-stroke-width: 4px;
   }
 }
@@ -233,6 +234,7 @@
   display: block;
   max-width: calc(100% - 8rem);
   overflow-wrap: anywhere;
+  hyphens: auto;
   font: 400 clamp(1.5rem, 5vw, 2.25rem)/1.1 var(--face-heading);
 }
 [data-look="kawaii"] .ui-scene-date {

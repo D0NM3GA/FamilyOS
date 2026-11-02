@@ -137,7 +137,7 @@
   font-weight: 700;
   color: var(--goth-title);
 }
-[data-look="goth"] h2 {
+[data-look="goth"] .ui-home h2 {
   font-size: 1.5em;
   line-height: 1.1;
 }
@@ -250,6 +250,13 @@
   box-shadow: none;
   padding: 0.25rem 2.125rem 2.125rem;
   margin-top: 1rem;
+}
+@media (max-width: 639px) {
+  [data-look="goth"] .ui-home .ui-card:has(h2) {
+    border-width: 10px;
+    border-image-width: 30px;
+    padding: 0.25rem 0.75rem 1rem;
+  }
 }
 [data-look="goth"] .ui-home .ui-card:has(h2)::before {
   content: "";

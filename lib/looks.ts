@@ -340,8 +340,10 @@ export type Worn = { look: string; color: string };
 /** What a person wears: their own pick, or Sticker Book in the family's color. */
 export function wornLook(person: { look: string | null; lookColor: string | null }, familyColor: string): Worn {
   const look = lookOf(person.look);
+  // A color that no longer exists counts as no choice, so Sticker Book still follows the family.
+  const own = look.colors.some((c) => c.id === person.lookColor) ? person.lookColor : null;
   const fallback = look.id === DEFAULT_LOOK ? familyColor : null;
-  return { look: look.id, color: lookColorOf(look, person.lookColor ?? fallback).id };
+  return { look: look.id, color: lookColorOf(look, own ?? fallback).id };
 }
 
 /** Every look's colors as CSS on the app's root. Preset values only, never typed text. */

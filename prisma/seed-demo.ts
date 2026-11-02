@@ -53,7 +53,7 @@ const pick = <T>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
 
 async function main() {
   const admin = await prisma.person.findFirst({
-    where: { role: "ADMIN", isHouseholdMember: true, authUserId: { not: null } },
+    where: { role: "ADMIN", isHouseholdMember: true, OR: [{ authUserId: { not: null } }, { email: "dev-tester@familyos.test" }] },
     orderBy: { createdAt: "asc" },
     omit: { photo: true },
   });

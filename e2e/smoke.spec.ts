@@ -358,6 +358,18 @@ test("a look is tried on over the real page, and only Keep it saves it", async (
   problems.expectNone();
 });
 
+/** WCAG contrast of two computed colors, either rgb() or srgb color(). */
+function contrastOf(a: string, b: string): number {
+  const luminance = (css: string) => {
+    const parts = css.match(/[\d.]+/g)!.map(Number);
+    const [r, g, b2] = css.startsWith("color(") ? parts : parts.slice(0, 3).map((n) => n / 255);
+    const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b2);
+  };
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 for (const [look, color, face] of [
   ["brut", "banana", "spaceGrotesk"],
   ["goth", "oxblood", "spectral"],
@@ -402,7 +414,24 @@ for (const [look, color, face] of [
       expect(faces.extended.some((range) => range.includes("U+100-2BA")), `${face} Latin Extended`).toBe(true);
       for (const scheme of ["light", "dark"] as const) {
         await page.evaluate((s) => localStorage.setItem("theme", s), scheme);
-        for (const path of ["/", "/chores", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {
+        // What axe can't reach without an error on the page: error text, and the bell's badge.
+        await page.goto("/");
+        const inks = await page.evaluate(() => {
+          const host = document.querySelector("[data-app-root]")!;
+          const probe = (cls: string) => {
+            const el = document.createElement("span");
+            el.className = cls;
+            host.append(el);
+            const { color, backgroundColor } = getComputedStyle(el);
+            el.remove();
+            return { color, backgroundColor };
+          };
+          const card = probe("bg-card").backgroundColor;
+          return { errorText: [probe("text-tomato").color, card], badge: [probe("bg-tomato text-ink").color, probe("bg-tomato").backgroundColor] };
+        });
+        expect(contrastOf(inks.errorText[0], inks.errorText[1]), `${look} ${scheme} error text`).toBeGreaterThanOrEqual(4.5);
+        expect(contrastOf(inks.badge[0], inks.badge[1]), `${look} ${scheme} badge`).toBeGreaterThanOrEqual(4.5);
+        for (const path of ["/", "/chores", "/chores/new", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {
           await page.goto(path);
           await page.waitForLoadState("networkidle");
           await expect(root).toHaveAttribute("data-look", look);
@@ -429,6 +458,9 @@ for (const [look, color, face] of [
       await page.goto("/");
       await page.waitForLoadState("networkidle");
       await expectAccessible(page, `${look} phone`);
+      // The app's name fits beside the bar's buttons.
+      const mark = page.locator(".ui-wordmark");
+      expect(await mark.evaluate((el) => el.scrollWidth - el.clientWidth), `${look} phone name`).toBeLessThanOrEqual(0);
       if (shots) await page.screenshot({ path: `${shots}/${look}-phone.png` });
     } finally {
       // Whatever happened, the tests after this one don't wear a look.
@@ -486,6 +518,8 @@ test("finishing a chore is marked by the look, and takes no taps", async () => {
               if (!(node instanceof HTMLElement) || node.className !== "ui-moment" || node.id) continue;
               const css = getComputedStyle(node);
               Object.assign(seen, { word: node.textContent, taps: css.pointerEvents, shown: css.visibility });
+              // Still there a moment later, reduced motion included.
+              setTimeout(() => Object.assign(seen, { after: css.visibility, opacity: css.opacity }), 300);
               const held = node.cloneNode(true) as HTMLElement;
               held.id = "held-moment";
               held.style.animation = "none";
@@ -509,7 +543,7 @@ test("finishing a chore is marked by the look, and takes no taps", async () => {
       // It floats above the page without catching taps, and ends itself.
       const seen = () => page.evaluate(() => (window as unknown as { seenMoment: Record<string, unknown> }).seenMoment);
       await expect.poll(async () => (await seen()).lasted, { timeout: 10_000 }).toBeGreaterThan(0);
-      expect(await seen()).toMatchObject({ word, taps: "none", shown: "visible" });
+      expect(await seen()).toMatchObject({ word, taps: "none", shown: "visible", after: "visible", opacity: "1" });
       await page.getByRole("button", { name: "Undo" }).first().click();
       await expect(page.getByRole("button", { name: "Complete" }).first()).toBeVisible();
     }

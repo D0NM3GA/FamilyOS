@@ -1243,3 +1243,19 @@ and one beside "Nothing due today." on Chores and Meds. They're in each look's `
 `lib/looks.ts`, decoration beside the app's plain words: hidden from screen readers and in Big
 buttons, and on an app's own page only, not deeper. Sticker Book has none. `lib/looks.test.ts` checks
 every look has every line, and that a new app can't be left without one.
+
+### Looks: review with full data
+
+Two Fable reviews and every look on full demo data, phones included. Fixed: under reduced motion the
+moment vanished at once (the global rule shortened its timer to nothing); Goth's error text and the
+bell's badge failed contrast; the launcher's focus ring disappeared on Neo-brutal Banana; Vaporwave's
+picked chip barely differed at night; Goth and Synthwave's `h2` sizes reached dialogs and sections,
+so they're now Home only; small button and bar text no longer overrides Big buttons; Goth's Home
+frames take less room on phones; Kawaii's name fits a phone; Neo-brutal's ticker no longer names apps
+the family may have turned off; a stored color that's gone follows the family's; a trip another device
+already finished gets no moment. The offline Shop copy now keeps all the fonts, about 1.5MB.
+
+Tests added: error text and badge contrast in every look, the moment still showing after 300ms, the
+name fitting a phone, and a form page. Accepted: opening the setup step marks the look prompt seen (a
+write on a page load, but it only ever goes from unset to set). Not checked: a Big buttons pass per
+look in the browser, and Windows high contrast.
