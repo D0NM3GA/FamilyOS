@@ -83,7 +83,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
         <ActionForm action={createJar} className="mt-2 flex flex-wrap items-end gap-2">
           <input name="emoji" maxLength={8} placeholder="🫙" aria-label="Emoji" className={`${field} w-16 text-center`} />
           <input name="name" required maxLength={60} placeholder="Family money" aria-label="Jar name" className={`${field} min-w-0 flex-1`} />
-          <Submit>Make it</Submit>
+          <Submit>Add jar</Submit>
         </ActionForm>
       </section>
 

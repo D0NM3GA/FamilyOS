@@ -161,7 +161,7 @@ export default async function PantryPage({
                       {r.brand && <span className="font-normal text-muted-foreground"> · {r.brand}</span>}
                     </span>
                     <span className="flex flex-wrap items-center gap-2 text-sm md:contents">
-                      <span>{r.size ? <span className="font-hand text-base">{r.size}</span> : <span className={sticker}>Add size</span>}</span>
+                      <span>{r.size ? <span className="text-sm">{r.size}</span> : <span className={sticker}>Add size</span>}</span>
                       <span>{r.defaultStore ? r.defaultStore.name : <span className={sticker}>Add store</span>}</span>
                       <span className="text-muted-foreground md:text-foreground">{r.group ? `${r.group.emoji ?? ""} ${r.group.name}`.trim() : "—"}</span>
                       <span className="text-muted-foreground">

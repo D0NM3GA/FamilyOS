@@ -35,6 +35,7 @@ export default async function MyPasskeysPage({ searchParams }: { searchParams: P
     return (
       <div className="max-w-3xl space-y-2 p-4 sm:p-6">
         {back}
+        <h1 className="text-xl font-semibold text-foreground">Passkeys</h1>
         <p className="text-muted-foreground">Passkeys are for grown-ups who sign in with one, on their own profile.</p>
       </div>
     );

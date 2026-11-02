@@ -58,6 +58,10 @@ describe("reading the files (made-up examples)", () => {
     expect(destructiveActions(server.replace(`"use server";`, ""))).toEqual([]);
   });
 
+  test("an object's own method of the same name isn't the action", () => {
+    expect(unaskedUses("x.tsx", "observer.disconnect();", ["disconnect"])).toEqual([]);
+  });
+
   test("a destructive action that doesn't ask is caught: in a form, as a prop, in a handler", () => {
     const names = ["removeThing"];
     expect(unaskedUses("f", `<form action={removeThing.bind(null, id)}>\n<SubmitButton>Remove</SubmitButton>\n</form>`, names)).toEqual(["f:1 removeThing"]);

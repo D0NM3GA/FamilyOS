@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest";
-import { centsToInput, decimalToCents, formatMoney, parseMoneyInput } from "./money";
+import { centsToInput, decimalToCents, formatMoney, formatWholeDollars, parseMoneyInput, roundEstimateCents } from "./money";
 
 describe("decimalToCents", () => {
   it("parses bank decimal strings exactly", () => {
@@ -59,5 +59,26 @@ describe("formatMoney", () => {
     expect(formatMoney(123456, "USD")).toBe("$1,234.56");
     expect(formatMoney(5)).toBe("$0.05");
     expect(formatMoney(500, "https://example.com/points")).toBe("5.00");
+  });
+});
+
+describe("roundEstimateCents", () => {
+  test.each([
+    [223665, 223000],
+    [10000, 10000],
+    [9999, 9900],
+    [150, 100],
+    [100, 100],
+    [99, 0],
+    [0, 0],
+    [-5000, 0],
+  ])("%i becomes %i", (cents, rounded) => {
+    expect(roundEstimateCents(cents)).toBe(rounded);
+  });
+});
+
+describe("formatWholeDollars", () => {
+  it("shows no cents", () => {
+    expect(formatWholeDollars(223000)).toBe("$2,230");
   });
 });

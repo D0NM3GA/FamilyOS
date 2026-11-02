@@ -68,14 +68,11 @@ export default async function HouseholdSettingsPage({
         <div className="min-w-0 flex-1 basis-64">
           <h1 className="text-xl font-semibold text-foreground">Household</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Admin-only. Household name and timezone, plus who&apos;s in the household and
-            removing someone who&apos;s left. People who sign in on their own (or will, after a
-            restore) have no Remove here; Microsoft sign-ins are added and removed in Entra. To
-            let a grown-up sign in on their own with a passkey, invite them from{" "}
+            Your household&apos;s name, timezone and members. Anyone with their own sign-in (or who will have, after a restore) has no Remove here: manage them from{" "}
             <Link href="/settings/sign-in" className="underline hover:text-foreground">
               Sign-in
             </Link>
-            . The app&apos;s name and look are in Make it yours.
+            , or in Entra if they use Microsoft.
           </p>
         </div>
         <Link
@@ -116,7 +113,7 @@ export default async function HouseholdSettingsPage({
         <HomeLocation nearZip={home} />
       </section>
 
-      <div className="mt-6 overflow-x-auto rounded-lg bg-card shadow-sm ring-1 ring-border">
+      <div className="relative mt-6 overflow-x-auto rounded-lg bg-card shadow-sm ring-1 ring-border">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
@@ -182,11 +179,9 @@ export default async function HouseholdSettingsPage({
       </div>
 
       <p className="mt-4 max-w-2xl text-xs text-muted-foreground">
-        Role comes from Entra (Admin/Adult app-role assignment) for anyone signed in via
-        Microsoft, and re-syncs automatically on every request — it isn&apos;t editable here or
-        in the People form. Someone with their own sign-in doesn&apos;t need a profile PIN. Removing someone here takes their tile off the profile picker.
-        To add them back, tick &ldquo;Lives in our household&rdquo; on their People page and
-        pick their role again.
+        Microsoft sign-ins get their role from Microsoft, so it can&apos;t be changed here. Someone with their own sign-in
+        doesn&apos;t need a PIN. Removing someone takes their tile off the profile picker; to add them back, tick
+        &ldquo;Lives in our household&rdquo; on their People page.
       </p>
     </div>
   );

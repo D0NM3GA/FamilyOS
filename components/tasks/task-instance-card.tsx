@@ -106,7 +106,7 @@ export function TaskInstanceCard({
   disappearsOnComplete = false,
   index = 0,
   size = "normal",
-  completeLabel = "Complete",
+  completeLabel = "Done",
 }: {
   instance: Instance;
   viewerId: string;

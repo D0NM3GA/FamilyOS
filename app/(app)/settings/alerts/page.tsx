@@ -82,13 +82,13 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
       <section className="space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
         <h2 className="text-base font-semibold">Teams for the family</h2>
         {!teamsApp ? (
-          <p className="text-sm text-muted-foreground">Teams alerts need Microsoft 365 sign-in set up on this install (README, Microsoft).</p>
+          <p className="text-sm text-muted-foreground">Teams alerts need Microsoft 365 sign-in set up on this install (see the admin guide).</p>
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
               The family&apos;s own Teams app messages each person below in their own Teams chat with it, and a money jar&apos;s group chat
               if the jar picks one. It only sends; it can&apos;t read anyone&apos;s chats. Set up once by an admin who is also a Teams
-              administrator (README, Teams: an Azure Bot, three permissions, then the button here).
+              administrator (the admin guide shows where to start).
             </p>
             {connected && (
               <p className="text-sm text-muted-foreground">
@@ -140,7 +140,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
                 {commands ? (
                   <CopyCommands text={commands} />
                 ) : (
-                  <p>The commands appear here once the app has checked Entra (Settings → Sign-in → Check now). README, Alerts, has them too.</p>
+                  <p>The commands appear here once the app has checked Entra (Settings → Sign-in → Check now). The README&apos;s Email section has them too.</p>
                 )}
               </div>
             </details>

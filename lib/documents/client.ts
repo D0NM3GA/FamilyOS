@@ -31,7 +31,7 @@ export class DocumentError extends Error {
   }
 }
 
-export const NOT_CONFIGURED = "Receipt reading isn't set up yet. Ask a grown-up (README, Receipts).";
+export const NOT_CONFIGURED = "Receipt reading isn't set up yet. Ask a grown-up (see the admin guide).";
 
 /** The resource's custom-subdomain endpoint, or null when it isn't a safe one to send a token to. */
 export function checkEndpoint(raw: string | undefined): URL | null {
@@ -78,7 +78,7 @@ function drain(res: Response) {
 function refused(status: number): DocumentError {
   // A role applied (or removed) after the cached token was minted: get a fresh one next time.
   invalidateAppToken(COGNITIVE_SERVICES_SCOPE);
-  return new DocumentError(`The receipt reader refused this app (${status}). Check its setup (README, Receipts).`, "refused");
+  return new DocumentError(`The receipt reader refused this app (${status}). Check its setup (see the admin guide).`, "refused");
 }
 
 function retryAfterMs(res: Response): number {
@@ -107,7 +107,7 @@ export async function analyzeDocument(
   try {
     token = await (deps.token ?? (() => getAppToken(COGNITIVE_SERVICES_SCOPE, { fetchFn: deps.fetchFn })))();
   } catch {
-    throw new DocumentError("Couldn't sign in to the receipt reader. Check its setup (README, Receipts).", "refused");
+    throw new DocumentError("Couldn't sign in to the receipt reader. Check its setup (see the admin guide).", "refused");
   }
   const auth = { Authorization: `Bearer ${token}` };
 

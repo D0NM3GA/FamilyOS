@@ -52,6 +52,21 @@ export function centsToInput(cents: number | null | undefined): string {
 }
 
 /** "$1,234.56", "−$12.00" for a 3-letter currency code, else a plain amount. */
+/**
+ * An estimate as a person says it, rounded down so it never promises more: to the $10, or the
+ * dollar under $100. Nothing below a dollar counts.
+ */
+export function roundEstimateCents(cents: number): number {
+  if (cents < 100) return 0;
+  const step = cents < 10_000 ? 100 : 1_000;
+  return Math.floor(cents / step) * step;
+}
+
+/** Whole dollars, for an estimate: exact cents would claim a precision it hasn't got. */
+export function formatWholeDollars(cents: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
+}
+
 export function formatMoney(cents: number, currency = "USD"): string {
   const amount = cents / 100;
   if (/^[A-Z]{3}$/.test(currency)) {
