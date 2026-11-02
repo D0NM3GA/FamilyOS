@@ -173,6 +173,12 @@
 [data-look="brut"] :is(.ui-rail, .ui-bottom-bar) a:not([data-view="BIG"] *) {
   font-size: 0.625rem;
 }
+/* Big buttons keeps its larger labels, which the wide capitals can't fit side by side. */
+[data-view="BIG"][data-look="brut"] .ui-bottom-bar a {
+  font-family: var(--face-body);
+  font-weight: 700;
+  text-transform: none;
+}
 [data-look="brut"] .ui-bottom-bar a[aria-current] {
   background: #000000;
   color: #ffffff;

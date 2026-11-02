@@ -83,3 +83,34 @@
 /* Big buttons keeps its size and layout in every look. */
 [data-view="BIG"] .ui-kicker,
 [data-view="BIG"] .ui-quiet { display: none; }
+
+/* Forced colors (Windows high contrast) drop backgrounds and rings, the only edge some buttons
+   have and the only mark some selected items have. Art goes too: the person asked for plain. */
+@media (forced-colors: active) {
+  [data-app-root],
+  [data-app-root] :not([class*="bg-gradient"]),
+  [data-app-root] ::before,
+  [data-app-root] ::after {
+    background-image: none !important;
+    border-image: none !important;
+  }
+  /* Important: several looks set these with stronger selectors, or cut a button to a shape. */
+  .ui-btn,
+  .ui-chip {
+    border: 2px solid ButtonText !important;
+    clip-path: none !important;
+  }
+  .ui-card {
+    border: 1px solid CanvasText !important;
+  }
+  /* The room these keep for their art. */
+  [data-look] .ui-scene {
+    min-height: 0 !important;
+    padding: 1rem !important;
+  }
+  /* An outline, not a fill: text inside a selected item keeps its forced color either way. */
+  [data-app-root] :is([aria-current], [aria-pressed="true"], [aria-selected="true"]) {
+    outline: 3px solid Highlight !important;
+    outline-offset: -3px !important;
+  }
+}

@@ -292,17 +292,18 @@ export function TaskInstanceCard({
         {/* Wide enough for a real title: on a phone the buttons wrap under it instead of
             squeezing it to "Empty th…". */}
         <div className="min-w-0 flex-1 basis-40">
-          <p className={`truncate text-foreground ${big ? "text-lg font-bold" : "text-sm font-medium"}`}>
-            {instance.definition.title}
+          <p className={`flex items-center text-foreground ${big ? "text-lg font-bold" : "text-sm font-medium"}`}>
+            {/* Only the title gives way: a long one mustn't clip the points beside it. */}
+            <span className="min-w-0 truncate">{instance.definition.title}</span>
             {milestoneHit ? (
-              <span className="ml-2 animate-in zoom-in rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-white duration-300">
+              <span className="ml-2 shrink-0 animate-in zoom-in rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-white duration-300">
                 {milestoneHit}th chore!
               </span>
             ) : (
               instance.definition.points > 0 && (
                 <span
                   title={rewardCount(instance.definition.points, reward)}
-                  className="ml-2 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                  className="ml-2 shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
                 >
                   +{instance.definition.points} ⭐
                 </span>
