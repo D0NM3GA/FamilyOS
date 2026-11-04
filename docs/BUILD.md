@@ -1300,5 +1300,5 @@ A week's rows carry their person's color, with filter chips as the legend, match
 day's doses share one row. `?view=month` shows six weeks of what's happening; chores and doses stay on the
 weeks, which also stops a month planning far ahead. Money: accounts are a compact list, categories one
 select, and all-capitals bank names read as a person would write them (`tidyMerchantName`, display only).
-Left for the owner: whether weekly and variable shops should count in Safe to spend. They do today,
-and the card now says so.
+Weekly and variable shops (the grocery run, a monthly Costco trip) keep counting in Safe to spend
+(the owner's call): the figure stays cautious, and **Not a bill** takes out any one store. The card says so.
