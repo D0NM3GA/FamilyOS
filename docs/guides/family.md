@@ -328,7 +328,8 @@ Inside a jar:
   until a day you pick).
 - **🎯 Budget**: a monthly budget per category, and saving up for lumpy costs.
 - **🔁 Upcoming**: bills and subscriptions, what's due in the next 30 days, and **💸 Safe to
-  spend** until payday.
+  spend** until payday. It counts regular shops too, like the weekly grocery run, so it stays on
+  the careful side; **Not a bill** takes a store out.
 - **📈 Trends**: money out month by month, and where it went.
 - **💎 Net worth**: what the jar has, minus what it owes.
 

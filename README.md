@@ -883,9 +883,11 @@ ignoring case; the emoji is optional, one emoji.
 On the **Upcoming** tab: how much is free until the next payday. In Settings → **Safe to
 spend**, tick the day-to-day spending accounts (checking; not credit cards or savings) and,
 if you like, a cushion ("keep at least $500 in checking"). It starts from those accounts'
-balance (the bank's available balance, with its "as of" time), takes off every regular bill,
+balance (the bank's available balance, with its "as of" time), takes off every regular charge
+(bills, and weekly or monthly shops like the grocery run: the owner's call, so it stays cautious),
 card autopay and savings sweep that leaves those accounts before payday, finds the lowest
-point, and subtracts the cushion. "How it's worked out" lists every line.
+point, and subtracts the cushion. "How it's worked out" lists every line; **Not a bill** on
+Upcoming takes a store out.
 
 - **Payday** is regular money in on those accounts, filed as 💵 Income or 🔄 Transfers, from
   somewhere that never takes money out, and big enough to be pay. Every two weeks (a bonus
