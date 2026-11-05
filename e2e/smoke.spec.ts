@@ -387,7 +387,7 @@ for (const [look, color, face] of [
   ["vapor", "cobalt", "plex"],
 ]) {
   test(`${look} holds up on real pages, day and night`, async () => {
-    test.setTimeout(4 * 60_000); // Seven pages, twice over, each with an accessibility run.
+    test.setTimeout(6 * 60_000); // Ten pages, twice over, each with an accessibility run, then a wide screen.
     const shots = process.env.E2E_SHOTS; // a folder to save screenshots in, for a person to look at
     const root = page.locator("[data-app-root]");
     const start = { look: await root.getAttribute("data-look"), color: await root.getAttribute("data-color") };
@@ -426,20 +426,39 @@ for (const [look, color, face] of [
         await page.goto("/");
         const inks = await page.evaluate(() => {
           const host = document.querySelector("[data-app-root]")!;
+          // Through a canvas, so a color the browser keeps as lab() or oklch() comes back as rgb()
+          // the contrast helper can read.
+          const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+          const rgb = (css: string) => {
+            ctx.clearRect(0, 0, 1, 1);
+            ctx.fillStyle = css;
+            ctx.fillRect(0, 0, 1, 1);
+            const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+            return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+          };
           const probe = (cls: string) => {
             const el = document.createElement("span");
             el.className = cls;
             host.append(el);
             const { color, backgroundColor } = getComputedStyle(el);
             el.remove();
-            return { color, backgroundColor };
+            return { color: rgb(color), backgroundColor: rgb(backgroundColor) };
           };
           const card = probe("bg-card").backgroundColor;
-          return { errorText: [probe("text-tomato").color, card], badge: [probe("bg-tomato text-ink").color, probe("bg-tomato").backgroundColor] };
+          const danger = probe("text-destructive").color;
+          return {
+            errorText: [probe("text-tomato").color, card],
+            badge: [probe("bg-tomato text-ink").color, probe("bg-tomato").backgroundColor],
+            // Remove's red on a card and on the muted floor (forms); a tapped Remove's pink panel sits between.
+            danger: [danger, card],
+            dangerMuted: [danger, probe("bg-muted").backgroundColor],
+          };
         });
         expect(contrastOf(inks.errorText[0], inks.errorText[1]), `${look} ${scheme} error text`).toBeGreaterThanOrEqual(4.5);
         expect(contrastOf(inks.badge[0], inks.badge[1]), `${look} ${scheme} badge`).toBeGreaterThanOrEqual(4.5);
-        for (const path of ["/", "/chores", "/chores/new", "/groceries", "/finances", "/calendar", "/settings", "/settings/make-it-yours"]) {
+        expect(contrastOf(inks.danger[0], inks.danger[1]), `${look} ${scheme} danger`).toBeGreaterThanOrEqual(4.5);
+        expect(contrastOf(inks.dangerMuted[0], inks.dangerMuted[1]), `${look} ${scheme} danger on muted`).toBeGreaterThanOrEqual(4.5);
+        for (const path of ["/", "/chores", "/chores/new", "/groceries", "/finances", "/calendar", "/points", "/settings", "/settings/household", "/settings/make-it-yours"]) {
           await page.goto(path);
           await page.waitForLoadState("networkidle");
           await expect(root).toHaveAttribute("data-look", look);

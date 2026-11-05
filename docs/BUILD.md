@@ -1305,8 +1305,8 @@ Weekly and variable shops (the grocery run, a monthly Costco trip) keep counting
 
 ### Layout on every screen
 
-Every page is centered at one of three widths, the same in every look and on any screen (the owner's
-call: uniform, never pushed into a corner). The default, 72rem, is one rule in `app/globals.css` on
+Every page is centered, the same in every look and on any screen (the owner's call: uniform, never
+pushed into a corner). The default, 72rem, is one rule in `app/globals.css` on
 `main`'s child, in `@layer base` so a page's own `max-w-*` still wins. Settings' and Data's quiet
 wrapper (`data-quiet`) stays full width and its page is centered inside it. Home, Calendar and a
 person's page use 90rem. New and edit forms use `max-w-2xl`, with the form filling it. Narrower pages
@@ -1316,3 +1316,12 @@ under the words. Home's cards fit their content. Finish trip is a bar across the
 every screen. The browser test checks the banner's width and that pages are centered on a 2200px screen.
 Still placed against the screen rather than the page: the search box, the mascot and the
 celebration toast.
+
+A page whose content is narrower than 72rem takes that width itself (`max-w-2xl` to `max-w-5xl`), so its
+header lines up with what's under it instead of the content sitting at the frame's left: School,
+School calendars, Outlook calendars, Data, Garage supplies and Make it yours. Household's two small
+forms sit side by side on a wide screen. A reward out of reach in the Store gets a dashed edge and a
+faded picture rather than a faded card, whose words and grown-up's Buy were hard to read. By day the
+red of Remove is darker in every look, to pass 4.5:1 on cream cards, the muted floor and the pink
+panel a tapped Remove opens; the look test measures it, which found Vaporwave's bright blues needed
+a lighter red at night.
