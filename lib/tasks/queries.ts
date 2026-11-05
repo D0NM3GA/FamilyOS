@@ -108,7 +108,7 @@ export async function getPointsBalance(personId: string): Promise<number> {
  * award into the same PointsLedger (Meds credits the person a dose was for), and a
  * redemption (a negative delta row with `instanceId: null` — see app/(app)/points/actions.ts)
  * isn't tied to either domain either, so it has to be summed in, not excluded the way
- * getPointsTally's own domain join would exclude it. The Chores/Meds board pills keep
+ * getPointsTally's own domain join would exclude it. The Chores/Meds board totals keep
  * meaning "earned in this domain" — this function is for the shared balance/shop, not a
  * replacement for those.
  */

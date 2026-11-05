@@ -199,6 +199,10 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+/* A picture in a chip stays round: undo the chip's slant. */
+[data-look="synth"] .ui-chip .ui-chip-face {
+  transform: skewX(10deg);
+}
 [data-look="synth"] :is(.ui-chip, .ui-btn):not([data-view="BIG"] *) {
   font-size: 0.6875rem;
 }

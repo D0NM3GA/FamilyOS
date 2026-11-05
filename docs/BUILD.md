@@ -1325,3 +1325,12 @@ faded picture rather than a faded card, whose words and grown-up's Buy were hard
 red of Remove is darker in every look, to pass 4.5:1 on cream cards, the muted floor and the pink
 panel a tapped Remove opens; the look test measures it, which found Vaporwave's bright blues needed
 a lighter red at night.
+
+### Whose row on Chores and Meds
+
+The points pills and the person filter were two rows of the same people, and the pills overlapped
+so every picture after the first was hidden. They're one row now (`PersonFilterRow`): Everyone,
+then each member's picture, short name and total; tapping one filters the board as before. Chips
+keep the members' order so nothing moves under a finger, and the leader's picture bobs. Names come
+from `shortNames` in `lib/people.ts` (the owner's call): the first name alone, and where two people
+share it, letters of the last name until they part ("Max P.", then "Max Pa.").

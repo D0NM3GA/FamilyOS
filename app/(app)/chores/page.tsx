@@ -2,7 +2,7 @@ import { LookQuiet } from "@/components/look-voice";
 import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdmin, isAdult } from "@/lib/authz";
-import { getHouseholdMembers, fullName } from "@/lib/people";
+import { getHouseholdMembers } from "@/lib/people";
 import { getHouseholdSettings } from "@/lib/household-settings";
 import { addDays } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
@@ -12,11 +12,11 @@ import { weatherFlagFor } from "@/lib/chores/weather-flag";
 import { TaskInstanceCard } from "@/components/tasks/task-instance-card";
 import { toCardInstance } from "@/lib/tasks/card";
 import { MilestoneToastBoard } from "@/components/tasks/milestone-toast";
-import { PointsPill, PointsPills } from "@/components/tasks/points-pill";
+import { PersonFilterRow } from "@/components/tasks/person-filter-row";
 import { PageHeader } from "@/components/page-header";
 import { PageMore } from "@/components/more-menu";
 import { UpcomingFold } from "@/components/tasks/upcoming-fold";
-import { btn, btnPrimary, chip, chipRow, sectionTitle } from "@/components/styles";
+import { btn, btnPrimary, sectionTitle } from "@/components/styles";
 import { completeInstance, uncompleteInstance, reassignInstance, skipInstance, unskipInstance, markOlderMissed } from "./actions";
 import { BunsonMoment } from "@/components/bunson-moment";
 import { MOMENT_LINES } from "@/lib/bunson-moments";
@@ -114,30 +114,13 @@ export default async function ChoresPage({
         </div>
       )}
 
-      {tally.length > 0 && (
-        <PointsPills>
-          {tally.map(({ person, points }, i) => (
-            <PointsPill
-              key={person.id}
-              person={{ id: person.id, firstName: person.firstName, hasPhoto: person.photoContentType !== null }}
-              points={points}
-              rank={i}
-            />
-          ))}
-        </PointsPills>
-      )}
-
-      <div className={`mt-4 ${chipRow}`}>
-        <FilterLink label="Everyone" active={!personFilter} href={big ? "/chores?all=1" : "/chores"} />
-        {members.map((m) => (
-          <FilterLink
-            key={m.id}
-            label={fullName(m)}
-            active={personFilter === m.id}
-            href={{ pathname: "/chores", query: { person: m.id } }}
-          />
-        ))}
-      </div>
+      <PersonFilterRow
+        members={members}
+        tally={tally}
+        path="/chores"
+        everyoneHref={big ? "/chores?all=1" : "/chores"}
+        selected={personFilter}
+      />
 
       <MilestoneToastBoard>
         <div className="mt-6 space-y-6">
@@ -261,18 +244,3 @@ function EmptyNote({ children }: { children: React.ReactNode }) {
   return <p className="text-xs text-muted-foreground">{children}</p>;
 }
 
-function FilterLink({
-  label,
-  active,
-  href,
-}: {
-  label: string;
-  active: boolean;
-  href: string | { pathname: string; query: Record<string, string> };
-}) {
-  return (
-    <Link href={href} aria-current={active ? "page" : undefined} className={chip}>
-      {label}
-    </Link>
-  );
-}
