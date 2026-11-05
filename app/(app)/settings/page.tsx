@@ -118,12 +118,16 @@ export default async function SettingsPage() {
             Switch profile
           </Link>
         </div>
-        <div className="flex min-w-0 flex-[1_1_20rem] items-center gap-3">
+        {/* On a phone the three choices take their own line under the label: side by side with it
+            they'd get a third of what's left, too narrow for "Match device". */}
+        <div className="flex min-w-0 flex-[1_1_20rem] flex-wrap items-center gap-3">
           <p className="text-sm font-bold text-foreground">Theme</p>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 max-sm:order-last max-sm:basis-full">
             <ThemePicker />
           </div>
-          <MyLookButton />
+          <div className="max-sm:ms-auto">
+            <MyLookButton />
+          </div>
         </div>
       </section>
 
