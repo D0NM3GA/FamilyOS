@@ -95,7 +95,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const view_ = { start, today, zone, notes, who, firstNames, colors, days, isMonth, month, whoQuery };
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-[90rem] p-4 sm:p-6">
       <PageHeader title="📅 Calendar">
         <Link href={isMonth ? monthHref(today) : `${weekHref(weekStartOf(today))}#day-${dayKey(today)}`} className={btn}>
           Today

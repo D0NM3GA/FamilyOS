@@ -251,8 +251,18 @@ main#main,
 
 @layer base {
   /* Long lines tire the eye. Not centered text, boxes or rows, which fill their space. */
-  main p:where(:not(.text-center, .text-center *, [role="alert"], .flex, .truncate, [class*="bg-"], [class*="ring-"], [class*="border"])) {
+  main p:where(:not(.text-center, .text-center *, [role="alert"], .flex, .truncate, .ui-scene, [class*="bg-"], [class*="ring-"], [class*="border"])) {
     max-width: 70ch;
+  }
+  /* One width for every page, centered on any screen (the owner's call): a page's root, or the
+     page inside Settings' and Data's quiet wrapper, which itself stays full width so its plain
+     paper reaches the edges. In this layer so a page's own max-w-* (a utility) still wins:
+     narrower for forms and money, 90rem for Home, Calendar and a person's page. */
+  :where(#main) > :where(:not([data-quiet])),
+  :where(#main > [data-quiet]) > :where(*) {
+    width: 100%;
+    max-width: var(--page-max);
+    margin-inline: auto;
   }
   * {
     @apply border-border outline-ring/50;
@@ -271,6 +281,7 @@ main#main,
   /* Inherited as a computed font, so a look on this element has to set it here too. */
   [data-app-root] {
     font-family: var(--face-body);
+    --page-max: 72rem;
   }
   /* Windows draws an open <select>'s list in the select's own colours. Most selects here have
      no background of their own, so in dark mode the rows came out white under the theme's

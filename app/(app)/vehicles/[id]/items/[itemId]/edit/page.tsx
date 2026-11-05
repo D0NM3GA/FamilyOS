@@ -25,7 +25,7 @@ export default async function EditMaintenanceItemPage({
   );
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <PageHeader title={`Edit ${item.title} — ${item.vehicle.name}`} />
       <div className="mt-6">
         <MaintenanceItemForm

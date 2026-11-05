@@ -15,7 +15,7 @@ export default async function EditSchoolProfilePage({ params }: { params: Promis
   const viewer = await requireActiveProfile();
   if (!isAdult(viewer)) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="max-w-2xl p-4 sm:p-6">
         <p className="text-sm text-muted-foreground">Only grown-ups can edit school details.</p>
       </div>
     );
@@ -40,7 +40,7 @@ export default async function EditSchoolProfilePage({ params }: { params: Promis
     : [];
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <Link href={`/school?kid=${person.id}`} className={backLink}>
         ← School
       </Link>

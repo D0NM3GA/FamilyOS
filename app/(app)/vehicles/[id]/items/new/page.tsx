@@ -15,7 +15,7 @@ export default async function NewMaintenanceItemPage({ params }: { params: Promi
   const supplyOptions = await getSupplyOptions(profile.householdId);
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <PageHeader title={`New item for ${vehicle.name}`} />
       <div className="mt-6">
         <MaintenanceItemForm

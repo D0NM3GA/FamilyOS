@@ -12,7 +12,7 @@ export default async function NewChorePage() {
 
   if (!isAdult(profile)) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="max-w-2xl p-4 sm:p-6">
         <p className="text-sm text-muted-foreground">Only adults can create chores.</p>
       </div>
     );
@@ -23,7 +23,7 @@ export default async function NewChorePage() {
   );
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <PageHeader title="New chore" />
       <div className="mt-6">
         <TaskDefinitionForm

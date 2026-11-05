@@ -58,7 +58,7 @@ export function VehicleForm({
     });
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4">
+    <form action={formAction} className="space-y-4">
       <Field label="Name" name="name" defaultValue={defaults?.name} placeholder="e.g. Mom's minivan" required />
       <div className="space-y-2">
         <label className="block min-w-0">

@@ -13,7 +13,7 @@ export default async function EditVehiclePage({ params }: { params: Promise<{ id
   if (!vehicle) notFound();
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <PageHeader title={`Edit ${vehicle.name}`} />
       <p className="mt-1 text-xs text-muted-foreground">
         Correcting the mileage here overrides the odometer directly (unlike the board&apos;s quick update,

@@ -46,7 +46,7 @@ export function PersonForm({
   const [isMember, setIsMember] = useState(defaults?.isHouseholdMember ?? false);
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4">
+    <form action={formAction} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <Field label="First name" name="firstName" defaultValue={defaults?.firstName} required />
         <Field label="Last name" name="lastName" defaultValue={defaults?.lastName ?? ""} />

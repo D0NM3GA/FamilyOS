@@ -34,7 +34,7 @@ export function MaintenanceItemForm({
   const [state, formAction, pending] = useActionState<VehicleFormState, FormData>(action, {});
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4">
+    <form action={formAction} className="space-y-4">
       <Field label="Item" name="title" defaultValue={defaults?.title} placeholder="e.g. Oil change" required />
 
       <label className="block">

@@ -159,7 +159,7 @@ export function TaskDefinitionForm({
   }
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4">
+    <form action={formAction} className="space-y-4">
       <div
         className="relative"
         onBlur={(e) => {

@@ -18,7 +18,7 @@ export default async function EditChorePage({
 
   if (!isAdult(profile)) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="max-w-2xl p-4 sm:p-6">
         <p className="text-sm text-muted-foreground">Only adults can edit chores.</p>
       </div>
     );
@@ -42,7 +42,7 @@ export default async function EditChorePage({
   }));
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       {/* Wraps rather than truncates: the name is the point of the heading, and one long
           word would otherwise push the page sideways on a phone. */}
       <PageHeader title={<span className="block break-words">Edit {definition.title}</span>} />

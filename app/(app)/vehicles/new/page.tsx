@@ -7,7 +7,7 @@ export default async function NewVehiclePage() {
   await requireAppOn("cars");
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <PageHeader title="New vehicle" />
       <div className="mt-6">
         <VehicleForm action={createVehicle} submitLabel="Add vehicle" cancelHref="/vehicles" lookUpVin={lookUpVin} />

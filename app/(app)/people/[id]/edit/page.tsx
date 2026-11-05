@@ -19,7 +19,7 @@ export default async function EditPersonPage({
 
   if (!isAdult(profile)) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="max-w-2xl p-4 sm:p-6">
         <p className="text-sm text-muted-foreground">Only adults can edit people.</p>
       </div>
     );
@@ -31,7 +31,7 @@ export default async function EditPersonPage({
   const jarCount = person.authUserId === null ? await prisma.moneyJarMember.count({ where: { personId: person.id } }) : 0;
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <PageHeader title={`Edit ${person.firstName}`} />
       <div className="mt-6">
         <PersonForm

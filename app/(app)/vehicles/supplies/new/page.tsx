@@ -6,7 +6,7 @@ import { requireAppOn } from "@/lib/app-guard";
 export default async function NewSupplyPage() {
   await requireAppOn("cars");
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <PageHeader title="New garage supply" />
       <div className="mt-6">
         <SupplyForm action={createSupply} submitLabel="Add supply" />

@@ -23,7 +23,7 @@ export function SupplyForm({ action, defaults, submitLabel }: { action: Action; 
   const num = (n: number | null | undefined) => (n == null ? "" : String(n));
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4">
+    <form action={formAction} className="space-y-4">
       <label className="block">
         <span className={fieldLabel}>Name</span>
         <input name="name" required defaultValue={defaults?.name} placeholder="e.g. Motor oil 5W-30" className={box} />

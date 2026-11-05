@@ -12,7 +12,7 @@ export default async function EditSupplyPage({ params }: { params: Promise<{ sup
   if (!supply) notFound();
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <PageHeader title={`Edit ${supply.name}`} />
       <div className="mt-6">
         <SupplyForm action={updateSupply.bind(null, supply.id)} submitLabel="Save changes" defaults={supply} />
