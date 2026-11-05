@@ -3,6 +3,11 @@
 :root:not(.dark) [data-app-root]:not([data-look="sticker"]) .text-tomato {
   color: #b3261a;
 }
+/* The red of Remove and other destructive buttons, by day in every look: the default fell under
+   4.5:1 on the cream and parchment cards, and on the pink panel a tapped Remove opens to ask first. */
+:root:not(.dark) [data-app-root] {
+  --destructive: #991b1b;
+}
 /* A focus ring in --sun is too faint on these lighter pages. */
 [data-app-root]:not([data-look="sticker"]) main#main:focus-visible {
   --tw-ring-color: var(--ring);
