@@ -447,6 +447,31 @@ for (const [look, color, face] of [
           if (shots) await page.screenshot({ path: `${shots}/${look}-${scheme}${path.replace(/\//g, "-")}.png` });
         }
       }
+      // A wide screen: Home's banner spans its page (it was once cut to a paragraph's reading
+      // width) and every page sits centered, never pushed into a corner (the owner's call).
+      const usual = page.viewportSize();
+      await page.setViewportSize({ width: 2200, height: 1000 });
+      for (const path of ["/", "/chores", "/chores/new", "/settings/apps"]) {
+        await page.goto(path);
+        await page.waitForLoadState("networkidle");
+        const fit = await page.evaluate(() => {
+          const main = document.querySelector("main#main")!;
+          let frame = main.firstElementChild!;
+          if (frame.hasAttribute("data-quiet")) frame = frame.firstElementChild!;
+          const m = main.getBoundingClientRect();
+          const f = frame.getBoundingClientRect();
+          const banner = document.querySelector(".ui-scene")?.getBoundingClientRect();
+          const pad = getComputedStyle(frame);
+          const inner = f.width - parseFloat(pad.paddingLeft) - parseFloat(pad.paddingRight);
+          return { left: f.left - m.left, right: m.left + main.clientWidth - f.right, inner, banner: banner?.width ?? null };
+        });
+        expect(Math.abs(fit.left - fit.right), `${look} ${path} centered`).toBeLessThanOrEqual(2);
+        expect(fit.left, `${look} ${path} has room either side`).toBeGreaterThan(0);
+        // Against the page's inner width: looks bleed past it or inset by up to 0.75rem, and the
+        // old 70ch cap left it ~1,400px short here.
+        if (path === "/" && fit.banner !== null) expect(fit.banner, `${look} banner`).toBeGreaterThanOrEqual(fit.inner - 32);
+      }
+      if (usual) await page.setViewportSize(usual);
       // The look's other colors, which change its art and glow too, on a busy page and Home.
       const others = lookOf(look).colors.map((c) => c.id).filter((id) => id !== color);
       for (const scheme of ["light", "dark"] as const) {
