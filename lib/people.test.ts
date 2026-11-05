@@ -6,6 +6,7 @@ import {
   INVERSE_RELATIONSHIP,
   interactionTime,
   dayInZone,
+  shortNames,
 } from "./people";
 
 const NOW = new Date("2026-09-21T12:00:00Z");
@@ -194,5 +195,42 @@ describe("interactionTime", () => {
     expect(interactionTime("2026-10-10", now, NY)).toBeNull();
     expect(interactionTime("2026-02-30", now, NY)).toBeNull();
     expect(interactionTime("1899-12-31", now, NY)).toBeNull();
+  });
+});
+
+describe("shortNames", () => {
+  const names = (...people: [string, string | null][]) =>
+    [...shortNames(people.map(([firstName, lastName], i) => ({ id: String(i), firstName, lastName }))).values()];
+
+  it("uses first names when nobody shares one", () => {
+    expect(names(["Ivy", "Parker"], ["Max", "Parker"], ["Mom", "Parker"])).toEqual(["Ivy", "Max", "Mom"]);
+  });
+
+  it("adds a last-name initial only to the people who share a first name", () => {
+    expect(names(["Ivy", "Parker"], ["Max", "Parker"], ["Max", "Example"])).toEqual(["Ivy", "Max P.", "Max E."]);
+  });
+
+  it("adds letters until the shared first names part ways", () => {
+    expect(names(["Max", "Parker"], ["Max", "Patel"], ["Max", "Example"])).toEqual(["Max Par.", "Max Pat.", "Max E."]);
+  });
+
+  it("ignores case and stray spaces when matching", () => {
+    expect(names(["max ", "parker"], ["Max", "Patel"])).toEqual(["max par.", "Max Pat."]);
+  });
+
+  it("keeps the bare first name for someone with no last name", () => {
+    expect(names(["Max", null], ["Max", "Parker"])).toEqual(["Max", "Max P."]);
+  });
+
+  it("shows the whole of a last name that runs out first", () => {
+    expect(names(["Max", "Park"], ["Max", "Parker"])).toEqual(["Max Park", "Max Parke."]);
+  });
+
+  it("gives full names when they part only at the last letter", () => {
+    expect(names(["Max", "Park"], ["Max", "Pare"])).toEqual(["Max Park", "Max Pare"]);
+  });
+
+  it("gives full names when the whole names match", () => {
+    expect(names(["Max", "Parker"], ["Max", "Parker"])).toEqual(["Max Parker", "Max Parker"]);
   });
 });

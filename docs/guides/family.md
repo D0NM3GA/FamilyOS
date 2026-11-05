@@ -192,6 +192,8 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
   marked can be cleared with **Mark them missed**.
 - Outdoor chores show a rain warning when rain is likely (once an admin has set where home is).
 - Each chore earns stickers for whoever did it.
+- The row of people under the title picks whose chores to see, and shows each person's sticker
+  total. Two people with the same first name get a letter of their last name ("Max P.").
 - Grown-ups: **+ New chore** to add one (a title, who, and how often; notes, start date and stickers
   are under **More options**), **Manage** to change them, **⋯ → Print** for the fridge.
 
@@ -257,6 +259,7 @@ Like chores, for medicine: what's due today and what's coming up in the next two
 a dose when it's taken (**Taken** on Home and the Meds page); the undo arrow if it
 wasn't. Doses can be several times a day. Kids can earn
 stickers for taking theirs.
+The row of people picks whose doses to see, with each person's total, like on Chores.
 
 Grown-ups: **+ New medication** and **Manage**. Stock, prescriber and pharmacy are under **More
 options**; people already used as a prescriber or pharmacy come first in those lists.

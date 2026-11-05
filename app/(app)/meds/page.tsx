@@ -2,7 +2,7 @@ import { LookQuiet } from "@/components/look-voice";
 import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
-import { getHouseholdMembers, fullName } from "@/lib/people";
+import { getHouseholdMembers } from "@/lib/people";
 import { formatTimeOfDay } from "@/lib/format";
 import { addDays } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
@@ -13,9 +13,9 @@ import { TaskInstanceCard } from "@/components/tasks/task-instance-card";
 import { toCardInstance } from "@/lib/tasks/card";
 import { BunsonMoment } from "@/components/bunson-moment";
 import { MOMENT_LINES } from "@/lib/bunson-moments";
-import { PointsPill, PointsPills } from "@/components/tasks/points-pill";
+import { PersonFilterRow } from "@/components/tasks/person-filter-row";
 import { PageHeader } from "@/components/page-header";
-import { btn, btnPrimary, chip, chipRow, sectionTitle } from "@/components/styles";
+import { btn, btnPrimary, sectionTitle } from "@/components/styles";
 import { completeInstance, uncompleteInstance, skipInstance, unskipInstance, markOlderMissed } from "./actions";
 import { requireAppOn } from "@/lib/app-guard";
 import { appOn } from "@/lib/app-switches";
@@ -71,30 +71,13 @@ export default async function MedsPage({
         )}
       </PageHeader>
 
-      {tally.length > 0 && (
-        <PointsPills>
-          {tally.map(({ person, points }, i) => (
-            <PointsPill
-              key={person.id}
-              person={{ id: person.id, firstName: person.firstName, hasPhoto: person.photoContentType !== null }}
-              points={points}
-              rank={i}
-            />
-          ))}
-        </PointsPills>
-      )}
-
-      <div className={`mt-4 ${chipRow}`}>
-        <FilterLink label="Everyone" active={!personFilter} href="/meds" />
-        {members.map((m) => (
-          <FilterLink
-            key={m.id}
-            label={fullName(m)}
-            active={personFilter === m.id}
-            href={{ pathname: "/meds", query: { person: m.id } }}
-          />
-        ))}
-      </div>
+      <PersonFilterRow
+        members={members}
+        tally={tally}
+        path="/meds"
+        everyoneHref="/meds"
+        selected={personFilter}
+      />
 
       <div className="mt-6 space-y-6">
         {/* Only once every dose today is taken — never beside an overdue or pending dose. */}
@@ -213,18 +196,3 @@ function EmptyNote({ children }: { children: React.ReactNode }) {
   return <p className="text-xs text-muted-foreground">{children}</p>;
 }
 
-function FilterLink({
-  label,
-  active,
-  href,
-}: {
-  label: string;
-  active: boolean;
-  href: string | { pathname: string; query: Record<string, string> };
-}) {
-  return (
-    <Link href={href} aria-current={active ? "page" : undefined} className={chip}>
-      {label}
-    </Link>
-  );
-}

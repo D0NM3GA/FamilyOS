@@ -24,6 +24,34 @@ export function fullName(p: { firstName: string; lastName?: string | null }) {
   return p.lastName ? `${p.firstName} ${p.lastName}` : p.firstName;
 }
 
+/**
+ * The shortest names that still tell everyone apart: the first name alone, and only where two
+ * people share it, as many letters of the last name as it takes ("Max P.", then "Max Pa.").
+ * Matching ignores case. Someone with no last name keeps the bare first name; two people whose
+ * whole names match get their full names, since no letter can split them.
+ */
+export function shortNames(people: { id: string; firstName: string; lastName?: string | null }[]): Map<string, string> {
+  const key = (s: string) => s.trim().toLocaleLowerCase();
+  const byFirst = new Map<string, typeof people>();
+  for (const p of people) byFirst.set(key(p.firstName), [...(byFirst.get(key(p.firstName)) ?? []), p]);
+
+  const names = new Map<string, string>();
+  for (const group of byFirst.values()) {
+    for (const p of group) {
+      const last = (p.lastName ?? "").trim();
+      const others = group.filter((o) => o !== p).map((o) => key(o.lastName ?? ""));
+      if (others.length === 0 || !last) {
+        names.set(p.id, p.firstName.trim());
+        continue;
+      }
+      let letters = 1;
+      while (letters <= last.length && others.some((o) => o.slice(0, letters) === key(last).slice(0, letters))) letters++;
+      names.set(p.id, letters >= last.length ? `${p.firstName.trim()} ${last}` : `${p.firstName.trim()} ${last.slice(0, letters)}.`);
+    }
+  }
+  return names;
+}
+
 export type PeopleFilter = "all" | "member" | "contact";
 
 export async function listPeople(
@@ -81,7 +109,8 @@ export async function getHouseholdMembers(householdId: string, excludeId?: strin
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
     omit: { photo: true },
-    orderBy: { firstName: "asc" },
+    // Last name breaks a tie, so two people sharing a first name keep their places.
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
 }
 
