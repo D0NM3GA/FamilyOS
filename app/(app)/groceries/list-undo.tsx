@@ -18,9 +18,9 @@ function failureText(err: unknown): string {
  * (`footer`), stacked so they never cover each other. The bar lives here, above the rows,
  * because the row that offered it is gone from the list by the time it shows.
  *
- * pointer-events-none on the dock: it's a full-width, mostly-empty fixed box on narrow
- * viewports, and the Bunson mascot can end up docked underneath it; without this, its empty
- * padding would swallow taps meant for him even though he's visibly there. The bar and the
+ * pointer-events-none on the dock: it's a list-wide, mostly-empty box stuck to the bottom of the
+ * page (sticky in main, which already ends above the phone's bottom bar), and the Bunson mascot
+ * can end up docked underneath it; without this, its empty padding would swallow taps meant for him even though he's visibly there. The bar and the
  * button turn pointer events back on for themselves. The dock deliberately wins the overlap
  * (no pointer-events trick on Bunson's side): on a narrow phone with items checked off, his
  * rest-state tap target shrinks to its bottom ~16px of ears while it shows, below his usual
@@ -58,7 +58,7 @@ export function ListDock({ children, footer }: { children: ReactNode; footer?: R
       {children}
       {(note || footer) && (
         // data-covers-bottom: tabbing to a control scrolls it clear of this bar (globals.css).
-        <div data-covers-bottom className="pointer-events-none fixed inset-x-0 bottom-[var(--bottom-bar-h,0px)] z-10 flex flex-col gap-2 p-4 lg:sticky lg:bottom-4">
+        <div data-covers-bottom className="pointer-events-none sticky bottom-0 z-10 flex flex-col gap-2 py-4">
           {note && (
             <div
               role="status"

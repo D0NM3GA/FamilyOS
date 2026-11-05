@@ -182,9 +182,9 @@ export function ThemePicker() {
           type="button"
           aria-pressed={mode === value}
           onClick={() => setMode(value)}
-          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-bold text-muted-foreground transition hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-sm sm:min-h-9"
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-bold whitespace-nowrap max-sm:text-xs text-muted-foreground transition hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-sm sm:min-h-9"
         >
-          <Icon size={15} aria-hidden="true" />
+          <Icon size={15} aria-hidden="true" className="max-sm:hidden" />
           {label}
         </button>
       ))}

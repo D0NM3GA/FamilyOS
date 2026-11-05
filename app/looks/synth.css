@@ -230,8 +230,20 @@
   [data-look="synth"] .ui-scene {
     margin: -1.5rem -1.5rem 1rem;
     padding-bottom: 21rem;
-    background-size: 100% auto;
+    /* As wide as the banner but never taller than the room under the words: past 42rem wide the
+       road stays 21rem tall and the sky color carries on either side. */
+    background-size: min(100%, 42rem) auto;
     background-position: center bottom;
+  }
+}
+/* Wider than the art: its sides fade into the sky color rather than ending in a hard edge. */
+@media (min-width: 720px) {
+  [data-look="synth"] .ui-scene {
+    background-image:
+      linear-gradient(90deg, var(--synth-top) calc(50% - 21rem), transparent calc(50% - 13rem) calc(50% + 13rem), var(--synth-top) calc(50% + 21rem)),
+      var(--synth-art);
+    background-size: 100% 100%, min(100%, 42rem) auto;
+    background-position: center, center bottom;
   }
 }
 [data-look="synth"] .ui-scene-hello {

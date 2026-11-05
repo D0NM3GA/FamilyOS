@@ -19,7 +19,7 @@ export function TemplatesForm({
   const [state, formAction, pending] = useActionState<VehicleFormState, FormData>(action, {});
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4">
+    <form action={formAction} className="space-y-4">
       <ul className="space-y-1.5">
         {options.map((o) => (
           <li key={o.key}>

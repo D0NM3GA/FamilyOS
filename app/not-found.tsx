@@ -9,7 +9,9 @@ import { MOMENT_LINES } from "@/lib/bunson-moments";
  */
 export default function NotFound() {
   return (
-    <div className="graph-paper flex flex-1 flex-col items-center justify-center gap-6 bg-muted px-4 py-16 text-center">
+    // max-w-none: inside the app this is main's child, and the page width rule would box its
+    // graph paper in over main's own, a seam where the two grids meet.
+    <div className="graph-paper flex max-w-none flex-1 flex-col items-center justify-center gap-6 bg-muted px-4 py-16 text-center">
       <h1 className="text-4xl font-extrabold text-foreground">Page not found</h1>
       <BunsonMoment kind="cheer" pose="stand" text={MOMENT_LINES.notFound} />
       <Link

@@ -126,7 +126,7 @@ export default async function PersonRecordPage({
   }));
 
   return (
-    <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,280px)]">
+    <div className="grid max-w-[90rem] grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,280px)]">
       {/* Left column */}
       <div className="min-w-0 space-y-4">
         <div className="rounded-lg bg-card p-4 text-center shadow-sm ring-1 ring-border">

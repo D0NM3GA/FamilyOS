@@ -73,7 +73,7 @@ export default async function GroceriesPage({
   const doneCount = items.filter((i) => i.done).length;
 
   return (
-    <div className="p-4 pb-28 sm:p-6 sm:pb-28">
+    <div className={`p-4 sm:p-6 ${doneCount > 0 ? "" : "pb-28 sm:pb-28"}`}>
       <OfflineWorker />
       <PageHeader title="Groceries">
         <Link href="/groceries/shop" className={`${stickerBtn} bg-lime text-ink hover:brightness-95`}>
@@ -159,9 +159,11 @@ export default async function GroceriesPage({
       <ListDock
         footer={
           doneCount > 0 ? (
-            <form action={finishTrip}>
+            // A bar across the list, frosted like a form's actions, so it reads as the list's own
+            // footer rather than a button floating over the rows.
+            <form action={finishTrip} className="pointer-events-auto rounded-2xl bg-muted/85 p-2 backdrop-blur-sm">
               <SubmitButton
-                className="pointer-events-auto mx-auto block w-full max-w-lg rounded-2xl border-2 border-ink bg-lime py-3 font-extrabold text-ink shadow-[3px_3px_0_rgb(31_41_51/0.25)] hover:brightness-95"
+                className="block w-full rounded-2xl border-2 border-ink bg-lime py-3 font-extrabold text-ink shadow-[3px_3px_0_rgb(31_41_51/0.25)] hover:brightness-95"
               >
                 Finish trip ({doneCount} {doneCount === 1 ? "item" : "items"} in the cart)
               </SubmitButton>

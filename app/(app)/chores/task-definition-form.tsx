@@ -80,7 +80,7 @@ export function TaskDefinitionForm({
   }
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4">
+    <form action={formAction} className="space-y-4">
       <Field label="Title" name="title" defaultValue={defaults?.title} required autoFocus={!defaults} />
 
       <label className="block">

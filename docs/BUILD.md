@@ -1302,3 +1302,17 @@ weeks, which also stops a month planning far ahead. Money: accounts are a compac
 select, and all-capitals bank names read as a person would write them (`tidyMerchantName`, display only).
 Weekly and variable shops (the grocery run, a monthly Costco trip) keep counting in Safe to spend
 (the owner's call): the figure stays cautious, and **Not a bill** takes out any one store. The card says so.
+
+### Layout on every screen
+
+Every page is centered at one of three widths, the same in every look and on any screen (the owner's
+call: uniform, never pushed into a corner). The default, 72rem, is one rule in `app/globals.css` on
+`main`'s child, in `@layer base` so a page's own `max-w-*` still wins. Settings' and Data's quiet
+wrapper (`data-quiet`) stays full width and its page is centered inside it. Home, Calendar and a
+person's page use 90rem. New and edit forms use `max-w-2xl`, with the form filling it. Narrower pages
+already centered (Money, Store, Pet) keep their widths. The 70ch reading width had been catching
+Home's banner, a `<p>`, so it's excluded. Synthwave's road stops growing past 42rem so it stays
+under the words. Home's cards fit their content. Finish trip is a bar across the list, sticky on
+every screen. The browser test checks the banner's width and that pages are centered on a 2200px screen.
+Still placed against the screen rather than the page: the search box, the mascot and the
+celebration toast.

@@ -155,7 +155,7 @@ export default async function HomePage() {
   const words = await getRewardWords(profile.householdId);
 
   return (
-    <div className="ui-home p-4 sm:p-6">
+    <div className="ui-home max-w-[90rem] p-4 sm:p-6">
       <h1 className="sr-only">Home</h1>
       <LookScene firstName={profile.firstName} date={new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: zone }).format(new Date())} />
       <div className="mb-4 empty:hidden">
@@ -224,7 +224,7 @@ export default async function HomePage() {
         </Link>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Outlook is the slowest thing on Home (a network hop per call), so the rest of the
             page shows first and the calendar fills in. */}
         {outlookCard && (

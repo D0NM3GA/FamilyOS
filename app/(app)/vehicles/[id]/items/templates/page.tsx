@@ -26,7 +26,7 @@ export default async function MaintenanceTemplatesPage({ params }: { params: Pro
   }));
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <PageHeader title={`Common maintenance for ${vehicle.name}`} />
       <p className="mt-2 max-w-lg text-sm text-muted-foreground">
         Pick what to track. These are typical intervals, not your car&apos;s — check the owner&apos;s manual and
