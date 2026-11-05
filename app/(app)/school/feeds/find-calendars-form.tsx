@@ -25,7 +25,7 @@ export function FindCalendarsForm({
   const [state, formAction, pending] = useActionState<FindState, FormData>(find, {});
   const hintId = useId();
   return (
-    <div className="max-w-lg space-y-3">
+    <div className="space-y-3">
       <form action={formAction} className="space-y-2">
         <label className="block">
           <span className={fieldLabel}>The school&apos;s website</span>

@@ -34,7 +34,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
 
   if (students.length === 0) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="max-w-5xl p-4 sm:p-6">
         <PageHeader title="🎒 School" />
         <p className="mt-4 text-sm text-muted-foreground">
           No students here yet. 🎒 Kids in the household show up here automatically; add them in Settings → Household.
@@ -77,7 +77,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
     : [];
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-5xl p-4 sm:p-6">
       <PageHeader title="🎒 School">
         {adult && (
           <Link href="/data#school" className={btn}>
@@ -101,7 +101,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
         </nav>
       )}
 
-      <div className="mt-6 grid max-w-5xl gap-4 lg:grid-cols-2">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <section className={`min-w-0 ${card}`}>
           <div className="flex items-start justify-between gap-2">
             <h2 className={cardTitle}>{person.firstName}&apos;s school</h2>

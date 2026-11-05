@@ -17,7 +17,7 @@ export default async function MakeItYoursPage() {
   const defaults = await lookFormDefaults(profile.householdId);
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-3xl p-4 sm:p-6">
       <Link href="/settings" className={backLink}>
         ← Settings
       </Link>

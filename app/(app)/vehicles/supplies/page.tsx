@@ -18,7 +18,7 @@ export default async function SuppliesPage() {
   const supplies = await getSupplies(profile.householdId);
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-3xl p-4 sm:p-6">
       <Link href="/vehicles" className={backLink}>
         ← Cars
       </Link>
@@ -34,7 +34,7 @@ export default async function SuppliesPage() {
       {supplies.length === 0 ? (
         <p className="mt-6 text-sm text-muted-foreground">No supplies yet.</p>
       ) : (
-        <ul className="ui-card mt-4 max-w-3xl divide-y divide-border overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-border">
+        <ul className="ui-card mt-4 divide-y divide-border overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-border">
           {supplies.map((s) => {
             const low = s.active && isSupplyLow(s.quantityOnHand, s.lowThreshold);
             const usedBy = s.usedBy.map((u) => `${u.item.vehicle.name}: ${u.item.title}`);

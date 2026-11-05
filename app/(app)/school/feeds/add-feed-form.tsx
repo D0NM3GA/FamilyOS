@@ -16,7 +16,7 @@ export function AddFeedForm({
   const [state, formAction, pending] = useActionState<FeedFormState, FormData>(action, {});
   const hintId = useId();
   return (
-    <form action={formAction} className="max-w-lg space-y-3">
+    <form action={formAction} className="space-y-3">
       <label className="block">
         <span className={fieldLabel}>Name</span>
         <input name="name" required placeholder="Lincoln Elementary calendar" className={box} />
