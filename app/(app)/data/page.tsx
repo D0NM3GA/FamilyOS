@@ -43,7 +43,7 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
   const again = signIn && <SignInAgain callbackURL="/data" loginHint={signIn.email} dev={signIn.dev} microsoft={signIn.microsoft} passkey={signIn.passkey} oidc={signIn.oidc} />;
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-4xl p-4 sm:p-6">
       <h1 className="text-xl font-semibold text-foreground">Data &amp; backups</h1>
       <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
         Download what lives only in this app — to keep a copy, open it in Excel, or share it. Things that already live in
@@ -58,7 +58,7 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
         </a>
         .
       </p>
-      <div className="mt-3 grid max-w-4xl gap-4 md:grid-cols-2">
+      <div className="mt-3 grid gap-4 md:grid-cols-2">
         {groups.map((group) => (
           <section key={group.domain} id={group.domain} className="scroll-mt-6 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
             <h2 className="text-sm font-semibold text-foreground">{group.title}</h2>
@@ -78,7 +78,7 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
 
 
       {isAdmin(profile) && (
-        <section id="backups" className="mt-8 max-w-2xl scroll-mt-6 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+        <section id="backups" className="mt-8 scroll-mt-6 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
           <h2 className="text-sm font-semibold text-foreground">Whole-household backup</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             One file with everything below, in a format this app can restore from. It contains
@@ -143,7 +143,7 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
         </section>
       )}
 
-      <section id="history" className="mt-6 max-w-2xl scroll-mt-6 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+      <section id="history" className="mt-6 scroll-mt-6 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
         <h2 className="text-sm font-semibold text-foreground">Backup history</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           {isAdmin(profile) ? "Household backups and restores, and backups of your own money jars." : "Backups you made or that include your money jars."}

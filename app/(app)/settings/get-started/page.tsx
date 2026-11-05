@@ -55,7 +55,7 @@ export default async function GetStartedPage({ searchParams }: { searchParams: P
               <Link
                 href={`${SETUP_PATH}?step=${s.id}`}
                 aria-current={s.id === step ? "step" : undefined}
-                className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-sm font-semibold text-foreground hover:bg-muted aria-[current=step]:bg-sun/40 aria-[current=step]:font-extrabold"
+                className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-sm font-semibold text-foreground hover:bg-muted aria-[current=step]:bg-sun/40 aria-[current=step]:font-extrabold dark:aria-[current=step]:bg-sun/25"
               >
                 <span
                   className={`grid size-7 shrink-0 place-items-center rounded-full border-2 text-xs font-extrabold ${

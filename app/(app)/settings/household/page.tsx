@@ -89,7 +89,9 @@ export default async function HouseholdSettingsPage({
         </p>
       )}
 
-      <div className="mt-6">
+      {/* The two small forms sit side by side on a wide screen, filling the width the members
+          table below uses, rather than both pinned to the left. */}
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
         <HouseholdSettingsForm
           action={updateHouseholdSettings}
           defaults={{
@@ -99,19 +101,18 @@ export default async function HouseholdSettingsPage({
           }}
           timeZones={timeZones}
         />
+        <section aria-labelledby="home-heading" className="space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+          <div>
+            <h2 id="home-heading" className="text-sm font-medium text-foreground">Where&apos;s home?</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              So chores marked &ldquo;outdoor&rdquo; can warn when rain is on the way. The app keeps it to
+              about a kilometre, never your street address; only the US National Weather Service sees
+              it, to send the forecast.
+            </p>
+          </div>
+          <HomeLocation nearZip={home} />
+        </section>
       </div>
-
-      <section aria-labelledby="home-heading" className="mt-6 max-w-lg space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
-        <div>
-          <h2 id="home-heading" className="text-sm font-medium text-foreground">Where&apos;s home?</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            So chores marked &ldquo;outdoor&rdquo; can warn when rain is on the way. The app keeps it to
-            about a kilometre, never your street address; only the US National Weather Service sees
-            it, to send the forecast.
-          </p>
-        </div>
-        <HomeLocation nearZip={home} />
-      </section>
 
       <div className="relative mt-6 overflow-x-auto rounded-lg bg-card shadow-sm ring-1 ring-border">
         <table className="w-full text-left text-sm">

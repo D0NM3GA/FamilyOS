@@ -28,7 +28,7 @@ export default async function SchoolFeedsPage() {
   const viewer = await requireActiveProfile();
   if (!isAdmin(viewer)) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="max-w-2xl p-4 sm:p-6">
         <p className="text-sm text-muted-foreground">Only an admin can manage school calendars.</p>
       </div>
     );
@@ -51,7 +51,7 @@ export default async function SchoolFeedsPage() {
   ]);
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <Link href="/school" className={backLink}>
         ← School
       </Link>
@@ -62,7 +62,7 @@ export default async function SchoolFeedsPage() {
       </p>
 
       {feeds.length > 0 && (
-        <ul className="ui-card mt-6 max-w-2xl divide-y divide-border rounded-xl bg-card shadow-sm ring-1 ring-border">
+        <ul className="ui-card mt-6 divide-y divide-border rounded-xl bg-card shadow-sm ring-1 ring-border">
           {feeds.map((f) => (
             <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
               <div className="min-w-0 flex-1 basis-48">
@@ -86,14 +86,14 @@ export default async function SchoolFeedsPage() {
         </ul>
       )}
 
-      <section id="find" className={`mt-6 max-w-2xl ${card}`}>
+      <section id="find" className={`mt-6 ${card}`}>
         <h2 className="text-lg font-extrabold text-foreground">Find it from the school&apos;s website</h2>
         <div className="mt-3">
           <FindCalendarsForm find={findSchoolCalendars} add={addFoundCalendar} students={students.map((s) => ({ id: s.id, name: s.firstName }))} />
         </div>
       </section>
 
-      <section className={`mt-6 max-w-2xl ${card}`}>
+      <section className={`mt-6 ${card}`}>
         <h2 className="text-lg font-extrabold text-foreground">Or paste its link</h2>
         <div className="mt-3">
           <AddFeedForm action={addFeed} students={students.map((s) => ({ id: s.id, name: s.firstName }))} />

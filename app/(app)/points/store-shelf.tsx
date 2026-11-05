@@ -22,7 +22,7 @@ const HOLD_MS = 1000;
 
 /**
  * Phase 20: the Sticker Store's reward cards and the buy confirm. Unaffordable rewards stay
- * visible, greyed, with "15 more stickers" (motivating, not a padlock).
+ * visible, with a dashed edge, a faded picture and "15 more stickers" (motivating, not a padlock).
  *
  * "No accidental buys": the confirm dialog shows cost / you have / left after, and the buy
  * button needs a one-second press-and-hold with a pointer (little thumbs). Keyboard and
@@ -60,12 +60,14 @@ export function StoreShelf({
           return (
             <li
               key={r.id}
+              // Out of reach shows in the picture and the "more to go" line, not by fading the card:
+              // faded, its words and its Buy (a grown-up can still buy for a kid) went hard to read.
               className={`flex flex-col gap-3 rounded-2xl border-2 border-ink bg-card p-4 shadow-[3px_3px_0_rgb(31_41_51/0.15)] dark:border-white/20 ${
-                ok ? "" : "opacity-60"
+                ok ? "" : "border-dashed"
               }`}
             >
               <div className="flex items-start gap-3">
-                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-muted text-2xl" aria-hidden>
+                <span className={`grid size-12 shrink-0 place-items-center rounded-2xl bg-muted text-2xl ${ok ? "" : "opacity-50 grayscale"}`} aria-hidden>
                   {r.emoji ?? "🎁"}
                 </span>
                 <div className="min-w-0 flex-1">

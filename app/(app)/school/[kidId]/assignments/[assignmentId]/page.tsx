@@ -23,12 +23,12 @@ export default async function EditAssignmentPage({ params }: { params: Promise<{
   if (!a) notFound();
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <Link href={`/school?kid=${kidId}`} className={backLink}>
         ← School
       </Link>
       <PageHeader className="mt-1" title={`${a.profile.person.firstName}: ${a.title}`} />
-      <div className="mt-6 max-w-lg">
+      <div className="mt-6">
         <AssignmentForm
           action={updateAssignment.bind(null, a.id)}
           canGrade

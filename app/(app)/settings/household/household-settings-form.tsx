@@ -53,7 +53,7 @@ export function HouseholdSettingsForm({
   }, [zones, inBrowser]);
 
   return (
-    <form action={formAction} className="max-w-lg space-y-4 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+    <form action={formAction} className="space-y-4 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
       <div>
         <label htmlFor="household-name" className="block text-sm font-medium text-foreground">Household name</label>
         <input

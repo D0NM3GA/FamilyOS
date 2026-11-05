@@ -45,6 +45,8 @@
   --muted-foreground: #d8d3f5;
   --border: #c7c1f2;
   --input: #c7c1f2;
+  /* Lighter than the usual night red: the desktop's bright blues behind forms took it under 4.5:1. */
+  --destructive: #ffb4ab;
   --vapor-edge-hi: #8f89e8;
   --vapor-edge-lo: #05032a;
   --vapor-edge-mid: #3a33a8;

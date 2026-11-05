@@ -27,7 +27,7 @@ export default async function OutlookSyncPage({ searchParams }: { searchParams: 
   const profile = await requireActiveProfile();
   if (!isAdult(profile)) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="max-w-2xl p-4 sm:p-6">
         <Link href="/calendar" className={backLink}>
           ← Calendar
         </Link>
@@ -52,7 +52,7 @@ export default async function OutlookSyncPage({ searchParams }: { searchParams: 
   const grantFailed = (await searchParams).grant === "failed";
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="max-w-2xl p-4 sm:p-6">
       <Link href="/calendar" className={backLink}>
         ← Calendar
       </Link>
@@ -62,7 +62,7 @@ export default async function OutlookSyncPage({ searchParams }: { searchParams: 
         your phone. It updates when its owner uses the app (every half hour at most) or taps Sync now.
       </p>
 
-      <section className="mt-6 max-w-2xl space-y-4 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+      <section className="mt-6 space-y-4 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
         {!sync ? (
           canConnect ? (
             <>

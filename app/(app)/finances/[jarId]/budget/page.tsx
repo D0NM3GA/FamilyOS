@@ -188,7 +188,7 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
                   {l.budgetCents != null && <span className="font-normal text-muted-foreground"> of {money(l.budgetCents)}</span>}
                 </span>
                 {l.status === "OVER" && <span className="rounded-md bg-tomato/20 px-1.5 text-xs font-bold">Over</span>}
-                {l.status === "ON_TRACK" && <span className="rounded-md bg-lime/40 px-1.5 text-xs font-bold text-ink">On track</span>}
+                {l.status === "ON_TRACK" && <span className="rounded-md bg-lime/40 px-1.5 text-xs font-bold text-ink dark:bg-lime">On track</span>}
               </div>
               {l.budgetCents != null && (
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${pct}% of budget`}>
