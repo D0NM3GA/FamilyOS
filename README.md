@@ -1104,9 +1104,9 @@ docker compose exec postgres pg_restore -U familycrm -d familycrm_dev --clean --
 doesn't support `<` and will error — use the two commands above instead.)
 
 Backups contain live Microsoft Graph tokens and PIN hashes — treat the `backups/` folder
-like the `.env` file: never commit it, never send it anywhere unencrypted. This only writes
-to the local `backups/` folder; nothing is scheduled or copied off the machine yet — see
-[docs/PLAN.md](docs/PLAN.md) "Open items" for that as part of the hosting move.
+like the `.env` file: never commit it, never send it anywhere unencrypted. This is the
+development copy, written to the local `backups/` folder only. On the server, the nightly backup
+is scheduled and copied off the machine ("Nightly backups" above).
 
 ## Error monitoring (Sentry)
 
@@ -1116,6 +1116,12 @@ set (`.env` in development, `/etc/familyos/familyos.env` on the server; `SENTRY_
 starts and handed to each page for the browser, never built into the image. (It was
 `NEXT_PUBLIC_SENTRY_DSN` before: rename the line.) Leave it empty and Sentry is
 completely off, which is the case in tests and CI.
+
+Phase 61: the server's own log lines are JSON, one per event (`lib/observability/log.ts`), and
+`captureError` writes one too, so an error is seen with or without Sentry. Data & backups →
+**System** (admins) shows each background job's and the nightly backup's last run, and
+`HEALTHCHECK_PING_URL` (optional) is called after each run of the jobs, with `/fail` when one
+failed.
 
 **This app holds health, contact and location data, so what may be sent is locked down in
 code** (`lib/observability/`; see docs/BUILD.md Phase 15). Sentry never receives:

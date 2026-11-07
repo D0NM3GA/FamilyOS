@@ -1508,3 +1508,31 @@ instead of asking for "12.50"; the Notifications page and its mark-read action s
 Accepted: on the bills page, Coming up and Safe to spend each ask their own `paidCheck` (the
 forecast asks found bills first), so in a rare month a check a found bill took can show a hand-added
 bill paid in one and due in the other; and a refund follows a re-guessed charge one sync later.
+
+## Phase 61 — The server safety net
+
+### 61a — Jobs that can't take each other down, and System
+
+`lib/background.ts` runs each job (zone, money, purges, Entra, cleanup) in its own try/catch
+(`runTick`), so a bank feed that's down no longer skips the Entra check that ends access; a
+failure goes to `captureError` and a log line with the real (scrubbed) reason. Each job upserts its
+`SystemHeartbeat` row (ok or failed, kept apart), and a heartbeat that can't be written is only a
+log line. `HEALTHCHECK_PING_URL` is called after the tick, `/fail` appended when a job failed,
+never throwing. The cleanup job (`lib/retention.ts`) deletes sessions a day past expiry and
+notifications read 90 days ago, in batches; sign-in events stay append-only, rate-limit rows are
+Better Auth's, and change history is kept. `lib/observability/log.ts` writes one JSON line per event
+(fields typed to plain values, strings scrubbed and clipped), `describeError` keeps Prisma errors
+to class and code as Sentry's scrubbing does, and `captureError` logs as well, falling back to the
+console in the browser. The server's `console.*` lines moved to it, except the proxy (which must
+stay free of Sentry and Prisma) and `lib/crypto.ts`'s key hint. Data & backups shows **System** to
+admins: each job's and the nightly backup's last good run, late after three missed ticks or 36
+hours, and the short reason when failing. Bunson loads through `next/dynamic` (`bunson-lazy.tsx`),
+so his code is fetched only when he's chatty. The static CSP's stale comment and README's line
+about backups not leaving the machine are fixed.
+Fable's review of 61a: `docs/PLAN.md` had been mangled by a `String.replace` whose replacement held
+`$` and a backtick (a special pattern: "everything before the match"); it was rebuilt, and plan
+edits now use split and join. The Entra check swallowed its own errors and only logged an
+unfinished check, so it could never show as failing; it now throws to the tick (a fixed
+`Entra check: <outcome>` after its notices). `captureError` takes an event name and fields, so each
+error is one log line with its context, not two.
+
