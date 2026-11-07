@@ -2380,6 +2380,21 @@ model RateLimit {
   @@map("rate_limit")
 }
 
+/// Phase 61: when each background job (and the host's nightly backup) last ran well and last
+/// failed, for the System card on Data. The server's, not a household's: no FK, not in the app's
+/// backup file. `lastError` is short and scrubbed (lib/observability/log.ts), never a name.
+/// The backup script writes its row through psql, so `updatedAt` is set by whoever writes.
+model SystemHeartbeat {
+  name        String    @id
+  lastOkAt    DateTime?
+  lastErrorAt DateTime?
+  lastError   String?
+  detail      String?
+  updatedAt   DateTime
+
+  @@map("system_heartbeat")
+}
+
 /// Phase 42.7: each time the break-glass entrance was switched on (scripts/break-glass.sh), so
 /// every admin is told once when it starts and once when it ends (lib/break-glass-notice.ts).
 /// The id is the activation's own, from the state file; never the secret.

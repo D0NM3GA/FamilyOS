@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { recordSignInEvent } from "@/lib/sign-in-events";
 import { deliverSignInNotices, writeSignInNotices, type Announced } from "@/lib/sign-in-notices";
 import { microsoftConfigFrom } from "@/lib/microsoft-config";
-import { captureError } from "@/lib/observability";
+import { log } from "@/lib/observability";
 import { workingAdmins } from "@/lib/sign-ins";
 import { EntraGraphError, readEntraAssignments, type EntraRole } from "@/lib/entra-graph";
 import { isGuid } from "@/lib/microsoft-admin";
@@ -199,20 +199,19 @@ export async function announceEntraCheck(result: EntraRunResult): Promise<void> 
 }
 
 /**
- * The background tick (lib/background.ts): every half hour while Microsoft is on. Its own errors
- * are reported and stay its own, so the rest of the tick still runs.
+ * The background tick (lib/background.ts): every half hour while Microsoft is on. Phase 61: the
+ * tick runs each job on its own, so this one's errors are thrown to it (reported, and the System
+ * card shows the check failing), and a check that couldn't finish (Entra unavailable, a missing
+ * permission) throws too, after its notices, so it never reads as OK.
  */
 export async function runScheduledEntraCheck(now: Date = new Date()): Promise<void> {
   if (microsoftConfigFrom(process.env) === null) return;
-  try {
-    const household = await prisma.household.findFirst({ select: { id: true } });
-    if (!household || !(await entraCheckDue(household.id, now))) return;
-    const result = await runEntraCheck(household.id, { now });
-    // Counts only: never who, nor anything Entra said.
-    if (result.outcome !== "ok") console.warn(`[entra] check: ${result.outcome}`);
-    else if (result.changed || result.ended) console.info(`[entra] check: ${result.changed} role(s) changed, ${result.ended} ended`);
-    await announceEntraCheck(result);
-  } catch {
-    captureError(new Error("Entra check failed"));
-  }
+  const household = await prisma.household.findFirst({ select: { id: true } });
+  if (!household || !(await entraCheckDue(household.id, now))) return;
+  const result = await runEntraCheck(household.id, { now });
+  // Counts only: never who, nor anything Entra said.
+  if (result.outcome === "ok" && (result.changed || result.ended)) log.info("entra.check", { outcome: "ok", changed: result.changed, ended: result.ended });
+  await announceEntraCheck(result);
+  // The outcome is a fixed word (EntraRunResult), never anything Entra said.
+  if (result.outcome !== "ok") throw new Error(`Entra check: ${result.outcome}`);
 }

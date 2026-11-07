@@ -625,8 +625,20 @@ purpose, at least 7 days after a release.
 | Break-glass certificate | `/var/log/familyos-cert.log` |
 | Sign-in changes | Settings → Sign-in → Recent changes |
 | Backups and restores | Settings → Data & backups → Backup history |
+| Did the jobs and the nightly backup run? | Settings → Data & backups → System |
 
 Run the `docker compose` lines from `/opt/familyos`.
+
+**The app's log** is one JSON line per event (`time`, `level`, `event` and a few fields, never a
+name), so it filters well: `docker compose -f docker-compose.prod.yml logs app | grep '"level":"error"'`.
+Every error caught and handled is a line too (`error.caught`), with or without Sentry.
+
+**System** (admins, at the bottom of Data & backups) shows each background job's last good run and
+last failure, and the nightly backup's. **Late** means it hasn't run when it should have (a job
+every 30 minutes, the backup every night); **Failing** shows the short reason. For a nudge when
+nothing is looking, set `HEALTHCHECK_PING_URL` in the settings file to a check-in URL (a
+healthchecks.io check, or your own): the app calls it after each run of the jobs, with `/fail` on
+the end when one failed, so the checker can email you when a ping is missing or failed.
 
 **Everyone gets "Forbidden".** The app is refusing requests without a valid Cloudflare Access
 token. Its log says why, once a minute per reason:

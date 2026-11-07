@@ -1,5 +1,6 @@
 "use server";
 
+import { log } from "@/lib/observability/log";
 import { redirect } from "next/navigation";
 import { getEntraRole, setActiveProfileCookie } from "@/lib/active-profile";
 import { prisma } from "@/lib/prisma";
@@ -69,7 +70,7 @@ export async function completeSetup(_prev: FinishState, formData: FormData): Pro
     throw err;
   }
   // Fixed text only: no household or person names in logs.
-  console.info("[setup] This install has been set up.");
+  log.info("setup.done");
   // Phase 45.4: straight into the guided setup, as the new admin (they just signed in, so their
   // own tile needs no PIN): no stop at the profile picker.
   await setActiveProfileCookie(adminId);

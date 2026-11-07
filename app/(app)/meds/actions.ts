@@ -307,8 +307,7 @@ export async function completeInstance(instanceId: string) {
       });
       if (created) revalidatePath("/groceries");
     } catch (err) {
-      console.error("[meds] failed to request a refill shopping-list item", err);
-      captureError(err);
+      captureError(err, "meds.refill_item_failed");
     }
   }
 

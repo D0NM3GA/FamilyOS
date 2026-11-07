@@ -152,8 +152,7 @@ export async function getBunsonFacts(
 
     return facts;
   } catch (err) {
-    console.error("[bunson-facts] failed to compute facts — falling back to jokes only", err);
-    captureError(err);
+    captureError(err, "bunson.facts_failed", { fallback: "jokes only" });
     return [];
   }
 }

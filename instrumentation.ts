@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/nextjs";
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("./sentry.server.config");
+    const { describeError, log } = await import("./lib/observability/log");
     // Phase 40.1b: a half-set Microsoft sign-in stops the server here, at start, with the
     // missing settings named, rather than on the first signed-in request.
     const { microsoftConfigFrom } = await import("./lib/microsoft-config");
@@ -15,15 +16,15 @@ export async function register() {
       const { checkOidcDiscovery, recordOidcPreflight } = await import("./lib/oidc-preflight");
       const problem = await checkOidcDiscovery(oidc);
       recordOidcPreflight(problem === null);
-      if (problem) console.warn(`[sign-in] ${oidc.name} sign-in is off until the next restart: ${problem}.`);
+      if (problem) log.warn("signin.oidc_off", { provider: oidc.name, problem, until: "next restart" });
     }
     // Phase 42: a malformed Cloudflare Access setting is said once, plainly, at start (proxy.ts
     // then answers 503 rather than crashing every request).
     const { accessConfigFrom } = await import("./lib/security/cf-access");
     try {
-      if (accessConfigFrom(process.env)) console.info("[access] Only requests through Cloudflare Access are let in.");
+      if (accessConfigFrom(process.env)) log.info("access.on", { note: "Only requests through Cloudflare Access are let in." });
     } catch (err) {
-      console.error(`[access] ${err instanceof Error ? err.message : err} Every request but the health check gets a 503 until it's fixed.`);
+      log.error("access.misconfigured", { problem: err instanceof Error ? err.message : String(err), effect: "Every request but the health check gets a 503 until it's fixed." });
     }
     // Phase 49: the server keeps the household's time, from before the first request (a stored
     // day written in another zone is moved first). Not during `next build`, which has no database.
@@ -32,7 +33,7 @@ export async function register() {
       try {
         await syncServerZone();
       } catch (err) {
-        console.error(`[zone] Couldn't read the household's timezone at start (${err instanceof Error ? err.constructor.name : "unknown"}); the first page or background tick tries again.`);
+        log.error("zone.start_failed", { error: describeError(err), retry: "the first page or background tick tries again" });
       }
     }
     // Phase 27: after Sentry, so a job error is reported. Node only (lib/background.ts).
