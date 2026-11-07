@@ -1362,3 +1362,23 @@ add and edit forms have a Type select; School's rows tag tests, quizzes and proj
 usual, carries no tag); the homework card's heading counts tests and quizzes still to sit from today
 through the next six days. The export gains a Type column. The backup carries it without a format
 version bump: `kind` defaults to homework, so a file from before it restores as it always did.
+
+### 59.1c — A history of changes
+
+`WorkItemEvent`: one table for chores, schoolwork and forms, keyed by `itemType` and `itemId` (no
+foreign key, since it points into three tables). `recordEvent` writes inside the transaction of
+the change it records: done, undo, skip, unskip, give to, mark older missed; an assignment's
+status, edits, grade; a form's done and reopen. Values are a stored status ("DONE") or display text
+(first names, YYYY-MM-DD), capped at 200 characters, and a note only ever says it changed. Deletes
+clean up in code: turning a chore off, removing homework or a form, the zone move's dropped
+duplicates (raw SQL), the restore wipe and the demo seed; `lib/work-items/events-guard.test.ts`
+finds every delete of those tables in `app/`, `lib/` and `prisma/` and fails on one without
+cleanup nearby (Meds' doses are listed: they have no history). Reassigning now pins the assignee
+it read, so a give-to racing another records the right "from". The backup is v9: events follow
+their items through restore's new ids (school tasks and assignments gained id maps for it); one
+whose item isn't in the file is dropped, and an actor who isn't becomes nobody.
+Fable's review of 59.1c: an assignment's status change is pinned to the status it checked, and
+ticking off done work again writes nothing (so `doneAt` keeps when it was finished, as forms
+already did). The full edit only saves over the row it read (`updatedAt`); an edit that landed in
+between gets "Someone changed this one just now", so the history's "from" is always true. The
+restore preview lists the history it removes and restores.

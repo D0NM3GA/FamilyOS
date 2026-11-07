@@ -112,6 +112,8 @@ async function clear(householdId: string) {
   await prisma.person.updateMany({ where: { householdId }, data: { savingRewardId: null } });
   await prisma.reward.deleteMany({ where: { householdId } });
   await prisma.rewardBucket.deleteMany({ where: { householdId } });
+  // History of the chores and schoolwork deleted here (Phase 59.1c: no foreign key cascades it).
+  await prisma.workItemEvent.deleteMany({ where: { householdId } });
   await prisma.taskDefinition.deleteMany({ where: { householdId } });
   await prisma.vehicle.deleteMany({ where: { householdId } });
   await prisma.vehicleSupply.deleteMany({ where: { householdId } });

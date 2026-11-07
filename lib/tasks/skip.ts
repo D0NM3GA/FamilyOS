@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import type { TaskDomain } from "@/app/generated/prisma/enums";
+import type { Prisma } from "@/app/generated/prisma/client";
+
 import { addDays, atMidnight } from "./schedule";
+
+/** The client to use: the app's, or a transaction's (Phase 59.1c: Chores records history with it). */
+type Db = Pick<Prisma.TransactionClient, "taskInstance">;
 
 /**
  * How far back "Overdue" reaches. A missed dose from three weeks ago isn't something to do
@@ -19,8 +24,8 @@ export function overdueSince(now: Date = new Date()): Date {
  * for a med, no stock used. Only a still-pending one, in this household and domain. Who and
  * when are kept on the row, like a completion, so it can be undone and shows who skipped it.
  */
-export async function skipInstance(opts: { householdId: string; domain: TaskDomain; instanceId: string; byId: string }) {
-  const { count } = await prisma.taskInstance.updateMany({
+export async function skipInstance(opts: { householdId: string; domain: TaskDomain; instanceId: string; byId: string; db?: Db }) {
+  const { count } = await (opts.db ?? prisma).taskInstance.updateMany({
     where: { id: opts.instanceId, status: "PENDING", definition: { householdId: opts.householdId, domain: opts.domain } },
     data: { status: "SKIPPED", completedAt: new Date(), completedById: opts.byId },
   });
@@ -28,8 +33,8 @@ export async function skipInstance(opts: { householdId: string; domain: TaskDoma
 }
 
 /** Puts a skipped one back to waiting. */
-export async function unskipInstance(opts: { householdId: string; domain: TaskDomain; instanceId: string }) {
-  const { count } = await prisma.taskInstance.updateMany({
+export async function unskipInstance(opts: { householdId: string; domain: TaskDomain; instanceId: string; db?: Db }) {
+  const { count } = await (opts.db ?? prisma).taskInstance.updateMany({
     where: { id: opts.instanceId, status: "SKIPPED", definition: { householdId: opts.householdId, domain: opts.domain } },
     data: { status: "PENDING", completedAt: null, completedById: null },
   });
@@ -41,7 +46,12 @@ export async function unskipInstance(opts: { householdId: string; domain: TaskDo
  * household's, or one person's when the board is filtered to them (the count it showed).
  */
 export async function markOlderMissed(opts: { householdId: string; domain: TaskDomain; byId: string; personId?: string | null; now?: Date }) {
-  const { count } = await prisma.taskInstance.updateMany({
+  return (await markOlderMissedIds(opts)).length;
+}
+
+/** markOlderMissed, saying which ones it marked (Phase 59.1c: one history event each). */
+export async function markOlderMissedIds(opts: { householdId: string; domain: TaskDomain; byId: string; personId?: string | null; now?: Date; db?: Db }) {
+  const rows = await (opts.db ?? prisma).taskInstance.updateManyAndReturn({
     where: {
       status: "PENDING",
       dueDate: { lt: overdueSince(opts.now) },
@@ -49,6 +59,7 @@ export async function markOlderMissed(opts: { householdId: string; domain: TaskD
       ...(opts.personId ? { assignedToId: opts.personId } : {}),
     },
     data: { status: "SKIPPED", completedAt: new Date(), completedById: opts.byId },
+    select: { id: true },
   });
-  return count;
+  return rows.map((r) => r.id);
 }

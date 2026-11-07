@@ -104,6 +104,7 @@ model Household {
   petMemorials           PetMemorial[]
   petGifts               PetGift[]
   petDiscoveries         PetDiscovery[]
+  workItemEvents         WorkItemEvent[]
 
   @@map("household")
 }
@@ -258,6 +259,7 @@ model Person {
   schoolContactFor SchoolContact[]
   schoolTasksFor   SchoolTask[]    @relation("SchoolTaskKid")
   schoolTasksOwned SchoolTask[]    @relation("SchoolTaskOwner")
+  workItemEvents   WorkItemEvent[] @relation("WorkItemEventActor")
   schoolFeedsFor   SchoolFeed[]    @relation("SchoolFeedKid")
 
   moneyJars          MoneyJarMember[]
@@ -1370,6 +1372,40 @@ model SchoolAssignment {
 
   @@index([profileId, status, dueDate])
   @@map("school_assignment")
+}
+
+/// Phase 59.1c: which table a WorkItemEvent's itemId points into.
+enum WorkItemType {
+  CHORE
+  ASSIGNMENT
+  SCHOOL_TASK
+}
+
+/// Phase 59.1c: who changed what, and when, on a chore, a piece of schoolwork or a school form.
+/// One table for all three, so one history query and one panel serve them. `itemId` has no
+/// foreign key (it points into one of three tables), so every delete of those rows removes its
+/// events in code (lib/work-items/events.ts; lib/work-items/events-guard.test.ts checks).
+/// Values are a status as stored ("DONE"), or display text (first names, dates as YYYY-MM-DD),
+/// capped at 200 characters, and never a note's text.
+model WorkItemEvent {
+  id          String       @id @default(cuid())
+  householdId String
+  household   Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  itemType    WorkItemType
+  itemId      String
+  actorId     String?
+  actor       Person?      @relation("WorkItemEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  /// STATUS | ASSIGN | MOVE | EDIT | GRADE | APPROVE | PUT_BACK
+  action      String
+  /// For EDIT: which field.
+  field       String?
+  fromValue   String?
+  toValue     String?
+  createdAt   DateTime     @default(now())
+
+  @@index([itemType, itemId, createdAt])
+  @@index([householdId, createdAt])
+  @@map("work_item_event")
 }
 
 /// A school calendar feed (Phase 18.5): an iCal subscription an admin adds. The URL is

@@ -151,7 +151,11 @@ export async function moveStoredDays(
     }
     const kept = new Set([...keep.values()].map((r) => r.id));
     const dropped = all.filter((r) => !kept.has(r.id)).map((r) => r.id);
-    if (dropped.length) await tx.$executeRawUnsafe(`DELETE FROM task_instance WHERE id = ANY($1::text[])`, dropped);
+    if (dropped.length) {
+      await tx.$executeRawUnsafe(`DELETE FROM task_instance WHERE id = ANY($1::text[])`, dropped);
+      // Phase 59.1c: their history goes too (work_item_event has no foreign key to do it).
+      await tx.$executeRawUnsafe(`DELETE FROM work_item_event WHERE "itemType" = 'CHORE' AND "itemId" = ANY($1::text[])`, dropped);
+    }
     const going = moved.filter((r) => kept.has(r.id));
     await writeAll(tx, table, column, going, ` + ${PARKED}`);
     await writeAll(tx, table, column, going);

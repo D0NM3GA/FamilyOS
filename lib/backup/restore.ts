@@ -84,7 +84,7 @@ function moneyContext(backup: Backup, people: PeoplePlan, linked: LinkedPerson[]
 
 async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promise<Record<string, number>> {
   const person = { householdId };
-  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories, petDiscoveries] = await Promise.all([
+  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories, petDiscoveries, history] = await Promise.all([
     db.person.count({ where: { householdId, authUserId: null } }),
     db.taskInstance.count({ where: { definition: { householdId } } }),
     db.taskDefinition.count({ where: { householdId } }),
@@ -105,6 +105,7 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     db.pet.count({ where: { householdId } }),
     db.petMemorial.count({ where: { householdId } }),
     db.petDiscovery.count({ where: { householdId } }),
+    db.workItemEvent.count({ where: { householdId } }),
   ]);
   return {
     "people (without their own sign-in)": people,
@@ -127,6 +128,7 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     pets,
     "pet memories": petMemories,
     "pet collection book entries": petDiscoveries,
+    "history of chores & schoolwork": history,
   };
 }
 
@@ -154,6 +156,7 @@ function insertCounts(b: Backup): Record<string, number> {
     pets: readablePets(b).length,
     "pet memories": b.petMemorials.length,
     "pet collection book entries": b.petDiscoveries.length,
+    "history of chores & schoolwork": b.workItemEvents.length,
   };
 }
 
@@ -251,6 +254,8 @@ export async function applyRestore(
       await tx.vehicle.deleteMany({ where: { householdId } }); // cascades items, logs, fuel, acks, item supplies, supply uses
       await tx.vehicleSupply.deleteMany({ where: { householdId } });
       await tx.schoolTask.deleteMany({ where: { householdId } });
+      // Phase 59.1c: history of the chores and schoolwork going below (no foreign key cascades it).
+      await tx.workItemEvent.deleteMany({ where: { householdId } });
       // Every student's profile, linked people's included (cascades contacts and homework).
       await tx.schoolProfile.deleteMany({ where: { person: { householdId } } });
       // Phase 20: orders reference rewards (a NO ACTION FK), so they go first. The bell's
@@ -328,6 +333,8 @@ export async function applyRestore(
       // After the chores' instances, which a present points at.
       await createInChunks(rows.petGifts, (data) => tx.petGift.createMany({ data }));
       await createInChunks(rows.petDiscoveries, (data) => tx.petDiscovery.createMany({ data }));
+      // Phase 59.1c: after the chores, schoolwork and forms it describes.
+      await createInChunks(rows.workItemEvents, (data) => tx.workItemEvent.createMany({ data }));
 
       // 4a. Phase 49: the file's days move to the restored household's zone, each keeping its
       // date and clock time, and the household records the zone they're in now.

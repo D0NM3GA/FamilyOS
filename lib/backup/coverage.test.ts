@@ -38,6 +38,7 @@ import type {
   PetMemorialModel,
   PetGiftModel,
   PetDiscoveryModel,
+  WorkItemEventModel,
 } from "@/app/generated/prisma/models";
 import type { Backup } from "./schema";
 
@@ -128,9 +129,11 @@ const checks = {
   petMemorial: true satisfies Covered<PetMemorialModel, Row<"petMemorials">, Scope>,
   petGift: true satisfies Covered<PetGiftModel, Row<"petGifts">, Scope>,
   petDiscovery: true satisfies Covered<PetDiscoveryModel, Row<"petDiscoveries">, Scope>,
+  // Phase 59.1c.
+  workItemEvent: true satisfies Covered<WorkItemEventModel, Row<"workItemEvents">, Scope>,
 };
 
 test("every app-owned model is checked for backup coverage", () => {
   expect(Object.values(checks).every(Boolean)).toBe(true);
-  expect(Object.keys(checks)).toHaveLength(38);
+  expect(Object.keys(checks)).toHaveLength(39);
 });

@@ -173,6 +173,7 @@ function tables(b: Backup): Record<string, { id: string }[]> {
     petItems: b.petItems,
     petMemorials: b.petMemorials,
     petGifts: b.petGifts,
+    workItemEvents: b.workItemEvents,
   };
 }
 
@@ -420,6 +421,9 @@ export function remapBackup(
   const logs = mapFor(b.serviceLogs);
   const supplies = mapFor(b.vehicleSupplies);
   const schoolProfiles = mapFor(b.schoolProfiles);
+  // Phase 59.1c: history events point at these by id, so they get maps like the rest.
+  const schoolTaskIds = mapFor(b.schoolTasks);
+  const assignmentIds = mapFor(b.schoolAssignments);
   const stores = mapFor(b.stores);
   const groups = mapFor(b.productGroups);
   const purchases = mapFor(b.purchases);
@@ -620,7 +624,7 @@ export function remapBackup(
     schoolContacts: b.schoolContacts.map((r) => ({ ...r, profileId: req(schoolProfiles, r.profileId), personId: req(people, r.personId) })),
     schoolTasks: b.schoolTasks.map((r) => ({
       ...r,
-      id: newId(),
+      id: req(schoolTaskIds, r.id),
       householdId,
       kidPersonId: opt(people, r.kidPersonId),
       ownerPersonId: opt(people, r.ownerPersonId),
@@ -630,7 +634,7 @@ export function remapBackup(
     })),
     schoolAssignments: b.schoolAssignments.map((r) => ({
       ...r,
-      id: newId(),
+      id: req(assignmentIds, r.id),
       profileId: req(schoolProfiles, r.profileId),
       dueDate: dateOrNull(r.dueDate),
       doneAt: dateOrNull(r.doneAt),
@@ -700,6 +704,14 @@ export function remapBackup(
       openedAt: dateOrNull(r.openedAt),
     })),
     petDiscoveries: b.petDiscoveries.map((r) => ({ ...r, householdId, personId: req(people, r.personId), foundAt: date(r.foundAt) })),
+    // Phase 59.1c: each event follows its item to its new id. One whose item isn't in the file
+    // is the history of nothing, so it's left out; an actor who isn't becomes "someone".
+    workItemEvents: b.workItemEvents.flatMap((r) => {
+      const items = r.itemType === "CHORE" ? instances : r.itemType === "ASSIGNMENT" ? assignmentIds : schoolTaskIds;
+      const itemId = items.get(r.itemId);
+      if (!itemId) return [];
+      return [{ ...r, id: newId(), householdId, itemId, actorId: r.actorId == null ? null : (people.get(r.actorId) ?? null), createdAt: date(r.createdAt) }];
+    }),
   };
 }
 

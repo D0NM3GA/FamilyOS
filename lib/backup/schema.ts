@@ -15,6 +15,7 @@ import {
   SchoolTaskStatus,
   AssignmentKind,
   AssignmentStatus,
+  WorkItemType,
 } from "@/app/generated/prisma/enums";
 import { withStarterKeys } from "@/lib/starting-sections";
 
@@ -398,6 +399,18 @@ const schoolTask = z.object({
   notes: nullableText,
   createdAt: iso,
 });
+/** Phase 59.1c (v9): who changed what on a chore, a piece of schoolwork or a form. */
+const workItemEvent = z.object({
+  id,
+  itemType: z.enum(WorkItemType),
+  itemId: id,
+  actorId: nullableId,
+  action: text,
+  field: nullableText,
+  fromValue: nullableText,
+  toValue: nullableText,
+  createdAt: iso,
+});
 const schoolAssignment = z.object({
   id,
   profileId: id,
@@ -464,12 +477,12 @@ export const BACKUP_FORMAT = "familyos-household-backup";
  * item, and no quantity units (an older file's units are ignored); v6 (Phase 24) receipt
  * prices and learned receipt matches; v7 (Phase 28) the sealed money jars; v8 (Phase 47) the
  * digital pet (pets, their items, game payouts, chore presents, the memory book, the collection book, and the household's care
- * hours). Older
+ * hours); v9 (Phase 59.1c) the history of chores, schoolwork and school forms. Older
  * files still restore with the arrays they lack defaulting to empty, so restoring one
  * removes that data here (the restore preview shows those delete counts). A v1 file still restores: those arrays
  * default to empty (and the restore preview says existing supplies will be removed).
  */
-export const BACKUP_SCHEMA_VERSION = 8;
+export const BACKUP_SCHEMA_VERSION = 9;
 
 /**
  * Phase 28 (v7): the household's money jars, sealed (AES-256-GCM over gzipped JSON, see
@@ -491,7 +504,7 @@ export type SealedMoney = z.infer<typeof sealedMoneySchema>;
 
 export const backupSchema = z.object({
   format: z.literal(BACKUP_FORMAT),
-  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, BACKUP_SCHEMA_VERSION]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, BACKUP_SCHEMA_VERSION]),
   exportedAt: iso,
   /**
    * Chore/med due dates and vehicle log dates are stored as the SERVER's local midnight.
@@ -539,6 +552,7 @@ export const backupSchema = z.object({
   petMemorials: z.array(petMemorial).default([]),
   petGifts: z.array(petGift).default([]),
   petDiscoveries: z.array(petDiscovery).default([]),
+  workItemEvents: z.array(workItemEvent).default([]),
   sealedMoney: sealedMoneySchema.nullable().default(null),
 });
 

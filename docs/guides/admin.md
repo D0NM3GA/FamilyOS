@@ -447,7 +447,9 @@ Run it once by hand to see it work, and look at `/var/log/familyos-backup.log` n
 **Settings → Data & backups** (`/data`). Any grown-up can download a spreadsheet (CSV) of a
 section. Admins can download a **whole-household backup** (`.json`): everything that lives only in
 the app, without PINs, sign-in links, photos or stored connection secrets. It holds meds,
-contacts, notes and the household's location, so store it like the settings file.
+contacts, notes and the household's location, so store it like the settings file. It also carries
+the history of chores, homework and school forms (who marked what done, gave it to whom, changed
+a due date or a grade). A note's text never goes into that history, only that it changed.
 
 - **Money jars ride in it sealed**, encrypted with `INTEGRATION_ENCRYPTION_KEY`: the admin holding
   the file can't read them; only a server with the same key can put them back. **Keep that key in
