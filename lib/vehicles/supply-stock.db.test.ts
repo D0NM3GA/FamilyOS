@@ -46,7 +46,7 @@ describe.skipIf(!RUN)("supply stock (database)", () => {
 
   test("takes what the item uses, records it, and reports low supplies", async () => {
     const first = await log();
-    expect(await consume(first.id)).toEqual(["Oil"]); // 7 - 5 = 2, at or below 5
+    expect(await consume(first.id)).toEqual([{ id: ids.oil, name: "Oil" }]); // 7 - 5 = 2, at or below 5
     expect(await onHand(ids.oil)).toBe(2);
     expect((await uses(first.id)).map((u) => [u.supplyId, u.quantity])).toEqual([[ids.oil, 5]]);
     // Inactive, untracked and other-household supplies are untouched.

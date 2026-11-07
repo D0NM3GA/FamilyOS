@@ -14,12 +14,12 @@ type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 /**
  * Takes each item supply's per-service amount from stock (clamped at zero, tracked and
  * active supplies only) and records what was actually taken against the log. Returns the
- * names of supplies that are low afterwards, judged against the row just written.
+ * supplies that are low afterwards (id and name, Phase 63a), judged against the row just written.
  */
 export async function consumeForService(
   tx: Tx,
   opts: { householdId: string; logId: string; itemId: string },
-): Promise<string[]> {
+): Promise<{ id: string; name: string }[]> {
   // Locked in id order, here and in restoreForUndo: two services sharing supplies must take
   // their row locks in the same order, or they can deadlock.
   const links = await tx.vehicleItemSupply.findMany({
@@ -27,7 +27,7 @@ export async function consumeForService(
     select: { supplyId: true, quantity: true },
     orderBy: { supplyId: "asc" },
   });
-  const low: string[] = [];
+  const low: { id: string; name: string }[] = [];
   for (const link of links) {
     const [row] = await tx.$queryRaw<{ before: number; after: number; lowThreshold: number | null; name: string }[]>`
       WITH locked AS (
@@ -45,7 +45,7 @@ export async function consumeForService(
     if (taken > 0) {
       await tx.vehicleServiceSupplyUse.create({ data: { logId: opts.logId, supplyId: link.supplyId, quantity: taken } });
     }
-    if (isSupplyLow(row.after, row.lowThreshold)) low.push(row.name);
+    if (isSupplyLow(row.after, row.lowThreshold)) low.push({ id: link.supplyId, name: row.name });
   }
   return low;
 }
