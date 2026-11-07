@@ -1751,6 +1751,10 @@ model WorkItemEvent {
   check". **Approve** clears the flag; **Put back** restores each changed field's oldest
   `fromValue` since the last review, clears the flag, and records `PUT_BACK`. Grades, Missing,
   notes and removing what a grown-up recorded stay grown-up only.
+- **Two pull requests** (built 2026-11-07): 59.2a, School's in-place edits and kids' changes;
+  59.2b, moving chores. A grown-up's own edit or grade of a flagged assignment counts as checking
+  it (an APPROVE event), so graded work never waits; the count and the Approve / Put back strip
+  show on the open list and Done recently.
 - **Chores: Move to tomorrow, and Move to today** (grown-ups; the owner's call, 2026-11-07), in
   the card's ⋯ menu, for a pending chore whose definition isn't daily: tomorrow for one due today
   or overdue, and today for an overdue one. A daily chore already has tomorrow's copy

@@ -426,6 +426,8 @@ const schoolAssignment = z.object({
   source: text,
   externalId: nullableText,
   doneAt: nullableIso,
+  // Phase 59.2a: a kid's change a grown-up hasn't checked yet.
+  kidChangedAt: nullableIso.default(null),
   createdAt: iso,
 });
 

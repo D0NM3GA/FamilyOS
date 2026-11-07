@@ -9,6 +9,39 @@ import { ConfirmAction } from "@/components/submit";
 import { iconBtn, menuItem } from "@/components/styles";
 import type { WorkItem } from "@/lib/work-items/types";
 import { ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
+import { btn } from "@/components/styles";
+import { AssignmentDetailsForm, GradeForm, TaskForm } from "./forms";
+import type { SchoolFormState } from "./actions";
+
+type FormAction = (prev: SchoolFormState, fd: FormData) => Promise<SchoolFormState>;
+
+/** Phase 59.2a: a grown-up's Approve / Put back for a kid's own change. */
+export function KidChange({ who, title, onApprove, onPutBack }: { who: string; title: string; onApprove: () => Promise<void>; onPutBack: () => Promise<void> }) {
+  const [pending, start] = useTransition();
+  const [failed, setFailed] = useState(false);
+  const run = (fn: () => Promise<void>) =>
+    start(async () => {
+      setFailed(false);
+      try {
+        await fn();
+      } catch (err) {
+        console.error("[school-row] review failed", err);
+        setFailed(true);
+      }
+    });
+  return (
+    <div className="flex basis-full flex-wrap items-center gap-2 rounded-xl bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">
+      <span className="mr-auto">Changed by {who}</span>
+      <button type="button" disabled={pending} onClick={() => run(onApprove)} aria-label={`Approve ${who}'s change to ${title}`} className={btn}>
+        Approve
+      </button>
+      <button type="button" disabled={pending} onClick={() => run(onPutBack)} aria-label={`Put back ${who}'s change to ${title}`} className={btn}>
+        Put back
+      </button>
+      {failed && <span role="alert" className="basis-full text-destructive">Couldn&apos;t save that. Refresh the page and try again.</span>}
+    </div>
+  );
+}
 
 /**
  * Phase 59.1a: a row on School with its status pill. The pill and the tick box change the status
@@ -84,6 +117,9 @@ export function AssignmentRow({
   canRemove,
   onStatus,
   onRemove,
+  details,
+  grade,
+  kidChange,
 }: {
   item: WorkItem<AssignmentStatus>;
   kind: AssignmentKind;
@@ -96,9 +132,16 @@ export function AssignmentRow({
   canRemove: boolean;
   onStatus: (id: string, to: AssignmentStatus) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  /** Phase 59.2a: the quick edit, when the viewer may change the details (a kid: their own). */
+  details?: { action: FormAction; defaults: { title: string; className: string; kind: AssignmentKind; dueDate: string } };
+  /** Phase 59.2a: grown-ups' "Grade it". */
+  grade?: { action: FormAction; defaults: { score: string; maxScore: string } };
+  /** Phase 59.2a: a kid's change waiting for a grown-up. */
+  kidChange?: { who: string; onApprove: (id: string) => Promise<void>; onPutBack: (id: string) => Promise<void> };
 }) {
   const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus);
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState<null | "details" | "grade">(null);
   // Cancel hands focus back to the ⋯ the question came from.
   const more = useRef<HTMLButtonElement>(null);
   const look = item.looks[status]!;
@@ -113,17 +156,31 @@ export function AssignmentRow({
       ) : (
         <span aria-hidden className="size-11 shrink-0 sm:size-9" />
       )}
-      <div className="min-w-0 flex-1 basis-40">
-        <p className="text-sm text-foreground">
-          <span className="text-xs font-bold text-muted-foreground">{className}</span> <KindTag kind={kind} />
-          {item.title}
-        </p>
-        <p className={`text-xs ${overdue && status === "TODO" ? "font-bold text-destructive" : "text-muted-foreground"}`}>{dueText}</p>
-      </div>
+      {details ? (
+        // Tapping the words opens the quick edit, where the viewer may change them.
+        <button
+          type="button"
+          aria-expanded={editing === "details"}
+          aria-label={`Change ${item.title}: ${className}, ${dueText}`}
+          onClick={() => setEditing(editing === "details" ? null : "details")}
+          className="min-h-11 min-w-0 flex-1 basis-40 rounded-lg px-1 text-left hover:bg-muted"
+        >
+          <AssignmentWords className={className} kind={kind} title={item.title} dueText={dueText} late={overdue && status === "TODO"} />
+        </button>
+      ) : (
+        <div className="min-w-0 flex-1 basis-40">
+          <AssignmentWords className={className} kind={kind} title={item.title} dueText={dueText} late={overdue && status === "TODO"} />
+        </div>
+      )}
       <div className="ml-auto flex items-center gap-1">
         <StatusPill look={look} options={pending ? [] : options} title={item.title} onPick={pick} />
-        {(editHref || canRemove) && (
+        {(editHref || canRemove || grade) && (
           <MoreMenu label={`More for ${item.title}`} triggerRef={more}>
+            {grade && (
+              <button type="button" className={menuItem} onClick={() => setEditing("grade")}>
+                Grade it
+              </button>
+            )}
             {editHref && (
               <Link href={editHref} className={menuItem}>
                 Edit
@@ -137,6 +194,11 @@ export function AssignmentRow({
           </MoreMenu>
         )}
       </div>
+      {kidChange && (
+        <KidChange who={kidChange.who} title={item.title} onApprove={() => kidChange.onApprove(item.id)} onPutBack={() => kidChange.onPutBack(item.id)} />
+      )}
+      {editing === "details" && details && <AssignmentDetailsForm action={details.action} defaults={details.defaults} onClose={() => setEditing(null)} />}
+      {editing === "grade" && grade && <GradeForm action={grade.action} defaults={grade.defaults} onClose={() => setEditing(null)} />}
       {confirming && (
         <ConfirmAction
           initiallyAsking
@@ -167,6 +229,19 @@ export function AssignmentRow({
   );
 }
 
+
+function AssignmentWords({ className, kind, title, dueText, late }: { className: string; kind: AssignmentKind; title: string; dueText: string; late: boolean }) {
+  return (
+    <>
+      <span className="block text-sm text-foreground">
+        <span className="text-xs font-bold text-muted-foreground">{className}</span> <KindTag kind={kind} />
+        {title}
+      </span>
+      <span className={`block text-xs ${late ? "font-bold text-destructive" : "text-muted-foreground"}`}>{dueText}</span>
+    </>
+  );
+}
+
 type TaskStatus = "OPEN" | "DONE";
 
 export function SchoolTaskRow({
@@ -177,6 +252,8 @@ export function SchoolTaskRow({
   removeQuestion,
   onStatus,
   onRemove,
+  edit,
+  onClaim,
 }: {
   item: WorkItem<TaskStatus>;
   /** The kind and amount, before and after the title. */
@@ -186,9 +263,24 @@ export function SchoolTaskRow({
   removeQuestion: string;
   onStatus: (id: string, to: TaskStatus) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  /** Phase 59.2a: the full edit, opened in the row. */
+  edit: { action: FormAction; defaults: Parameters<typeof TaskForm>[0]["defaults"]; kids: { id: string; name: string }[]; adults: { id: string; name: string }[] };
+  /** Phase 59.2a: "I've got it", when someone else (or nobody) has it. */
+  onClaim?: (id: string) => Promise<void>;
 }) {
   const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus);
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const claim = () =>
+    start(async () => {
+      setFailed(false);
+      try {
+        await onClaim!(item.id);
+      } catch (err) {
+        console.error("[school-row] claim failed", err);
+        setFailed("save");
+      }
+    });
   // Cancel hands focus back to the ⋯ the question came from.
   const more = useRef<HTMLButtonElement>(null);
   const look = item.looks[status]!;
@@ -210,11 +302,24 @@ export function SchoolTaskRow({
       <div className="ml-auto flex items-center gap-1">
         <StatusPill look={look} options={pending ? [] : item.options[status]} title={item.title} onPick={pick} />
         <MoreMenu label={`More for ${item.title}`} triggerRef={more}>
+          <button type="button" className={menuItem} onClick={() => setEditing(true)}>
+            Edit
+          </button>
+          {onClaim && (
+            <button type="button" className={menuItem} onClick={claim}>
+              I&apos;ve got it
+            </button>
+          )}
           <button type="button" className={`${menuItem} text-destructive`} onClick={() => setConfirming(true)}>
             Remove
           </button>
         </MoreMenu>
       </div>
+      {editing && (
+        <div className="basis-full">
+          <TaskForm action={edit.action} kids={edit.kids} adults={edit.adults} defaults={edit.defaults} onClose={() => setEditing(false)} />
+        </div>
+      )}
       {confirming && (
         <ConfirmAction
           initiallyAsking

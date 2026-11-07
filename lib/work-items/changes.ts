@@ -35,3 +35,54 @@ export function assignmentChanges(before: AssignmentSnapshot, after: AssignmentS
   if (g0 !== g1) changes.push({ itemType: "ASSIGNMENT", action: "GRADE", fromValue: g0, toValue: g1 });
   return changes;
 }
+
+/** Phase 59.2a: the fields a kid may change, which Put back can restore. */
+export const KID_EDITABLE = ["title", "className", "kind", "dueDate"] as const;
+export type KidEditable = (typeof KID_EDITABLE)[number];
+
+/**
+ * Put back: each field the student changed since a grown-up last approved or put back, with the
+ * value it had before their first change. `events` are the item's, oldest first.
+ */
+export function putBackValues(
+  events: { action: string; field: string | null; fromValue: string | null; actorId: string | null }[],
+  studentId: string,
+): Partial<Record<KidEditable, string | null>> {
+  const lastReview = events.map((e) => e.action).lastIndexOf("APPROVE");
+  const lastPutBack = events.map((e) => e.action).lastIndexOf("PUT_BACK");
+  const since = events.slice(Math.max(lastReview, lastPutBack) + 1);
+  const out: Partial<Record<KidEditable, string | null>> = {};
+  for (const e of since) {
+    if (e.action !== "EDIT" || e.actorId !== studentId || !e.field) continue;
+    if (!(KID_EDITABLE as readonly string[]).includes(e.field)) continue;
+    const field = e.field as KidEditable;
+    if (!(field in out)) out[field] = e.fromValue;
+  }
+  return out;
+}
+
+type TaskSnapshot = {
+  title: string;
+  kind: string;
+  kid: string | null;
+  owner: string | null;
+  dueDate: Date | null;
+  amount: string | null;
+  notes: string | null;
+};
+
+/** Phase 59.2a: what a form edit changed. People by first name; a note only says it changed. */
+export function taskChanges(before: TaskSnapshot, after: TaskSnapshot): Change[] {
+  const changes: Change[] = [];
+  const edit = (field: string, from: string | null, to: string | null) => {
+    if (from !== to) changes.push({ itemType: "SCHOOL_TASK", action: "EDIT", field, fromValue: from, toValue: to });
+  };
+  edit("title", before.title, after.title);
+  edit("kind", before.kind, after.kind);
+  edit("kid", before.kid, after.kid);
+  if (before.owner !== after.owner) changes.push({ itemType: "SCHOOL_TASK", action: "ASSIGN", fromValue: before.owner, toValue: after.owner });
+  edit("dueDate", eventDate(before.dueDate), eventDate(after.dueDate));
+  edit("amount", before.amount, after.amount);
+  if ((before.notes ?? "") !== (after.notes ?? "")) changes.push({ itemType: "SCHOOL_TASK", action: "EDIT", field: "notes" });
+  return changes;
+}

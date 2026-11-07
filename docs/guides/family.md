@@ -325,6 +325,14 @@ arrow: tap it to pick what's next. Kids can move their own
 work between **To do** and **Turned in**; only a grown-up marks work **Missing** or clears it.
 **Edit** and **Remove** are under each row's **⋯**, and Remove asks first.
 
+**Change things in place.** Tap a piece of homework's words to change its title, class, type or
+due date right there. Grown-ups also have **Grade it** under the **⋯** for the score. Kids can
+change their own homework this way too (not once it's missing or graded): the change shows at
+once, and grown-ups see **Changed by Ivy** on it, with **Approve** to keep it or **Put back** to
+undo it. The heading says how many changes are waiting. A grown-up's own edit counts as checking.
+For **Forms & to-dos**, the **⋯** has **Edit** (everything about it) and **I've got it** (it's
+yours to handle, in one tap).
+
 Kids see their own. Grown-ups set up each kid's school details and add homework. Admins add the
 school's calendar under **Calendars**: type the school's website and the app finds its calendar
 (or paste the calendar's subscribe link). **Print a fridge card** makes a one-page summary.

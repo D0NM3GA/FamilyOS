@@ -1366,6 +1366,9 @@ model SchoolAssignment {
   source     String           @default("MANUAL")
   externalId String?
   doneAt     DateTime?
+  /// Phase 59.2a: when the student last changed the details themself, until a grown-up approves
+  /// or puts it back (the old values are in WorkItemEvent). Null means nothing to check.
+  kidChangedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

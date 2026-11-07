@@ -1382,3 +1382,15 @@ ticking off done work again writes nothing (so `doneAt` keeps when it was finish
 already did). The full edit only saves over the row it read (`updatedAt`); an edit that landed in
 between gets "Someone changed this one just now", so the history's "from" is always true. The
 restore preview lists the history it removes and restores.
+
+### 59.2a — School, changed in place
+
+Tapping a homework row's words opens `AssignmentDetailsForm` in the row (title, class, type, due
+date; `setAssignmentDetails`), and the ⋯ has Grade it (`GradeForm`, `gradeAssignment`). Both save
+only over the row they read (`updatedAt`) and record what changed. A kid may change their own work
+that isn't missing or graded (`canEditAssignmentDetails`, the owner's call): it applies at once and
+sets `SchoolAssignment.kidChangedAt`; grown-ups see "Changed by …" with Approve (clears it) and Put
+back (`putBackValues`: each field's value from before the kid's first change since the last
+review, read from the history). A grown-up's own edit or grade clears it with an APPROVE event.
+Forms get `updateTask` (the add form reused in the row, with defaults) and `claimTask` ("I've got
+it"), both recorded. `kidChangedAt` rides in the backup (defaulting to null for older files).

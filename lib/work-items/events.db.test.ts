@@ -152,4 +152,60 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     await deleteTask(task.id);
     expect(await history(task.id)).toEqual([]);
   });
+
+  test("Phase 59.2a: a kid's own change shows for a grown-up, who can approve it or put it back", async () => {
+    const { setAssignmentDetails, approveKidChange, putBackKidChange } = await import("@/app/(app)/school/actions");
+    const a = await prisma.schoolAssignment.create({ data: { profileId: ids.profile, className: "Math", title: "Ch 4", dueDate: addDays(today, 2) } });
+    const details = (o: Record<string, string>) => {
+      const f = new FormData();
+      for (const [k, v] of Object.entries({ className: "Math", title: "Ch 4", kind: "HOMEWORK", dueDate: "", ...o })) f.set(k, v);
+      return f;
+    };
+    const due = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const row = () => prisma.schoolAssignment.findUniqueOrThrow({ where: { id: a.id } });
+
+    await as(ids.max); // not his
+    expect(await setAssignmentDetails(a.id, {}, details({ title: "Mine now" }))).toEqual({ error: "Ask a grown-up to change that one." });
+
+    await as(ids.kid);
+    expect(await setAssignmentDetails(a.id, {}, details({ dueDate: due(addDays(today, 9)) }))).toEqual({ notice: "Saved." });
+    expect(await setAssignmentDetails(a.id, {}, details({ dueDate: due(addDays(today, 12)), title: "Chapter 4" }))).toEqual({ notice: "Saved." });
+    expect((await row()).kidChangedAt).not.toBeNull();
+
+    await as(ids.mom);
+    await putBackKidChange(a.id);
+    const back = await row();
+    expect([back.title, due(back.dueDate!), back.kidChangedAt]).toEqual(["Ch 4", due(addDays(today, 2)), null]);
+
+    await as(ids.kid);
+    await setAssignmentDetails(a.id, {}, details({ kind: "TEST", dueDate: due(addDays(today, 2)) }));
+    await as(ids.mom);
+    await approveKidChange(a.id);
+    const kept = await row();
+    expect([kept.kind, kept.kidChangedAt]).toEqual(["TEST", null]);
+    expect((await history(a.id)).map((e) => e.action)).toEqual(["EDIT", "EDIT", "EDIT", "PUT_BACK", "PUT_BACK", "EDIT", "APPROVE"]);
+
+    // Graded work is a grown-up's to change.
+    const { gradeAssignment } = await import("@/app/(app)/school/actions");
+    const g = new FormData();
+    g.set("score", "9");
+    g.set("maxScore", "10");
+    expect(await gradeAssignment(a.id, {}, g)).toEqual({ notice: "Saved." });
+    await as(ids.kid);
+    expect(await setAssignmentDetails(a.id, {}, details({ title: "Easy" }))).toEqual({ error: "Ask a grown-up to change that one." });
+  });
+
+  test("Phase 59.2a: a form is edited in place, and I've got it hands it over in one tap", async () => {
+    const { updateTask, claimTask } = await import("@/app/(app)/school/actions");
+    const task = await prisma.schoolTask.create({ data: { householdId: ids.h, title: "Book fair money" } });
+    await as(ids.mom);
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ title: "Book fair money", kind: "FEE", amount: "10", dueDate: "", kidPersonId: ids.kid, ownerPersonId: "", notes: "" })) f.set(k, v);
+    expect(await updateTask(task.id, {}, f)).toEqual({ notice: "Saved." });
+    await claimTask(task.id);
+    await claimTask(task.id); // already hers
+    const saved = await prisma.schoolTask.findUniqueOrThrow({ where: { id: task.id } });
+    expect([saved.kind, saved.amountCents, saved.kidPersonId, saved.ownerPersonId]).toEqual(["FEE", 1000, ids.kid, ids.mom]);
+    expect((await history(task.id)).map((e) => `${e.action}:${e.field ?? ""}:${e.toValue ?? ""}`)).toEqual(["EDIT:kind:FEE", "EDIT:kid:Ivy", "EDIT:amount:$10.00", "ASSIGN::Mom"]);
+  });
 });

@@ -27,6 +27,15 @@ export function canSetAssignmentStatus(
   return to !== "MISSING" && a.status !== "MISSING";
 }
 
+/**
+ * Phase 59.2a (the owner's call, 2026-11-07): a kid may change the title, class, type and due date
+ * of their own work, but not once it's missing or graded; a grown-up reviews what they changed.
+ */
+export function canEditAssignmentDetails(viewer: Viewer, a: { studentId: string; status: AssignmentStatusValue; score: number | null }): boolean {
+  if (!canSeeStudent(viewer, a.studentId)) return false;
+  return isAdult(viewer) || (a.score == null && a.status !== "MISSING");
+}
+
 /** Kids can remove their own homework, not a grade or a "missing" a grown-up recorded. */
 export function canRemoveAssignment(viewer: Viewer, a: { studentId: string; status: AssignmentStatusValue; score: number | null }): boolean {
   if (!canSeeStudent(viewer, a.studentId)) return false;

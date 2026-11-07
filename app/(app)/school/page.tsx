@@ -13,12 +13,27 @@ import { formatMoney } from "@/lib/money";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { PageHeader } from "@/components/page-header";
 import { btn, card, chip, chipRow, fieldLabel, iconBtn, sectionTitle } from "@/components/styles";
-import { addAssignment, addTask, deleteAssignment, deleteTask, setAssignmentStatus, setTaskDone, setTaskStatus } from "./actions";
+import {
+  addAssignment,
+  addTask,
+  approveKidChange,
+  claimTask,
+  deleteAssignment,
+  deleteTask,
+  gradeAssignment,
+  putBackKidChange,
+  setAssignmentDetails,
+  setAssignmentStatus,
+  setTaskDone,
+  setTaskStatus,
+  updateTask,
+} from "./actions";
 import { AssignmentForm, TaskForm } from "./forms";
-import { AssignmentRow, SchoolTaskRow } from "./rows";
+import { AssignmentRow, KidChange, SchoolTaskRow } from "./rows";
 import { assignmentItem } from "@/lib/work-items/assignment";
 import { schoolTaskItem } from "@/lib/work-items/school-task";
-import { canRemoveAssignment } from "@/lib/school/permissions";
+import { canEditAssignmentDetails, canRemoveAssignment } from "@/lib/school/permissions";
+import { toISODate } from "@/lib/format";
 import { requireAppOn } from "@/lib/app-guard";
 import { SubmitButton } from "@/components/submit";
 
@@ -78,6 +93,11 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
     (a) => (a.kind === "TEST" || a.kind === "QUIZ") && a.status === "TODO" && a.dueDate != null && a.dueDate >= weekStart && a.dueDate < weekEnd,
   );
   const testsThisWeek = toSit.length;
+  // Phase 59.2a: what the student changed themself, for a grown-up to check.
+  // Counted where it can be checked: the open list and Done recently (a grown-up's own edit or
+  // grade counts as checking it, so graded work never waits).
+  const toCheck = adult ? [...open, ...doneRecently].filter((a) => a.kidChangedAt != null).length : 0;
+  const kidsList = students.map((s) => ({ id: s.id, name: s.firstName }));
   // Says what's coming: "2 tests", "1 quiz", "1 test and 1 quiz".
   const tests = toSit.filter((a) => a.kind === "TEST").length;
   const quizzes = testsThisWeek - tests;
@@ -211,6 +231,21 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                       removeQuestion={`Remove "${t.title}"? This can't be undone.`}
                       onStatus={setTaskStatus}
                       onRemove={deleteTask}
+                      edit={{
+                        action: updateTask.bind(null, t.id),
+                        defaults: {
+                          title: t.title,
+                          kind: t.kind,
+                          dueDate: t.dueDate ? toISODate(t.dueDate) : "",
+                          amount: t.amountCents != null ? (t.amountCents / 100).toFixed(2) : "",
+                          kidPersonId: t.kidPersonId ?? "",
+                          ownerPersonId: t.ownerPersonId ?? "",
+                          notes: t.notes ?? "",
+                        },
+                        kids: kidsList,
+                        adults: members.filter((m) => m.role !== "KID").map((m) => ({ id: m.id, name: m.firstName })),
+                      }}
+                      onClaim={t.ownerPersonId === viewer.id ? undefined : claimTask}
                     />
                   );
                 })}
@@ -249,6 +284,11 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
         <section className={`min-w-0 ${card} lg:col-span-2`}>
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
             <h2 className={cardTitle}>Homework & tests</h2>
+            {toCheck > 0 && (
+              <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                {toCheck === 1 ? "1 change to check" : `${toCheck} changes to check`}
+              </p>
+            )}
             {testsThisWeek > 0 && (
               <p className="text-sm font-bold text-sky-800 dark:text-sky-300">
                 {toSitLabel} this week
@@ -279,6 +319,20 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                         removeQuestion={`Remove "${a.title}"${a.score != null ? " and its grade" : ""}? This can't be undone.`}
                         onStatus={setAssignmentStatus}
                         onRemove={deleteAssignment}
+                        details={
+                          canEditAssignmentDetails(viewer, { studentId: person.id, status: a.status, score: a.score })
+                            ? {
+                                action: setAssignmentDetails.bind(null, a.id),
+                                defaults: { title: a.title, className: a.className, kind: a.kind, dueDate: a.dueDate ? toISODate(a.dueDate) : "" },
+                              }
+                            : undefined
+                        }
+                        grade={
+                          adult
+                            ? { action: gradeAssignment.bind(null, a.id), defaults: { score: a.score?.toString() ?? "", maxScore: a.maxScore?.toString() ?? "" } }
+                            : undefined
+                        }
+                        kidChange={adult && a.kidChangedAt ? { who: person.firstName, onApprove: approveKidChange, onPutBack: putBackKidChange } : undefined}
                       />
                     );
                   })}
@@ -289,7 +343,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                   <summary className="cursor-pointer py-3 font-bold text-muted-foreground sm:py-1">Done recently ({doneRecently.length})</summary>
                   <ul className="mt-1 space-y-1">
                     {doneRecently.map((a) => (
-                      <li key={a.id} className="flex items-center justify-between gap-2">
+                      <li key={a.id} className="flex flex-wrap items-center justify-between gap-2">
                         <span className="min-w-0 text-muted-foreground line-through">
                           <span className="text-xs font-bold">{a.className}</span> {a.title}
                         </span>
@@ -298,6 +352,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                             Undo
                           </SubmitButton>
                         </form>
+                        {adult && a.kidChangedAt && <KidChange who={person.firstName} title={a.title} onApprove={approveKidChange.bind(null, a.id)} onPutBack={putBackKidChange.bind(null, a.id)} />}
                       </li>
                     ))}
                   </ul>

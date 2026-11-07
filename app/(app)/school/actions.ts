@@ -5,10 +5,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult, requireAdult } from "@/lib/authz";
-import { parseAssignmentForm, parseProfileForm, parseTaskForm } from "@/lib/school/form";
-import { canRemoveAssignment, canSeeStudent, canSetAssignmentStatus } from "@/lib/school/permissions";
+import { ASSIGNMENT_KINDS, parseAssignmentDetails, parseAssignmentForm, parseGrade, parseProfileForm, parseTaskForm, type AssignmentKindValue } from "@/lib/school/form";
+import { canEditAssignmentDetails, canRemoveAssignment, canSeeStudent, canSetAssignmentStatus } from "@/lib/school/permissions";
 import { deleteEventsFor, recordEvent, recordEvents } from "@/lib/work-items/events";
-import { assignmentChanges } from "@/lib/work-items/changes";
+import { assignmentChanges, putBackValues, taskChanges } from "@/lib/work-items/changes";
+import { parseLocalDate } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 
 /**
  * School (Phase 18). Adults manage everything. A kid can add, tick off and delete their
@@ -199,11 +201,15 @@ export async function updateAssignment(assignmentId: string, _prev: SchoolFormSt
     // asks for a reload instead of being overwritten.
     const { count } = await tx.schoolAssignment.updateMany({
       where: { id: assignmentId, updatedAt: before.updatedAt },
-      // Editing the grade later mustn't move when it was finished.
-      data: { ...parsed.fields, doneAt: parsed.fields.status === "DONE" ? (before.doneAt ?? new Date()) : null },
+      // Editing the grade later mustn't move when it was finished. A grown-up's own edit counts
+      // as checking a kid's change (Phase 59.2a).
+      data: { ...parsed.fields, doneAt: parsed.fields.status === "DONE" ? (before.doneAt ?? new Date()) : null, kidChangedAt: null },
     });
     if (count === 0) return "changed" as const;
-    await recordEvents(tx, assignmentChanges(before, parsed.fields).map((c) => ({ ...c, householdId: viewer.householdId, itemId: assignmentId, actorId: viewer.id })));
+    await recordEvents(tx, [
+      ...assignmentChanges(before, parsed.fields).map((c) => ({ ...c, householdId: viewer.householdId, itemId: assignmentId, actorId: viewer.id })),
+      ...reviewed(before, viewer, assignmentId),
+    ]);
     return "saved" as const;
   });
   if (saved === "gone") return { error: "Assignment not found." };
@@ -223,6 +229,175 @@ export async function deleteAssignment(assignmentId: string) {
   await prisma.$transaction(async (tx) => {
     await tx.schoolAssignment.delete({ where: { id: assignmentId } });
     await deleteEventsFor(tx, "ASSIGNMENT", [assignmentId]);
+  });
+  revalidateSchool();
+}
+
+// ---- Phase 59.2a: change things in place ----------------------------------------------------
+
+/** A grown-up's own edit of a flagged assignment checks the kid's change: one APPROVE event. */
+function reviewed(before: { kidChangedAt: Date | null }, viewer: { id: string; householdId: string }, itemId: string) {
+  return before.kidChangedAt ? [{ householdId: viewer.householdId, itemType: "ASSIGNMENT" as const, itemId, actorId: viewer.id, action: "APPROVE" as const }] : [];
+}
+
+const CHANGED_MEANWHILE = "Someone changed this one just now. Reload the page and try again.";
+
+/**
+ * The quick edit of an assignment's title, class, type and due date. A grown-up may change any;
+ * a kid their own work that isn't missing or graded (the owner's call, 2026-11-07), and then a
+ * grown-up sees it flagged to approve or put back.
+ */
+export async function setAssignmentDetails(assignmentId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
+  const viewer = await requireActiveProfile();
+  const parsed = parseAssignmentDetails(fd);
+  if (!parsed.ok) return { error: parsed.error };
+  const kid = !isAdult(viewer);
+  const result = await prisma.$transaction(async (tx) => {
+    const before = await tx.schoolAssignment.findFirst({
+      where: { id: assignmentId, profile: { person: { householdId: viewer.householdId } } },
+      include: { profile: { select: { personId: true } } },
+    });
+    if (!before || !canEditAssignmentDetails(viewer, { studentId: before.profile.personId, status: before.status, score: before.score })) return "refused" as const;
+    const changes = assignmentChanges(before, { ...before, ...parsed.fields });
+    if (changes.length === 0) return "same" as const;
+    const { count } = await tx.schoolAssignment.updateMany({
+      where: { id: assignmentId, updatedAt: before.updatedAt },
+      data: { ...parsed.fields, kidChangedAt: kid ? new Date() : null },
+    });
+    if (count === 0) return "changed" as const;
+    await recordEvents(tx, [
+      ...changes.map((c) => ({ ...c, householdId: viewer.householdId, itemId: assignmentId, actorId: viewer.id })),
+      ...(kid ? [] : reviewed(before, viewer, assignmentId)),
+    ]);
+    return "saved" as const;
+  });
+  if (result === "refused") return { error: kid ? "Ask a grown-up to change that one." : "Assignment not found." };
+  if (result === "changed") return { error: CHANGED_MEANWHILE };
+  revalidateSchool();
+  return { notice: "Saved." };
+}
+
+/** Grown-ups: the score and what it's out of, from the row. */
+export async function gradeAssignment(assignmentId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
+  const viewer = await requireAdult();
+  const parsed = parseGrade(fd);
+  if (!parsed.ok) return { error: parsed.error };
+  const result = await prisma.$transaction(async (tx) => {
+    const before = await tx.schoolAssignment.findFirst({ where: { id: assignmentId, profile: { person: { householdId: viewer.householdId } } } });
+    if (!before) return "gone" as const;
+    const changes = assignmentChanges(before, { ...before, ...parsed.fields });
+    if (changes.length === 0) return "same" as const;
+    const { count } = await tx.schoolAssignment.updateMany({ where: { id: assignmentId, updatedAt: before.updatedAt }, data: { ...parsed.fields, kidChangedAt: null } });
+    if (count === 0) return "changed" as const;
+    await recordEvents(tx, [
+      ...changes.map((c) => ({ ...c, householdId: viewer.householdId, itemId: assignmentId, actorId: viewer.id })),
+      ...reviewed(before, viewer, assignmentId),
+    ]);
+    return "saved" as const;
+  });
+  if (result === "gone") return { error: "Assignment not found." };
+  if (result === "changed") return { error: CHANGED_MEANWHILE };
+  revalidateSchool();
+  return { notice: "Saved." };
+}
+
+/** Grown-ups: a kid's change is fine as it is. */
+export async function approveKidChange(assignmentId: string) {
+  const viewer = await requireAdult();
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.schoolAssignment.updateMany({
+      where: { id: assignmentId, kidChangedAt: { not: null }, profile: { person: { householdId: viewer.householdId } } },
+      data: { kidChangedAt: null },
+    });
+    if (count > 0) await recordEvent(tx, { householdId: viewer.householdId, itemType: "ASSIGNMENT", itemId: assignmentId, actorId: viewer.id, action: "APPROVE" });
+  });
+  revalidateSchool();
+}
+
+/**
+ * Grown-ups: undo a kid's changes since the last review, back to what each field was before
+ * their first change (from the history, lib/work-items/changes.ts's putBackValues).
+ */
+export async function putBackKidChange(assignmentId: string) {
+  const viewer = await requireAdult();
+  await prisma.$transaction(async (tx) => {
+    const a = await tx.schoolAssignment.findFirst({
+      where: { id: assignmentId, kidChangedAt: { not: null }, profile: { person: { householdId: viewer.householdId } } },
+      include: { profile: { select: { personId: true } } },
+    });
+    if (!a) return;
+    const events = await tx.workItemEvent.findMany({ where: { itemType: "ASSIGNMENT", itemId: assignmentId }, orderBy: { createdAt: "asc" } });
+    const back = putBackValues(events, a.profile.personId);
+    const data: { title?: string; className?: string; kind?: AssignmentKindValue; dueDate?: Date | null } = {};
+    if (back.title) data.title = back.title;
+    if (back.className) data.className = back.className;
+    if (back.kind && (ASSIGNMENT_KINDS as readonly string[]).includes(back.kind)) data.kind = back.kind as AssignmentKindValue;
+    if ("dueDate" in back) data.dueDate = back.dueDate ? parseLocalDate(back.dueDate) : null;
+    const changes = assignmentChanges(a, { ...a, ...data });
+    await tx.schoolAssignment.update({ where: { id: assignmentId }, data: { ...data, kidChangedAt: null } });
+    await recordEvents(
+      tx,
+      changes.map((c) => ({ ...c, action: "PUT_BACK" as const, householdId: viewer.householdId, itemId: assignmentId, actorId: viewer.id })),
+    );
+    // Nothing left to restore still counts as reviewed.
+    if (changes.length === 0) await recordEvent(tx, { householdId: viewer.householdId, itemType: "ASSIGNMENT", itemId: assignmentId, actorId: viewer.id, action: "PUT_BACK" });
+  });
+  revalidateSchool();
+}
+
+/** Grown-ups: a form, fee or to-do's full edit. */
+export async function updateTask(taskId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
+  const profile = await requireAdult();
+  const parsed = parseTaskForm(fd);
+  if (!parsed.ok) return { error: parsed.error };
+  const { kidPersonId, ownerPersonId } = parsed.fields;
+  const names = new Map<string, string>();
+  for (const id of [kidPersonId, ownerPersonId]) {
+    if (!id) continue;
+    const found = await prisma.person.findFirst({ where: { id, householdId: profile.householdId, isHouseholdMember: true }, select: { id: true, firstName: true } });
+    if (!found) return { error: "That family member wasn't found." };
+    names.set(found.id, found.firstName);
+  }
+  const result = await prisma.$transaction(async (tx) => {
+    const before = await tx.schoolTask.findFirst({
+      where: { id: taskId, householdId: profile.householdId },
+      include: { kid: { select: { firstName: true } }, owner: { select: { firstName: true } } },
+    });
+    if (!before) return "gone" as const;
+    const money = (c: number | null) => (c == null ? null : formatMoney(c));
+    const changes = taskChanges(
+      { title: before.title, kind: before.kind, kid: before.kid?.firstName ?? null, owner: before.owner?.firstName ?? null, dueDate: before.dueDate, amount: money(before.amountCents), notes: before.notes },
+      {
+        title: parsed.fields.title,
+        kind: parsed.fields.kind,
+        kid: kidPersonId ? names.get(kidPersonId)! : null,
+        owner: ownerPersonId ? names.get(ownerPersonId)! : null,
+        dueDate: parsed.fields.dueDate,
+        amount: money(parsed.fields.amountCents),
+        notes: parsed.fields.notes,
+      },
+    );
+    if (changes.length === 0) return "same" as const;
+    const { count } = await tx.schoolTask.updateMany({ where: { id: taskId, updatedAt: before.updatedAt }, data: parsed.fields });
+    if (count === 0) return "changed" as const;
+    await recordEvents(tx, changes.map((c) => ({ ...c, householdId: profile.householdId, itemId: taskId, actorId: profile.id })));
+    return "saved" as const;
+  });
+  if (result === "gone") return { error: "That one wasn't found." };
+  if (result === "changed") return { error: CHANGED_MEANWHILE };
+  revalidateSchool();
+  return { notice: "Saved." };
+}
+
+/** Grown-ups: "I've got it", in one tap. */
+export async function claimTask(taskId: string) {
+  const profile = await requireAdult();
+  await prisma.$transaction(async (tx) => {
+    const before = await tx.schoolTask.findFirst({ where: { id: taskId, householdId: profile.householdId }, include: { owner: { select: { firstName: true } } } });
+    if (!before || before.ownerPersonId === profile.id) return;
+    const { count } = await tx.schoolTask.updateMany({ where: { id: taskId, ownerPersonId: before.ownerPersonId }, data: { ownerPersonId: profile.id } });
+    if (count === 0) return;
+    await recordEvent(tx, { householdId: profile.householdId, itemType: "SCHOOL_TASK", itemId: taskId, actorId: profile.id, action: "ASSIGN", fromValue: before.owner?.firstName ?? null, toValue: profile.firstName });
   });
   revalidateSchool();
 }

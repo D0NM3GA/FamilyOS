@@ -118,3 +118,29 @@ export function parseAssignmentForm(fd: FormData): Result<AssignmentFields> {
     fields: { className, title, kind, dueDate, status, score, maxScore, notes: get(fd, "notes").trim().slice(0, 2000) || null },
   };
 }
+
+/** Phase 59.2a: the details a quick edit changes (a kid may change these on their own work). */
+export type AssignmentDetails = Pick<AssignmentFields, "className" | "title" | "kind" | "dueDate">;
+
+export function parseAssignmentDetails(fd: FormData): Result<AssignmentDetails> {
+  const className = get(fd, "className").trim();
+  const title = get(fd, "title").trim();
+  if (!className) return { ok: false, error: "Which class is it for?" };
+  if (!title) return { ok: false, error: "What's the assignment?" };
+  if (className.length > 80 || title.length > 200) return { ok: false, error: "That's too long." };
+  const kind = (get(fd, "kind") || "HOMEWORK") as AssignmentKindValue;
+  if (!ASSIGNMENT_KINDS.includes(kind)) return { ok: false, error: "Pick a type." };
+  const dueDate = optionalDate(get(fd, "dueDate"));
+  if (dueDate === "invalid") return { ok: false, error: "Enter a valid date." };
+  return { ok: true, fields: { className, title, kind, dueDate } };
+}
+
+/** Phase 59.2a: "Grade it". Both or neither, like the full form. */
+export function parseGrade(fd: FormData): Result<{ score: number | null; maxScore: number | null }> {
+  const score = optionalNumber(get(fd, "score"), 10_000);
+  const maxScore = optionalNumber(get(fd, "maxScore"), 10_000);
+  if (score === "invalid" || maxScore === "invalid") return { ok: false, error: "Scores are numbers, 0 or more." };
+  if ((score === null) !== (maxScore === null)) return { ok: false, error: "Enter both the score and what it's out of, or neither." };
+  if (maxScore === 0) return { ok: false, error: "\"Out of\" must be more than 0." };
+  return { ok: true, fields: { score, maxScore } };
+}
