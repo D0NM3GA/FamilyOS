@@ -1,15 +1,15 @@
-import { tidyMerchantName } from "@/lib/finance/merchant-name";
+import { readSchoolFees } from "@/lib/finance/school-fees";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireJar } from "@/lib/finance/access";
-import { findRecurring, daysBetween, paidCheck, RECURRING_WINDOW_DAYS, type Recurring } from "@/lib/finance/recurring";
+import { recurringRows } from "@/lib/finance/bill-rows";
+import { findRecurring, daysBetween, paidCheck, type Recurring } from "@/lib/finance/recurring";
 import { todayCivil } from "@/lib/finance/budget";
 import { centsToInput, formatMoney } from "@/lib/money";
-import { visibleToWhere } from "@/lib/finance/gifts";
 import { forecast } from "@/lib/finance/forecast";
-import { BILL_CADENCES, billsAhead, CADENCE_LABEL, nextDueOn, ownKeys, readManualBills, type ManualBillInput } from "@/lib/finance/manual-bills";
-import { addManualBill, markRecurring, removeManualBill, updateManualBill } from "../../actions";
+import { BILL_CADENCES, billsAhead, CADENCE_LABEL, nextDueOn, ownKeys, readManualBills, schoolFeesAsBills, type ManualBillInput } from "@/lib/finance/manual-bills";
+import { addManualBill, markRecurring, removeManualBill, setCountSchoolFees, updateManualBill } from "../../actions";
 import { ActionForm, ConfirmSubmit, Submit } from "../../forms";
 import { JarHeader } from "../jar-header";
 import { SafeToSpend } from "../safe-to-spend";
@@ -40,64 +40,31 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
   const { jar, viewer } = await requireJar(jarId);
   const showHidden = (await searchParams).hidden === "1";
   const today = todayCivil();
-  const since = new Date(Date.parse(`${today}T00:00:00Z`) - RECURRING_WINDOW_DAYS * 86_400_000);
 
-  const [rows, marks, accounts, settings, manual] = await Promise.all([
-    prisma.finTransaction.findMany({
-      where: {
-        jarId: jar.id,
-        state: "ACTIVE",
-        postedOn: { gte: since },
-        account: { currency: "USD" },
-        AND: [
-          // Money in only matters on spending accounts (paydays).
-          { OR: [{ amountCents: { lt: 0 } }, { amountCents: { gt: 0 }, account: { spending: true } }] },
-          visibleToWhere(viewer.id, today),
-        ],
-      },
-      orderBy: { postedOn: "asc" },
-      select: {
-        merchantKey: true,
-        merchantName: true,
-        payee: true,
-        description: true,
-        postedOn: true,
-        amountCents: true,
-        privacyCardMemo: true,
-        pending: true,
-        accountId: true,
-        category: { select: { key: true, absorbedKeys: true, kind: true } },
-        privacyCharges: { select: { cardToken: true }, take: 1 },
-      },
-    }),
+  const [shaped, marks, accounts, settings, manual] = await Promise.all([
+    recurringRows(jar.id, viewer.id, today),
     prisma.recurringMark.findMany({ where: { jarId: jar.id }, select: { key: true, status: true, reviewedAt: true } }),
     prisma.finAccount.findMany({
       where: { jarId: jar.id, currency: "USD" },
       select: { id: true, name: true, spending: true, balanceCents: true, availableCents: true, balanceAt: true },
       orderBy: { name: "asc" },
     }),
-    prisma.moneyJar.findUniqueOrThrow({ where: { id: jar.id }, select: { cushionCents: true } }),
+    prisma.moneyJar.findUniqueOrThrow({ where: { id: jar.id }, select: { cushionCents: true, countSchoolFees: true } }),
     readManualBills(prisma, jar.id),
   ]);
-  const shaped = rows.map((r) => ({
-    key: r.merchantKey === "-" ? "" : r.merchantKey,
-    label: r.merchantName ?? tidyMerchantName(r.payee ?? r.description),
-    postedOn: r.postedOn.toISOString().slice(0, 10),
-    amountCents: r.amountCents,
-    privacyCardToken: r.privacyCharges[0]?.cardToken ?? null,
-    privacyCardMemo: r.privacyCardMemo,
-    category: r.category,
-    pending: r.pending,
-    accountId: r.accountId,
-  }));
   const found = findRecurring(shaped, today);
   const statusOf = new Map(marks.map((m) => [m.key, m.status]));
-  const safe = forecast({ accounts, rows: shaped, statusOf, today, cushionCents: settings.cushionCents, manualBills: manual });
+  // Phase 63b: open school fees, when this jar counts them.
+  const school = settings.countSchoolFees ? await readSchoolFees(prisma, jar.householdId) : [];
+  const paid = paidCheck(shaped, new Set(found.map((f) => f.key)), today);
+  // A late fee a check already paid is gone from Safe to spend too, not only from Coming up (the
+  // forecast would only look for a payment since today, where it moves a late one).
+  const unpaidSchool = school.filter((f) => !(f.due <= today && paid([], f.due, f.amountCents, true, `school:${f.taskId}`)));
+  const safe = forecast({ accounts, rows: shaped, statusOf, today, cushionCents: settings.cushionCents, manualBills: [...manual, ...schoolFeesAsBills(unpaidSchool, today)] });
   const markOf = new Map(marks.map((m) => [m.key, m]));
   const hidden = found.filter((f) => markOf.get(f.key)?.status === "HIDDEN");
   const visible = found.filter((f) => markOf.get(f.key)?.status !== "HIDDEN");
-  const paid = paidCheck(shaped, new Set(found.map((f) => f.key)), today);
-  const soon = billsAhead(found, manual, statusOf, today, 30, paid);
+  const soon = billsAhead(found, manual, statusOf, today, 30, paid, school);
   // Found bills a hand-added one stands for: said on their card, so it's clear why they aren't counted.
   const countedAs = new Map(manual.flatMap((b) => ownKeys(b, found).map((k) => [k, b.name] as const)));
   const choices = [...new Map(visible.map((f) => [f.key, f.label])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -206,8 +173,19 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
                         ✍️{" "}
                       </span>
                     )}
+                    {f.schoolTaskId && (
+                      <span role="img" aria-label="A school fee: " title="A school fee, from School">
+                        🎒{" "}
+                      </span>
+                    )}
                     {f.cardMemo && "🔒 "}
-                    {f.label}
+                    {f.schoolTaskId ? (
+                      <Link href="/school" className="underline">
+                        {f.label}
+                      </Link>
+                    ) : (
+                      f.label
+                    )}
                     {f.cancelling && <span className="ml-1 text-xs text-tomato">🛑 meant to cancel</span>}
                   </span>
                   <span className="font-bold">
@@ -219,6 +197,22 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
             </ul>
           </>
         )}
+      </section>
+      <section className="mt-5">
+        <h2 className={sectionTitle}>🎒 School fees</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {settings.countSchoolFees
+            ? "Open school fees with an amount count in Coming up and Safe to spend until they're done in School."
+            : "Open school fees with an amount can count here too. Only one jar should count them, the one that pays."}{" "}
+          <Link href="/school" className="underline">
+            School
+          </Link>
+        </p>
+        <form action={setCountSchoolFees.bind(null, jar.id, !settings.countSchoolFees)} className="mt-2">
+          <SubmitButton className={btn} pendingText="Saving…">
+            {settings.countSchoolFees ? "Stop counting school fees here" : "Count school fees in this jar"}
+          </SubmitButton>
+        </form>
       </section>
       <section className="mt-5">
         <h2 className={sectionTitle}>✍️ Added by hand</h2>

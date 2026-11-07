@@ -844,3 +844,15 @@ export async function testJarChat(jarId: string): Promise<FormState> {
   revalidatePath(`${jarPath(jar.id)}/settings`);
   return error ? { ok: error } : { ok: "Sent. Teams took it; check the chat." };
 }
+
+/**
+ * Phase 63b: whether open school fees count in this jar's Coming up and Safe to spend. Any member
+ * switches it (off by default, so two jars don't both count the same fee).
+ */
+export async function setCountSchoolFees(jarId: string, on: boolean) {
+  const { jar } = await requireJar(jarId);
+  if (typeof on !== "boolean") return;
+  await prisma.moneyJar.update({ where: { id: jar.id }, data: { countSchoolFees: on } });
+  revalidatePath(`${jarPath(jar.id)}/bills`);
+}
+
