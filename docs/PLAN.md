@@ -1859,6 +1859,107 @@ Everyone, list and panel, 59.4b People. Each against `main` with auto-merge and 
 - **Moving chores:** not daily ones (Skip covers them); Move to tomorrow, and Move to today for an
   overdue one.
 
+## Phase 60 — scope (the fix-it batch, 2026-11-07)
+
+The first of six phases from the review of 2026-11-07 (all of it, phase by phase, the owner's
+call). This one is small corrections only: money numbers that run high, a med that can be taken
+early, a new car that's all red, alerts that vanish unseen, and People that can't find a full
+name. No new screens. Checked against the code 2026-11-07; Fable's scope review (same day) is
+folded in.
+
+### 60.1 — Money numbers
+
+- **Stale holds.** `supersededPending` (`lib/finance/reconcile.ts`) only lets a pending feed row
+  go when its date is inside the window the feed was asked about (from the last good sync minus
+  10 days). A hotel, rental or fuel hold older than that which posts under a new id stays ACTIVE
+  and pending for good, and budgets count it next to the posted charge. Now also: a pending row
+  the feed didn't report that is older than `STALE_PENDING_DAYS` (14) is SUPERSEDED, wherever
+  the window starts, except when the feed returned no rows for the account at all (an account
+  error): then a wrong SUPERSEDED would be for good, since the feed never reports it again.
+  Same rule, pure, with tests.
+- **One payment, one bill.** `paidCheck` (`lib/finance/recurring.ts`) answers with `outs.some`,
+  so a single check pays every hand-added bill and a one-off charge can pay several found bills.
+  A bill's own merchant still pays it as today; a shared charge (a check, or one from nothing
+  regular) now pays one bill only: the nearest in amount still unused, and it's spent. Answers
+  are remembered per bill and due day inside the closure, so the bills page asking twice (Coming
+  up, then each bill's card) gets the same answer. Callers pass a bill key (`manual:<id>`). In the
+  forecast, found bills ask first; a found bill only takes a shared charge when nothing of its
+  own paid it, so the order rarely matters, and the comment says so.
+- **Refunds.** `guessCategory` deliberately returns null for money coming in that isn't income
+  or a transfer, so a store return sits uncategorized and doesn't reduce that category.
+  `categorizeJar` now files such a refund under the category of the latest charge from the same
+  merchant key in the jar (a second query: ACTIVE, money out, categorized, any source, PERSON
+  included), as AUTO. Keyless rows (`""`, `"-"`) never inherit. A rule still wins; with no
+  earlier charge it stays uncategorized as today. Re-run each sync, so re-filing the charge moves
+  the refund with it.
+- **Keywords** (`KEYWORDS` in `lib/finance/categories.ts`): `max` → `hbo max`, or a key that is
+  exactly `max` (`merchantKeyOf` already drops `.com`), so an office-supply "... Max" isn't a
+  subscription; `gas` → `gas station|gasoline` and `natural
+  gas|gas company` added to bills; `healthcare|health insurance` added to health (it's checked
+  before travel, so "United Healthcare" stops being a flight; health insurance moves from Bills
+  to Health, on purpose). Regression cases in
+  `categories.test.ts`.
+
+### 60.2 — Meds can't be taken ahead
+
+`completeInstance` (`app/(app)/meds/actions.ts`) has no due check, and Upcoming (the next 14
+days) offers Taken, so a stray tap takes tomorrow's dose: points, and stock comes off early. Now a
+dose due on or after tomorrow's midnight (household zone, `atMidnight`/`addDays` from
+`lib/tasks/schedule`) is refused, and the card gets a `notYet` prop that hides the complete
+button; Meds' Upcoming passes it. Refused before the transaction (an Error, so a stale page says it
+couldn't save). Chores are unchanged (doing tomorrow's chore early is fine).
+
+### 60.3 — A new car isn't all overdue
+
+`computeDueStatus` (`lib/vehicles/due-status.ts`) calls an item with no last-done mileage or date
+OVERDUE, so the starter items a new car gets from `addTemplateItems` all show red and fill Home's
+overdue list. A new status `UNKNOWN` ("Not logged yet", neutral) for never-done items: not on
+Home's overdue list, not counted by the mascot, sorted after OVERDUE and UPCOMING, and the item
+card says to log when it was last done. Switches that change: `lib/vehicles/queries.ts` ranks,
+`components/vehicles/maintenance-item-card.tsx` (union and styles), and the print page's ternary
+(which would silently say "OK"). Home, the mascot facts and the calendar source already only look
+at OVERDUE or a due date.
+
+### 60.4 — Alerts and People
+
+- **The bell** (`openBell`, `app/(app)/notification-actions.ts`) shows 10 and marks every unread
+  one read. Now it marks read only the ids it returned (`markRead(personId, ids)`, still scoped to
+  the recipient). The Notifications page marks what it shows as read from a small client piece
+  after it renders (an action, not a write during render, so the layout's count isn't racing it).
+  A ping landing in between stays unread until the next poll: accepted.
+- **"Haven't talked in a while"** (`staleCandidates`, `lib/people.ts`) also leaves out anyone who
+  is a school contact (`schoolContactFor: { none: {} }`), like prescribers and pharmacies. A
+  check-in setting of 0 means never remind (`pickStaleContacts` skips it after the household check;
+  the action's schema becomes `.nonnegative()`, the field gets `min={0}` and says so).
+- **People search** (`listPeople`) splits the query into words; every word must match first name,
+  last name, email or phone, so "Ivy Parker" finds Ivy Parker (empty words dropped, five at most).
+- **Calendar person filter** (`app/(app)/calendar/page.tsx`, `lib/calendar/agenda.ts`) keys
+  chips, colours and `?who=` by person id, not first name. `AgendaItem` gains `whoId` (set for
+  chores, doses, school due items and school events); chips show `shortNames`.
+
+### 60.5 — School fees
+
+`parseTaskForm` (`lib/school/form.ts`) turns the amount into cents with float maths. It now uses
+`parseMoneyInput` (`lib/money.ts`) with `max` $100,000 as today, the money rule everywhere else.
+"12.345" and "1e3" are now refused instead of rounded.
+
+### Tests
+
+Unit tests for each pure change (stale holds, one-to-one paid, refund category, keywords, med
+not-yet guard as a pure helper, UNKNOWN status, stale contacts with 0 and school contacts,
+search words, agenda person by id, fee parsing). A DB test for `categorizeJar` refunds and for
+`markRead`. Existing e2e must stay green.
+
+### Guides
+
+`docs/guides/family.md`: cars ("Not logged yet"), the bell and Notifications page, check-in 0,
+calendar chips by person, Meds' Upcoming. `admin.md` if it describes any of these.
+
+### Not in this phase
+
+Everything else from the review: the server safety net (61), reminders (62), data between apps
+(63), daily friction (64) and new capabilities (65).
+
 ## Open items
 
 ### Waiting on a decision

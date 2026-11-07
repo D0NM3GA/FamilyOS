@@ -120,8 +120,9 @@ Settings → Starting views.
 - **The bottom bar** (on a phone) has the first four, and **All apps** for the rest.
 - **The nine dots** at the top open every app at once.
 - **Search** at the top finds people, chores, groceries and more.
-- **The bell** shows your notifications: orders, notes from grown-ups, sign-in changes. The
-  Notifications page keeps the latest 100.
+- **The bell** shows your notifications: orders, notes from grown-ups, sign-in changes. Opening
+  it marks the ones it shows as read; if there are more, the count stays. The Notifications page
+  keeps the latest 100, and anything new there counts as read once you've seen it.
 - The theme switch at the top cycles through matching your device, light and dark.
 - **On a keyboard,** the first Tab shows **Skip to content**, which jumps past the top bar and the
   rail.
@@ -139,7 +140,9 @@ week**, **Upcoming dates** (birthdays and anniversaries), **Vehicle maintenance*
 activity**.
 
 **Haven't talked in a while** lists people you haven't been in touch with lately, with a quick
-📞 or 💬 to log it ("Just called", "Just texted").
+📞 or 💬 to log it ("Just called", "Just texted"). Teachers, school offices and a med's doctor or
+pharmacy aren't on it; for anyone else you don't want reminders about (the plumber), set their
+**Check-in reminder** to 0.
 
 Signed in with Microsoft? Your own Outlook calendar shows on your own profile. Pick which
 calendar in Settings → Calendar on Home.
@@ -153,7 +156,7 @@ peek at the store.
 
 The family's address book: everyone in the house, plus grandparents, friends, teachers, doctors.
 
-- **+ Add person**, or search by name, email or phone.
+- **+ Add person**, or search by name, email or phone. A full name works too ("Ivy Parker").
 - Each person's page has their **Key information**, important dates, and **Recent
   interactions**: log a call, visit or note in the box at the top (**Log it**), and change the
   date if it happened earlier.
@@ -176,7 +179,7 @@ The family's whole week in one place: chores and meds, birthdays and dates, home
 calendars, car maintenance, and your own Outlook events (on your own profile, if you sign in with
 Microsoft). Tap anything to go where it lives. The arrows and **Today** move around, and **Month** shows the
 whole month's events (chores and doses stay on the weeks). Grown-ups can pick one person with the
-name chips: each row's color shows whose it is. A day's doses share one row; tap it to see them.
+name chips: each row's color shows whose it is (two people sharing a first name get their own chip). A day's doses share one row; tap it to see them.
 
 Kids see the family calendar too, with their own school things (no cars, no Outlook).
 
@@ -281,7 +284,7 @@ The pet has nothing to do with stickers: it never costs any, and nothing in it i
 
 Like chores, for medicine: what's due today and what's coming up in the next two weeks. Tick
 a dose when it's taken (**Taken** on Home and the Meds page); the undo arrow if it
-wasn't. Doses can be several times a day. Kids can earn
+wasn't. Doses under **Upcoming** can't be ticked ahead: they get their Taken on their day. Doses can be several times a day. Kids can earn
 stickers for taking theirs.
 The row of people picks whose doses to see, with each person's total, like on Chores.
 
@@ -378,7 +381,8 @@ Inside a jar:
 
 - **📒 Activity**: every charge, a month at a time. Tap one to set its category ("always for this
   store"), link the order or grocery trip, or make it a **🎁 Surprise** (hidden from chosen people
-  until a day you pick).
+  until a day you pick). Money back from a store goes in the same category as your last charge
+  there, so a return lowers that budget.
 - **🎯 Budget**: a monthly budget per category, and saving up for lumpy costs.
 - **🔁 Upcoming**: bills and subscriptions, what's due in the next 30 days, and **💸 Safe to
   spend** until payday. It counts regular shops too, like the weekly grocery run, so it stays on
@@ -416,7 +420,9 @@ they'd see the alerts too.
 
 Each car's maintenance by miles and/or date (oil changes, tires, registration…), with the service
 history and costs, fill-ups and miles per gallon, and recall alerts. **+ New vehicle**, then **+ Add
-item** or **Start from common items**. Logging a service resets its countdown.
+item** or **Start from common items**. Logging a service resets its countdown. A new item shows
+**Not logged yet** until you log when it was last done (a guess is fine); it isn't counted as
+overdue until then.
 
 **The VIN** (optional) is on the driver's door frame, the corner of the windshield, or the
 insurance card. Type it, or **Scan the VIN** with the phone's camera, then **Look it up**: the make,
