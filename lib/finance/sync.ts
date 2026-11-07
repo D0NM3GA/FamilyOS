@@ -286,6 +286,7 @@ async function applySimpleFin(jarId: string, accounts: SfAccount[], windowStartD
           pending.map((p) => ({ ...p, postedOn: day(p.postedOn) })),
           new Set(a.transactions.map((t) => t.id)),
           windowStartDay,
+          today,
         );
         if (gone.length) await tx.finTransaction.updateMany({ where: { id: { in: gone } }, data: { state: "SUPERSEDED" } });
         await dedupeAccount(tx, jarId, account.id);

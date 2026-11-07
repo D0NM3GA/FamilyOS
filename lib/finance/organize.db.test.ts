@@ -170,4 +170,34 @@ describe.skipIf(!RUN)("categories, budget data and grocery links (database)", { 
     expect(await prisma.finTransaction.findUniqueOrThrow({ where: { id: bank.id } })).toMatchObject({ purchaseId: trip.id, purchaseLinkedBy: "PERSON" });
     expect(await prisma.finTransaction.findUniqueOrThrow({ where: { id: w1.id } })).toMatchObject({ state: "DUPLICATE", purchaseId: null });
   });
+
+  test("a refund goes where the merchant's latest charge went, and follows it when that's re-filed", async () => {
+    await importRows(ids.jar, ids.account, [
+      { externalId: "r-charge", postedOn: "2026-10-01", amountCents: -5000, description: "BLUE HERON OUTFITTERS", memo: null },
+      { externalId: "r-back", postedOn: "2026-10-06", amountCents: 2000, description: "BLUE HERON OUTFITTERS", memo: null },
+    ]);
+    const charge = await prisma.finTransaction.findFirstOrThrow({ where: { jarId: ids.jar, externalId: "r-charge" } });
+    const back = () => prisma.finTransaction.findFirstOrThrow({ where: { jarId: ids.jar, externalId: "r-back" } });
+    // Nothing filed the charge yet, so the refund has nowhere to go.
+    expect((await back()).categoryId).toBeNull();
+
+    await prisma.finTransaction.update({ where: { id: charge.id }, data: { categoryId: await catId(ids.jar, "gifts"), categorySource: "PERSON" } });
+    await categorizeJar(prisma, ids.jar);
+    expect(await back()).toMatchObject({ categoryId: await catId(ids.jar, "gifts"), categorySource: "AUTO" });
+
+    await prisma.finTransaction.update({ where: { id: charge.id }, data: { categoryId: await catId(ids.jar, "home") } });
+    await categorizeJar(prisma, ids.jar);
+    expect((await back()).categoryId).toBe(await catId(ids.jar, "home"));
+
+    // Rows with no merchant never pair up.
+    const day = new Date("2026-10-05T00:00:00Z");
+    await prisma.finTransaction.createMany({
+      data: [
+        { jarId: ids.jar, accountId: ids.account, source: "MANUAL", externalId: "nk-out", postedOn: day, amountCents: -700, description: "", merchantKey: "-", categoryId: await catId(ids.jar, "gifts"), categorySource: "PERSON" },
+        { jarId: ids.jar, accountId: ids.account, source: "MANUAL", externalId: "nk-in", postedOn: day, amountCents: 700, description: "", merchantKey: "-" },
+      ],
+    });
+    await categorizeJar(prisma, ids.jar);
+    expect((await prisma.finTransaction.findFirstOrThrow({ where: { jarId: ids.jar, externalId: "nk-in" } })).categoryId).toBeNull();
+  });
 });

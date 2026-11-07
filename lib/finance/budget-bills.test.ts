@@ -31,6 +31,15 @@ describe("guessCategory", () => {
     ["amazon", -2999, "shopping"],
     ["mystery thing", -100, null],
     ["amazon", 2999, null],
+    // Phase 60: words that used to misfile.
+    ["max", -1699, "subscriptions"],
+    ["hbo max", -1699, "subscriptions"],
+    ["office max", -4200, null],
+    ["united healthcare", -32000, "health"],
+    ["unitedhealthcare", -32000, "health"],
+    ["united airlines", -42000, "travel"],
+    ["acme natural gas", -6400, "bills"],
+    ["shell gas station", -4000, "car"],
   ])("%s %d → %s", (key, cents, cat) => {
     expect(guessCategory(key as string, cents as number)).toBe(cat);
   });

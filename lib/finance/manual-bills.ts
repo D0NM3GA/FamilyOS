@@ -125,7 +125,7 @@ export function billsAhead(
   ).items.map((r) => ({ key: r.key, label: r.label, nextOn: r.nextOn!, typicalCents: r.typicalCents, steady: r.steady, cardMemo: r.cardMemo, cancelling: r.cancelling, manualId: null }));
   for (const b of manual) {
     const own = ownKeys(b, found);
-    const next = nextDueOn(b, today, (due) => paid(own, due, b.amountCents, true));
+    const next = nextDueOn(b, today, (due) => paid(own, due, b.amountCents, true, `manual:${b.id}`));
     if (next && daysBetween(today, next) <= days) {
       items.push({ key: `manual:${b.id}`, label: b.name, nextOn: next, typicalCents: b.amountCents, steady: true, cardMemo: null, cancelling: false, manualId: b.id });
     }

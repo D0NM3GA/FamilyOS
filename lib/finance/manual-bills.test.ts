@@ -100,6 +100,27 @@ describe("Coming up with bills added by hand", () => {
     const own = billsAhead([], rent, new Map(), TODAY, 30, paidCheck(out("rent", ["2026-10-04"], 150000), new Set(), TODAY));
     expect(own.items.map((i) => i.nextOn)).toEqual(["2026-11-04"]);
   });
+
+  it("one check pays one bill, and asking again gives the same answer", () => {
+    const two = [
+      bill({ id: "fees", name: "School fees", nextDue: "2026-10-04", amountCents: 30000, matchKey: "" }),
+      bill({ id: "club", name: "Swim club", nextDue: "2026-10-04", amountCents: 29000, matchKey: "" }),
+    ];
+    const paid = paidCheck(out("check 1042", ["2026-10-04"], 29500), new Set(), TODAY);
+    const ahead = billsAhead([], two, new Map(), TODAY, 30, paid);
+    // $295 is as near one as the other: the first asked takes it, the other is still due.
+    expect(ahead.items.filter((i) => i.nextOn === "2026-10-04").length).toBe(1);
+    // The bills page asks again for each card: same answers, not "both unpaid" or "both paid".
+    const again = two.map((b) => nextDueOn(b, TODAY, (d) => paid([], d, b.amountCents, true, `manual:${b.id}`)));
+    expect(again.sort()).toEqual(["2026-10-04", "2026-11-04"]);
+  });
+
+  it("a spent check can't pay a second bill", () => {
+    const paid = paidCheck(out("check 7", ["2026-10-04"], 30000), new Set(), TODAY);
+    expect(paid([], "2026-10-04", 26000, true, "manual:a")).toBe(true);
+    // "a" asked first and took it, though "b" matches it exactly: spent in asking order.
+    expect(paid([], "2026-10-04", 30000, true, "manual:b")).toBe(false);
+  });
 });
 
 describe("Safe to spend with bills added by hand", () => {
