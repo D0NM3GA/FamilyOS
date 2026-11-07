@@ -1,5 +1,6 @@
 "use server";
 
+import { fileableIds, filingFor, NEW_SINCE_MAX } from "@/lib/finance/new-since";
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -856,3 +857,54 @@ export async function setCountSchoolFees(jarId: string, on: boolean) {
   revalidatePath(`${jarPath(jar.id)}/bills`);
 }
 
+
+/** When the page was drawn, so a charge that arrived while it was open stays new. Never later than now. */
+function seenAsOf(formData: FormData): Date {
+  const now = Date.now();
+  const asOf = Number(formData.get("asOf"));
+  return new Date(Number.isFinite(asOf) && asOf > 0 && asOf < now ? asOf : now);
+}
+
+/**
+ * Phase 64d: files what's new since this member last looked, all at once: each row's category from
+ * its select (a change, or an unchanged guess confirmed, becomes the member's pick); rows tied to a
+ * rule or already picked stay as they are. Then everything's seen.
+ */
+export async function fileNewSince(jarId: string, formData: FormData) {
+  const { jar, viewer } = await requireJar(jarId);
+  const today = todayCivil();
+  const member = await prisma.moneyJarMember.findUnique({ where: { jarId_personId: { jarId: jar.id, personId: viewer.id } }, select: { lastSeenAt: true } });
+  const ids = formData.getAll("id").map(String).slice(0, NEW_SINCE_MAX);
+  const rows = await fileableIds(jar.id, viewer.id, member?.lastSeenAt ?? null, today, ids);
+  const categories = new Set((await prisma.finCategory.findMany({ where: { jarId: jar.id }, select: { id: true } })).map((c) => c.id));
+  const changes = rows.flatMap((row) => {
+    const raw = String(formData.get(`cat:${row.id}`) ?? "");
+    const picked = raw && categories.has(raw) ? raw : null;
+    if (raw && !picked) return []; // a category that isn't this jar's: leave the row alone
+    const change = filingFor(row, picked);
+    return change ? [{ id: row.id, ...change }] : [];
+  });
+  // One transaction: a failure part way neither files half nor marks it all seen.
+  await prisma.$transaction(async (tx) => {
+    let filed = 0;
+    for (const c of changes) {
+      const { count } = await tx.finTransaction.updateMany({ where: { id: c.id, jarId: jar.id }, data: { categoryId: c.categoryId, categorySource: "PERSON" } });
+      filed += count;
+    }
+    await markSeen(tx, jar.id, viewer.id, seenAsOf(formData));
+    if (filed) await logJarEvent(tx, { jarId: jar.id, actorId: viewer.id, kind: "NEW_FILED", data: { count: filed } });
+  });
+  revalidatePath(jarPath(jar.id), "layout");
+}
+
+/** Moves a member's mark forward only: a page left open for days doesn't undo a later look. */
+async function markSeen(db: Pick<typeof prisma, "moneyJarMember">, jarId: string, personId: string, seen: Date) {
+  await db.moneyJarMember.updateMany({ where: { jarId, personId, OR: [{ lastSeenAt: null }, { lastSeenAt: { lt: seen } }] }, data: { lastSeenAt: seen } });
+}
+
+/** Phase 64d: everything new counts as seen, nothing filed. */
+export async function markNewSeen(jarId: string, formData: FormData) {
+  const { jar, viewer } = await requireJar(jarId);
+  await markSeen(prisma, jar.id, viewer.id, seenAsOf(formData));
+  revalidatePath(jarPath(jar.id), "layout");
+}

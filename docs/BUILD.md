@@ -1774,3 +1774,22 @@ Fable's review of 64c: offline, the box stays on screen but disabled (what was t
 stay), naming a new barcode catches a failure too, a network failure says to check signal and
 anything else to reload, and the tests carry a note through backup and restore and accept v9 and v10.
 
+### 64d — Money: new since you last looked
+
+`MoneyJarMember.lastSeenAt` marks each member's last look. Above the month on a jar's Activity page,
+**New since you last looked (N)** (`lib/finance/new-since.ts`) lists rows created after it (a first look
+counts the last 30 days), or holds that posted after it on their own row (the feed kept the id:
+sync sets the new `FinTransaction.postedAt`), active, not pending, not a surprise hidden from them, newest 100, each with a native category select. **Save all**
+(`fileNewSince`) re-reads the ids against the same query (this jar, still new to this member, at most
+100), re-checks each category against the jar (another jar's leaves the row alone), and files with
+`filingFor`: a change or an unchanged guess (AUTO) becomes the member's pick (PERSON); an unchanged
+rule's or person's row is left, so it stays tied to its rule. It logs one `NEW_FILED` jar event with
+the count. **Mark all seen** (`markNewSeen`) only moves the mark. Both set `lastSeenAt` to when the
+page was read (sent back with the form, never later than now), so a charge that arrived while the
+page was open stays new. `lastSeenAt` isn't in money backups: after a restore the 30-day first look
+applies again.
+Fable's review of 64d: a hold the bank posts under the same id kept its old `createdAt` and never
+showed as new, hence `postedAt`; the mark only moves forward (a tab left open for days can't undo a
+later look); **Save all** files and marks seen in one transaction; the guide says where the list
+sits; the event's wording has a test.
+

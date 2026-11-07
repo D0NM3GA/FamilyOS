@@ -5,6 +5,8 @@ describe("Phase 30: who changed what", () => {
   it("reads as a sentence with the person's name", () => {
     expect(describeEvent("BUDGET_SET", { category: "Dining", cents: 40000 }, "Mom")).toBe("Mom set Dining's budget to $400.00");
     expect(describeEvent("BUDGET_SET", { category: "Dining", cents: null }, "Mom")).toBe("Mom took the budget off Dining");
+    expect(describeEvent("NEW_FILED", { count: 1 }, "Dad")).toBe("Dad filed 1 new charge");
+    expect(describeEvent("NEW_FILED", { count: 3 }, "Dad")).toBe("Dad filed 3 new charges");
     expect(describeEvent("BILL_ANSWERED", { key: "netflix", label: "Netflix", status: "CANCEL" }, "Dad")).toBe("Dad wants to cancel Netflix");
     expect(describeEvent("MEMBER_REMOVED", { name: "Dad", left: true }, "Dad")).toBe("Dad left the jar");
     expect(describeEvent("SURPRISE_MARKED", { for: ["Mom"], until: "2026-12-25" }, "Dad")).toBe("Dad marked a charge 🎁 for Mom until Dec 25");

@@ -405,6 +405,10 @@ Inside a jar:
   store"), link the order or grocery trip, or make it a **🎁 Surprise** (hidden from chosen people
   until a day you pick). Money back from a store goes in the same category as your last charge
   there, so a return lowers that budget.
+  **New since you last looked** sits above the month's charges: ones that came in since your last visit (the
+  first time, the last 30 days), each with the category the app guessed. Fix any that are off and
+  tap **Save all**, or **Mark all seen** to clear them. It's yours: someone else in the jar has
+  their own.
 - **🎯 Budget**: a monthly budget per category, and saving up for lumpy costs.
 - **🔁 Upcoming**: bills and subscriptions, what's due in the next 30 days, and **💸 Safe to
   spend** until payday. It counts regular shops too, like the weekly grocery run, so it stays on

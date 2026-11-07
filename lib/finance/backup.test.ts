@@ -32,7 +32,8 @@ type Of<K extends keyof Jar> = Jar[K] extends (infer R)[] ? R : never;
 const checks = {
   // Phase 30: the shared Teams chat is a setting, not money: pasted again after a restore.
   jar: true satisfies Covered<MoneyJarModel, Jar, "householdId" | "teamsChatId" | "teamsChatName" | "teamsChatError">,
-  member: true satisfies Covered<MoneyJarMemberModel, Of<"members">, "jarId">,
+  // lastSeenAt (Phase 64d): where a member got to in "New since you last looked", not jar data.
+  member: true satisfies Covered<MoneyJarMemberModel, Of<"members">, "jarId" | "lastSeenAt">,
   // Phase 52: a statement file's remembered columns are a setting, chosen again after a restore.
   account: true satisfies Covered<FinAccountModel, Of<"accounts">, "jarId" | "importLayouts">,
   category: true satisfies Covered<FinCategoryModel, Of<"categories">, "jarId">,
@@ -40,7 +41,7 @@ const checks = {
   recurring: true satisfies Covered<RecurringMarkModel, Of<"recurring">, "jarId">,
   // updatedAt is bookkeeping; jarId is implied by nesting.
   // Phase 52: which import brought a row is only for undoing it, which a restore doesn't carry.
-  transaction: true satisfies Covered<FinTransactionModel, Of<"transactions">, "jarId" | "updatedAt" | "importId">,
+  transaction: true satisfies Covered<FinTransactionModel, Of<"transactions">, "jarId" | "updatedAt" | "importId" | "postedAt">,
   privacy: true satisfies Covered<PrivacyChargeModel, Of<"privacyCharges">, "jarId">,
   // Who added a bill isn't kept (people are remapped on restore and it only labels the row).
   manualBill: true satisfies Covered<ManualBillModel, Of<"manualBills">, "jarId" | "createdById" | "updatedAt">,

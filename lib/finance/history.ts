@@ -58,6 +58,7 @@ export const EVENT_DATA = {
   // Phase 34: Net worth's hand-valued things (lib/finance/holdings.ts), never a surprise. A
   // value of null: that day's value was taken off.
   HOLDING_ADDED: z.object({ name, kind: z.enum(HOLDING_KINDS) }),
+  NEW_FILED: z.object({ count: z.number().int().nonnegative() }),
   HOLDING_VALUED: z.object({ name, kind: z.enum(HOLDING_KINDS), cents: z.number().int().nonnegative().nullable(), on: z.iso.date() }),
   HOLDING_REMOVED: z.object({ name }),
   // Phase 37: the jar's own categories (lib/finance/category-edits.ts), named as they were at
@@ -174,6 +175,8 @@ export function describeEvent(kind: JarEventKind, raw: unknown, actor: string): 
       return d.cents == null
         ? `${actor} took off ${d.name}'s value from ${day(d.on as string)}`
         : `${actor} set ${d.name} to ${formatMoney(d.cents as number)}${isOwed(d.kind as HoldingKind) ? " owed" : ""} as of ${day(d.on as string)}`;
+    case "NEW_FILED":
+      return `${actor} filed ${d.count} new ${d.count === 1 ? "charge" : "charges"}`;
     case "HOLDING_REMOVED":
       return `${actor} removed ${d.name} from Net worth`;
     case "CATEGORY_ADDED":

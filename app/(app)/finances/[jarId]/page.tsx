@@ -17,13 +17,14 @@ import { jarHistory, merchantLabel } from "@/lib/finance/history";
 import { btn, field, sectionTitle } from "@/components/styles";
 import { CategoryFilter } from "./category-filter";
 import { tidyMerchantName } from "@/lib/finance/merchant-name";
-import { linkOrder, linkTrip, markGift, markOrderGift, revealGift, revealOrderGift, unlinkOrder, unlinkTrip } from "../actions";
+import { fileNewSince, linkOrder, linkTrip, markGift, markNewSeen, markOrderGift, revealGift, revealOrderGift, unlinkOrder, unlinkTrip } from "../actions";
 import { ActionForm, Submit } from "../forms";
 import { JarHeader } from "./jar-header";
 import { CategoryPicker } from "./category-picker";
 import { TxnSheet } from "./txn-sheet";
 import { HistoryList } from "./history";
 import { requireAppOn } from "@/lib/app-guard";
+import { newSince } from "@/lib/finance/new-since";
 
 export const metadata: Metadata = { title: "Money" };
 
@@ -71,7 +72,7 @@ export default async function JarPage({
     prisma.reconcileIssue.count({ where: { jarId: jar.id, resolvedAt: null, ...visibleIssueWhere(viewer.id, today) } }),
     prisma.jarConnection.findMany({ where: { jarId: jar.id }, select: { lastError: true } }),
     prisma.finCategory.findMany({ where: { jarId: jar.id }, orderBy: { sortOrder: "asc" }, select: { id: true, key: true, absorbedKeys: true, name: true, emoji: true } }),
-    prisma.moneyJarMember.findMany({ where: { jarId: jar.id }, select: { personId: true, person: { select: { firstName: true } } } }),
+    prisma.moneyJarMember.findMany({ where: { jarId: jar.id }, select: { personId: true, lastSeenAt: true, person: { select: { firstName: true } } } }),
     leftOutAccountIds(jar.id),
   ]);
   // Phase 63b: a "Gas & car" charge can go into Cars as a fill-up or a service (no link back; it
@@ -152,10 +153,11 @@ export default async function JarPage({
   const pickable = categories.map(({ id, name, emoji }) => ({ id, name, emoji }));
   const catById = new Map(pickable.map((c) => [c.id, c]));
   const nameOf = new Map(members.map((m) => [m.personId, m.person.firstName]));
-  const [orders, unmatched, recent] = await Promise.all([
+  const [orders, unmatched, recent, fresh] = await Promise.all([
     ordersOnCharges(jar.id, txns.map((t) => t.id), viewer.id, today),
     unmatchedOrders(jar.id, viewer.id, today),
     jarHistory(jar.id, viewer.id, today, 8),
+    newSince(jar.id, viewer.id, members.find((m) => m.personId === viewer.id)?.lastSeenAt ?? null, today),
   ]);
   const orderOn = new Map(orders.map((o) => [o.matchedTxnId!, o]));
   const outRows = txns.filter((t) => t.amountCents < 0);
@@ -215,6 +217,46 @@ export default async function JarPage({
             </li>
           ))}
         </ul>
+      )}
+
+      {fresh.total > 0 && (
+        <section aria-labelledby="new-since" className="ui-card mt-5 rounded-2xl border-2 border-ink bg-card p-4 dark:border-white/20">
+          <h2 id="new-since" className="text-lg font-extrabold">
+            New since you last looked ({fresh.total})
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Check each one&apos;s category, then save them all at once.
+            {fresh.total > fresh.rows.length && ` Showing the newest ${fresh.rows.length}; the rest count as seen when you save.`}
+          </p>
+          <form action={fileNewSince.bind(null, jar.id)} className="mt-3 flex flex-col gap-3">
+            <input type="hidden" name="asOf" value={fresh.asOf} />
+            <ul className="divide-y-2 divide-dashed divide-ink/10 dark:divide-white/10">
+              {fresh.rows.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                  <input type="hidden" name="id" value={r.id} />
+                  <span className="w-12 shrink-0 text-sm font-bold text-muted-foreground">{utcDay(r.postedOn)}</span>
+                  <span className="min-w-0 flex-1 truncate font-bold">{r.name}</span>
+                  <span className={`shrink-0 font-bold tabular-nums ${r.amountCents > 0 ? "text-brand-text" : ""}`}>{formatMoney(r.amountCents, r.currency)}</span>
+                  <select name={`cat:${r.id}`} defaultValue={r.categoryId ?? ""} aria-label={`Category for ${r.name}`} className={`${field} w-full sm:w-56`}>
+                    <option value="">No category</option>
+                    {pickable.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {`${c.emoji ?? ""} ${c.name}`.trim()}
+                      </option>
+                    ))}
+                  </select>
+                </li>
+              ))}
+            </ul>
+            <Submit pendingText="Saving…">Save all</Submit>
+          </form>
+          <form action={markNewSeen.bind(null, jar.id)} className="mt-2">
+            <input type="hidden" name="asOf" value={fresh.asOf} />
+            <Submit className={btn} pendingText="Working…">
+              Mark all seen
+            </Submit>
+          </form>
+        </section>
       )}
 
       {accounts.length > 0 && (

@@ -274,6 +274,8 @@ async function applySimpleFin(jarId: string, accounts: SfAccount[], windowStartD
                 // A Privacy merchant, once matched, still wins (it's the real name).
                 ...(e.merchantName ? {} : { merchantKey: merchantKeyOf(t) || "-" }),
                 ...(e.state === "SUPERSEDED" ? { state: "ACTIVE" } : {}),
+                // Phase 64d: a hold that posted in place is new to anyone who looked while it was pending.
+                ...(e.pending && !t.pending ? { postedAt: new Date() } : {}),
               },
             });
           }

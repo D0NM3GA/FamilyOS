@@ -2462,8 +2462,8 @@ These replace what's above where they differ.
   new row reaches the Shop list through the revalidated path. **List notes** are saved per item
   (like who it's for), visible to everyone who sees the list (the guide says so). Backup v11; the
   accepted versions list fixed to include 9 and 10, which it skipped.
-- **New since you looked (64d):** only `state: "ACTIVE"`, not pending (a hold posts as a new row, so
-  filing it would be lost), not hidden as a surprise (`visibleToWhere`). Saving files changed rows
+- **New since you looked (64d):** only `state: "ACTIVE"`, not pending (a hold can change or vanish;
+  one that posts on its own row shows once it's posted, by `postedAt`), not hidden as a surprise (`visibleToWhere`). Saving files changed rows
   as PERSON and confirms unchanged AUTO guesses as PERSON; RULE rows and rows already PERSON are left
   alone. Each category re-checked against the jar. Native selects, not 100 pickers. The newest 100;
   **Mark all seen** clears the rest. A new jar event kind with its feed label. After a money restore
