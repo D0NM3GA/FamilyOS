@@ -424,6 +424,11 @@ notifications** on their own phone.
 Money jars have their own alerts, which each member switches in the jar's Settings → Alerts for
 me. They never include amounts.
 
+**Reminders and the morning summary** (Phase 62) use the same Teams app and mailbox: once those
+work, every grown-up (not only admins) can turn on reminders **In Teams** or **By email**, and a
+7:00 am **Morning summary**, in their own Settings → My notifications. Those switches only show
+where they can work (a mailbox set; for Teams, the app published and a Microsoft sign-in).
+
 ## 12. Backups
 
 There are three kinds. Use all three.
