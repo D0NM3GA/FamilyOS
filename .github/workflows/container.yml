@@ -61,7 +61,7 @@ jobs:
             exit 0
           fi
           # What goes into the image, or into the tests run against it.
-          image='^(Dockerfile|\.dockerignore|docker-compose\.(prod|build|ci)\.yml|scripts/container-test\.sh|scripts/break-glass[^/]*\.sh|deploy/|proxy\.ts|lib/security/|scripts/standalone-assets\.mjs|scripts/copy-zxing-wasm\.mjs|e2e/|tsconfig\.json|next\.config\.ts|package(-lock)?\.json|\.node-version|\.npmrc|prisma/|\.github/workflows/container\.yml)'
+          image='^(Dockerfile|\.dockerignore|docker-compose\.(prod|build|ci)\.yml|scripts/container-test\.sh|scripts/backup-prod\.sh|scripts/restore-drill\.sh|scripts/drill-tables\.sql|scripts/break-glass[^/]*\.sh|deploy/|proxy\.ts|lib/security/|scripts/standalone-assets\.mjs|scripts/copy-zxing-wasm\.mjs|e2e/|tsconfig\.json|next\.config\.ts|package(-lock)?\.json|\.node-version|\.npmrc|prisma/|\.github/workflows/container\.yml)'
           changed="$(git diff --name-only HEAD^1 HEAD)"
           if printf '%s\n' "$changed" | grep -Eq "$image"; then
             echo "build=true" >> "$GITHUB_OUTPUT"
@@ -88,6 +88,9 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - run: npx playwright install --with-deps --no-shell chromium
+        if: steps.changes.outputs.build == 'true'
+      # Phase 61: the nightly backup encrypts with age, and the drill decrypts.
+      - run: sudo apt-get update -q && sudo apt-get install -y --no-install-recommends age
         if: steps.changes.outputs.build == 'true'
       - name: Build the image and run the browser tests against it
         if: steps.changes.outputs.build == 'true'
