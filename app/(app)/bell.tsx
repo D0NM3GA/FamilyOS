@@ -80,8 +80,9 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
           setOpen(next);
           if (next)
             start(async () => {
-              setItems(await openBell());
-              setUnread(0);
+              const r = await openBell();
+              setItems(r.items);
+              setUnread(r.unread);
             });
         }}
         className="relative grid size-11 place-items-center rounded-md text-on-chrome/80 hover:bg-chrome-hover hover:text-on-chrome sm:size-9"

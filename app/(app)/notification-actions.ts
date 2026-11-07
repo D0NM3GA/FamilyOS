@@ -2,7 +2,8 @@
 
 import { requireActiveProfile } from "@/lib/active-profile";
 import { getDisabledApps } from "@/lib/app-switches";
-import { markAllRead, recentNotifications, unreadCount } from "@/lib/notifications";
+import { z } from "zod";
+import { markRead, NOTIFICATIONS_PAGE_SIZE, recentNotifications, unreadCount } from "@/lib/notifications";
 
 /**
  * Phase 20: opening the bell fetches the latest pings and marks them read in one round
@@ -15,8 +16,23 @@ export async function openBell() {
   const profile = await requireActiveProfile();
   const disabled = await getDisabledApps(profile.householdId);
   const items = await recentNotifications(profile.id, 10, disabled);
-  if (items.some((i) => i.unread)) await markAllRead(profile.id, disabled);
-  return items;
+  const shown = items.filter((i) => i.unread).map((i) => i.id);
+  await markRead(profile.id, shown);
+  // More than the bell showed are still unread: the badge keeps counting them.
+  return { items, unread: await unreadCount(profile.id, disabled) };
+}
+
+const idsSchema = z.array(z.string().min(1).max(64)).max(NOTIFICATIONS_PAGE_SIZE);
+
+/**
+ * Phase 60: the Notifications page marks what it showed as read, from the browser once it has
+ * rendered (a write during the page's render would race the layout's unread count).
+ */
+export async function markShownRead(ids: string[]) {
+  const profile = await requireActiveProfile();
+  const parsed = idsSchema.safeParse(ids);
+  if (!parsed.success) return;
+  await markRead(profile.id, parsed.data);
 }
 
 /** The bell's polling read: just the active profile's unread count. */
