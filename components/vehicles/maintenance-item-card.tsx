@@ -9,7 +9,7 @@ export type MaintenanceItem = {
   id: string;
   title: string;
   notes: string | null;
-  status: "OVERDUE" | "UPCOMING" | "OK";
+  status: "OVERDUE" | "UPCOMING" | "OK" | "UNKNOWN";
   intervalLabel: string;
   lastDoneLabel: string;
   /** Precomputed server-side (see lib/vehicles/format.ts) — never format dates in here. */
@@ -27,6 +27,7 @@ const STATUS_STYLE: Record<MaintenanceItem["status"], { pill: string; label: str
   OVERDUE: { pill: "bg-tomato text-ink", label: "Overdue" },
   UPCOMING: { pill: "bg-sun text-ink", label: "Due soon" },
   OK: { pill: "bg-lime/40", label: "OK" },
+  UNKNOWN: { pill: "bg-muted", label: "Not logged yet" },
 };
 
 type LogDoneAction = (prevState: VehicleFormState, formData: FormData) => Promise<VehicleFormState>;

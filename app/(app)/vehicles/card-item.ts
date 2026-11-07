@@ -32,7 +32,8 @@ export function toCardItem(
     status: due.status,
     intervalLabel: formatInterval(item),
     lastDoneLabel: formatLastDone(item),
-    dueDetail: formatDueDetail(due),
+    // Never logged: say how to start, rather than nothing.
+    dueDetail: due.status === "UNKNOWN" ? "Log when it was last done to start counting" : formatDueDetail(due),
     hasHistory: item.lastDoneAt != null || item.lastDoneMileage != null,
     currentMileageLabel: String(currentMileage),
     supplies: (item.supplies ?? [])

@@ -14,14 +14,14 @@ function item(overrides: Partial<MaintenanceItemLike>): MaintenanceItemLike {
 const today = new Date(2026, 5, 15);
 
 describe("computeDueStatus — never serviced", () => {
-  test("is OVERDUE with no thresholds computed, regardless of configured intervals", () => {
+  test("is UNKNOWN (not logged yet) with no thresholds computed, regardless of configured intervals", () => {
     const result = computeDueStatus(
       item({ intervalMiles: 5000, intervalMonths: 6 }),
       50_000,
       today,
     );
     expect(result).toEqual({
-      status: "OVERDUE",
+      status: "UNKNOWN",
       dueByMileage: null,
       dueByDate: null,
       milesRemaining: null,
