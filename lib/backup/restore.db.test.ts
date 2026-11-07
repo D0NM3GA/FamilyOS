@@ -92,7 +92,7 @@ function fixture(): Backup {
       { id: "st1", kidPersonId: "Kid", title: "Field trip slip", kind: "FEE", dueDate: T2, amountCents: 1250, ownerPersonId: "Mom", status: "OPEN", doneAt: null, notes: null, createdAt: T },
     ],
     schoolAssignments: [
-      { id: "sa1", profileId: "sp1", className: "Math", title: "Ch 3", kind: "TEST", dueDate: T2, status: "DONE", score: 18, maxScore: 20, notes: null, source: "MANUAL", externalId: null, doneAt: T2, createdAt: T },
+      { id: "sa1", profileId: "sp1", className: "Math", title: "Ch 3", kind: "TEST", dueDate: T2, status: "DONE", score: 18, maxScore: 20, notes: null, source: "MANUAL", externalId: null, doneAt: T2, kidChangedAt: T2, createdAt: T },
     ],
     stores: [{ id: "s1", name: "Kroger", createdAt: T }],
     productGroups: [{ id: "g1", name: "Dairy", emoji: "🥛", sortOrder: 1, starterKey: "dairy", createdAt: T }],

@@ -638,6 +638,7 @@ export function remapBackup(
       profileId: req(schoolProfiles, r.profileId),
       dueDate: dateOrNull(r.dueDate),
       doneAt: dateOrNull(r.doneAt),
+      kidChangedAt: dateOrNull(r.kidChangedAt),
       createdAt: date(r.createdAt),
     })),
     vehicleItemSupplies: b.vehicleItemSupplies.map((r) => ({ ...r, itemId: req(items, r.itemId), supplyId: req(supplies, r.supplyId) })),

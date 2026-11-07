@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 import type { SchoolFormState } from "./actions";
 import { ASSIGNMENT_KINDS, ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
@@ -113,19 +113,45 @@ export function ContactForm({ action, contacts }: { action: Action; contacts: { 
   );
 }
 
+type TaskDefaults = {
+  title: string;
+  kind: string;
+  dueDate: string;
+  amount: string;
+  kidPersonId: string;
+  ownerPersonId: string;
+  notes: string;
+};
+
+/** Calls `onSaved` once each time the action reports it saved (Phase 59.2a: an edit in a row closes itself). */
+function useOnSaved(state: SchoolFormState, onSaved?: () => void) {
+  const seen = useRef(state);
+  useEffect(() => {
+    if (state !== seen.current && state.notice) onSaved?.();
+    seen.current = state;
+  }, [state, onSaved]);
+}
+
+/** Add (collapsed until opened), or, with `defaults` and `onClose`, a form's edit in its row (Phase 59.2a). */
 export function TaskForm({
   action,
   kids,
   adults,
   defaultKidId,
+  defaults,
+  onClose,
 }: {
   action: Action;
   kids: { id: string; name: string }[];
   adults: { id: string; name: string }[];
   defaultKidId?: string;
+  defaults?: TaskDefaults;
+  onClose?: () => void;
 }) {
   const [state, formAction, pending] = useActionState<SchoolFormState, FormData>(action, {});
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(onClose));
+  useOnSaved(state, onClose);
+  const d = defaults;
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className={btn}>
@@ -136,11 +162,11 @@ export function TaskForm({
   return (
     <form action={formAction} className="space-y-3 rounded-xl bg-muted p-3">
       <Labeled label="What">
-        <input name="title" required placeholder="Field trip permission slip" className={box} />
+        <input name="title" required defaultValue={d?.title} placeholder="Field trip permission slip" className={box} />
       </Labeled>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Labeled label="Kind">
-          <select name="kind" defaultValue="FORM" className={box}>
+          <select name="kind" defaultValue={d?.kind ?? "FORM"} className={box}>
             <option value="FORM">Form</option>
             <option value="FEE">Fee</option>
             <option value="SUPPLIES">Supplies</option>
@@ -148,13 +174,13 @@ export function TaskForm({
           </select>
         </Labeled>
         <Labeled label="Due">
-          <input name="dueDate" type="date" className={box} />
+          <input name="dueDate" type="date" defaultValue={d?.dueDate} className={box} />
         </Labeled>
         <Labeled label="Amount">
-          <input name="amount" inputMode="decimal" placeholder="$0.00" className={box} />
+          <input name="amount" inputMode="decimal" defaultValue={d?.amount} placeholder="$0.00" className={box} />
         </Labeled>
         <Labeled label="For">
-          <select name="kidPersonId" defaultValue={defaultKidId ?? ""} className={box}>
+          <select name="kidPersonId" defaultValue={d?.kidPersonId ?? defaultKidId ?? ""} className={box}>
             <option value="">Everyone</option>
             {kids.map((k) => (
               <option key={k.id} value={k.id}>
@@ -165,10 +191,10 @@ export function TaskForm({
         </Labeled>
       </div>
       <Labeled label="Notes">
-        <input name="notes" placeholder="Optional" className={box} />
+        <input name="notes" defaultValue={d?.notes} placeholder="Optional" className={box} />
       </Labeled>
       <Labeled label="Who's handling it">
-        <select name="ownerPersonId" defaultValue="" className={box}>
+        <select name="ownerPersonId" defaultValue={d?.ownerPersonId ?? ""} className={box}>
           <option value="">Nobody yet</option>
           {adults.map((a) => (
             <option key={a.id} value={a.id}>
@@ -179,10 +205,10 @@ export function TaskForm({
       </Labeled>
       <div className="flex flex-wrap gap-2">
         <button type="submit" disabled={pending} className={btnPrimary}>
-          {pending ? "Adding…" : "Add"}
+          {onClose ? (pending ? "Saving…" : "Save") : pending ? "Adding…" : "Add"}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className={btn}>
-          Done
+        <button type="button" onClick={() => (onClose ? onClose() : setOpen(false))} className={btn}>
+          {onClose ? "Cancel" : "Done"}
         </button>
       </div>
       <Result state={state} />
@@ -284,5 +310,74 @@ export function AssignmentForm({
       </div>
       <Result state={state} />
     </form>
+  );
+}
+
+type DetailsDefaults = { title: string; className: string; kind: AssignmentKindValue; dueDate: string };
+
+/** Phase 59.2a: an assignment's title, class, type and due date, changed in its row. */
+export function AssignmentDetailsForm({ action, defaults, onClose }: { action: Action; defaults: DetailsDefaults; onClose: () => void }) {
+  const [state, formAction, pending] = useActionState<SchoolFormState, FormData>(action, {});
+  useOnSaved(state, onClose);
+  return (
+    <form action={formAction} className="basis-full space-y-3 rounded-xl bg-muted p-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Labeled label="Class">
+          <input name="className" required defaultValue={defaults.className} className={box} />
+        </Labeled>
+        <Labeled label="Due">
+          <input name="dueDate" type="date" defaultValue={defaults.dueDate} className={box} />
+        </Labeled>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+        <Labeled label="What">
+          <input name="title" required defaultValue={defaults.title} autoFocus className={box} />
+        </Labeled>
+        <Labeled label="Type">
+          <select name="kind" defaultValue={defaults.kind} className={box}>
+            {ASSIGNMENT_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {ASSIGNMENT_KIND_LABEL[k]}
+              </option>
+            ))}
+          </select>
+        </Labeled>
+      </div>
+      <FormButtons pending={pending} onClose={onClose} />
+      <Result state={state} />
+    </form>
+  );
+}
+
+/** Phase 59.2a: "Grade it", in the row. */
+export function GradeForm({ action, defaults, onClose }: { action: Action; defaults: { score: string; maxScore: string }; onClose: () => void }) {
+  const [state, formAction, pending] = useActionState<SchoolFormState, FormData>(action, {});
+  useOnSaved(state, onClose);
+  return (
+    <form action={formAction} className="basis-full space-y-3 rounded-xl bg-muted p-3">
+      <div className="grid max-w-xs grid-cols-2 gap-3">
+        <Labeled label="Score">
+          <input name="score" inputMode="decimal" defaultValue={defaults.score} autoFocus className={box} />
+        </Labeled>
+        <Labeled label="Out of">
+          <input name="maxScore" inputMode="decimal" defaultValue={defaults.maxScore} className={box} />
+        </Labeled>
+      </div>
+      <FormButtons pending={pending} onClose={onClose} />
+      <Result state={state} />
+    </form>
+  );
+}
+
+function FormButtons({ pending, onClose }: { pending: boolean; onClose: () => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button type="submit" disabled={pending} className={btnPrimary}>
+        {pending ? "Saving…" : "Save"}
+      </button>
+      <button type="button" onClick={onClose} className={btn}>
+        Cancel
+      </button>
+    </div>
   );
 }
