@@ -120,9 +120,11 @@ export async function getHouseholdMembers(householdId: string, excludeId?: strin
 /** The next calendar occurrence of a month/day, ignoring year (rolls to next year if already passed). */
 export function nextOccurrence(date: { month: number; day: number }, from = new Date()): Date {
   const todayMidnight = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  let candidate = new Date(from.getFullYear(), date.month - 1, date.day);
+  // Phase 64a: kept inside its month, so Feb 29 is Feb 28 in other years, as the calendar shows it.
+  const on = (year: number) => new Date(year, date.month - 1, Math.min(date.day, new Date(year, date.month, 0).getDate()));
+  let candidate = on(from.getFullYear());
   if (candidate < todayMidnight) {
-    candidate = new Date(from.getFullYear() + 1, date.month - 1, date.day);
+    candidate = on(from.getFullYear() + 1);
   }
   return candidate;
 }
@@ -420,3 +422,20 @@ export async function personConnections(personId: string, householdId: string, a
   };
 }
 
+
+/**
+ * Phase 64a: how far off a date is, in words, and the age a birthday turns. Day differences on
+ * local midnights, so a clock change can't make "tomorrow" read "today". Pure.
+ */
+export function dateWhen(next: Date, now: Date = new Date()): string {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((new Date(next.getFullYear(), next.getMonth(), next.getDate()).getTime() - today.getTime()) / 86_400_000);
+  return days <= 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
+}
+
+/** "turns 9" for a birthday with a year; null otherwise. */
+export function turnsAge(d: { type: string; year: number | null }, next: Date): string | null {
+  if (d.type !== "BIRTHDAY" || d.year == null) return null;
+  const age = next.getFullYear() - d.year;
+  return age > 0 ? `turns ${age}` : null;
+}

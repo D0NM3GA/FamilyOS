@@ -2379,6 +2379,112 @@ Linking a fuel or service log to its charge; splitting a charge; anything from 6
 
 63a restock and school fees, 63b calendar bills and car charges, 63c connections and search.
 
+## Phase 64 — scope (daily friction, 2026-11-07)
+
+The fifth phase from the review of 2026-11-07: small things that make the everyday pages quicker.
+Checked against the code 2026-11-07.
+
+### The owner's answers (2026-11-07)
+
+- **Money: the "New since you last looked" queue** only (not notes, cash by hand or splits).
+- **Adding an event to Outlook from the app: yes, a simple add** (title, day, optional time, who
+  it's for); changing or deleting it stays in Outlook.
+
+### 64a — Home and the calendar
+
+- **Today on Home:** a **Today** strip at the top of the full Home (above the cards), from
+  `getAgendaWeek(profile, { start: today, days: 1, eventsOnly: true })` plus Outlook's events for
+  today when the Calendar card already has them: all-day items first, then timed ones, each with its
+  emoji and person colour, linking where it lives, at most 8 with "and N more" linking to the
+  calendar. Chores and doses stay in the Today card below (they're done there). Nothing today:
+  no strip.
+- **Big buttons Home** gains **Today at school** (the kid's own feeds and the family's, today) and a
+  **birthday this week** line (household members' birthdays within 7 days), from the same loaders
+  the calendar uses (`loadSchoolEvents`, `upcomingImportantDates`), only when School is on / there's
+  one.
+- **Upcoming dates card:** each row says how far off ("today", "tomorrow", "in 5 days") and, for a
+  birthday with a year, "turns 9"; at most 6 rows, then "See all on the calendar".
+- **Outlook sync from the calendar too:** `scheduleAutoSync(profile)` also runs from the Calendar
+  page (and Big buttons Home), with its existing owner, lease and 30-minute rules.
+- **Add to the family calendar:** on the Calendar page, the person who connected the shared Outlook
+  calendar (`CalendarSync.ownerPersonId`, on their own Microsoft sign-in, with write access granted)
+  gets **+ Add event**: title (required, 200 chars), day, optional start and end time (else
+  all-day), optional who it's for (a household member, added to the title as "Ivy: Dentist"). It
+  creates one event in `CalendarSync.calendarId` with a new `lib/graph` helper (`createCalendarEvent`)
+  using their token, never tagged with the sync's own property, so the sync leaves it alone. Others
+  see a line saying who can add events. A failure says so plainly (Graph's fixed text).
+
+### 64b — Groceries
+
+- **Add from the Shop view:** a small add box at the top of the Shop view (the Groceries page's
+  `AddBox`, compact), online only: with no signal it says so (check-offs keep queuing as now). A new
+  item lands under "To get".
+- **A note on a list item:** `ShoppingListItem.note String?` (200 chars), set in the item sheet
+  ("the big tub", "for Ivy's lunch"), shown under the name on the list and in the Shop view, cleared
+  when the trip finishes (the row is gone). Backups carry it (v11).
+
+### 64c — Money: new since you last looked
+
+- `MoneyJarMember.lastSeenAt DateTime?`. The jar page shows **New since you last looked (N)**: charges
+  that arrived (by `createdAt`) after the member's last look, up to 100, newest first, each with its
+  guessed or ruled category. One form files them: per row a category picker (defaults to the guess)
+  and **Save all**, which sets each changed row's category (PERSON, "just this one") and confirms
+  unchanged guesses (AUTO → PERSON) in one action, then marks seen. **Mark all seen** without filing.
+  First visit: everything older than 30 days counts as seen (no flood).
+- The action re-checks jar membership (`requireJar`), only touches rows of this jar, limits to 100 ids,
+  and logs one jar event.
+
+### Settled after Fable's scope review (2026-11-07)
+
+These replace what's above where they differ.
+
+- **PRs:** 64a Home and the calendar (read-only pieces), 64b add an event, 64c groceries, 64d money.
+- **Today strip:** `getAgendaWeek(profile, { start: today, days: 1, eventsOnly: true, timeZone, disabledApps })`
+  with Home's own `disabled` (a kid's already includes grown-up apps); its Outlook part shares the
+  Calendar card's one promise inside its own Suspense (fallback: the app's own items). Today's
+  Outlook items come from that week's fetch (capped at 25): a very full week may miss some, said in
+  BUILD.
+- **Big buttons:** birthdays of household members only (`upcomingImportantDates` reads contacts too,
+  so filter); school "today" from `getUpcomingSchoolEvents(viewer, { days: 0 })`, the kid's own and
+  the family's. Wording ("today", "tomorrow", "in N days") from day differences; Feb 29 on Feb 28
+  as the agenda does.
+- **Auto-sync** from the Calendar page and Big buttons Home only with the same gate Home uses (the
+  session owner on a Microsoft sign-in), since `scheduleAutoSync` doesn't check the session itself.
+- **Add an event (64b):** for a grown-up on their own Microsoft sign-in who has granted calendar
+  write access (`calendarWriteGranted`), with Calendar on. It goes to **the calendar their Home and
+  Calendar read** (`homeCalendarId`, else the family calendar by name, else their own), not the
+  sync's app-made calendar, which Disconnect deletes whole. The form says which calendar. Payload
+  from a pure builder beside `events.ts`'s (all-day: midnight to next midnight; timed:
+  `YYYY-MM-DDTHH:mm:00` with the household's `timeZone`), a `transactionId` made when the form
+  renders (a retry doesn't double it), no app tag (the sync only diffs its own links, so it never
+  touches the event).
+- **Shop-view add box (64c):** off while the phone is offline (with a note), errors caught; the
+  new row reaches the Shop list through the revalidated path. **List notes** are saved per item
+  (like who it's for), visible to everyone who sees the list (the guide says so). Backup v11; the
+  accepted versions list fixed to include 9 and 10, which it skipped.
+- **New since you looked (64d):** only `state: "ACTIVE"`, not pending (a hold posts as a new row, so
+  filing it would be lost), not hidden as a surprise (`visibleToWhere`). Saving files changed rows
+  as PERSON and confirms unchanged AUTO guesses as PERSON; RULE rows and rows already PERSON are left
+  alone. Each category re-checked against the jar. Native selects, not 100 pickers. The newest 100;
+  **Mark all seen** clears the rest. A new jar event kind with its feed label. After a money restore
+  the 30-day first-visit rule applies again: fine.
+
+### Tests
+
+Unit: the Today strip's ordering and cap, the dates card wording, the Outlook event payload (all-day
+vs timed, who in the title, validation), the "new since" cutoff. DB: the new-since queue and its
+save (membership, PERSON, seen), the list note through backup. Guides: family.md for each, admin.md
+for adding events (who can, and that write access must be granted).
+
+### Not in this phase
+
+Notes on charges, cash by hand, splits, transfer pairing (owner: not now); editing or deleting
+Outlook events from the app; anything from 65.
+
+### Pull requests
+
+64a Home and calendar, 64b groceries, 64c money.
+
 ## Open items
 
 ### Waiting on a decision

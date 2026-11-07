@@ -250,3 +250,17 @@ describe("shortNames", () => {
     expect(names(["Max", "Parker"], ["Max", "Parker"])).toEqual(["Max Parker", "Max Parker"]);
   });
 });
+
+describe("dates in words (Phase 64a)", () => {
+  it("today, tomorrow, in N days; the age a birthday turns; Feb 29 on Feb 28", async () => {
+    const { dateWhen, turnsAge, nextOccurrence } = await import("./people");
+    const now = new Date(2027, 1, 25, 21, 0);
+    expect(dateWhen(new Date(2027, 1, 25), now)).toBe("today");
+    expect(dateWhen(new Date(2027, 1, 26), now)).toBe("tomorrow");
+    expect(dateWhen(new Date(2027, 2, 2), now)).toBe("in 5 days");
+    expect(turnsAge({ type: "BIRTHDAY", year: 2018 }, new Date(2027, 2, 2))).toBe("turns 9");
+    expect(turnsAge({ type: "ANNIVERSARY", year: 2010 }, new Date(2027, 2, 2))).toBeNull();
+    expect(nextOccurrence({ month: 2, day: 29 }, now)).toEqual(new Date(2027, 1, 28));
+    expect(nextOccurrence({ month: 2, day: 29 }, new Date(2028, 1, 20))).toEqual(new Date(2028, 1, 29));
+  });
+});

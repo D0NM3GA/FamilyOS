@@ -1,10 +1,13 @@
 import { ChevronRight } from "lucide-react";
+import { personColor } from "@/lib/person-color";
 import { LookKicker } from "@/components/look-voice";
 import type { VoiceKicker } from "@/lib/looks";
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireActiveProfile, isSessionOwner } from "@/lib/active-profile";
-import { upcomingImportantDates, staleContacts, fullName } from "@/lib/people";
+import { upcomingImportantDates, staleContacts, fullName, dateWhen, turnsAge, getHouseholdMembers } from "@/lib/people";
+import { getAgendaWeek } from "@/lib/calendar/queries";
+import { itemPerson, outlookItems, timeLabel, todayStrip, type AgendaItem } from "@/lib/calendar/agenda";
 import { formatRelative, formatMonthDay, formatTimeOfDay } from "@/lib/format";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
@@ -57,7 +60,7 @@ async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof
     on("meds") ? ensureInstancesGenerated(profile.householdId, today, "MED") : null,
   ]);
   // "My stuff": their own chores plus "Anyone" ones they can grab (and earn) themselves.
-  const [chores, meds, wallet, school, household, words] = await Promise.all([
+  const [chores, meds, wallet, school, household, words, ownsCalendar] = await Promise.all([
     on("chores")
       ? getBoardInstances(profile.householdId, { horizonDays: 0, personId: profile.id, includeUnassigned: true, domain: "CHORE" })
       : emptyBoard(today),
@@ -66,9 +69,21 @@ async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof
     on("school") ? getSchoolDueSoon(profile, 7) : [],
     getHouseholdSettings(profile.householdId),
     getRewardWords(profile.householdId),
+    Promise.all([isSessionOwner(profile), signInKind(profile)]).then(([owner, kind]) => owner && kind === "microsoft"),
   ]);
   const zone = household.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const myMeds = [...meds.overdue, ...meds.dueToday];
+  // Phase 64a: what's on at school today (their own feeds and the family's), and the family's
+  // birthdays this week; and the Outlook sync, for its owner on their own Microsoft sign-in, as
+  // the full Home does.
+  const [schoolToday, dates] = await Promise.all([
+    on("school") ? getUpcomingSchoolEvents(profile, { days: 0, timeZone: zone }) : [],
+    upcomingImportantDates(profile.householdId, 7),
+    ownsCalendar ? scheduleAutoSync(profile).catch(() => {}) : null,
+  ]);
+  const birthdays = dates
+    .filter((d) => d.type === "BIRTHDAY" && d.person.isHouseholdMember)
+    .map((d) => ({ key: d.id, text: `${d.person.firstName}'s birthday is ${dateWhen(d.next)}` }));
 
   return (
     <BigHome
@@ -83,6 +98,8 @@ async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof
       medTimes={Object.fromEntries(myMeds.map((i) => [i.id, formatTimeOfDay(i.dueDate)]))}
       overdueMedIds={meds.overdue.map((i) => i.id)}
       school={school}
+      schoolToday={schoolToday.map((e) => ({ key: `${e.feedId}:${e.occurrenceKey}`, title: e.title }))}
+      birthdays={birthdays}
       onCompleteChore={completeChore}
       onUndoChore={undoChore}
       onCompleteMed={completeMed}
@@ -105,14 +122,16 @@ export default async function HomePage() {
   // Home only shows overdue + today, so only that much needs to exist yet.
   const today = atMidnight(new Date());
   // Phase 40.1b: and only a Microsoft sign-in has an Outlook calendar (not a passkey).
-  const [showCalendar] = await Promise.all([
+  const [showCalendar, settings] = await Promise.all([
     Promise.all([isSessionOwner(profile), signInKind(profile)]).then(([owner, kind]) => owner && kind === "microsoft"),
+    getHouseholdSettings(profile.householdId),
     on("school") ? scheduleFeedRefresh(profile.householdId).catch(() => {}) : null,
     on("chores") ? ensureInstancesGenerated(profile.householdId, today, "CHORE") : null,
     on("meds") ? ensureInstancesGenerated(profile.householdId, today, "MED") : null,
   ]);
 
-  const [upcomingDates, stale, choreBoard, medBoard, vehicleBoards, activity, schoolDue, schoolFeed, openOrders] = await Promise.all([
+  const homeZone = settings.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [upcomingDates, stale, choreBoard, medBoard, vehicleBoards, activity, schoolDue, schoolFeed, openOrders, , todayAgenda, members] = await Promise.all([
     upcomingImportantDates(profile.householdId, 30),
     staleContacts(profile.householdId, { excludeId: profile.id, limit: 5 }),
     on("chores") ? getBoardInstances(profile.householdId, { horizonDays: 0, domain: "CHORE" }) : emptyBoard(today),
@@ -131,12 +150,25 @@ export default async function HomePage() {
     // Phase 17: keeps the family's Outlook calendar current, after the page is sent. Only for
     // the calendar's owner on their own profile (it writes with their token).
     showCalendar && on("calendar") ? scheduleAutoSync(profile).catch(() => {}) : null,
+    // Phase 64a: today at a glance, above the cards: dates, school, schoolwork and car work (the
+    // agenda's events; chores and doses stay in Today, where they're done).
+    getAgendaWeek(profile, { start: today, days: 1, eventsOnly: true, timeZone: homeZone, disabledApps: disabled }),
+    getHouseholdMembers(profile.householdId),
   ]);
   const { events: schoolEvents, zone } = schoolFeed;
+  // Outlook joins the Today strip from the Calendar card's own fetch, shared, inside its own Suspense.
+  const memberIds = new Set(members.map((m) => m.id));
+  const colors = Object.fromEntries(members.map((m) => [m.id, personColor(m).bg]));
+  const outlookLoad: Promise<ThisWeekResult> | null =
+    on("calendar") && microsoftEnabled()
+      ? showCalendar && profile.authUserId
+        ? getThisWeekEvents(profile.authUserId, profile.homeCalendarId)
+        : Promise.resolve<ThisWeekResult>({ ok: false, error: "Outlook shows here for whoever signed in with Microsoft, on their own profile." })
+      : null;
   // Cards stagger in by position, so a turned-off app's card leaves no gap in the rhythm.
   // The app cards are named by their app's id; the rest aren't switchable, so always on.
   // Phase 40.1b: the calendar card is Outlook's, so an install without Microsoft has none.
-  const outlookCard = on("calendar") && microsoftEnabled();
+  const outlookCard = outlookLoad !== null;
   const showToday = on("chores") || on("meds");
   const cards = ["today", "calendar", "school", "dates", "stale", "cars", "activity"].filter((c) =>
     c === "today" ? showToday : c === "calendar" ? outlookCard : on(c),
@@ -165,6 +197,14 @@ export default async function HomePage() {
         kind="chatty"
         text={greetingLine(profile.firstName, currentHour(zone), on("chores") ? choreProgressFor(profile.id, choreBoard) : null, words)}
       />
+
+      {outlookLoad ? (
+        <Suspense fallback={<TodayStrip items={todayAgenda.items} memberIds={memberIds} colors={colors} />}>
+          <TodayStripWithOutlook items={todayAgenda.items} load={outlookLoad} today={today} zone={zone} memberIds={memberIds} colors={colors} />
+        </Suspense>
+      ) : (
+        <TodayStrip items={todayAgenda.items} memberIds={memberIds} colors={colors} />
+      )}
 
       {showToday && (
         <MilestoneToastBoard>
@@ -235,14 +275,7 @@ export default async function HomePage() {
               </Card>
             }
           >
-            <CalendarCard
-              load={
-                showCalendar && profile.authUserId
-                  ? getThisWeekEvents(profile.authUserId, profile.homeCalendarId)
-                  : Promise.resolve<ThisWeekResult>({ ok: false, error: "Outlook shows here for whoever signed in with Microsoft, on their own profile." })
-              }
-              index={index("calendar")}
-            />
+            <CalendarCard load={outlookLoad!} index={index("calendar")} />
           </Suspense>
         )}
 
@@ -291,7 +324,7 @@ export default async function HomePage() {
             <EmptyNote>Nothing in the next 30 days. Add birthdays from a person&apos;s page.</EmptyNote>
           ) : (
             <ul className="space-y-1 sm:space-y-2">
-              {upcomingDates.map((d) => (
+              {upcomingDates.slice(0, DATES_SHOWN).map((row) => ({ ...row, age: turnsAge(row, row.next) })).map((d) => (
                 <li key={d.id}>
                   <Link
                     href={`/people/${d.person.id}`}
@@ -300,12 +333,20 @@ export default async function HomePage() {
                     <span>
                       {fullName(d.person)}
                       {d.label ? ` · ${d.label}` : ""}
+                      {d.age && <span className="text-muted-foreground"> · {d.age}</span>}
                     </span>
-                    <span className="text-muted-foreground">{formatMonthDay(d.month, d.day)}</span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {formatMonthDay(d.next.getMonth() + 1, d.next.getDate())} · {dateWhen(d.next)}
+                    </span>
                   </Link>
                 </li>
               ))}
             </ul>
+          )}
+          {upcomingDates.length > DATES_SHOWN && (
+            <Link href="/calendar?view=month" className="mt-1 inline-flex min-h-11 items-center text-xs font-bold text-muted-foreground underline hover:text-foreground sm:min-h-0">
+              See all on the calendar →
+            </Link>
           )}
         </Card>
 
@@ -528,3 +569,77 @@ function Card({
 function EmptyNote({ children }: { children: React.ReactNode }) {
   return <p className="text-xs text-muted-foreground">{children}</p>;
 }
+
+/** Phase 64a: the Upcoming dates card shows this many. */
+const DATES_SHOWN = 6;
+
+/** Today's events above the cards: all-day first, then by time, at most 8. Nothing today: nothing. */
+function TodayStrip({ items, memberIds, colors }: { items: AgendaItem[]; memberIds: ReadonlySet<string>; colors: Record<string, string> }) {
+  const { shown, more } = todayStrip(items);
+  if (shown.length === 0) return null;
+  return (
+    <section aria-labelledby="happening-today" className="ui-card mt-6 rounded-2xl border-2 border-ink bg-card p-3 dark:border-white/20">
+      <h2 id="happening-today" className="font-heading text-lg font-extrabold">
+        Happening today
+      </h2>
+      <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {shown.map((item) => {
+          const text = (
+            <>
+              <span aria-hidden>{item.emoji} </span>
+              {item.minutes != null && <span className="font-bold">{timeLabel(item.minutes)} </span>}
+              {item.title}
+              {item.who && <span className="text-muted-foreground"> · {item.who}</span>}
+            </>
+          );
+          // Each person's colour, as on the calendar (itemPerson: theirs, not a car's or a contact's).
+          const person = itemPerson(item, memberIds);
+          return (
+            <li
+              key={item.key}
+              className={`border-l-4 pl-2 ${item.status === "open" ? "" : "text-muted-foreground line-through"} ${person ? "" : "border-transparent"}`}
+              style={person ? { borderLeftColor: colors[person] } : undefined}
+            >
+              {item.href && !item.external ? (
+                <Link href={item.href} className="inline-flex min-h-11 items-center hover:underline sm:min-h-0">
+                  {text}
+                </Link>
+              ) : item.href ? (
+                <a href={item.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center hover:underline sm:min-h-0">
+                  {text}
+                </a>
+              ) : (
+                text
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {more > 0 && (
+        <Link href="/calendar" className="mt-1 inline-flex min-h-11 items-center text-xs font-bold text-muted-foreground underline hover:text-foreground sm:min-h-0">
+          and {more} more on the calendar →
+        </Link>
+      )}
+    </section>
+  );
+}
+
+async function TodayStripWithOutlook({
+  items,
+  load,
+  today,
+  zone,
+  memberIds,
+  colors,
+}: {
+  items: AgendaItem[];
+  load: Promise<ThisWeekResult>;
+  today: Date;
+  zone: string;
+  memberIds: ReadonlySet<string>;
+  colors: Record<string, string>;
+}) {
+  const result = await load;
+  return <TodayStrip items={result.ok ? [...items, ...outlookItems(result.events, today, zone, 1)] : items} memberIds={memberIds} colors={colors} />;
+}
+
