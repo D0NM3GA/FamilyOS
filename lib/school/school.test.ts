@@ -80,3 +80,21 @@ describe("rules", () => {
     expect(items.sort(byDueDate).map((i) => i.title)).toEqual(["a", "c", "b"]);
   });
 });
+
+import { matchesShow } from "./rules";
+
+describe("matchesShow (Phase 59.4a)", () => {
+  const today = new Date(2026, 10, 7, 15);
+  const a = (o: Partial<{ status: string; dueDate: Date | null; kind: string }>) => ({ status: "TODO", dueDate: null, kind: "HOMEWORK", ...o });
+  it("filters by overdue, this week, tests and missing", () => {
+    expect(matchesShow(a({ dueDate: new Date(2026, 10, 6) }), "overdue", today)).toBe(true);
+    expect(matchesShow(a({ dueDate: new Date(2026, 10, 7) }), "overdue", today)).toBe(false);
+    expect(matchesShow(a({ dueDate: new Date(2026, 10, 13) }), "week", today)).toBe(true);
+    expect(matchesShow(a({ dueDate: new Date(2026, 10, 14) }), "week", today)).toBe(false);
+    expect(matchesShow(a({ kind: "QUIZ" }), "tests", today)).toBe(true);
+    expect(matchesShow(a({ status: "MISSING" }), "missing", today)).toBe(true);
+    expect(matchesShow(a({}), null, today)).toBe(true);
+    // Missing work isn't "overdue": that filter is for work still to do.
+    expect(matchesShow(a({ status: "MISSING", dueDate: new Date(2026, 10, 1) }), "overdue", today)).toBe(false);
+  });
+});

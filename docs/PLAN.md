@@ -1808,6 +1808,9 @@ model WorkItemEvent {
   hydration the same way). List rows are one line: pill, title, who, due, and points or class.
   Filter chips live in the URL: Overdue, Today, Mine (`person=<self>`), Unassigned (a new
   `getBoardInstances` option) on Chores; Overdue, This week, Tests, Missing on School.
+- **As built (2026-11-07):** School's homework is already a list of rows, so the Cards / List switch is
+  Chores' only; School's rows open the panel from **Details & history** in their ⋯ (tapping the words
+  stays the quick edit). The panel's edit forms close it when they save.
 - **Side panel:** tapping a row's title in the list opens a panel (bottom sheet on a phone,
   right-hand panel on a computer, the `look-sheet.tsx` pattern) with the item's fields editable
   through the 59.2 actions, its pill, and its history (who, what, when, newest first). The URL

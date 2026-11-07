@@ -3,56 +3,42 @@ import { Mail, Phone, Printer } from "lucide-react";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdmin, isAdult } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
-import { formatEventWhen, formatFullDate } from "@/lib/format";
+import { formatEventWhen } from "@/lib/format";
 import { AwayTime } from "@/components/away-time";
 import { getHouseholdSettings } from "@/lib/household-settings";
 import { getStudentHub, getUpcomingSchoolEvents, listStudents } from "@/lib/school/queries";
 import { scheduleFeedRefresh } from "@/lib/school/feeds/schedule";
-import { byDueDate, classAverages, isOverdue } from "@/lib/school/rules";
-import { formatMoney } from "@/lib/money";
+import { byDueDate, classAverages, matchesShow, SCHOOL_SHOWS, type SchoolShow } from "@/lib/school/rules";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { PageHeader } from "@/components/page-header";
 import { btn, card, chip, chipRow, fieldLabel, iconBtn, sectionTitle } from "@/components/styles";
-import {
-  addAssignment,
-  addTask,
-  bulkSchool,
-  approveKidChange,
-  claimTask,
-  deleteAssignment,
-  deleteTask,
-  gradeAssignment,
-  putBackKidChange,
-  setAssignmentDetails,
-  setAssignmentStatus,
-  setTaskDone,
-  setTaskStatus,
-  updateTask,
-} from "./actions";
+import { addAssignment, addTask, approveKidChange, bulkSchool, putBackKidChange, setAssignmentStatus, setTaskDone } from "./actions";
 import { AssignmentForm, TaskForm } from "./forms";
-import { AssignmentRow, KidChange, SchoolTaskRow } from "./rows";
+import { KidChange } from "./rows";
+import { FormRow, HomeworkRow } from "./row-items";
+import { Everyone, ShowChips } from "./everyone";
+import { ItemPanel } from "../item-panel";
+import { itemParam, parseItemRef } from "@/lib/work-items/history";
 import { SelectionProvider, SelectToggle } from "@/components/selection";
 import { FormsBulkBar, HomeworkBulkBar } from "./bulk";
-import { assignmentItem } from "@/lib/work-items/assignment";
-import { schoolTaskItem } from "@/lib/work-items/school-task";
-import { canEditAssignmentDetails, canRemoveAssignment } from "@/lib/school/permissions";
-import { toISODate } from "@/lib/format";
 import { requireAppOn } from "@/lib/app-guard";
 import { SubmitButton } from "@/components/submit";
 
-const KIND_LABEL = { FORM: "📝 Form", FEE: "💵 Fee", SUPPLIES: "✏️ Supplies", OTHER: "📌 To-do" } as const;
 const cardTitle = "text-lg font-extrabold text-foreground";
 
 /**
  * School (Phase 18): one tab per student with their school details, teachers, forms &
  * to-dos, and homework & grades. Adults see every student; a kid sees only their own tab.
  */
-export default async function SchoolPage({ searchParams }: { searchParams: Promise<{ kid?: string }> }) {
+export default async function SchoolPage({ searchParams }: { searchParams: Promise<{ kid?: string; show?: string; item?: string }> }) {
   await requireAppOn("school");
   const viewer = await requireActiveProfile();
   const adult = isAdult(viewer);
   const students = await listStudents(viewer);
-  const { kid } = await searchParams;
+  const { kid, show: rawShow, item } = await searchParams;
+  // Phase 59.4a: quick filters and the side panel live in the address.
+  const show = SCHOOL_SHOWS.includes(rawShow as SchoolShow) ? (rawShow as SchoolShow) : null;
+  const itemRef = parseItemRef(item);
 
   if (students.length === 0) {
     return (
@@ -65,6 +51,8 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
     );
   }
 
+  // Phase 59.4a: grown-ups with more than one student get Everyone (?kid=all).
+  if (adult && students.length > 1 && kid === "all") return <Everyone viewer={viewer} students={students} show={show} itemRef={itemRef} />;
   const selectedId = students.some((s) => s.id === kid) ? kid! : students[0].id;
   // Feeds older than 6 hours refresh after this page is sent (Phase 18.5).
   await scheduleFeedRefresh(viewer.householdId).catch(() => {});
@@ -81,6 +69,15 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
 
   const assignments = school?.assignments ?? [];
   const open = assignments.filter((a) => a.status !== "DONE").sort(byDueDate);
+  const shownOpen = open.filter((a) => matchesShow(a, show, today));
+  // Links keep the student and filter, and add or drop one.
+  const here = (change: Record<string, string | null>) => {
+    const q = new URLSearchParams();
+    // The student shown, not ?kid=all when this page fell back from it.
+    for (const [k, v] of Object.entries({ kid: kid === "all" ? null : (kid ?? null), show, item: null, ...change })) if (v) q.set(k, v);
+    const qs = q.toString();
+    return qs ? `/school?${qs}` : "/school";
+  };
   // Ticked off in the last two weeks and not graded (graded work shows below): a mis-tap
   // used to make homework vanish with no way back.
   const fortnightAgo = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -126,6 +123,11 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
 
       {students.length > 1 && (
         <nav className={`mt-4 ${chipRow}`} aria-label="Students">
+          {adult && (
+            <Link href="/school?kid=all" className={chip}>
+              Everyone
+            </Link>
+          )}
           {students.map((s) => (
             <Link
               key={s.id}
@@ -221,43 +223,17 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                 <p className="mt-2 text-sm text-muted-foreground">Nothing to sign or pay. 🎉</p>
               ) : (
                 <ul className="mt-2 divide-y divide-border">
-                  {tasks.map((t) => {
-                    const late = t.dueDate != null && t.dueDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                    return (
-                      <SchoolTaskRow
-                        key={t.id}
-                        item={schoolTaskItem({ id: t.id, title: t.title, dueDate: t.dueDate, status: t.status, owner: t.owner }, viewer, today)}
-                        details={{ kind: KIND_LABEL[t.kind], amount: t.amountCents != null ? formatMoney(t.amountCents) : null }}
-                        meta={[
-                          t.dueDate ? `${late ? "Was due" : "Due"} ${formatFullDate(t.dueDate)}` : "No due date",
-                          t.kid ? t.kid.firstName : "everyone",
-                          t.owner ? `${t.owner.firstName} has it` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                        late={late}
-                        removeQuestion={`Remove "${t.title}"? This can't be undone.`}
-                        onStatus={setTaskStatus}
-                        onRemove={deleteTask}
-                        edit={{
-                          action: updateTask.bind(null, t.id),
-                          defaults: {
-                            title: t.title,
-                            kind: t.kind,
-                            dueDate: t.dueDate ? toISODate(t.dueDate) : "",
-                            amount: t.amountCents != null ? (t.amountCents / 100).toFixed(2) : "",
-                            kidPersonId: t.kidPersonId ?? "",
-                            ownerPersonId: t.ownerPersonId ?? "",
-                            notes: t.notes ?? "",
-                          },
-                          kids: kidsList,
-                          adults: members.filter((m) => m.role !== "KID").map((m) => ({ id: m.id, name: m.firstName })),
-                        }}
-                        onClaim={t.ownerPersonId === viewer.id ? undefined : claimTask}
-                        selectable
-                      />
-                    );
-                  })}
+                  {tasks.map((t) => (
+                    <FormRow
+                      key={t.id}
+                      t={t}
+                      viewer={viewer}
+                      today={today}
+                      detailsHref={here({ item: itemParam("SCHOOL_TASK", t.id) })}
+                      kids={kidsList}
+                      adults={members.filter((m) => m.role !== "KID").map((m) => ({ id: m.id, name: m.firstName }))}
+                    />
+                  ))}
                 </ul>
               )}
               {recentlyDone.length > 0 && (
@@ -292,7 +268,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
           </SelectionProvider>
         )}
 
-        <SelectionProvider key={`homework-${selectedId}`}>
+        <SelectionProvider key={`homework-${selectedId}-${show ?? "all"}`}>
           <section className={`min-w-0 ${card} lg:col-span-2`}>
             <div className="flex flex-wrap items-baseline justify-between gap-x-3">
               <h2 className={cardTitle}>Homework & tests</h2>
@@ -313,52 +289,14 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
               <p className="mt-2 text-sm text-muted-foreground">Set up the school details first.</p>
             ) : (
               <>
-                {open.length === 0 ? (
-                  <p className="mt-2 text-sm text-muted-foreground">All caught up. ✨</p>
+                {open.length > 0 && <ShowChips here={here} show={show} />}
+                {shownOpen.length === 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">{open.length === 0 ? "All caught up. ✨" : "Nothing like that right now."}</p>
                 ) : (
                   <ul className="mt-2 divide-y divide-border">
-                    {open.map((a) => {
-                      const overdue = isOverdue(a, today);
-                      const student = { id: person.id, firstName: person.firstName };
-                      return (
-                        <AssignmentRow
-                          key={a.id}
-                          kind={a.kind}
-                          item={assignmentItem({ ...a, student }, viewer, today)}
-                          className={a.className}
-                          dueText={a.dueDate ? `${overdue ? "Was due" : "Due"} ${formatFullDate(a.dueDate)}` : "No due date"}
-                          overdue={overdue}
-                          editHref={adult ? `/school/${person.id}/assignments/${a.id}` : undefined}
-                          canRemove={canRemoveAssignment(viewer, { studentId: person.id, status: a.status, score: a.score })}
-                          removeQuestion={`Remove "${a.title}"${a.score != null ? " and its grade" : ""}? This can't be undone.`}
-                          onStatus={setAssignmentStatus}
-                          onRemove={deleteAssignment}
-                          details={
-                            canEditAssignmentDetails(viewer, { studentId: person.id, status: a.status, score: a.score })
-                              ? {
-                                  action: setAssignmentDetails.bind(null, a.id),
-                                  defaults: { title: a.title, className: a.className, kind: a.kind, dueDate: a.dueDate ? toISODate(a.dueDate) : "" },
-                                }
-                              : undefined
-                          }
-                          grade={
-                            adult
-                              ? { action: gradeAssignment.bind(null, a.id), defaults: { score: a.score?.toString() ?? "", maxScore: a.maxScore?.toString() ?? "" } }
-                              : undefined
-                          }
-                          selectable={adult}
-                          kidChange={
-                            adult && a.kidChangedAt
-                              ? {
-                                  who: person.firstName,
-                                  onApprove: approveKidChange.bind(null, a.id, a.kidChangedAt.toISOString()),
-                                  onPutBack: putBackKidChange.bind(null, a.id, a.kidChangedAt.toISOString()),
-                                }
-                              : undefined
-                          }
-                        />
-                      );
-                    })}
+                    {shownOpen.map((a) => (
+                      <HomeworkRow key={a.id} a={a} student={{ id: person.id, firstName: person.firstName }} viewer={viewer} today={today} detailsHref={here({ item: itemParam("ASSIGNMENT", a.id) })} />
+                    ))}
                   </ul>
                 )}
                 {adult && <HomeworkBulkBar bulk={bulkSchool} />}
@@ -462,6 +400,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
           )}
         </section>
       </div>
+      {itemRef && <ItemPanel itemRef={itemRef} closeHref={here({ item: null })} />}
     </div>
   );
 }
