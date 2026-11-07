@@ -22,6 +22,7 @@ export default async function SearchPage({
   const groups = query
     ? await searchHousehold(profile.householdId, query, {
         viewerIsAdult: isAdult(profile),
+        viewerId: profile.id,
         disabledApps: appsOffFor(isAdult(profile), await getDisabledApps(profile.householdId)),
       })
     : [];

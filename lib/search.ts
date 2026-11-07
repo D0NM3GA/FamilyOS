@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { itemParam } from "@/lib/work-items/history";
 import { listPeople, fullName } from "@/lib/people";
 import { searchProductsLocal } from "@/lib/groceries/queries";
-import { formatMonthDay } from "@/lib/format";
+import { formatMonthDay, toISODate, formatEventWhen } from "@/lib/format";
 import { isAppOn } from "@/lib/apps";
 import { getRewardWords } from "@/lib/household-settings";
 
@@ -26,7 +27,7 @@ export async function searchHousehold(
   householdId: string,
   query: string,
   /** Phase 36: `disabledApps` (the family's turned-off apps) aren't searched at all. */
-  opts: { viewerIsAdult: boolean; disabledApps: readonly string[] },
+  opts: { viewerIsAdult: boolean; disabledApps: readonly string[]; viewerId?: string; now?: Date },
 ): Promise<SearchGroup[]> {
   const term = query.trim();
   if (!term) return [];
@@ -212,7 +213,8 @@ export async function searchHousehold(
         id: a.id,
         label: `${a.className}: ${a.title}`,
         sublabel: a.profile.person.firstName,
-        href: `/school/${a.profile.personId}/assignments/${a.id}`,
+        // Phase 63c: in School's side panel, like a to-do.
+        href: `/school?kid=${encodeURIComponent(a.profile.personId)}&item=${encodeURIComponent(itemParam("ASSIGNMENT", a.id))}`,
       })),
     });
   }
@@ -224,7 +226,8 @@ export async function searchHousehold(
         id: t.id,
         label: t.title,
         sublabel: [t.kid?.firstName, t.status === "DONE" ? "done" : null].filter(Boolean).join(" · ") || undefined,
-        href: t.kidPersonId ? `/school?kid=${t.kidPersonId}` : "/school",
+        // Phase 63c: straight to the to-do in School's side panel.
+        href: `/school?${t.kidPersonId ? `kid=${encodeURIComponent(t.kidPersonId)}&` : ""}item=${encodeURIComponent(itemParam("SCHOOL_TASK", t.id))}`,
       })),
     });
   }
@@ -250,6 +253,60 @@ export async function searchHousehold(
         sublabel: formatMonthDay(d.month, d.day),
         href: `/people/${d.person.id}`,
       })),
+    });
+  }
+
+  // Phase 63c: school calendar events coming up (a kid sees their own feeds and the family's), and
+  // what's on the shopping list now.
+  const now = opts.now ?? new Date();
+  const [schoolEvents, listItems] = await Promise.all([
+    on("school")
+      ? prisma.schoolFeedEvent.findMany({
+          where: {
+            title: { contains: term, mode: "insensitive" },
+            startsAt: { lt: new Date(now.getTime() + 60 * 86_400_000) },
+            endsAt: { gte: new Date(now.getTime() - 86_400_000) },
+            feed: {
+              householdId,
+              active: true,
+              ...(viewerIsAdult ? {} : { OR: [{ kidPersonId: null }, ...(opts.viewerId ? [{ kidPersonId: opts.viewerId }] : [])] }),
+            },
+          },
+          select: { feedId: true, occurrenceKey: true, title: true, startsAt: true, endsAt: true, allDay: true, feed: { select: { kidPersonId: true, kid: { select: { firstName: true } } } } },
+          orderBy: { startsAt: "asc" },
+          take: RESULTS_PER_GROUP,
+        })
+      : [],
+    on("groceries")
+      ? prisma.shoppingListItem.findMany({
+          where: { list: { householdId }, product: { name: { contains: term, mode: "insensitive" } } },
+          select: { id: true, done: true, product: { select: { name: true } } },
+          orderBy: { product: { name: "asc" } },
+          take: RESULTS_PER_GROUP,
+        })
+      : [],
+  ]);
+  if (schoolEvents.length > 0) {
+    groups.push({
+      title: "School calendar",
+      items: schoolEvents.map((e) => {
+        // All-day events are stored as UTC midnight of their date; timed ones are instants read in
+        // the household's zone, which the server keeps (lib/household-zone.ts), as the calendar does.
+        const day = e.allDay ? toISODate(e.startsAt, "UTC") : toISODate(e.startsAt);
+        return {
+          id: `${e.feedId}:${e.occurrenceKey}`,
+          label: e.title,
+          sublabel: [formatEventWhen(e, Intl.DateTimeFormat().resolvedOptions().timeZone), e.feed.kid?.firstName].filter(Boolean).join(" · "),
+          // To the week on the calendar, or to School when Calendar is off.
+          href: on("calendar") ? `/calendar?week=${day}` : e.feed.kidPersonId ? `/school?kid=${encodeURIComponent(e.feed.kidPersonId)}` : "/school",
+        };
+      }),
+    });
+  }
+  if (listItems.length > 0) {
+    groups.push({
+      title: "On the shopping list",
+      items: listItems.map((i) => ({ id: i.id, label: i.product.name, sublabel: i.done ? "in the cart" : undefined, href: "/groceries" })),
     });
   }
 
