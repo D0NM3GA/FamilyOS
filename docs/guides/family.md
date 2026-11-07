@@ -316,7 +316,11 @@ One shared list for the whole family.
 **At the store: 🛒 Shop.** Big rows, sorted by store and the way you walk the aisles. Tap an item to
 put it **In the cart**. The screen stays on while you shop, and ticks work even with no signal:
 they catch up when you're back online. When you're done, **Finish trip**: anything you didn't get
-stays on the list for next time.
+stays on the list for next time. If the cart has a medicine or a car supply the app put on the list
+when it ran low, a grown-up's **Finish trip** in the Shop view first asks **Picked up …: how many?**
+(in the same count as its stock at home: pills or mL for a medicine, the Garage's own unit for a
+supply) and adds what you type to its stock; leave a
+box empty, or tap **Skip**, to leave the count alone.
 
 **No signal in the store?** Open Shop once before you go, while you still have signal: your phone
 keeps a copy of the list. In a dead spot, Shop opens from that copy with a line saying **The list

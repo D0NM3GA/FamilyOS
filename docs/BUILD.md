@@ -1663,3 +1663,25 @@ Fable's review of 62c: today's chores are made before they're counted (like dose
 bottle shows its count and the Low badge, not "less than a day left". Known: the summary is sent
 at most once a day, so a failed send isn't retried until tomorrow, and its failures go to the log
 and Sentry, not to the per-channel "last error" fields.
+
+## Phase 63 — Data flowing between apps
+
+### 63a — Restock from a trip
+
+A list item remembers what put it there: `ShoppingListItem.medicationId` or `vehicleSupplyId`, set
+by the meds refill hook and the Garage's low-supply hook through `requestItemByName`'s `source` (an
+item already on the list gains it if it had none; `consumeForService` now returns the supply's id
+too). A grown-up's Finish in the Shop view asks `tripRestockQuestions` first: for each done item
+with a counted stock, "Picked up X: how many?" with the count on hand and the supply's unit, empty
+by default (the list counts containers, stock counts pills or quarts). `completeTrip(restock)` takes
+each row off the list with `done` checked inside its transaction and buys and restocks only the rows
+it actually took, so a double tap or a second phone does nothing twice; the stock update lives in
+the list's kernel (`restockFromTrip` in `lib/shopping-list.ts`), since Groceries may not import Meds
+or the Garage, and is rounded in SQL, household-scoped and skips an uncounted stock. A kid's Finish
+saves the trip as before. The Groceries page's own Finish doesn't ask. Backups (v10) carry the two
+ids, remapped on restore. The trip's `PurchaseItem`s don't carry them (nothing reads them there; the
+scope's line was dropped).
+Fable's review of 63a: an answer over 10,000 is refused, not dropped (the client says so, the
+server throws); the answers wait for any unsynced ticks; rows are claimed in id order, so two
+phones can't deadlock; a supply no longer active isn't restocked.
+
