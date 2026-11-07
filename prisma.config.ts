@@ -10,7 +10,9 @@ export default defineConfig({
     path: "prisma/migrations",
     seed: "tsx prisma/seed.ts",
   },
+  // Phase 61c: migrations, seeds and test databases run as the owner (MIGRATE_DATABASE_URL);
+  // the app itself connects as DATABASE_URL, a login that can only read and write data.
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: process.env["MIGRATE_DATABASE_URL"] || process.env["DATABASE_URL"],
   },
 });

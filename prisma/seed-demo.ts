@@ -24,7 +24,7 @@ const DEV_PIN = "1234";
 if (process.env.NODE_ENV === "production") throw new Error("seed-demo is for development databases only.");
 
 if (existsSync(".env")) process.loadEnvFile(".env");
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.MIGRATE_DATABASE_URL || process.env.DATABASE_URL }) });
 
 // ---- dates (server-local, like the app) ---------------------------------------------------
 const now = new Date();
