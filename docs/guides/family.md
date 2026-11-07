@@ -188,7 +188,10 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
 - **Anyone: grab it!** chores are for whoever gets there first; kids can grab them too.
 - What's after today is folded under **Next 14 days**. Tap it to look ahead.
 - Grown-ups can **Skip** a chore from its label (it's called **Missed** once it's overdue: nobody
-  gets stickers for it), and **Give to** someone else from its **⋯**. Chores from before last week that were never
+  gets stickers for it), and **Give to** someone else from its **⋯**. The **⋯** also has **Move to
+  tomorrow** for a chore due today or overdue, and **Move to today** for an overdue one, when that
+  day is free; **Move back** puts it where it was. Daily chores don't move (tomorrow's is already
+  there): skip one instead. Chores from before last week that were never
   marked can be cleared with **Mark them missed**.
 - Each chore shows where it stands: **Due today**, **Overdue**, **To do**, **Done**, **Skipped** or
   **Missed**. When you can change it, the label has a little arrow: tap it to pick what's next

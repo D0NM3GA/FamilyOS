@@ -114,6 +114,8 @@ export function TaskInstanceCard({
   completeLabel = "Done",
   quietDone = false,
   pill,
+  moves,
+  onMove,
 }: {
   instance: Instance;
   viewerId: string;
@@ -170,6 +172,9 @@ export function TaskInstanceCard({
    * Chores passes it outside Big buttons; Meds and Home pass none, so their cards are unchanged.
    */
   pill?: WorkItem<Instance["status"]>;
+  /** Phase 59.2b: where a grown-up may move this chore (lib/tasks/move.ts), worked out on the server. */
+  moves?: { tomorrow: boolean; today: boolean; back: boolean };
+  onMove?: (instanceId: string, to: "today" | "tomorrow" | "back") => Promise<void>;
 }) {
   const reward = useRewardWords();
   const big = size === "big";
@@ -198,6 +203,7 @@ export function TaskInstanceCard({
   const canSkip = Boolean(onSkip) && canSkipChore(who) && optimisticStatus === "PENDING";
   // With a pill, Skip lives in the pill and the ⋯ keeps only Give to, so nothing is offered twice.
   const skipInMenu = canSkip && !pill;
+  const canMove = Boolean(onMove && moves && optimisticStatus === "PENDING" && (moves.tomorrow || moves.today || moves.back));
   const canUnskip = Boolean(onUnskip) && canSkipChore(who) && optimisticStatus === "SKIPPED";
 
   // Skipping takes away the menu the focus was in, so it moves on to the Undo that replaces it.
@@ -293,6 +299,18 @@ export function TaskInstanceCard({
   }
   const pillLook = pill && !big ? pill.looks[optimisticStatus] : undefined;
 
+  function handleMove(to: "today" | "tomorrow" | "back") {
+    setFailed(false);
+    startTransition(async () => {
+      try {
+        await onMove!(instance.id, to);
+      } catch (err) {
+        console.error("[task-card] move failed", err);
+        setFailed(true);
+      }
+    });
+  }
+
   const dateLabel = [showDate ? formatRelative(instance.dueDate, zone) : null, timeLabel]
     .filter(Boolean)
     .join(" · ");
@@ -376,14 +394,29 @@ export function TaskInstanceCard({
           </p>
         )}
 
-        {(pillLook || canReassign || skipInMenu || canComplete || canUndo || canUnskip) && (
+        {(pillLook || canReassign || skipInMenu || canMove || canComplete || canUndo || canUnskip) && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {pill && pillLook && (
               // One change at a time: "Undo" waits until the server has the completion it undoes.
               <StatusPill look={pillLook} options={isPending ? [] : pill.options[optimisticStatus]} title={instance.definition.title} onPick={handlePick} />
             )}
-            {(canReassign || skipInMenu) && (
+            {(canReassign || skipInMenu || canMove) && (
               <MoreMenu label={`More for ${instance.definition.title}`} big={big}>
+                {canMove && moves!.today && (
+                  <button type="button" onClick={() => handleMove("today")} className={menuItem}>
+                    Move to today
+                  </button>
+                )}
+                {canMove && moves!.tomorrow && (
+                  <button type="button" onClick={() => handleMove("tomorrow")} className={menuItem}>
+                    Move to tomorrow
+                  </button>
+                )}
+                {canMove && moves!.back && (
+                  <button type="button" onClick={() => handleMove("back")} className={menuItem}>
+                    Move back
+                  </button>
+                )}
                 {skipInMenu && (
                   <button type="button" onClick={handleSkip} title={`Nobody does this one: no ${reward.many}`} className={menuItem}>
                     {skipLabel}

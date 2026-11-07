@@ -142,3 +142,16 @@ describe("planInstances — multi-dose (meds) scheduling", () => {
     },
   );
 });
+
+describe("planInstances — a moved chore (Phase 59.2b)", () => {
+  const today = new Date(2026, 10, 7);
+  const tomorrow = new Date(2026, 10, 8);
+  test("the day a chore was moved off isn't made again", () => {
+    const weekly = def({ frequencyType: "WEEKLY", interval: 1, startDate: new Date(2026, 9, 31) }); // Saturdays
+    const moved: PriorInstance = { dueDate: tomorrow, assignedToId: null, movedFrom: today };
+    const planned = planInstances(weekly, [moved], [], today, new Date(2026, 10, 21));
+    expect(planned.map((p) => p.dueDate.getDate())).toEqual([14, 21]);
+    // Without the mark, today would come straight back.
+    expect(planInstances(weekly, [{ dueDate: tomorrow, assignedToId: null }], [], today, new Date(2026, 10, 21)).map((p) => p.dueDate.getDate())).toEqual([7, 14, 21]);
+  });
+});

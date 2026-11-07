@@ -11,6 +11,7 @@ import { canDoChore, canUndoChore } from "@/lib/tasks/permissions";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { markOlderMissedIds, skipInstance as skipTask, unskipInstance as unskipTask } from "@/lib/tasks/skip";
 import { deleteEventsFor, recordEvent, recordEvents } from "@/lib/work-items/events";
+import { moveChore, type MoveTarget } from "@/lib/tasks/move";
 
 export type TaskFormState = { error?: string };
 
@@ -336,6 +337,16 @@ export async function markOlderMissed(personId: string | null) {
     return ids.length;
   });
   if (marked) revalidateBoard();
+}
+
+/** Phase 59.2b: a grown-up's Move to tomorrow / Move to today / Move back (lib/tasks/move.ts). */
+export async function moveInstance(instanceId: string, to: MoveTarget | "back") {
+  const profile = await requireAdult();
+  if (to !== "today" && to !== "tomorrow" && to !== "back") return;
+  if (await moveChore({ householdId: profile.householdId, instanceId, to, byId: profile.id })) {
+    revalidateBoard();
+    revalidatePath("/calendar");
+  }
 }
 
 function revalidateBoard() {

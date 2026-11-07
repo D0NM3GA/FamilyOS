@@ -258,4 +258,39 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
       await prisma.household.delete({ where: { id: elsewhere.id } });
     }
   });
+
+  test("Phase 59.2b: a chore moved to tomorrow stays moved, can't land on a taken day, and moves back", async () => {
+    const { moveInstance } = await import("@/app/(app)/chores/actions");
+    const { ensureInstancesGenerated } = await import("@/lib/tasks/instances");
+    const daily = await prisma.taskDefinition.create({
+      data: { householdId: ids.h, title: "Make the bed", frequencyType: "DAILY", startDate: today, assignmentStrategy: "FIXED" },
+    });
+    const weekly = await prisma.taskDefinition.create({
+      data: { householdId: ids.h, title: "Water the plants", frequencyType: "WEEKLY", interval: 1, startDate: today, assignmentStrategy: "FIXED" },
+    });
+    await ensureInstancesGenerated(ids.h, addDays(today, 3), "CHORE");
+    const at = (definitionId: string, d: Date) => prisma.taskInstance.findFirst({ where: { definitionId, dueDate: d } });
+    const plants = (await at(weekly.id, today))!;
+    const bed = (await at(daily.id, today))!;
+
+    await as(ids.kid);
+    await expect(moveInstance(plants.id, "tomorrow")).rejects.toThrow();
+
+    await as(ids.mom);
+    await moveInstance(bed.id, "tomorrow"); // daily: tomorrow's already there
+    expect((await prisma.taskInstance.findUniqueOrThrow({ where: { id: bed.id } })).dueDate).toEqual(today);
+
+    await moveInstance(plants.id, "tomorrow");
+    const moved = await prisma.taskInstance.findUniqueOrThrow({ where: { id: plants.id } });
+    expect([moved.dueDate, moved.movedFrom]).toEqual([addDays(today, 1), today]);
+    await ensureInstancesGenerated(ids.h, addDays(today, 3), "CHORE");
+    expect(await at(weekly.id, today)).toBeNull();
+    await moveInstance(plants.id, "today"); // not overdue
+    expect((await prisma.taskInstance.findUniqueOrThrow({ where: { id: plants.id } })).dueDate).toEqual(addDays(today, 1));
+
+    await moveInstance(plants.id, "back");
+    const back = await prisma.taskInstance.findUniqueOrThrow({ where: { id: plants.id } });
+    expect([back.dueDate, back.movedFrom]).toEqual([today, null]);
+    expect((await history(plants.id)).map((e) => e.action)).toEqual(["MOVE", "MOVE"]);
+  });
 });
