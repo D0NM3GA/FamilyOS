@@ -40,3 +40,20 @@ export function classAverages(assignments: { className: string; score: number | 
     .sort((a, b) => a.className.localeCompare(b.className));
 }
 
+
+export type SchoolShow = "overdue" | "week" | "tests" | "missing";
+export const SCHOOL_SHOWS: SchoolShow[] = ["overdue", "week", "tests", "missing"];
+
+/**
+ * Phase 59.4a: the homework list's quick filters. "This week" is due from today through the next
+ * six days; "Tests" counts quizzes too.
+ */
+export function matchesShow(a: { status: string; dueDate: Date | null; kind: string }, show: SchoolShow | null, today = new Date()): boolean {
+  if (!show) return true;
+  const start = atMidnight(today);
+  if (show === "overdue") return isOverdue(a, today);
+  if (show === "missing") return a.status === "MISSING";
+  if (show === "tests") return a.kind === "TEST" || a.kind === "QUIZ";
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+  return a.dueDate != null && a.dueDate >= start && a.dueDate < end;
+}

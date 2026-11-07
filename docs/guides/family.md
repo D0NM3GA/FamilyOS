@@ -203,6 +203,11 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
   picked in the row of people, **For Ivy…** has two shortcuts: **Sick day** skips what they have
   today (it asks first), and **Hand off to Max** gives Ivy's chores for today and tomorrow to Max.
   Not in Big buttons.
+- **Cards or List.** Under the row of people, **Cards** and **List** switch how the board looks
+  (each person's choice is kept on that device). The list is one line per chore: its status, name,
+  who, when and stickers. Tap a name to open its details on the side: its status and its history
+  (who did what, and when). **Overdue**, **Today**, **Mine** and **Anyone's** narrow the board,
+  and stay in the page's address so you can bookmark a view.
 - Outdoor chores show a rain warning when rain is likely (once an admin has set where home is).
 - Each chore earns stickers for whoever did it.
 - The row of people under the title picks whose chores to see, and shows each person's sticker
@@ -342,6 +347,11 @@ change their own homework this way too (not once it's missing or graded): the ch
 once, and grown-ups see **Changed by Ivy** on it, with **Approve** to keep it or **Put back** to
 undo it (Put back asks first). The heading says how many changes are waiting, and **Done
 recently** opens by itself when one is in there. A grown-up's own edit counts as checking.
+Grown-ups with more than one student also get **Everyone**: every student's open homework, tests
+and forms in one list, each row saying whose it is. **Overdue**, **This week**, **Tests** and
+**Missing** narrow the homework list. **Details & history** under a row's **⋯** opens it on the
+side, with what can be changed there and its history; kids see the history of their own work.
+
 Grown-ups can **Select** several homework rows (or forms) and mark them **Turned in**, **To do**
 or **Missing** (forms: **Done**) together. For **Forms & to-dos**, the **⋯** has **Edit** (everything about it) and **I've got it** (it's
 yours to handle, in one tap).

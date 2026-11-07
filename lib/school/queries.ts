@@ -184,3 +184,22 @@ export async function getUpcomingSchoolEvents(viewer: Viewer, opts: { days: numb
     take: 60,
   });
 }
+
+/**
+ * Phase 59.4a: School's "Everyone" list for grown-ups: every student's open homework, tests and
+ * projects, and every open form, in one place.
+ */
+export async function getEveryoneOpen(viewer: Viewer) {
+  if (!isAdult(viewer)) return null;
+  const [assignments, tasks] = await Promise.all([
+    prisma.schoolAssignment.findMany({
+      where: { status: { in: ["TODO", "MISSING"] }, profile: { person: { householdId: viewer.householdId, isHouseholdMember: true } } },
+      include: { profile: { select: { person: { select: { id: true, firstName: true } } } } },
+    }),
+    prisma.schoolTask.findMany({
+      where: { householdId: viewer.householdId, status: "OPEN" },
+      include: { owner: { select: { id: true, firstName: true } }, kid: { select: { firstName: true } } },
+    }),
+  ]);
+  return { assignments: assignments.sort(byDueDate), tasks: tasks.sort(byDueDate) };
+}

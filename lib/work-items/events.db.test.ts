@@ -391,4 +391,43 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     await as(ids.mom);
     expect(await bulkChores({ ids: batch.map((b) => b.id), action: "DONE" })).toMatchObject({ done: 3, milestone: 10 });
   });
+
+  test("Phase 59.4a: the side panel shows an item and its history only to those who can see it", async () => {
+    const { getPanel } = await import("./panel");
+    const { setAssignmentStatus } = await import("@/app/(app)/school/actions");
+    const { getEveryoneOpen } = await import("@/lib/school/queries");
+    const viewerOf = async (id: string) => prisma.person.findUniqueOrThrow({ where: { id }, select: { id: true, householdId: true, role: true } });
+    const a = await prisma.schoolAssignment.create({ data: { profileId: ids.profile, className: "Spelling", title: "List 7" } });
+    await as(ids.kid);
+    await setAssignmentStatus(a.id, "DONE");
+
+    const mine = await getPanel(await viewerOf(ids.kid), { type: "ASSIGNMENT", id: a.id });
+    expect(mine?.history.map((h) => `${h.who} ${h.text}`)).toEqual(["Ivy marked it turned in"]);
+    expect(mine?.type === "ASSIGNMENT" && mine.grade).toBeNull();
+    expect(await getPanel(await viewerOf(ids.max), { type: "ASSIGNMENT", id: a.id })).toBeNull();
+    expect((await getPanel(await viewerOf(ids.mom), { type: "ASSIGNMENT", id: a.id }))?.type).toBe("ASSIGNMENT");
+
+    const form = await prisma.schoolTask.create({ data: { householdId: ids.h, title: "Lunch money" } });
+    expect(await getPanel(await viewerOf(ids.kid), { type: "SCHOOL_TASK", id: form.id })).toBeNull();
+    expect((await getPanel(await viewerOf(ids.mom), { type: "SCHOOL_TASK", id: form.id }))?.type).toBe("SCHOOL_TASK");
+
+    const chore = await prisma.taskInstance.create({ data: { definitionId: ids.def, dueDate: addDays(today, 4), assignedToId: ids.max } });
+    expect(await getPanel(await viewerOf(ids.kid), { type: "CHORE", id: chore.id })).toBeNull();
+    expect((await getPanel(await viewerOf(ids.max), { type: "CHORE", id: chore.id }))?.type).toBe("CHORE");
+
+    // Everyone: grown-ups only, open work across students.
+    expect(await getEveryoneOpen(await viewerOf(ids.kid))).toBeNull();
+    const everyone = await getEveryoneOpen(await viewerOf(ids.mom));
+    expect(everyone?.tasks.some((t) => t.id === form.id)).toBe(true);
+    expect(everyone?.assignments.some((x) => x.id === a.id)).toBe(false); // turned in
+  });
+
+  test("Phase 59.4a: Anyone's shows only unassigned chores", async () => {
+    const { getBoardInstances } = await import("@/lib/tasks/queries");
+    const free = await prisma.taskInstance.create({ data: { definitionId: ids.def, dueDate: addDays(today, 5), assignedToId: null } });
+    const board = await getBoardInstances(ids.h, { domain: "CHORE", unassignedOnly: true });
+    const all = [...board.overdue, ...board.dueToday, ...board.upcoming];
+    expect(all.some((i) => i.id === free.id)).toBe(true);
+    expect(all.every((i) => i.assignedToId === null)).toBe(true);
+  });
 });

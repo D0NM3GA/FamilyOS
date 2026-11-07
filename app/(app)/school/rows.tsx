@@ -122,6 +122,7 @@ export function AssignmentRow({
   dueText,
   overdue,
   editHref,
+  detailsHref,
   removeQuestion,
   canRemove,
   onStatus,
@@ -138,6 +139,8 @@ export function AssignmentRow({
   overdue: boolean;
   /** Grown-ups' full edit page; absent for a kid. */
   editHref?: string;
+  /** Phase 59.4a: the side panel, with its history. */
+  detailsHref?: string;
   removeQuestion: string;
   canRemove: boolean;
   onStatus: (id: string, to: AssignmentStatus) => Promise<void>;
@@ -198,8 +201,13 @@ export function AssignmentRow({
       )}
       <div className="ml-auto flex items-center gap-1">
         <StatusPill look={look} options={pending || picking ? [] : options} title={item.title} onPick={pick} />
-        {!picking && (editHref || canRemove || grade) && (
+        {!picking && (editHref || canRemove || grade || detailsHref) && (
           <MoreMenu label={`More for ${item.title}`} triggerRef={more}>
+            {detailsHref && (
+              <Link href={detailsHref} scroll={false} className={menuItem}>
+                Details & history
+              </Link>
+            )}
             {grade && (
               <button type="button" className={menuItem} onClick={() => setEditing("grade")}>
                 Grade it
@@ -275,6 +283,7 @@ export function SchoolTaskRow({
   details,
   meta,
   late,
+  detailsHref,
   removeQuestion,
   onStatus,
   onRemove,
@@ -287,6 +296,8 @@ export function SchoolTaskRow({
   details: { kind: string; amount: string | null };
   meta: string;
   late: boolean;
+  /** Phase 59.4a: the side panel, with its history. */
+  detailsHref?: string;
   removeQuestion: string;
   onStatus: (id: string, to: TaskStatus) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
@@ -335,6 +346,11 @@ export function SchoolTaskRow({
         <StatusPill look={look} options={pending || picking ? [] : item.options[status]} title={item.title} onPick={pick} />
         {!picking && (
         <MoreMenu label={`More for ${item.title}`} triggerRef={more}>
+          {detailsHref && (
+            <Link href={detailsHref} scroll={false} className={menuItem}>
+              Details & history
+            </Link>
+          )}
           <button type="button" className={menuItem} onClick={() => setEditing(true)}>
             Edit
           </button>

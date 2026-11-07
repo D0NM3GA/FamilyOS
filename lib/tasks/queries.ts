@@ -35,9 +35,10 @@ export function bucketInstances<T extends BucketableInstance>(
 export async function getBoardInstances(
   householdId: string,
   /** `includeUnassigned` with `personId`: their own plus "Anyone" ones (a kid's "my chores"). */
-  opts: { horizonDays?: number; personId?: string; includeUnassigned?: boolean; domain: TaskDomain },
+  /** `unassignedOnly` (Phase 59.4a): only the "Anyone" ones, for the list's Anyone's chip. */
+  opts: { horizonDays?: number; personId?: string; includeUnassigned?: boolean; unassignedOnly?: boolean; domain: TaskDomain },
 ) {
-  const { horizonDays = 14, personId, includeUnassigned = false, domain } = opts;
+  const { horizonDays = 14, personId, includeUnassigned = false, unassignedOnly = false, domain } = opts;
   const today = atMidnight(new Date());
   const horizon = addDays(today, horizonDays); // last calendar day included, at midnight
   const horizonExclusive = addDays(horizon, 1); // start of the day after — DB filter uses this
@@ -48,6 +49,7 @@ export async function getBoardInstances(
   const scope = {
     definition: { householdId, domain },
     ...(personId ? { AND: [includeUnassigned ? { OR: [{ assignedToId: personId }, { assignedToId: null }] } : { assignedToId: personId }] } : {}),
+    ...(unassignedOnly && !personId ? { AND: [{ assignedToId: null }] } : {}),
   };
   const [instances, olderMissed] = await Promise.all([
     prisma.taskInstance.findMany({

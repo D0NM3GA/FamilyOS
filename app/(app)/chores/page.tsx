@@ -23,6 +23,11 @@ import { completeInstance, uncompleteInstance, reassignInstance, skipInstance, u
 import { SelectionProvider, SelectToggle } from "@/components/selection";
 import { ChoresBulkBar, ChorePresets } from "./bulk";
 import { presetIds } from "@/lib/tasks/presets";
+import { parseItemRef, itemParam } from "@/lib/work-items/history";
+import { ItemPanel } from "../item-panel";
+import { BoardView, ItemListRow } from "../item-panel-parts";
+import { formatRelative } from "@/lib/format";
+import { chip, chipRow } from "@/components/styles";
 import { BunsonMoment } from "@/components/bunson-moment";
 import { MOMENT_LINES } from "@/lib/bunson-moments";
 import { resolveViewMode } from "@/lib/view-prefs";
@@ -34,7 +39,7 @@ import { HomeLocation } from "@/components/home-location";
 export default async function ChoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ person?: string; all?: string }>;
+  searchParams: Promise<{ person?: string; all?: string; show?: string; item?: string }>;
 }) {
   await requireAppOn("chores");
   const profile = await requireActiveProfile();
@@ -45,7 +50,11 @@ export default async function ChoresPage({
   // Phase 19.5: in Big buttons, Chores opens on "my chores" (big cards); "Everyone"
   // (?all=1) shows the whole board for that visit without changing the setting.
   const big = resolveViewMode(profile.viewMode, viewerIsAdult) === "BIG";
-  const personFilter = params.person ?? (big && params.all !== "1" ? profile.id : undefined);
+  // Phase 59.4a: "anyone" is the list's Anyone's chip (only unassigned chores), not a person.
+  const anyone = !big && params.person === "anyone";
+  const personFilter = anyone ? undefined : (params.person ?? (big && params.all !== "1" ? profile.id : undefined));
+  const show = !big && (params.show === "overdue" || params.show === "today") ? params.show : null;
+  const itemRef = big ? null : parseItemRef(params.item);
   const bigCards = big && personFilter === profile.id;
   const horizonDays = bigCards ? 3 : 14;
   const cardLook = bigCards ? ({ size: "big", completeLabel: "Done!" } as const) : {};
@@ -56,7 +65,7 @@ export default async function ChoresPage({
   const [{ overdue, dueToday, upcoming, olderMissed, today }, tally, members, household] = await Promise.all([
     // Big cards look a few days ahead, not two weeks — it's a "my stuff now" list.
     // Big "my chores" includes "Anyone" ones they can grab.
-    getBoardInstances(profile.householdId, { personId: personFilter, includeUnassigned: bigCards, domain: "CHORE", horizonDays }),
+    getBoardInstances(profile.householdId, { personId: personFilter, includeUnassigned: bigCards, unassignedOnly: anyone, domain: "CHORE", horizonDays }),
     getPointsTally(profile.householdId, { domain: "CHORE" }),
     getHouseholdMembers(profile.householdId),
     getHouseholdSettings(profile.householdId),
@@ -93,6 +102,167 @@ export default async function ChoresPage({
   const selecting = viewerIsAdult && !big;
   const filtered = personFilter ? members.find((m) => m.id === personFilter) : undefined;
   const { sickDayIds, handOffIds } = personFilter ? presetIds({ dueToday, upcoming }, personFilter, today) : { sickDayIds: [], handOffIds: [] };
+
+  // Phase 59.4a: links keep the board's own params (person, all, show) and add or drop one.
+  const here = (change: Record<string, string | null>) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries({ person: params.person ?? null, all: params.all ?? null, show, item: null, ...change })) if (v) q.set(k, v);
+    const qs = q.toString();
+    return qs ? `/chores?${qs}` : "/chores";
+  };
+  const zone = household.timezone ?? undefined;
+  const listRow = (i: (typeof allInstances)[number], skippable: boolean) => (
+    <ItemListRow
+      key={i.id}
+      item={choreItem(toCardInstance(i), profile, { skippable: skippable && viewerIsAdult, now: today })}
+      refParam={itemParam("CHORE", i.id)}
+      href={here({ item: itemParam("CHORE", i.id) })}
+      who={i.assignedTo?.firstName ?? null}
+      when={formatRelative(i.dueDate, zone)}
+      extra={i.definition.points ? `${i.definition.points} ⭐` : null}
+      late={i.dueDate < today && i.status === "PENDING"}
+      selectable={selecting}
+    />
+  );
+  const showOverdue = show !== "today";
+  const showToday = show !== "overdue";
+  const showUpcoming = show === null;
+
+  const boardCards = (
+    <div className="mt-6 space-y-6">
+      {nothingLeft && <BunsonMoment kind="cheer" text={MOMENT_LINES.choresDone} />}
+      {showOverdue && overdue.length > 0 && (
+        <Section title="Overdue" tone="text-destructive">
+          {overdue.map((i, idx) => (
+            <TaskInstanceCard
+              key={i.id}
+              instance={toCardInstance(i)}
+              viewerId={profile.id}
+              viewerIsAdult={viewerIsAdult}
+              claimable
+              onComplete={completeInstance}
+              onUndo={uncompleteInstance}
+              onReassign={viewerIsAdult ? reassignInstance : undefined}
+              onSkip={viewerIsAdult ? skipInstance : undefined}
+              onUnskip={viewerIsAdult ? unskipInstance : undefined}
+              skipLabel="Missed"
+              reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
+              weatherNote={weatherNoteFor(i)}
+              pill={pillFor(i, true)}
+              moves={movesFor(i)}
+              onMove={move}
+              selectable={selecting}
+              disappearsOnComplete
+              index={idx}
+              {...cardLook}
+            />
+          ))}
+        </Section>
+      )}
+
+      {viewerIsAdult && olderMissed > 0 && (
+        <form action={markOlderMissed.bind(null, personFilter ?? null)} className="flex flex-wrap items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+          <span className="mr-auto">
+            {olderMissed} older {olderMissed === 1 ? "chore" : "chores"} from before last week {olderMissed === 1 ? "was" : "were"} never marked.
+          </span>
+          <SubmitButton className={btn}>
+            Mark {olderMissed === 1 ? "it" : "them"} missed
+          </SubmitButton>
+        </form>
+      )}
+
+      {showToday && (
+        <Section title="Today">
+          {dueToday.length === 0 ? (
+            <li>
+              <EmptyNote>Nothing due today.<LookQuiet /></EmptyNote>
+            </li>
+          ) : (
+            dueToday.map((i, idx) => (
+              <TaskInstanceCard
+                key={i.id}
+                instance={toCardInstance(i)}
+                viewerId={profile.id}
+                viewerIsAdult={viewerIsAdult}
+                claimable
+                onComplete={completeInstance}
+                onUndo={uncompleteInstance}
+                onReassign={viewerIsAdult ? reassignInstance : undefined}
+                onSkip={viewerIsAdult ? skipInstance : undefined}
+                onUnskip={viewerIsAdult ? unskipInstance : undefined}
+                reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
+                weatherNote={weatherNoteFor(i)}
+                pill={pillFor(i, true)}
+                moves={movesFor(i)}
+                onMove={move}
+                selectable={selecting}
+                showDate={false}
+                index={idx}
+                {...cardLook}
+              />
+            ))
+          )}
+        </Section>
+      )}
+
+      {showUpcoming && (upcoming.length === 0 ? (
+        <Section title="Upcoming">
+          <li>
+            <EmptyNote>Nothing else in the next {horizonDays} days.</EmptyNote>
+          </li>
+        </Section>
+      ) : (
+        <UpcomingFold days={horizonDays} count={upcoming.length} open={bigCards}>
+          {upcoming.map((i, idx) => (
+            <TaskInstanceCard
+              key={i.id}
+              instance={toCardInstance(i)}
+              viewerId={profile.id}
+              viewerIsAdult={viewerIsAdult}
+              claimable
+              onComplete={completeInstance}
+              onUndo={uncompleteInstance}
+              onReassign={viewerIsAdult ? reassignInstance : undefined}
+              reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
+              weatherNote={weatherNoteFor(i)}
+              pill={pillFor(i, false)}
+              moves={movesFor(i)}
+              onMove={move}
+              selectable={selecting}
+              disappearsOnComplete
+              quietDone
+              index={idx}
+              {...cardLook}
+            />
+          ))}
+        </UpcomingFold>
+      ))}
+    </div>
+  );
+  // Phase 59.4a: the same chores, one line each, with the pill to change them and the title to open
+  // the side panel.
+  const boardList = (
+    <div className="mt-6 space-y-6">
+      {showOverdue && overdue.length > 0 && (
+        <div>
+          <h2 className={`${sectionTitle} text-destructive`}>Overdue</h2>
+          <ul className="mt-2 divide-y divide-border">{overdue.map((i) => listRow(i, true))}</ul>
+        </div>
+      )}
+      {showToday && (
+        <div>
+          <h2 className={sectionTitle}>Today</h2>
+          {dueToday.length === 0 ? <EmptyNote>Nothing due today.</EmptyNote> : <ul className="mt-2 divide-y divide-border">{dueToday.map((i) => listRow(i, true))}</ul>}
+        </div>
+      )}
+      {showUpcoming && upcoming.length > 0 && (
+        <div>
+          <h2 className={sectionTitle}>Next {horizonDays} days</h2>
+          <ul className="mt-2 divide-y divide-border">{upcoming.map((i) => listRow(i, false))}</ul>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     // A new person on the filter is a new selection (the key resets it).
@@ -145,6 +315,27 @@ export default async function ChoresPage({
           selected={personFilter}
         />
 
+        {/* Phase 59.4a: quick filters, kept in the address so a view can be bookmarked. */}
+        {!big && (
+          <nav aria-label="Show" className={`mt-3 ${chipRow}`}>
+            <Link href={here({ show: null, person: null })} aria-current={!show && !params.person ? "page" : undefined} className={chip}>
+              All
+            </Link>
+            <Link href={here({ show: "overdue" })} aria-current={show === "overdue" ? "page" : undefined} className={chip}>
+              Overdue
+            </Link>
+            <Link href={here({ show: "today" })} aria-current={show === "today" ? "page" : undefined} className={chip}>
+              Today
+            </Link>
+            <Link href={here({ person: profile.id })} aria-current={personFilter === profile.id ? "page" : undefined} className={chip}>
+              Mine
+            </Link>
+            <Link href={here({ person: "anyone" })} aria-current={anyone ? "page" : undefined} className={chip}>
+              Anyone&apos;s
+            </Link>
+          </nav>
+        )}
+
         {selecting && filtered && (
           <ChorePresets
             bulk={bulkChores}
@@ -156,115 +347,10 @@ export default async function ChoresPage({
         )}
 
         <MilestoneToastBoard>
-          <div className="mt-6 space-y-6">
-            {nothingLeft && <BunsonMoment kind="cheer" text={MOMENT_LINES.choresDone} />}
-            {overdue.length > 0 && (
-              <Section title="Overdue" tone="text-destructive">
-                {overdue.map((i, idx) => (
-                  <TaskInstanceCard
-                    key={i.id}
-                    instance={toCardInstance(i)}
-                    viewerId={profile.id}
-                    viewerIsAdult={viewerIsAdult}
-                    claimable
-                    onComplete={completeInstance}
-                    onUndo={uncompleteInstance}
-                    onReassign={viewerIsAdult ? reassignInstance : undefined}
-                    onSkip={viewerIsAdult ? skipInstance : undefined}
-                    onUnskip={viewerIsAdult ? unskipInstance : undefined}
-                    skipLabel="Missed"
-                    reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
-                    weatherNote={weatherNoteFor(i)}
-                    pill={pillFor(i, true)}
-                    moves={movesFor(i)}
-                    onMove={move}
-                    selectable={selecting}
-                    disappearsOnComplete
-                    index={idx}
-                    {...cardLook}
-                  />
-                ))}
-              </Section>
-            )}
-
-            {viewerIsAdult && olderMissed > 0 && (
-              <form action={markOlderMissed.bind(null, personFilter ?? null)} className="flex flex-wrap items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
-                <span className="mr-auto">
-                  {olderMissed} older {olderMissed === 1 ? "chore" : "chores"} from before last week {olderMissed === 1 ? "was" : "were"} never marked.
-                </span>
-                <SubmitButton className={btn}>
-                  Mark {olderMissed === 1 ? "it" : "them"} missed
-                </SubmitButton>
-              </form>
-            )}
-
-            <Section title="Today">
-              {dueToday.length === 0 ? (
-                <li>
-                  <EmptyNote>Nothing due today.<LookQuiet /></EmptyNote>
-                </li>
-              ) : (
-                dueToday.map((i, idx) => (
-                  <TaskInstanceCard
-                    key={i.id}
-                    instance={toCardInstance(i)}
-                    viewerId={profile.id}
-                    viewerIsAdult={viewerIsAdult}
-                    claimable
-                    onComplete={completeInstance}
-                    onUndo={uncompleteInstance}
-                    onReassign={viewerIsAdult ? reassignInstance : undefined}
-                    onSkip={viewerIsAdult ? skipInstance : undefined}
-                    onUnskip={viewerIsAdult ? unskipInstance : undefined}
-                    reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
-                    weatherNote={weatherNoteFor(i)}
-                    pill={pillFor(i, true)}
-                    moves={movesFor(i)}
-                    onMove={move}
-                    selectable={selecting}
-                    showDate={false}
-                    index={idx}
-                    {...cardLook}
-                  />
-                ))
-              )}
-            </Section>
-
-            {upcoming.length === 0 ? (
-              <Section title="Upcoming">
-                <li>
-                  <EmptyNote>Nothing else in the next {horizonDays} days.</EmptyNote>
-                </li>
-              </Section>
-            ) : (
-              <UpcomingFold days={horizonDays} count={upcoming.length} open={bigCards}>
-                {upcoming.map((i, idx) => (
-                  <TaskInstanceCard
-                    key={i.id}
-                    instance={toCardInstance(i)}
-                    viewerId={profile.id}
-                    viewerIsAdult={viewerIsAdult}
-                    claimable
-                    onComplete={completeInstance}
-                    onUndo={uncompleteInstance}
-                    onReassign={viewerIsAdult ? reassignInstance : undefined}
-                    reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
-                    weatherNote={weatherNoteFor(i)}
-                    pill={pillFor(i, false)}
-                    moves={movesFor(i)}
-                    onMove={move}
-                    selectable={selecting}
-                    disappearsOnComplete
-                    quietDone
-                    index={idx}
-                    {...cardLook}
-                  />
-                ))}
-              </UpcomingFold>
-            )}
-          </div>
+          {big ? boardCards : <BoardView personId={profile.id} board="chores" cards={boardCards} list={boardList} />}
           {selecting && <ChoresBulkBar bulk={bulkChores} people={reassignCandidates} />}
         </MilestoneToastBoard>
+        {itemRef && <ItemPanel itemRef={itemRef} closeHref={here({ item: null })} />}
       </div>
     </SelectionProvider>
   );

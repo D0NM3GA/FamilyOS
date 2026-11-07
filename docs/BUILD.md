@@ -1440,3 +1440,18 @@ batch and nothing is kept; bulk transactions get 15 seconds (`BULK_TIMEOUT_MS`).
 are `lib/tasks/presets.ts`, tested. While selecting, each row's and card's own buttons step aside, so
 a stray tap can't finish something mid-selection. `bulk.ts` no longer imports zod (the check is
 `bulk-schema.ts`), so the client bar doesn't ship it.
+
+### 59.4a — Everyone, the list view and the side panel
+
+`?kid=all` on School (grown-ups, more than one student) is `school/everyone.tsx`: every open
+assignment and form (`getEveryoneOpen`), each homework row saying whose it is. Both views build their
+rows from `school/row-items.tsx`, so they offer the same quick changes. Chores gets `BoardView`: Cards or
+List, per person on the device (`useSyncExternalStore`, cards on the server so hydration agrees); the
+list row (`ItemListRow`) is the shared pill (`ItemStatus`, through `setWorkItemStatus`, which only
+picks the domain's own action), the title, who, when and stickers. Filter chips are links that keep
+the page's other params: Chores' Overdue, Today, Mine (`person=<self>`), Anyone's
+(`person=anyone`, `getBoardInstances`' `unassignedOnly`); School's Overdue, This week, Tests, Missing
+(`matchesShow`). `?item=TYPE:id` opens the side panel (`item-panel.tsx`, `lib/work-items/panel.ts`):
+the pill, a few facts, the row's own edit forms, and the history in words (`describeEvent`), shown
+only to whoever can see the item. Escape or the close link drops the param. School's homework stays a
+list of rows, so its Cards / List switch wasn't built; the panel opens from Details & history.
