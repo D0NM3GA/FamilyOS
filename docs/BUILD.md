@@ -1743,3 +1743,20 @@ Fable's review of 64a: the agenda, members and auto-sync now load alongside ever
 extra waits on Home, Big buttons Home or the Calendar); the strip carries each person's colour;
 skipped items are muted like done ones; "See all" opens the month.
 
+### 64b — Add an event to Outlook
+
+A grown-up on their own Microsoft sign-in who has granted calendar write access
+(`calendarWriteGranted`) gets **+ Add event** on the Calendar (`add-event.tsx`, `useActionState`,
+`SubmitButton`). `addCalendarEvent` re-checks all of that and Calendar being on, takes "who it's for"
+only from household members, and builds the body with `lib/calendar/new-event.ts`: all-day is
+midnight to the next midnight in the household's zone, timed is a wall-clock time in it (an hour
+when there's no end, kept on its day), and a `transactionId` made when the page was drawn, so a retry
+after a timeout doesn't add it twice. `addEventToHomeCalendar` (`lib/graph/calendar.ts`) writes it to
+the calendar that person's Home and Calendar read (their pick, else the family calendar by name, else
+their own), never the sync's app-made calendar, which Disconnect deletes whole, and with no app tag,
+so the sync (which only diffs the events it made) never touches it. Graph's answers become fixed
+text. An admin without write access sees where to grant it.
+Fable's review of 64b: a 404 forgets the remembered calendar id (as reads do) and says which
+setting to change; a refused name lookup or an expired sign-in say so; "who it's for" uses the same
+short name the picker shows.
+
