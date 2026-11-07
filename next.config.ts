@@ -38,9 +38,9 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Security headers on every response. The CSP only covers framing, <base> and
-        // plugins: a full script/style policy needs nonces for Next's inline scripts and the
-        // theme script, which is its own piece of work.
+        // Security headers on every response. This CSP covers framing, <base> and plugins
+        // everywhere, including what proxy.ts skips (/api, static files, RSC requests); pages
+        // also get the proxy's nonce policy (lib/security/csp.ts). Both are enforced together.
         source: "/:path*",
         headers: [
           { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },

@@ -3,7 +3,7 @@ import { breakGlassStatus, breakGlassTime } from "@/lib/break-glass-notice";
 import { getFamilyLook, getHouseholdSettings } from "@/lib/household-settings";
 import { followHouseholdZone, processZone } from "@/lib/household-zone";
 import { HouseholdZoneProvider } from "@/components/household-zone";
-import { Bunson } from "@/components/bunson";
+import { LazyBunson } from "@/components/bunson-lazy";
 import { isAdult } from "@/lib/authz";
 import { unreadCount } from "@/lib/notifications";
 import { visibleApps } from "@/lib/apps";
@@ -111,7 +111,7 @@ export default async function AppLayout({
           {/* The corner nook is Chatty-only; Just cheers keeps only the moments. */}
           {/* Phase 39: he looks up his own facts once he's on screen (app/api/bunson-facts), so
               no page waits on them and pages that hide him don't pay for them. */}
-          {volume === "CHATTY" && <Bunson factsUrl="/api/bunson-facts" offApps={disabled} />}
+          {volume === "CHATTY" && <LazyBunson factsUrl="/api/bunson-facts" offApps={disabled} />}
         </AppRoot>
       </NavProvider>
     </FamilyLookProvider>
