@@ -1090,6 +1090,68 @@ test("a car's VIN is checked before anything is looked up, and kept on the car",
   problems.expectNone();
 });
 
+// Phase 61d: a kid's profile on Dad's sign-in. Ivy (from the guided setup) gets a PIN, Dad hands
+// over, the grown-up apps send her Home and a grown-up download refuses her; back on Dad's PIN,
+// five wrong guesses at hers lock her tile (MAX_PIN_ATTEMPTS in app/profiles/actions.ts).
+test("a kid's profile: the grown-up apps send her Home, and wrong PINs lock her tile", async () => {
+  // Eight PIN checks through argon2, each a round trip.
+  test.setTimeout(120_000);
+  await page.goto("/settings/household");
+  const row = page.locator("tr", { hasText: "Ivy" });
+  await row.getByRole("button", { name: "Set PIN" }).click();
+  await row.getByLabel("New PIN").fill("1357");
+  await row.getByRole("button", { name: "Save" }).click();
+  await expect(row.getByText("PIN saved.")).toBeVisible();
+
+  const enterPin = async (pin: string) => {
+    await page.locator("#pin-input").fill(pin);
+    await page.getByRole("button", { name: "Go" }).click();
+  };
+  // A refused guess empties the box when the answer comes back: wait for that, so the message read
+  // is this guess's, not the last one's, and the next guess isn't typed into a box about to clear.
+  const wrongPin = async (pin: string) => {
+    await enterPin(pin);
+    await expect(page.locator("#pin-input")).toHaveValue("");
+    await expect(page.getByRole("button", { name: "Go" })).toBeDisabled();
+  };
+
+  await page.goto("/profiles");
+  await page.getByRole("button", { name: /\bIvy$/ }).click();
+  await enterPin("1357");
+  await expect(page).toHaveURL(/\/$/);
+
+  // The grown-up apps (lib/apps.ts adultOnly). Settings isn't one: a kid has their own there.
+  for (const path of ["/finances", "/data", "/vehicles", "/vehicles/supplies"]) {
+    await page.goto(path);
+    // A redirect during a streamed render lands in the browser a moment later.
+    await expect(page, path).toHaveURL(/\/$/);
+  }
+  // A grown-up's download, asked for from her session: refused outright.
+  const refused = await page.request.post("/api/backup/my-money");
+  expect(refused.status()).toBe(403);
+
+  // Back to Dad: his own tile asks for his PIN after someone else's turn. (A tile's name starts with
+  // its avatar's initial: "I Ivy".)
+  await page.goto("/profiles");
+  await page.getByRole("button", { name: /\bDad \(you\)/ }).click();
+  await enterPin("246813");
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.goto("/profiles");
+  await page.getByRole("button", { name: /\bIvy$/ }).click();
+  for (let i = 1; i <= 4; i++) {
+    await wrongPin("0000");
+    await expect(page.locator("#pin-error")).toHaveText("Incorrect PIN.");
+  }
+  await wrongPin("0000");
+  await expect(page.locator("#pin-error")).toContainText("Too many incorrect attempts");
+  // Even the right PIN waits out the lock.
+  await wrongPin("1357");
+  await expect(page.locator("#pin-error")).toContainText("Too many incorrect attempts");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  problems.expectNone();
+});
+
 test("signing out, and back in with the passkey", async () => {
   await page.goto("/profiles");
   await page.getByRole("button", { name: "Not Dad? Sign out" }).click();
