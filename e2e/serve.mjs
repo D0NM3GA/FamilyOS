@@ -62,10 +62,25 @@ if (devUrl) {
   }
 }
 
+// Phase 61c: E2E_DATABASE_URL is the owner's (it makes, drops and migrates the database); the app
+// runs as DATABASE_URL's login when that's a different one, pointed at the e2e database, as in
+// production. With one login for both, the app uses it.
+const appUrl = (() => {
+  if (!devUrl) return dbUrl;
+  const dev = new URL(devUrl);
+  if (decodeURIComponent(dev.username) === decodeURIComponent(url.username)) return dbUrl;
+  const u = new URL(dbUrl);
+  u.username = dev.username;
+  u.password = dev.password;
+  return u.toString();
+})();
+
 const env = {
   ...process.env,
   NODE_ENV: "production",
-  DATABASE_URL: dbUrl,
+  DATABASE_URL: appUrl,
+  // The owner's login reaches only the migrate step below, never the build or the server.
+  MIGRATE_DATABASE_URL: "",
   BETTER_AUTH_URL: ORIGIN,
   BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || randomBytes(32).toString("base64url"),
   INTEGRATION_ENCRYPTION_KEY: process.env.INTEGRATION_ENCRYPTION_KEY || randomBytes(32).toString("base64"),
@@ -107,6 +122,7 @@ const tool = {
   next: join(root, "node_modules", "next", "dist", "bin", "next"),
   standaloneAssets: join(root, "scripts", "standalone-assets.mjs"),
   tsx: join(root, "node_modules", "tsx", "dist", "cli.mjs"),
+  migrate: join(root, "scripts", "migrate.mjs"),
 };
 function run(name, args, { extraEnv = {}, ...options } = {}) {
   const r = spawnSync(process.execPath, [tool[name], ...args], { cwd: root, env: { ...env, ...extraEnv }, stdio: "inherit", ...options });
@@ -119,7 +135,7 @@ const admin = new URL(dbUrl);
 admin.pathname = "/postgres";
 admin.search = "";
 run("tsx", ["e2e/reset-database.ts"], { extraEnv: { E2E_ADMIN_URL: admin.toString(), E2E_DATABASE_NAME: dbName } });
-run("prisma", ["migrate", "deploy"]);
+run("migrate", [], { extraEnv: { MIGRATE_DATABASE_URL: dbUrl } });
 
 // 2. Build and start.
 if (process.env.E2E_SKIP_BUILD !== "1") {

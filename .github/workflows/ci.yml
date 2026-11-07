@@ -83,7 +83,10 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://familycrm:familycrm@localhost:5432/familycrm_ci
+      # Phase 61c: as in production, the tests run as the app's own login (data rights only),
+      # and migrations as the owner.
+      DATABASE_URL: postgresql://familycrm_app:familycrm_app@localhost:5432/familycrm_ci
+      MIGRATE_DATABASE_URL: postgresql://familycrm:familycrm@localhost:5432/familycrm_ci
       BETTER_AUTH_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -102,7 +105,7 @@ jobs:
           echo "::add-mask::$key"
           echo "BETTER_AUTH_SECRET=$secret" >> "$GITHUB_ENV"
           echo "INTEGRATION_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
-      - run: npx prisma migrate deploy
+      - run: node scripts/migrate.mjs
       - name: Migrations match the schema
         # Exit code 2 means the migrated database and prisma/schema.prisma differ: a schema
         # change without its migration (or the other way round).
@@ -129,10 +132,11 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      # e2e/serve.mjs drops and makes this one; DATABASE_URL is only there for its "not the
-      # same database" check and prisma generate.
+      # e2e/serve.mjs drops and makes this one as the owner; DATABASE_URL is there for its "not the
+      # same database" check, prisma generate, and (Phase 61c) the app's own login, which the app
+      # runs as against the e2e database.
       E2E_DATABASE_URL: postgresql://familycrm:familycrm@localhost:5432/familycrm_e2e
-      DATABASE_URL: postgresql://familycrm:familycrm@localhost:5432/familycrm_ci
+      DATABASE_URL: postgresql://familycrm_app:familycrm_app@localhost:5432/familycrm_ci
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

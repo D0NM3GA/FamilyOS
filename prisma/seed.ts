@@ -6,7 +6,7 @@ import { productNameKey } from "../lib/product-name";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg({ connectionString: process.env.MIGRATE_DATABASE_URL || process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 // Every seeded profile shares this PIN for local dev convenience.
