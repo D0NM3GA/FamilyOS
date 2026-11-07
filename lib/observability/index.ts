@@ -1,4 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
+import { describeError, log, type LogFields } from "./log";
+
+export { describeError, log } from "./log";
 
 /**
  * The app's only doorway to Sentry (Phase 15) — domain code imports these, never
@@ -11,7 +14,12 @@ export function setSentryUser(personId: string) {
   Sentry.setUser({ id: personId });
 }
 
-/** Reports an error that was caught and handled, so it would otherwise go unseen. */
-export function captureError(error: unknown) {
+/**
+ * Reports an error that was caught and handled, so it would otherwise go unseen. Phase 61: it's
+ * also a log line (class and scrubbed message), so an error is seen without Sentry too: `event`
+ * names it and `fields` add context (ids and fixed words only), one line per error.
+ */
+export function captureError(error: unknown, event = "error.caught", fields: LogFields = {}) {
+  log.error(event, { ...fields, error: describeError(error) });
   Sentry.captureException(error);
 }

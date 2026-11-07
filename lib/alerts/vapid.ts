@@ -1,6 +1,7 @@
 import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
+import { log } from "@/lib/observability/log";
 import { checkVapid, generateVapidKeys, isVapidSubject, vapidConfig, type Vapid } from "./webpush";
 
 /**
@@ -47,7 +48,7 @@ async function readStored(): Promise<StoredPair | "unreadable" | null> {
   } catch {
     // INTEGRATION_ENCRYPTION_KEY changed since the pair was made. Never replaced silently:
     // every phone's subscription was made with the old public key (Settings → Alerts offers it).
-    console.warn("[alerts] The stored phone-alert keys can't be read with this INTEGRATION_ENCRYPTION_KEY.");
+    log.warn("alerts.vapid_unreadable", { hint: "The stored phone-alert keys can't be read with this INTEGRATION_ENCRYPTION_KEY." });
     return "unreadable";
   }
 }
