@@ -455,6 +455,7 @@ export function remapBackup(
         // Phase 63a: the medicine or supply it came from, when that's in the file too.
         medicationId: r.medicationId ? (meds.get(r.medicationId) ?? null) : null,
         vehicleSupplyId: r.vehicleSupplyId ? (supplies.get(r.vehicleSupplyId) ?? null) : null,
+        note: r.note,
         createdAt: date(r.createdAt),
       },
     ];

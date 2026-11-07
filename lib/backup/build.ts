@@ -301,6 +301,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
         requestedById: true,
         medicationId: true,
         vehicleSupplyId: true,
+        note: true,
         createdAt: true,
       },
       orderBy: { createdAt: "asc" },

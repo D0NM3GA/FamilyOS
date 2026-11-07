@@ -89,6 +89,8 @@ export type ShopRow = {
   storeName: string;
   sectionOrder: number;
   forName: string | null;
+  /** Phase 64c: the shopper's note. */
+  note?: string | null;
   done: boolean;
 };
 

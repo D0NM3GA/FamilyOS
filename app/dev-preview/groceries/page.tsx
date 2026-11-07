@@ -35,7 +35,7 @@ export default async function GroceriesPreviewPage({ searchParams }: { searchPar
           stores={[{ id: "s1", name: "Costco" }, { id: "s2", name: "Target" }]}
           sections={STARTING_SECTIONS.map((s, i) => ({ id: `g${i}`, name: s.name, emoji: s.emoji }))}
           usualText="1 bag every ~5 weeks · from 4 trips"
-          listRow={{ id: "1", requestedById: "k" }}
+          listRow={{ id: "1", requestedById: "k", note: null }}
           members={[{ id: "m", firstName: "Mom" }, { id: "k", firstName: "Ivy" }]}
           others={[{ id: "o", name: "Dog treats" }]}
           canTidy

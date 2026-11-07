@@ -32,7 +32,7 @@ export async function ItemSheet({
     getUsuals(profile.householdId, [product.id]),
     prisma.shoppingListItem.findFirst({
       where: { productId: product.id, done: false, list: { householdId: profile.householdId } },
-      select: { id: true, requestedById: true },
+      select: { id: true, requestedById: true, note: true },
     }),
     getHouseholdMembers(profile.householdId),
     adult

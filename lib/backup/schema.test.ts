@@ -91,6 +91,8 @@ describe("backupSchema", () => {
   test("rejects another format or a future schema version", () => {
     expect(backupSchema.safeParse({ ...empty, format: "something-else" }).success).toBe(false);
     expect(backupSchema.safeParse({ ...empty, schemaVersion: BACKUP_SCHEMA_VERSION + 1 }).success).toBe(false);
+    // Phase 64c: every earlier version restores (9 and 10 had been left off the list).
+    for (const v of [9, 10]) expect(backupSchema.safeParse({ ...empty, schemaVersion: v }).success, `v${v}`).toBe(true);
   });
 
   test("still reads a v1 file, which predates garage supplies (Phase 12.5) and school (Phase 18)", () => {

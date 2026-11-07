@@ -14,6 +14,8 @@ export type ListRowItem = {
   done: boolean;
   product: Size & { name: string; group: { emoji: string | null } | null };
   requestedBy: { firstName: string } | null;
+  /** Phase 64c: a note for whoever shops. */
+  note?: string | null;
 };
 
 /** The veto's question: the kid's note can't be taken back once it's sent. */
@@ -82,6 +84,7 @@ export function ListRow({ item, href, vetoable = false }: { item: ListRowItem; h
                 for {item.requestedBy.firstName}
               </span>
             )}
+            {item.note && <span className="text-xs text-muted-foreground">📝 {item.note}</span>}
           </span>
         </span>
       </Link>

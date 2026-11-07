@@ -60,6 +60,7 @@ export async function getListItems(listId: string) {
       done: true,
       requestedById: true,
       kidPick: true,
+      note: true,
       createdAt: true,
       product: productForList,
       requestedBy: { select: { id: true, firstName: true } },

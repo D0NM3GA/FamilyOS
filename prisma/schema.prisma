@@ -1192,6 +1192,10 @@ model ShoppingListItem {
   requestedById String?
   requestedBy   Person? @relation("ItemRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
 
+  /// Phase 64c: a short note for whoever shops ("the big tub", "for Ivy's lunch"), shown on the list
+  /// and in the Shop view, to everyone who sees the list; gone with the row when the trip finishes.
+  note String?
+
   /// Phase 63a: what put it on the list (a medicine running low, a car supply a service used), so
   /// finishing the trip can ask how many were picked up and add them to that stock.
   medicationId    String?

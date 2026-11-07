@@ -6,7 +6,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { X } from "lucide-react";
 import { CONTAINERS, SIZE_UNITS, describeSize } from "@/lib/groceries/size";
-import { addItem, deletePantryItem, mergeIntoItem, saveItemDetails, type SheetReturn, type SheetState } from "./actions";
+import { addItem, deletePantryItem, mergeIntoItem, saveItemDetails, setItemNote, type SheetReturn, type SheetState } from "./actions";
 import { btn, btnDanger, btnPrimary, chip, field, fieldLabel } from "@/components/styles";
 import { RequesterSelect } from "./requester-select";
 import { SubmitButton } from "@/components/submit";
@@ -30,7 +30,7 @@ type Props = {
   usualText: string | null;
   /** Grown-ups only; null for kids or when no receipt has priced it yet. */
   lastPriceText?: string | null;
-  listRow: { id: string; requestedById: string | null } | null;
+  listRow: { id: string; requestedById: string | null; note: string | null } | null;
   members: { id: string; firstName: string }[];
   others: { id: string; name: string }[];
   canTidy: boolean;
@@ -256,6 +256,20 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
             </label>
             <RequesterSelect id="requested-by" itemId={listRow.id} currentId={listRow.requestedById} members={members} />
           </div>
+        ) : null}
+        {listRow ? (
+          // Phase 64c: a note for whoever shops, on this list item (not the Pantry item).
+          <form action={setItemNote.bind(null, listRow.id)} className="mt-3 flex flex-col gap-1">
+            <label htmlFor="list-note" className={fieldLabel}>
+              Note for the shopper (everyone sees it)
+            </label>
+            <div className="flex gap-2">
+              <input id="list-note" name="note" defaultValue={listRow.note ?? ""} maxLength={200} placeholder="the big tub" className={`${field} min-w-0 flex-1`} />
+              <SubmitButton className={btn} pendingText="Saving…">
+                Save note
+              </SubmitButton>
+            </div>
+          </form>
         ) : (
           // Its own form, outside the details form above: forms can't nest. The page
           // revalidates and this turns into "On the list · who's it for".

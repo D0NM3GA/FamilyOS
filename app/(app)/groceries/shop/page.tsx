@@ -34,6 +34,7 @@ export default async function ShopPage() {
     storeName: i.product.defaultStore?.name ?? NO_STORE,
     sectionOrder: i.product.group?.sortOrder ?? Number.MAX_SAFE_INTEGER,
     forName: i.requestedBy?.firstName ?? null,
+    note: i.note,
     done: i.done,
   }));
   const stores = [...new Set(rows.map((r) => r.storeName))].sort((a, b) =>
