@@ -1419,3 +1419,17 @@ Move back is offered only while that day is inside the overdue window, so it can
 "older, never marked" (a call made in the build, open to change). Known: a round-robin chore moved
 past the next one's day can give the next turn to the same person once, since "most recent" is by
 due day; it corrects itself the turn after.
+
+### 59.3 — Pick several, act once
+
+The chore and school actions' rules moved into cores that take a transaction and say why they
+refused instead of throwing (`lib/tasks/chore-cores.ts`, `lib/school/cores.ts`, and `moveChoreIn` in
+`lib/tasks/move.ts`); the single actions and the bulk ones (`bulkChores`, `bulkSchool`) both call
+them, so a tap and a bulk change can't differ. Bulk input is checked in `lib/work-items/bulk.ts`
+(1 to 30 ids, no repeats, a known action); everything runs in one transaction (Chores' under the
+stored-days lock, for Move to tomorrow), and the result counts what was done and why the rest was
+skipped. On a bulk Done each completion's milestone is counted inside the transaction, and the
+highest is celebrated once. `components/selection.tsx` holds the page's selection (a provider keyed
+by the person or student, so it resets), the Select toggle, the rows' tick boxes and the sticky bar.
+The presets are the bulk action with a list the page works out: Sick day (asks first) and Hand off.
+Grown-ups only, never in Big buttons.

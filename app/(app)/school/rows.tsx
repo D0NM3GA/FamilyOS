@@ -10,6 +10,7 @@ import { btn, iconBtn, menuItem } from "@/components/styles";
 import type { WorkItem } from "@/lib/work-items/types";
 import { ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
 import { Pencil } from "lucide-react";
+import { SelectBox } from "@/components/selection";
 import { AssignmentDetailsForm, GradeForm, TaskForm } from "./forms";
 import type { SchoolFormState } from "./actions";
 
@@ -128,6 +129,7 @@ export function AssignmentRow({
   details,
   grade,
   kidChange,
+  selectable = false,
 }: {
   item: WorkItem<AssignmentStatus>;
   kind: AssignmentKind;
@@ -146,6 +148,8 @@ export function AssignmentRow({
   grade?: { action: FormAction; defaults: { score: string; maxScore: string } };
   /** Phase 59.2a: a kid's change waiting for a grown-up. */
   kidChange?: { who: string; onApprove: () => Promise<void>; onPutBack: () => Promise<void> };
+  /** Phase 59.3: a tick box while the list is selecting. */
+  selectable?: boolean;
 }) {
   const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus);
   const [confirming, setConfirming] = useState(false);
@@ -166,6 +170,7 @@ export function AssignmentRow({
 
   return (
     <RowShell>
+      {selectable && <SelectBox id={item.id} label={item.title} />}
       {canTick ? (
         <TickBox label={`Mark ${item.title} turned in`} disabled={pending} onTick={() => pick("DONE")} />
       ) : (
@@ -272,6 +277,7 @@ export function SchoolTaskRow({
   onRemove,
   edit,
   onClaim,
+  selectable = false,
 }: {
   item: WorkItem<TaskStatus>;
   /** The kind and amount, before and after the title. */
@@ -285,6 +291,8 @@ export function SchoolTaskRow({
   edit: { action: FormAction; defaults: Parameters<typeof TaskForm>[0]["defaults"]; kids: { id: string; name: string }[]; adults: { id: string; name: string }[] };
   /** Phase 59.2a: "I've got it", when someone else (or nobody) has it. */
   onClaim?: (id: string) => Promise<void>;
+  /** Phase 59.3: a tick box while the list is selecting. */
+  selectable?: boolean;
 }) {
   const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus);
   const [confirming, setConfirming] = useState(false);
@@ -305,6 +313,7 @@ export function SchoolTaskRow({
 
   return (
     <RowShell>
+      {selectable && status === "OPEN" && <SelectBox id={item.id} label={item.title} />}
       {status === "OPEN" ? (
         <TickBox label={`Mark ${item.title} done`} disabled={pending} onTick={() => pick("DONE")} />
       ) : (

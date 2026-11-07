@@ -6,12 +6,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAdult, isAdult } from "@/lib/authz";
-import { milestoneCrossed } from "@/lib/tasks/milestones";
-import { canDoChore, canUndoChore } from "@/lib/tasks/permissions";
 import { atMidnight } from "@/lib/tasks/schedule";
-import { markOlderMissedIds, skipInstance as skipTask, unskipInstance as unskipTask } from "@/lib/tasks/skip";
-import { deleteEventsFor, recordEvent, recordEvents } from "@/lib/work-items/events";
-import { moveChore, type MoveTarget } from "@/lib/tasks/move";
+import { markOlderMissedIds } from "@/lib/tasks/skip";
+import { completeChore, reassignChore, skipChore, uncompleteChore, unskipChore } from "@/lib/tasks/chore-cores";
+import { deleteEventsFor, recordEvents } from "@/lib/work-items/events";
+import { moveChore, moveChoreIn, type MoveTarget } from "@/lib/tasks/move";
+import { withStoredDays } from "@/lib/household-zone";
+import { bulkSchema, summarize, type BulkResult } from "@/lib/work-items/bulk";
 
 export type TaskFormState = { error?: string };
 
@@ -167,76 +168,22 @@ export async function setDefinitionActive(definitionId: string, active: boolean)
  */
 export async function completeInstance(instanceId: string): Promise<{ milestone?: number | null }> {
   const profile = await requireActiveProfile();
-
-  const instance = await prisma.taskInstance.findUnique({
-    where: { id: instanceId },
-    include: { definition: true },
-  });
-  if (!instance || instance.definition.householdId !== profile.householdId || instance.definition.domain !== "CHORE") {
-    throw new Error("Chore not found");
-  }
-  // A kid may do their own chore, or claim an "Anyone" one (owner's call, 2026-10-09): the stickers go
-  // to whoever does it (pointsRecipient below), so grabbing one is earning it.
-  if (!canDoChore({ id: profile.id, adult: isAdult(profile) }, instance, true)) return {};
-
-  const pointsRecipient = instance.assignedToId ?? profile.id;
-  const now = new Date();
-
-  const result = await prisma.$transaction(async (tx) => {
-    const { count } = await tx.taskInstance.updateMany({
-      where: { id: instanceId, status: "PENDING", assignedToId: instance.assignedToId },
-      data: { status: "DONE", completedAt: now, completedById: profile.id },
-    });
-    if (count === 0) return { completed: false, milestone: null };
-    await recordEvent(tx, { householdId: profile.householdId, itemType: "CHORE", itemId: instance.id, actorId: profile.id, action: "STATUS", fromValue: "PENDING", toValue: "DONE" });
-
-    const priorCompletions = await tx.pointsLedger.count({
-      where: { personId: pointsRecipient, instanceId: { not: null }, instance: { definition: { domain: "CHORE" } } },
-    });
-
-    await tx.pointsLedger.create({
-      data: {
-        personId: pointsRecipient,
-        delta: instance.definition.points,
-        reason: instance.definition.title,
-        instanceId: instance.id,
-      },
-    });
-
-    return { completed: true, milestone: milestoneCrossed(priorCompletions, priorCompletions + 1) };
-  });
+  const viewer = { id: profile.id, householdId: profile.householdId, adult: isAdult(profile) };
+  const result = await prisma.$transaction((tx) => completeChore(tx, viewer, instanceId));
+  if (!result.ok && result.reason === "not found") throw new Error("Chore not found");
 
   revalidatePath("/chores");
   revalidatePath("/points");
   revalidatePath("/");
 
-  return result.completed ? { milestone: result.milestone } : {};
+  return result.ok ? { milestone: result.milestone } : {};
 }
 
 export async function uncompleteInstance(instanceId: string) {
   const profile = await requireActiveProfile();
-
-  const instance = await prisma.taskInstance.findUnique({
-    where: { id: instanceId },
-    include: { definition: true },
-  });
-  if (!instance || instance.definition.householdId !== profile.householdId || instance.definition.domain !== "CHORE") {
-    throw new Error("Chore not found");
-  }
-  if (!canUndoChore({ id: profile.id, adult: isAdult(profile) }, instance)) return;
-
-  await prisma.$transaction(async (tx) => {
-    // Pins completedAt, not just status: "DONE" — undoing THE COMPLETION I SAW, not
-    // "whatever's currently DONE" (same guard Meds' uncompleteInstance uses).
-    const { count } = await tx.taskInstance.updateMany({
-      where: { id: instanceId, status: "DONE", completedAt: instance.completedAt },
-      data: { status: "PENDING", completedAt: null, completedById: null },
-    });
-    if (count === 0) return;
-
-    await tx.pointsLedger.deleteMany({ where: { instanceId: instance.id } });
-    await recordEvent(tx, { householdId: profile.householdId, itemType: "CHORE", itemId: instance.id, actorId: profile.id, action: "STATUS", fromValue: "DONE", toValue: "PENDING" });
-  });
+  const viewer = { id: profile.id, householdId: profile.householdId, adult: isAdult(profile) };
+  const result = await prisma.$transaction((tx) => uncompleteChore(tx, viewer, instanceId));
+  if (!result.ok && result.reason === "not found") throw new Error("Chore not found");
 
   revalidatePath("/chores");
   revalidatePath("/points");
@@ -260,35 +207,12 @@ export async function uncompleteInstance(instanceId: string) {
 export async function reassignInstance(instanceId: string, newAssigneeId: string) {
   const profile = await requireAdult();
 
-  const instance = await prisma.taskInstance.findFirst({
-    where: { id: instanceId, definition: { householdId: profile.householdId, domain: "CHORE" } },
-    include: { assignedTo: { select: { firstName: true } } },
-  });
-  if (!instance) return;
-
   const target = await prisma.person.findFirst({
     where: { id: newAssigneeId, householdId: profile.householdId, isHouseholdMember: true },
     select: { id: true, firstName: true },
   });
   if (!target) return;
-
-  if (instance.assignedToId === target.id) return;
-  await prisma.$transaction(async (tx) => {
-    const { count } = await tx.taskInstance.updateMany({
-      where: { id: instanceId, status: "PENDING", assignedToId: instance.assignedToId },
-      data: { assignedToId: target.id },
-    });
-    if (count === 0) return;
-    await recordEvent(tx, {
-      householdId: profile.householdId,
-      itemType: "CHORE",
-      itemId: instanceId,
-      actorId: profile.id,
-      action: "ASSIGN",
-      fromValue: instance.assignedTo?.firstName ?? null,
-      toValue: target.firstName,
-    });
-  });
+  await prisma.$transaction((tx) => reassignChore(tx, { id: profile.id, householdId: profile.householdId, adult: true }, instanceId, target));
 
   revalidatePath("/chores");
   revalidatePath("/");
@@ -300,21 +224,13 @@ export async function reassignInstance(instanceId: string, newAssigneeId: string
  */
 export async function skipInstance(instanceId: string) {
   const profile = await requireAdult();
-  const skipped = await prisma.$transaction(async (tx) => {
-    if (!(await skipTask({ householdId: profile.householdId, domain: "CHORE", instanceId, byId: profile.id, db: tx }))) return false;
-    await recordEvent(tx, { householdId: profile.householdId, itemType: "CHORE", itemId: instanceId, actorId: profile.id, action: "STATUS", fromValue: "PENDING", toValue: "SKIPPED" });
-    return true;
-  });
+  const skipped = (await prisma.$transaction((tx) => skipChore(tx, { id: profile.id, householdId: profile.householdId, adult: true }, instanceId))).ok;
   if (skipped) revalidateBoard();
 }
 
 export async function unskipInstance(instanceId: string) {
   const profile = await requireAdult();
-  const back = await prisma.$transaction(async (tx) => {
-    if (!(await unskipTask({ householdId: profile.householdId, domain: "CHORE", instanceId, db: tx }))) return false;
-    await recordEvent(tx, { householdId: profile.householdId, itemType: "CHORE", itemId: instanceId, actorId: profile.id, action: "STATUS", fromValue: "SKIPPED", toValue: "PENDING" });
-    return true;
-  });
+  const back = (await prisma.$transaction((tx) => unskipChore(tx, { id: profile.id, householdId: profile.householdId, adult: true }, instanceId))).ok;
   if (back) revalidateBoard();
 }
 
@@ -356,4 +272,38 @@ export async function moveInstance(instanceId: string, to: MoveTarget | "back"):
 function revalidateBoard() {
   revalidatePath("/chores");
   revalidatePath("/");
+}
+
+const choreBulk = bulkSchema(["DONE", "SKIP", "REASSIGN", "TOMORROW"] as const);
+
+/**
+ * Phase 59.3: one action on up to 30 chores, grown-ups only, in one transaction under the
+ * stored-days lock (Move to tomorrow needs it). Each goes through the same core as a single tap;
+ * one a rule refuses is skipped and counted, never thrown.
+ */
+export async function bulkChores(input: unknown): Promise<BulkResult | { error: string }> {
+  const profile = await requireAdult();
+  const parsed = choreBulk.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "That didn't look right." };
+  const { ids, action, value } = parsed.data;
+  const viewer = { id: profile.id, householdId: profile.householdId, adult: true };
+  let target: { id: string; firstName: string } | null = null;
+  if (action === "REASSIGN") {
+    target = value ? await prisma.person.findFirst({ where: { id: value, householdId: profile.householdId, isHouseholdMember: true }, select: { id: true, firstName: true } }) : null;
+    if (!target) return { error: "That family member wasn't found." };
+  }
+  const results = await withStoredDays(async (tx) => {
+    const out: Parameters<typeof summarize>[0] = [];
+    for (const id of ids) {
+      if (action === "DONE") out.push(await completeChore(tx, viewer, id));
+      else if (action === "SKIP") out.push(await skipChore(tx, viewer, id));
+      else if (action === "REASSIGN") out.push(await reassignChore(tx, viewer, id, target!));
+      else out.push((await moveChoreIn(tx, { householdId: profile.householdId, instanceId: id, to: "tomorrow", byId: profile.id })) ? { ok: true } : { ok: false, reason: "can't move" });
+    }
+    return out;
+  });
+  revalidateBoard();
+  if (action === "DONE") revalidatePath("/points");
+  if (action === "TOMORROW") revalidatePath("/calendar");
+  return summarize(results);
 }

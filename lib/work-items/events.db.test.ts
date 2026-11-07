@@ -313,4 +313,63 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     await ensureInstancesGenerated(ids.h, addDays(today, 3), "CHORE");
     expect(await at(weekly.id, today)).not.toBeNull();
   });
+
+  test("Phase 59.3: a bulk action runs each chore through its own rules and counts the rest", async () => {
+    const { bulkChores } = await import("@/app/(app)/chores/actions");
+    const def = await prisma.taskDefinition.create({
+      data: { householdId: ids.h, title: "Tidy a room", frequencyType: "WEEKLY", interval: 1, startDate: today, points: 2, assignmentStrategy: "FIXED" },
+    });
+    const mk = (d: number, assignedToId: string | null = ids.kid) => prisma.taskInstance.create({ data: { definitionId: def.id, dueDate: addDays(today, d), assignedToId } });
+    const [a, b, c] = [await mk(-2), await mk(-1), await mk(0)];
+    const elsewhere = await prisma.household.create({ data: { name: `e2e-history-bulk-${t}` } });
+    try {
+      const theirDef = await prisma.taskDefinition.create({ data: { householdId: elsewhere.id, title: "Not ours", frequencyType: "ONCE", startDate: today, assignmentStrategy: "FIXED" } });
+      const theirs = await prisma.taskInstance.create({ data: { definitionId: theirDef.id, dueDate: today } });
+
+      await as(ids.kid);
+      await expect(bulkChores({ ids: [a.id], action: "DONE" })).rejects.toThrow("Only adults");
+
+      await as(ids.mom);
+      expect(await bulkChores({ ids: [], action: "DONE" })).toEqual({ error: "Pick at least one." });
+      expect(await bulkChores({ ids: Array.from({ length: 31 }, (_, i) => `x${i}`), action: "DONE" })).toEqual({ error: "At most 30 at a time." });
+      expect(await bulkChores({ ids: [a.id], action: "REASSIGN", value: "nobody" })).toEqual({ error: "That family member wasn't found." });
+
+      await prisma.taskInstance.update({ where: { id: b.id }, data: { status: "DONE", completedAt: new Date(), completedById: ids.mom } });
+      expect(await bulkChores({ ids: [a.id, b.id, c.id, theirs.id], action: "DONE" })).toMatchObject({ done: 2, skipped: 2, reasons: { "already done": 1, "not found": 1 } });
+      expect(await prisma.pointsLedger.aggregate({ where: { instanceId: { in: [a.id, c.id] } }, _sum: { delta: true } })).toMatchObject({ _sum: { delta: 4 } });
+      expect((await prisma.taskInstance.findUniqueOrThrow({ where: { id: theirs.id } })).status).toBe("PENDING");
+
+      const [d, e] = [await mk(1), await mk(2)];
+      expect(await bulkChores({ ids: [d.id, e.id], action: "REASSIGN", value: ids.max })).toMatchObject({ done: 2, skipped: 0 });
+      expect(await bulkChores({ ids: [d.id, e.id], action: "SKIP" })).toMatchObject({ done: 2 });
+      expect((await history(d.id)).map((ev) => ev.action)).toEqual(["ASSIGN", "STATUS"]);
+    } finally {
+      await prisma.household.delete({ where: { id: elsewhere.id } });
+    }
+  });
+
+  test("Phase 59.3: a bulk Move to tomorrow moves what can go and counts what can't", async () => {
+    const { bulkChores } = await import("@/app/(app)/chores/actions");
+    const weekly = await prisma.taskDefinition.create({ data: { householdId: ids.h, title: "Sweep the porch", frequencyType: "WEEKLY", interval: 1, startDate: today, assignmentStrategy: "FIXED" } });
+    const daily = await prisma.taskDefinition.create({ data: { householdId: ids.h, title: "Feed the cat", frequencyType: "DAILY", startDate: today, assignmentStrategy: "FIXED" } });
+    const sweep = await prisma.taskInstance.create({ data: { definitionId: weekly.id, dueDate: today } });
+    const cat = await prisma.taskInstance.create({ data: { definitionId: daily.id, dueDate: today } });
+    await as(ids.mom);
+    expect(await bulkChores({ ids: [sweep.id, cat.id], action: "TOMORROW" })).toMatchObject({ done: 1, skipped: 1, reasons: { "can't move": 1 } });
+    expect((await prisma.taskInstance.findUniqueOrThrow({ where: { id: sweep.id } })).dueDate).toEqual(addDays(today, 1));
+  });
+
+  test("Phase 59.3: homework and forms in bulk follow the single tap's rules", async () => {
+    const { bulkSchool } = await import("@/app/(app)/school/actions");
+    const mk = (title: string, status: "TODO" | "DONE" | "MISSING" = "TODO") => prisma.schoolAssignment.create({ data: { profileId: ids.profile, className: "Reading", title, status } });
+    const [x, y, z] = [await mk("Log 1"), await mk("Log 2", "DONE"), await mk("Log 3")];
+    const form = await prisma.schoolTask.create({ data: { householdId: ids.h, title: "Picture day form" } });
+    await as(ids.kid);
+    await expect(bulkSchool({ ids: [x.id], action: "DONE" })).rejects.toThrow("Only adults");
+    await as(ids.mom);
+    expect(await bulkSchool({ ids: [x.id, y.id, z.id], action: "DONE" })).toMatchObject({ done: 2, skipped: 1, reasons: { "already done": 1 } });
+    expect(await bulkSchool({ ids: [x.id, z.id], action: "MISSING" })).toMatchObject({ done: 2 });
+    expect(await bulkSchool({ ids: [form.id, x.id], action: "FORM_DONE" })).toMatchObject({ done: 1, skipped: 1 });
+    expect((await prisma.schoolTask.findUniqueOrThrow({ where: { id: form.id } })).status).toBe("DONE");
+  });
 });

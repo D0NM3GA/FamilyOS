@@ -197,6 +197,12 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
 - Each chore shows where it stands: **Due today**, **Overdue**, **To do**, **Done**, **Skipped** or
   **Missed**. When you can change it, the label has a little arrow: tap it to pick what's next
   (**Done**, **Skip**, **Undo**). Not in Big buttons.
+- **Grown-ups: change several at once.** Tap **Select**, tick the chores, and use the bar at the
+  bottom: **Done**, **Skip**, **Move to tomorrow** or **Give to…** (up to 30 at a time). It says
+  what it did and what it skipped, and why (already done, or a day that's taken). With one person
+  picked in the row of people, **For Ivy…** has two shortcuts: **Sick day** skips what they have
+  today (it asks first), and **Hand off to Max** gives them their chores for today and tomorrow.
+  Not in Big buttons.
 - Outdoor chores show a rain warning when rain is likely (once an admin has set where home is).
 - Each chore earns stickers for whoever did it.
 - The row of people under the title picks whose chores to see, and shows each person's sticker
@@ -336,7 +342,8 @@ change their own homework this way too (not once it's missing or graded): the ch
 once, and grown-ups see **Changed by Ivy** on it, with **Approve** to keep it or **Put back** to
 undo it (Put back asks first). The heading says how many changes are waiting, and **Done
 recently** opens by itself when one is in there. A grown-up's own edit counts as checking.
-For **Forms & to-dos**, the **⋯** has **Edit** (everything about it) and **I've got it** (it's
+Grown-ups can **Select** several homework rows (or forms) and mark them **Turned in**, **To do**
+or **Missing** (forms: **Done**) together. For **Forms & to-dos**, the **⋯** has **Edit** (everything about it) and **I've got it** (it's
 yours to handle, in one tap).
 
 Kids see their own. Grown-ups set up each kid's school details and add homework. Admins add the

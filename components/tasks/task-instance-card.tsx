@@ -14,6 +14,7 @@ import { rewardCount } from "@/lib/reward-words";
 import { StatusPill } from "@/components/status-pill";
 import type { WorkItem } from "@/lib/work-items/types";
 import { canDoChore, canSkipChore, canUndoChore } from "@/lib/tasks/permissions";
+import { SelectBox } from "@/components/selection";
 
 // Not imported from lib/people.ts's fullName: that module's top-level `import { prisma }`
 // pulls the whole Postgres/pg dependency chain (Node built-ins like `tls`) into this
@@ -116,6 +117,7 @@ export function TaskInstanceCard({
   pill,
   moves,
   onMove,
+  selectable = false,
 }: {
   instance: Instance;
   viewerId: string;
@@ -175,6 +177,8 @@ export function TaskInstanceCard({
   /** Phase 59.2b: where a grown-up may move this chore (lib/tasks/move.ts), worked out on the server. */
   moves?: { tomorrow: boolean; today: boolean; back: boolean };
   onMove?: (instanceId: string, to: "today" | "tomorrow" | "back") => Promise<{ moved: boolean }>;
+  /** Phase 59.3: shows a tick box while the board is selecting (components/selection.tsx). */
+  selectable?: boolean;
 }) {
   const reward = useRewardWords();
   const big = size === "big";
@@ -332,6 +336,7 @@ export function TaskInstanceCard({
           exiting ? "scale-95 opacity-0" : "scale-100 opacity-100"
         } ${celebrating ? "animate-[pop_500ms_ease-out]" : ""}`}
       >
+        {selectable && optimisticStatus === "PENDING" && <SelectBox id={instance.id} label={instance.definition.title} />}
         <span
           className={`flex shrink-0 items-center justify-center rounded-full font-semibold text-white transition-colors duration-300 ${
             big ? "size-11 text-base" : "size-8 text-xs"
