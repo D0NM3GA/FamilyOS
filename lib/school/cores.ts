@@ -1,6 +1,6 @@
 import type { Prisma } from "@/app/generated/prisma/client";
 import { recordEvent } from "@/lib/work-items/events";
-import { canSetAssignmentStatus, type AssignmentStatusValue } from "./permissions";
+import { canSeeStudent, canSetAssignmentStatus, type AssignmentStatusValue } from "./permissions";
 import { isAdult } from "@/lib/roles";
 
 /**
@@ -17,7 +17,8 @@ export async function setAssignmentStatusIn(tx: Tx, viewer: Viewer, assignmentId
     where: { id: assignmentId, profile: { person: { householdId: viewer.householdId } } },
     select: { status: true, profile: { select: { personId: true } } },
   });
-  if (!existing) return { ok: false, reason: "not found" };
+  // Someone else's work reads as missing, like a wrong link: a kid can't tell a sibling's from none.
+  if (!existing || !canSeeStudent(viewer, existing.profile.personId)) return { ok: false, reason: "not found" };
   // A teacher's "missing" is set and cleared by a grown-up, not by the student.
   if (!canSetAssignmentStatus(viewer, { studentId: existing.profile.personId, status: existing.status }, status)) return { ok: false, reason: "not allowed" };
   // No change, no write: ticking off done work again mustn't move when it was finished.
@@ -36,11 +37,14 @@ export async function setAssignmentStatusIn(tx: Tx, viewer: Viewer, assignmentId
 export async function setTaskDoneIn(tx: Tx, viewer: Viewer, taskId: string, done: boolean): Promise<SchoolCoreResult> {
   if (!isAdult(viewer)) return { ok: false, reason: "not allowed" };
   const to = done ? "DONE" : "OPEN";
+  const found = await tx.schoolTask.findFirst({ where: { id: taskId, householdId: viewer.householdId }, select: { status: true } });
+  if (!found) return { ok: false, reason: "not found" };
+  if (found.status === to) return { ok: false, reason: "already done" };
   const { count } = await tx.schoolTask.updateMany({
     where: { id: taskId, householdId: viewer.householdId, status: done ? "OPEN" : "DONE" },
     data: { status: to, doneAt: done ? new Date() : null },
   });
-  if (count === 0) return { ok: false, reason: "already done" };
+  if (count === 0) return { ok: false, reason: "changed" };
   await recordEvent(tx, { householdId: viewer.householdId, itemType: "SCHOOL_TASK", itemId: taskId, actorId: viewer.id, action: "STATUS", fromValue: done ? "OPEN" : "DONE", toValue: to });
   return { ok: true };
 }

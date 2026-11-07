@@ -8,7 +8,8 @@ import { isAdult, requireAdult } from "@/lib/authz";
 import { ASSIGNMENT_KINDS, parseAssignmentDetails, parseAssignmentForm, parseGrade, parseProfileForm, parseTaskForm, type AssignmentKindValue } from "@/lib/school/form";
 import { canEditAssignmentDetails, canRemoveAssignment, canSeeStudent } from "@/lib/school/permissions";
 import { setAssignmentStatusIn, setTaskDoneIn } from "@/lib/school/cores";
-import { bulkSchema, summarize, type BulkResult } from "@/lib/work-items/bulk";
+import { BULK_TIMEOUT_MS, summarize, type BulkResult } from "@/lib/work-items/bulk";
+import { bulkSchema } from "@/lib/work-items/bulk-schema";
 import { deleteEventsFor, recordEvent, recordEvents } from "@/lib/work-items/events";
 import { assignmentChanges, putBackValues, taskChanges } from "@/lib/work-items/changes";
 import { parseLocalDate } from "@/lib/format";
@@ -426,7 +427,7 @@ export async function bulkSchool(input: unknown): Promise<BulkResult | { error: 
     const out: Parameters<typeof summarize>[0] = [];
     for (const id of ids) out.push(action === "FORM_DONE" ? await setTaskDoneIn(tx, viewer, id, true) : await setAssignmentStatusIn(tx, viewer, id, action));
     return out;
-  });
+  }, { timeout: BULK_TIMEOUT_MS });
   revalidateSchool();
   return summarize(results);
 }

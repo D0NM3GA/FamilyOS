@@ -12,7 +12,8 @@ import { completeChore, reassignChore, skipChore, uncompleteChore, unskipChore }
 import { deleteEventsFor, recordEvents } from "@/lib/work-items/events";
 import { moveChore, moveChoreIn, type MoveTarget } from "@/lib/tasks/move";
 import { withStoredDays } from "@/lib/household-zone";
-import { bulkSchema, summarize, type BulkResult } from "@/lib/work-items/bulk";
+import { BULK_TIMEOUT_MS, summarize, type BulkResult } from "@/lib/work-items/bulk";
+import { bulkSchema } from "@/lib/work-items/bulk-schema";
 
 export type TaskFormState = { error?: string };
 
@@ -301,7 +302,7 @@ export async function bulkChores(input: unknown): Promise<BulkResult | { error: 
       else out.push((await moveChoreIn(tx, { householdId: profile.householdId, instanceId: id, to: "tomorrow", byId: profile.id })) ? { ok: true } : { ok: false, reason: "can't move" });
     }
     return out;
-  });
+  }, { timeout: BULK_TIMEOUT_MS });
   revalidateBoard();
   if (action === "DONE") revalidatePath("/points");
   if (action === "TOMORROW") revalidatePath("/calendar");

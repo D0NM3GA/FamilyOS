@@ -106,7 +106,8 @@ export function BulkBar({ actions, giveTo }: { actions: BulkAction[]; giveTo?: {
     });
 
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-wrap items-center gap-2 border-t border-border bg-card/95 px-4 py-3 backdrop-blur-sm sm:mx-0 sm:rounded-xl sm:border">
+    // data-covers-bottom: the page keeps focused rows from hiding under it (globals.css).
+    <div data-covers-bottom className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-wrap items-center gap-2 border-t border-border bg-card/95 px-4 py-3 backdrop-blur-sm sm:mx-0 sm:rounded-xl sm:border">
       <span className="mr-auto text-sm font-bold text-foreground" aria-live="polite">
         {ids.length === 0 ? "Tick the ones to change" : `${ids.length} selected`}
         {ids.length >= BULK_MAX && ` (${BULK_MAX} at most)`}

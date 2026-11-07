@@ -369,7 +369,26 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     await as(ids.mom);
     expect(await bulkSchool({ ids: [x.id, y.id, z.id], action: "DONE" })).toMatchObject({ done: 2, skipped: 1, reasons: { "already done": 1 } });
     expect(await bulkSchool({ ids: [x.id, z.id], action: "MISSING" })).toMatchObject({ done: 2 });
-    expect(await bulkSchool({ ids: [form.id, x.id], action: "FORM_DONE" })).toMatchObject({ done: 1, skipped: 1 });
+    expect(await bulkSchool({ ids: [form.id, x.id], action: "FORM_DONE" })).toMatchObject({ done: 1, skipped: 1, reasons: { "not found": 1 } });
+
+    // A kid on a sibling's work hears what a wrong link would say.
+    const { setAssignmentStatus } = await import("@/app/(app)/school/actions");
+    await as(ids.max);
+    await expect(setAssignmentStatus(x.id, "DONE")).rejects.toThrow("Assignment not found");
     expect((await prisma.schoolTask.findUniqueOrThrow({ where: { id: form.id } })).status).toBe("DONE");
+  });
+
+  test("Phase 59.3: a bulk Done celebrates the highest milestone crossed, once", async () => {
+    const { bulkChores } = await import("@/app/(app)/chores/actions");
+    const kid = await prisma.person.create({ data: { householdId: ids.h, firstName: "Ivy", role: "KID", isHouseholdMember: true } });
+    const def = await prisma.taskDefinition.create({ data: { householdId: ids.h, title: "Set the table", frequencyType: "WEEKLY", interval: 1, startDate: today, points: 1, assignmentStrategy: "FIXED" } });
+    // Eight done already, so three more pass 10.
+    for (let n = 0; n < 8; n++) {
+      const done = await prisma.taskInstance.create({ data: { definitionId: def.id, dueDate: addDays(today, -20 - n), assignedToId: kid.id, status: "DONE" } });
+      await prisma.pointsLedger.create({ data: { personId: kid.id, delta: 1, reason: "Set the table", instanceId: done.id } });
+    }
+    const batch = await Promise.all([1, 2, 3].map((n) => prisma.taskInstance.create({ data: { definitionId: def.id, dueDate: addDays(today, -n), assignedToId: kid.id } })));
+    await as(ids.mom);
+    expect(await bulkChores({ ids: batch.map((b) => b.id), action: "DONE" })).toMatchObject({ done: 3, milestone: 10 });
   });
 });

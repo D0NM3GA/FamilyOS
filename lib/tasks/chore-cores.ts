@@ -67,7 +67,8 @@ export async function reassignChore(tx: Tx, viewer: ChoreViewer, instanceId: str
   const instance = await find(tx, viewer, instanceId);
   if (!instance) return { ok: false, reason: "not found" };
   if (instance.status !== "PENDING") return { ok: false, reason: "already done" };
-  if (instance.assignedToId === target.id) return { ok: true };
+  // Already theirs: nothing to change, and a bulk hand-off says so rather than counting it.
+  if (instance.assignedToId === target.id) return { ok: false, reason: "already done" };
   const { count } = await tx.taskInstance.updateMany({
     where: { id: instanceId, status: "PENDING", assignedToId: instance.assignedToId },
     data: { assignedToId: target.id },

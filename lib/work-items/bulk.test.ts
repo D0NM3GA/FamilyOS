@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BULK_MAX, bulkMessage, bulkSchema, summarize } from "./bulk";
+import { BULK_MAX, bulkMessage, summarize } from "./bulk";
+import { bulkSchema } from "./bulk-schema";
 
 const schema = bulkSchema(["DONE", "SKIP"] as const);
 

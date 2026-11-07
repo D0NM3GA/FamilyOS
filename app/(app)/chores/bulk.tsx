@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { BulkBar } from "@/components/selection";
 import { MoreMenu } from "@/components/more-menu";
 import { ConfirmAction } from "@/components/submit";
@@ -44,6 +44,8 @@ export function ChorePresets({
   const [asking, setAsking] = useState(false);
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  // After a preset, focus goes to what it said (the question it came from is gone).
+  const said = useRef<HTMLParagraphElement>(null);
   if (sickDayIds.length === 0 && handOffIds.length === 0) return null;
   const go = (verb: string, run: () => ReturnType<Bulk>) =>
     start(async () => {
@@ -55,6 +57,7 @@ export function ChorePresets({
         setMessage("Couldn't save that. Check your connection and try again.");
       } finally {
         setAsking(false);
+        requestAnimationFrame(() => said.current?.focus());
       }
     });
   const n = sickDayIds.length;
@@ -68,7 +71,7 @@ export function ChorePresets({
         )}
         {handOffIds.length > 0 &&
           others.map((o) => (
-            <button key={o.id} type="button" className={menuItem} onClick={() => go("Gave", () => bulk({ ids: handOffIds, action: "REASSIGN", value: o.id }))}>
+            <button key={o.id} type="button" disabled={pending} className={menuItem} onClick={() => go("Gave", () => bulk({ ids: handOffIds, action: "REASSIGN", value: o.id }))}>
               Hand off to {o.firstName} (today and tomorrow)
             </button>
           ))}
@@ -86,7 +89,7 @@ export function ChorePresets({
         </ConfirmAction>
       )}
       {message && (
-        <p role="status" className="basis-full text-sm font-bold text-foreground">
+        <p ref={said} tabIndex={-1} role="status" className="basis-full text-sm font-bold text-foreground outline-none">
           {message}
         </p>
       )}

@@ -186,11 +186,11 @@ export async function lockStoredDays(tx: Prisma.TransactionClient): Promise<void
 }
 
 /** Runs `fn` in a transaction that waits out a move, so no day is written in the old zone halfway through one. */
-export function withStoredDays<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+export function withStoredDays<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>, options?: { timeout?: number }): Promise<T> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtext(${DAY_ZONE_LOCK}))`;
     return fn(tx);
-  });
+  }, options);
 }
 
 export type ZoneSync = { moved: Record<string, number>; from: string; to: string } | null;

@@ -1433,3 +1433,10 @@ highest is celebrated once. `components/selection.tsx` holds the page's selectio
 by the person or student, so it resets), the Select toggle, the rows' tick boxes and the sticky bar.
 The presets are the bulk action with a list the page works out: Sick day (asks first) and Hand off.
 Grown-ups only, never in Big buttons.
+Fable's review of 59.3: a kid on a sibling's homework hears "not found" again, as before the cores;
+a form from elsewhere counts as gone, not "already that way"; a hand-off of a chore that's already
+theirs is counted as skipped. A rule's refusal is counted, but a database error fails the whole
+batch and nothing is kept; bulk transactions get 15 seconds (`BULK_TIMEOUT_MS`). The presets' lists
+are `lib/tasks/presets.ts`, tested. While selecting, each row's and card's own buttons step aside, so
+a stray tap can't finish something mid-selection. `bulk.ts` no longer imports zod (the check is
+`bulk-schema.ts`), so the client bar doesn't ship it.

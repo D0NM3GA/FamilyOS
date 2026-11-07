@@ -14,7 +14,7 @@ import { rewardCount } from "@/lib/reward-words";
 import { StatusPill } from "@/components/status-pill";
 import type { WorkItem } from "@/lib/work-items/types";
 import { canDoChore, canSkipChore, canUndoChore } from "@/lib/tasks/permissions";
-import { SelectBox } from "@/components/selection";
+import { SelectBox, useSelection } from "@/components/selection";
 
 // Not imported from lib/people.ts's fullName: that module's top-level `import { prisma }`
 // pulls the whole Postgres/pg dependency chain (Node built-ins like `tls`) into this
@@ -208,6 +208,9 @@ export function TaskInstanceCard({
   const canSkip = Boolean(onSkip) && canSkipChore(who) && optimisticStatus === "PENDING";
   // With a pill, Skip lives in the pill and the ⋯ keeps only Give to, so nothing is offered twice.
   const skipInMenu = canSkip && !pill;
+  // While the board is selecting, the card's own buttons step aside so a stray tap can't finish it.
+  const selection = useSelection();
+  const picking = selectable && Boolean(selection?.active);
   const canMove = Boolean(onMove && moves && optimisticStatus === "PENDING" && (moves.tomorrow || moves.today || moves.back));
   const canUnskip = Boolean(onUnskip) && canSkipChore(who) && optimisticStatus === "SKIPPED";
 
@@ -407,7 +410,7 @@ export function TaskInstanceCard({
           </p>
         )}
 
-        {(pillLook || canReassign || skipInMenu || canMove || canComplete || canUndo || canUnskip) && (
+        {!picking && (pillLook || canReassign || skipInMenu || canMove || canComplete || canUndo || canUnskip) && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {pill && pillLook && (
               // One change at a time: "Undo" waits until the server has the completion it undoes.

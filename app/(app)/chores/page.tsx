@@ -22,6 +22,7 @@ import { btn, btnPrimary, sectionTitle } from "@/components/styles";
 import { completeInstance, uncompleteInstance, reassignInstance, skipInstance, unskipInstance, markOlderMissed, moveInstance, bulkChores } from "./actions";
 import { SelectionProvider, SelectToggle } from "@/components/selection";
 import { ChoresBulkBar, ChorePresets } from "./bulk";
+import { presetIds } from "@/lib/tasks/presets";
 import { BunsonMoment } from "@/components/bunson-moment";
 import { MOMENT_LINES } from "@/lib/bunson-moments";
 import { resolveViewMode } from "@/lib/view-prefs";
@@ -91,10 +92,7 @@ export default async function ChoresPage({
   // Phase 59.3: grown-ups pick several and act once, and get two presets for the filtered person.
   const selecting = viewerIsAdult && !big;
   const filtered = personFilter ? members.find((m) => m.id === personFilter) : undefined;
-  const tomorrow = addDays(today, 1);
-  const theirs = (i: (typeof allInstances)[number]) => i.status === "PENDING" && i.assignedToId === personFilter;
-  const sickDayIds = dueToday.filter(theirs).map((i) => i.id);
-  const handOffIds = [...dueToday, ...upcoming].filter((i) => theirs(i) && i.dueDate <= tomorrow).map((i) => i.id);
+  const { sickDayIds, handOffIds } = personFilter ? presetIds({ dueToday, upcoming }, personFilter, today) : { sickDayIds: [], handOffIds: [] };
 
   return (
     // A new person on the filter is a new selection (the key resets it).

@@ -1,26 +1,19 @@
-import { z } from "zod";
-
 /**
- * Phase 59.3: one action on several items. The input is checked here (pure, so it's tested on its
- * own); each domain's bulk action runs its per-item core over the ids in one transaction.
+ * Phase 59.3: one action on several items: the limits and the result. No zod here, so the client
+ * bar can use it without shipping a validator; the input check is lib/work-items/bulk-schema.ts.
  */
 
 /** Freshservice caps a bulk update at 30, and a family's list is never longer. */
 export const BULK_MAX = 30;
 
-export type Reason = "not found" | "not allowed" | "already done" | "changed" | "can't move";
+/**
+ * A bulk change is one transaction; a refusal is counted, but a database error fails the whole
+ * batch and nothing is kept. Thirty items are a few hundred small queries, so it gets longer than
+ * Prisma's default 5 seconds.
+ */
+export const BULK_TIMEOUT_MS = 15_000;
 
-export function bulkSchema<A extends readonly [string, ...string[]]>(actions: A) {
-  return z.object({
-    ids: z
-      .array(z.string().min(1).max(64))
-      .min(1, "Pick at least one.")
-      .max(BULK_MAX, `At most ${BULK_MAX} at a time.`)
-      .transform((ids) => [...new Set(ids)]),
-    action: z.enum(actions),
-    value: z.string().max(64).optional(),
-  });
-}
+export type Reason = "not found" | "not allowed" | "already done" | "changed" | "can't move";
 
 export type BulkResult = { done: number; skipped: number; reasons: Partial<Record<Reason, number>>; milestone?: number | null };
 

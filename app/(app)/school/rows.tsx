@@ -10,7 +10,7 @@ import { btn, iconBtn, menuItem } from "@/components/styles";
 import type { WorkItem } from "@/lib/work-items/types";
 import { ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
 import { Pencil } from "lucide-react";
-import { SelectBox } from "@/components/selection";
+import { SelectBox, useSelection } from "@/components/selection";
 import { AssignmentDetailsForm, GradeForm, TaskForm } from "./forms";
 import type { SchoolFormState } from "./actions";
 
@@ -165,7 +165,10 @@ export function AssignmentRow({
   const more = useRef<HTMLButtonElement>(null);
   const look = item.looks[status]!;
   const options = item.options[status] ?? [];
-  const canTick = status !== "DONE" && options.some((o) => o.value === "DONE");
+  // While the list is selecting, the row's own buttons step aside so a stray tap can't change it.
+  const selection = useSelection();
+  const picking = selectable && Boolean(selection?.active);
+  const canTick = !picking && status !== "DONE" && options.some((o) => o.value === "DONE");
   // One change at a time: the menu waits for the last save.
 
   return (
@@ -194,8 +197,8 @@ export function AssignmentRow({
         </div>
       )}
       <div className="ml-auto flex items-center gap-1">
-        <StatusPill look={look} options={pending ? [] : options} title={item.title} onPick={pick} />
-        {(editHref || canRemove || grade) && (
+        <StatusPill look={look} options={pending || picking ? [] : options} title={item.title} onPick={pick} />
+        {!picking && (editHref || canRemove || grade) && (
           <MoreMenu label={`More for ${item.title}`} triggerRef={more}>
             {grade && (
               <button type="button" className={menuItem} onClick={() => setEditing("grade")}>
@@ -297,6 +300,8 @@ export function SchoolTaskRow({
   const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus);
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
+  const selection = useSelection();
+  const picking = selectable && Boolean(selection?.active);
   const claim = () =>
     start(async () => {
       setFailed(false);
@@ -314,7 +319,7 @@ export function SchoolTaskRow({
   return (
     <RowShell>
       {selectable && status === "OPEN" && <SelectBox id={item.id} label={item.title} />}
-      {status === "OPEN" ? (
+      {status === "OPEN" && !picking ? (
         <TickBox label={`Mark ${item.title} done`} disabled={pending} onTick={() => pick("DONE")} />
       ) : (
         <span aria-hidden className="size-11 shrink-0 sm:size-9" />
@@ -327,7 +332,8 @@ export function SchoolTaskRow({
         <p className={`text-xs ${late && status === "OPEN" ? "font-bold text-destructive" : "text-muted-foreground"}`}>{meta}</p>
       </div>
       <div className="ml-auto flex items-center gap-1">
-        <StatusPill look={look} options={pending ? [] : item.options[status]} title={item.title} onPick={pick} />
+        <StatusPill look={look} options={pending || picking ? [] : item.options[status]} title={item.title} onPick={pick} />
+        {!picking && (
         <MoreMenu label={`More for ${item.title}`} triggerRef={more}>
           <button type="button" className={menuItem} onClick={() => setEditing(true)}>
             Edit
@@ -341,6 +347,7 @@ export function SchoolTaskRow({
             Remove
           </button>
         </MoreMenu>
+        )}
       </div>
       {editing && (
         <div className="basis-full">

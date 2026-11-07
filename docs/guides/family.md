@@ -201,7 +201,7 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
   bottom: **Done**, **Skip**, **Move to tomorrow** or **Give to…** (up to 30 at a time). It says
   what it did and what it skipped, and why (already done, or a day that's taken). With one person
   picked in the row of people, **For Ivy…** has two shortcuts: **Sick day** skips what they have
-  today (it asks first), and **Hand off to Max** gives them their chores for today and tomorrow.
+  today (it asks first), and **Hand off to Max** gives Ivy's chores for today and tomorrow to Max.
   Not in Big buttons.
 - Outdoor chores show a rain warning when rain is likely (once an admin has set where home is).
 - Each chore earns stickers for whoever did it.
