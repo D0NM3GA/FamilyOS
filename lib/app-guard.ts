@@ -28,3 +28,14 @@ export async function requireAppOn(app: GuardedAppId) {
   if (isAdultOnlyApp(app) && !isAdult(profile)) redirect("/");
   return profile;
 }
+
+/**
+ * Phase 61d: the line after a switchable app's server action has checked who's asking. A tab left
+ * open on an app the family turned off can't change that app's data: the action sends it to the
+ * same "turned off" note its pages show (a redirect, the house rule over a thrown error, whose
+ * message Next hides in production). lib/action-guard.test.ts checks every action of a switchable
+ * app calls it, directly or through its domain's helper.
+ */
+export async function assertAppOn(householdId: string, app: SwitchableAppId): Promise<void> {
+  if (!(await appOn(householdId, app))) redirect(`/apps-off/${app}`);
+}

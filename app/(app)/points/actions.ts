@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { deliverOrderAlerts } from "@/lib/alerts/dispatch";
@@ -27,6 +28,7 @@ function refreshStore() {
 
 export async function buyReward(rewardId: string, forPersonId?: string | null) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "store");
   const result = await placeOrder(profile, z.string().min(1).parse(rewardId), forPersonId || null);
   // Phase 21: Teams/email alerts go out after the response, and only for an order that
   // committed — placeOrder's transaction has resolved by here.
@@ -39,6 +41,7 @@ const orderAction = z.enum(["approve", "decline", "deliver", "refund"]);
 
 export async function handleOrder(orderId: string, action: OrderAction, note?: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "store");
   const result = await actOnOrder(
     profile,
     z.string().min(1).parse(orderId),
@@ -52,6 +55,7 @@ export async function handleOrder(orderId: string, action: OrderAction, note?: s
 /** Anyone may pick (or clear) the reward they're saving up for — their own goal only. */
 export async function setSavingGoal(rewardId: string | null) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "store");
   if (rewardId) {
     const reward = await prisma.reward.findFirst({ where: { id: rewardId, householdId: profile.householdId, active: true } });
     if (!reward) return;
@@ -88,6 +92,7 @@ function duplicateTitle(err: unknown) {
 
 export async function saveReward(rewardId: string | null, _prev: FormState, formData: FormData): Promise<FormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "store");
   const parsed = rewardInput(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   const { title, pointCost, emoji, bucketId, limitPerWeek, needsApproval } = parsed.data;
@@ -113,6 +118,7 @@ export async function saveReward(rewardId: string | null, _prev: FormState, form
 /** No delete — switch off, so past orders and ledger reasons still read sensibly. */
 export async function setRewardActive(rewardId: string, active: boolean) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "store");
   await prisma.reward.updateMany({ where: { id: rewardId, householdId: profile.householdId }, data: { active } });
   revalidatePath("/points");
   revalidatePath("/points/manage");
@@ -120,6 +126,7 @@ export async function setRewardActive(rewardId: string, active: boolean) {
 
 export async function saveBucket(bucketId: string | null, _prev: FormState, formData: FormData): Promise<FormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "store");
   const parsed = bucketSchema.safeParse({ name: String(formData.get("name") ?? ""), emoji: String(formData.get("emoji") ?? "") });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   try {
@@ -141,6 +148,7 @@ export async function saveBucket(bucketId: string | null, _prev: FormState, form
 /** Only an empty shelf can go — checked in the same statement, so it can't race an add. */
 export async function deleteBucket(bucketId: string): Promise<FormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "store");
   const res = await prisma.rewardBucket.deleteMany({
     where: { id: bucketId, householdId: profile.householdId, rewards: { none: {} } },
   });
@@ -151,6 +159,7 @@ export async function deleteBucket(bucketId: string): Promise<FormState> {
 
 export async function saveFamilyGoal(_prev: FormState, formData: FormData): Promise<FormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "store");
   const parsed = familyGoalSchema.safeParse({
     stickers: String(formData.get("stickers") ?? ""),
     title: String(formData.get("title") ?? ""),
@@ -178,6 +187,7 @@ export type AdjustState = { error?: string; saved?: number };
 /** "Helped Grandma move: +10 ⭐", or some taken back. Shows in their sticker history. */
 export async function adjustStickersAction(personId: string, _prev: AdjustState, formData: FormData): Promise<AdjustState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "store");
   const parsed = adjustmentInput.safeParse({
     direction: formData.get("direction"),
     amount: formData.get("amount"),

@@ -2076,15 +2076,16 @@ scope review (same day) is folded in below.
   delegation, as `lib/adult-apps.test.ts` allows). An allowlist with a reason each covers the rest
   (setup and invite before anyone is signed in, the dev preview).
 - **Actions of a switchable app check it's on:** a new `assertAppOn(householdId, app)` in
-  `lib/app-guard.ts` throws ("That app is turned off") instead of redirecting, and every action
+  `lib/app-guard.ts` sends the tab to the app's "turned off" note (a redirect: Next hides a thrown
+  action's message in production; Fable's review of 61d), and every action
   in a switchable app's folder calls it: inside the domain's own helper where there is one
   (`requireJar`/`moneyViewer` for Money, `petProfile` for the pet, whose redirect becomes this),
   else as the action's next await after its auth check. The guard test enforces it per folder.
   Home and the list call chores and school actions only for apps that are on (`appsOffFor`), so a
-  throw there means a stale page.
+  redirect there means a stale page.
 - **e2e: a kid's profile.** In `smoke.spec.ts`, Ivy (made in the guided-setup test) gets a PIN from
-  Settings → Household, Dad switches to her profile, and Money, Settings, Data and Cars send her
-  Home; a grown-up export route answers 403 from her session; five wrong PINs (`MAX_PIN_ATTEMPTS`)
+  Settings → Household, Dad switches to her profile, and Money, Data, Cars and the Garage send her
+  Home (Settings isn't one: a kid has their own there); a grown-up export route answers 403 from her session; five wrong PINs (`MAX_PIN_ATTEMPTS`)
   lock the switch; then back to Dad with his own PIN.
 
 ### 61e — Small things

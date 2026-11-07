@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { BACKUP_CARD, recordBackupEvent } from "@/lib/backup/audit";
 import { deliverNotifications } from "@/lib/alerts/dispatch";
 import { moneyViewer } from "@/lib/finance/access";
+import { appOn } from "@/lib/app-switches";
 import { buildMyMoneyBackup } from "@/lib/finance/backup";
 import { todayCivil } from "@/lib/finance/budget";
 import { authorizeExport, downloadResponse, exportDateStamp } from "@/lib/export";
@@ -15,6 +16,8 @@ import { authorizeExport, downloadResponse, exportDateStamp } from "@/lib/export
 export async function POST(request: Request) {
   const auth = await authorizeExport(request, "adult", { stepUpPath: "/finances" });
   if (auth.response) return auth.response;
+  // Phase 36: no downloads while Money is off (as the jar export answers).
+  if (!(await appOn(auth.viewer.householdId, "money"))) return new NextResponse(null, { status: 404 });
   const viewer = await moneyViewer();
   if (!viewer) return new NextResponse(null, { status: 403 });
 

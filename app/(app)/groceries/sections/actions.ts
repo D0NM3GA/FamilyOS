@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdult } from "@/lib/authz";
@@ -31,6 +32,7 @@ function readForm(formData: FormData) {
 
 export async function renameSection(sectionId: string, _prev: EditState, formData: FormData): Promise<EditState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "groceries");
   const id = idSchema.safeParse(sectionId);
   if (!id.success) return { error: CHECK };
   const input = readForm(formData);
@@ -43,6 +45,7 @@ export async function renameSection(sectionId: string, _prev: EditState, formDat
 
 export async function addSection(_prev: EditState, formData: FormData): Promise<EditState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "groceries");
   const input = readForm(formData);
   if (!input.success) return { error: input.error.issues[0]?.message ?? CHECK };
   const result = await edits.addSection(profile.householdId, input.data);
@@ -54,6 +57,7 @@ export async function addSection(_prev: EditState, formData: FormData): Promise<
 /** The ↑ and ↓ buttons: plain forms, so they work before the page's script loads. */
 export async function moveSection(sectionId: string, direction: "up" | "down") {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "groceries");
   const id = idSchema.safeParse(sectionId);
   const dir = z.enum(["up", "down"]).safeParse(direction);
   if (!id.success || !dir.success) return;
@@ -63,6 +67,7 @@ export async function moveSection(sectionId: string, direction: "up" | "down") {
 /** `to` is another section's id, or "" for no section. */
 export async function removeSection(sectionId: string, _prev: EditState, formData: FormData): Promise<EditState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "groceries");
   const id = idSchema.safeParse(sectionId);
   const to = z.union([z.literal(""), idSchema]).safeParse(String(formData.get("to") ?? ""));
   if (!id.success || !to.success) return { error: CHECK };
