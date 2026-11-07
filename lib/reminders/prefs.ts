@@ -37,6 +37,8 @@ export type ReminderPrefsInput = {
   quietEnd: number | null;
   teamsEnabled?: boolean;
   emailEnabled?: boolean;
+  digestTeams?: boolean;
+  digestEmail?: boolean;
 };
 
 export async function saveReminderPrefs(personId: string, input: ReminderPrefsInput) {
@@ -46,6 +48,8 @@ export async function saveReminderPrefs(personId: string, input: ReminderPrefsIn
     quietEnd: input.quietEnd,
     ...(input.teamsEnabled === undefined ? {} : { teamsEnabled: input.teamsEnabled }),
     ...(input.emailEnabled === undefined ? {} : { emailEnabled: input.emailEnabled }),
+    ...(input.digestTeams === undefined ? {} : { digestTeams: input.digestTeams }),
+    ...(input.digestEmail === undefined ? {} : { digestEmail: input.digestEmail }),
   };
   await prisma.reminderPrefs.upsert({ where: { personId }, create: { personId, ...data }, update: data });
 }

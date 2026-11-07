@@ -1,0 +1,120 @@
+import { prisma } from "@/lib/prisma";
+import { appOn } from "@/lib/app-switches";
+import { alertMailbox, sendEmail } from "@/lib/alerts/email";
+import { MICROSOFT_ACCOUNTS, recipientEmail, storeLink, teamsRecipient } from "@/lib/alerts/dispatch";
+import { teamsActivity, type TeamsCard } from "@/lib/alerts/teams";
+import { familyTeamsAppId, sendToPerson as sendTeamsToPerson } from "@/lib/teams/family-app";
+import { getAppName } from "@/lib/household-settings";
+import { captureError } from "@/lib/observability";
+import { addDays, atMidnight } from "@/lib/tasks/schedule";
+import { ensureInstancesGenerated } from "@/lib/tasks/instances";
+import { inQuietHours } from "./quiet";
+import type { Reminder } from "./plan";
+
+/**
+ * Phase 62c: the morning summary, opt-in per grown-up by email and/or Teams (the owner's call),
+ * at 7:00 household time or the first tick after, once a day, outside their quiet hours. What's
+ * on today and this week; never money. Nothing to say: nothing sent.
+ */
+
+export const DIGEST_HOUR = 7;
+export const DIGEST_CARD: TeamsCard = { heading: "☀️ Today", linkText: "Open the app" };
+
+export type DigestInput = {
+  choresMine: number;
+  choresAll: number;
+  dosesMine: number;
+  dosesAll: number;
+  /** Titles from the reminder planners: school due today or tomorrow, car work this week, dates this week. */
+  school: string[];
+  cars: string[];
+  dates: string[];
+};
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** The summary's lines, or null when there's nothing to say. Pure. */
+export function digestLines(d: DigestInput): string[] | null {
+  const lines: string[] = [];
+  if (d.choresAll > 0) lines.push(`Chores today: ${d.choresMine > 0 ? `${d.choresMine} for you, ` : ""}${plural(d.choresAll, "chore")} in all`);
+  if (d.dosesAll > 0) lines.push(`Doses today: ${d.dosesMine > 0 ? `${d.dosesMine} for you, ` : ""}${plural(d.dosesAll, "dose")} in all`);
+  lines.push(...d.school, ...d.cars, ...d.dates);
+  return lines.length ? lines : null;
+}
+
+/** Whether it's time for someone's summary: 7:00 or later, not yet today, not in their quiet hours. Pure. */
+export function digestDue(prefs: { digestLastOn: string | null; quietStart: number | null; quietEnd: number | null }, today: string, now: Date): boolean {
+  return now.getHours() >= DIGEST_HOUR && prefs.digestLastOn !== today && !inQuietHours(prefs, now);
+}
+
+const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/**
+ * Sends today's summaries for one household. `planned` are this tick's reminders, before anyone's
+ * switches or quiet hours: the summary lists the school, car and date ones whoever they're for.
+ */
+export async function sendDigests(householdId: string, grownUpIds: string[], planned: Reminder[], now: Date): Promise<number> {
+  const today = dayKey(now);
+  const wanting = await prisma.reminderPrefs.findMany({
+    where: { personId: { in: grownUpIds }, OR: [{ digestEmail: true }, { digestTeams: true }] },
+    select: {
+      personId: true,
+      digestEmail: true,
+      digestTeams: true,
+      digestLastOn: true,
+      quietStart: true,
+      quietEnd: true,
+      person: { select: { id: true, firstName: true, email: true, authUser: { select: { email: true, accounts: MICROSOFT_ACCOUNTS } } } },
+    },
+  });
+  const due = wanting.filter((p) => digestDue(p, today, now));
+  if (due.length === 0) return 0;
+
+  const start = atMidnight(now);
+  const end = addDays(start, 1);
+  const [choresOn, medsOn] = await Promise.all([appOn(householdId, "chores"), appOn(householdId, "meds")]);
+  // Chores, like doses, are otherwise made only when a page opens: make today's before counting.
+  if (choresOn) await ensureInstancesGenerated(householdId, end, "CHORE");
+  const todays = (domain: "CHORE" | "MED") =>
+    prisma.taskInstance.findMany({
+      where: { status: "PENDING", dueDate: { gte: start, lt: end }, definition: { householdId, domain, active: true } },
+      select: { assignedToId: true },
+    });
+  const [chores, doses] = await Promise.all([choresOn ? todays("CHORE") : [], medsOn ? todays("MED") : []]);
+  const titles = (kind: Reminder["kind"]) => [...new Set(planned.filter((r) => r.kind === kind).map((r) => r.title))];
+
+  const [mailbox, teamsAppId, appName] = await Promise.all([alertMailbox(householdId), familyTeamsAppId(householdId), getAppName(householdId)]);
+  const link = storeLink("/");
+  let sent = 0;
+  for (const p of due) {
+    // Claimed first (once a day, whichever app instance gets there), then sent.
+    const { count } = await prisma.reminderPrefs.updateMany({
+      where: { personId: p.personId, OR: [{ digestLastOn: null }, { digestLastOn: { not: today } }] },
+      data: { digestLastOn: today },
+    });
+    if (count === 0) continue;
+    const lines = digestLines({
+      choresMine: chores.filter((c) => c.assignedToId === p.personId).length,
+      choresAll: chores.length,
+      dosesMine: doses.filter((d) => d.assignedToId === p.personId).length,
+      dosesAll: doses.length,
+      school: titles("REMINDER_SCHOOL"),
+      cars: titles("REMINDER_CAR"),
+      // Not their own birthday: the reminder for it isn't theirs either.
+      dates: [...new Set(planned.filter((r) => r.kind === "REMINDER_DATE" && r.recipients.includes(p.personId)).map((r) => r.title))],
+    });
+    if (!lines) continue;
+    const title = `Good morning, ${p.person.firstName}: today at a glance`;
+    let went = false;
+    if (p.digestEmail && mailbox) {
+      const to = recipientEmail(p.person);
+      if (to) went = (await sendEmail(mailbox, to, title, link, appName, {}, DIGEST_CARD.linkText, lines).then(() => true, (err) => (captureError(err, "digest.email_failed"), false))) || went;
+    }
+    if (p.digestTeams && teamsAppId) {
+      const aad = teamsRecipient(p.person);
+      if (aad) went = (await sendTeamsToPerson(p.personId, aad, teamsAppId, teamsActivity(title, link, DIGEST_CARD, lines)).then(() => true, (err) => (captureError(err, "digest.teams_failed"), false))) || went;
+    }
+    if (went) sent++;
+  }
+  return sent;
+}

@@ -53,6 +53,8 @@ export async function saveReminders(formData: FormData) {
     quietEnd,
     teamsEnabled: channels.teams ? formData.get("teams") === "on" : undefined,
     emailEnabled: channels.email ? formData.get("email") === "on" : undefined,
+    digestTeams: channels.teams ? formData.get("digestTeams") === "on" : undefined,
+    digestEmail: channels.email ? formData.get("digestEmail") === "on" : undefined,
   });
   revalidatePath(PAGE);
   redirect(`${PAGE}?reminders=saved#reminders`);

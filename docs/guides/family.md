@@ -284,7 +284,8 @@ The pet has nothing to do with stickers: it never costs any, and nothing in it i
 
 Like chores, for medicine: what's due today and what's coming up in the next two weeks. Tick
 a dose when it's taken (**Taken** on Home and the Meds page); the undo arrow if it
-wasn't. Doses under **Upcoming** can't be ticked ahead: they get their Taken on their day. Doses can be several times a day. Kids can earn
+wasn't. Doses under **Upcoming** can't be ticked ahead: they get their Taken on their day. Grown-ups see
+about how long a medicine's count lasts under each dose ("about 12 days left"), and on **Manage**. Doses can be several times a day. Kids can earn
 stickers for taking theirs.
 The row of people picks whose doses to see, with each person's total, like on Chores.
 
@@ -463,6 +464,10 @@ phones; tick **In Teams** or **By email** to get them there too, where the famil
 Untick any kind you don't want. **Quiet hours** (say 9:00 pm to 7:00 am) hold reminders until
 they're over, except a missed dose, which comes straight away. A running-low medicine still goes
 on the shopping list as before.
+
+**Morning summary:** under the same heading, tick **In Teams** or **By email** for a message at
+7:00 am (or when your quiet hours end) with today's chores and doses, school things due today or
+tomorrow, car work and birthdays this week. Nothing on: nothing sent.
 
 Kids get notes in the bell (orders, "Not this time", and a reminder when their own dose wasn't
 marked), not on their phone.

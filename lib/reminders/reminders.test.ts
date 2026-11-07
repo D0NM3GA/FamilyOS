@@ -175,3 +175,34 @@ describe("cars and recalls", () => {
     expect(blank.title).toBe("A safety recall for the van: details on its page");
   });
 });
+
+describe("morning summary", () => {
+  it("lines for what's on, nothing when there's nothing", async () => {
+    const { digestLines } = await import("./digest");
+    expect(digestLines({ choresMine: 2, choresAll: 5, dosesMine: 0, dosesAll: 1, school: ["Max's field trip form is due today"], cars: [], dates: ["Grandma's birthday is in 3 days"] })).toEqual([
+      "Chores today: 2 for you, 5 chores in all",
+      "Doses today: 1 dose in all",
+      "Max's field trip form is due today",
+      "Grandma's birthday is in 3 days",
+    ]);
+    expect(digestLines({ choresMine: 0, choresAll: 0, dosesMine: 0, dosesAll: 0, school: [], cars: [], dates: [] })).toBeNull();
+  });
+
+  it("from 7:00, once a day, not in quiet hours", async () => {
+    const { digestDue } = await import("./digest");
+    const p = { digestLastOn: null, quietStart: null, quietEnd: null };
+    expect(digestDue(p, "2026-11-07", new Date(2026, 10, 7, 6, 59))).toBe(false);
+    expect(digestDue(p, "2026-11-07", new Date(2026, 10, 7, 7, 0))).toBe(true);
+    expect(digestDue({ ...p, digestLastOn: "2026-11-07" }, "2026-11-07", new Date(2026, 10, 7, 9))).toBe(false);
+    expect(digestDue({ ...p, quietStart: 21 * 60, quietEnd: 8 * 60 }, "2026-11-07", new Date(2026, 10, 7, 7, 30))).toBe(false);
+  });
+
+  it("days left in words", async () => {
+    const { daysLeftLabel } = await import("./supply");
+    const base = { quantityOnHand: 10, doseAmount: 1, frequencyType: "DAILY", interval: 1, daysOfWeek: [] as number[], timesOfDay: ["08:00"] };
+    expect(daysLeftLabel(base)).toBe("about 10 days left");
+    expect(daysLeftLabel({ ...base, quantityOnHand: 1.5 })).toBe("about 1 day left");
+    expect(daysLeftLabel({ ...base, quantityOnHand: 0.5 })).toBe("less than a day left");
+    expect(daysLeftLabel({ ...base, doseAmount: null })).toBeNull();
+  });
+});

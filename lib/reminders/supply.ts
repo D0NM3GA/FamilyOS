@@ -35,3 +35,14 @@ export function daysOfSupply(m: SupplyInput): number | null {
   if (rate == null || rate <= 0) return null;
   return Math.max(0, m.quantityOnHand) / (m.doseAmount * rate);
 }
+
+/** "about 5 days left", or null when it can't be told. For Meds and Manage. */
+export function daysLeftLabel(m: SupplyInput): string | null {
+  const days = daysOfSupply(m);
+  if (days == null) return null;
+  // An empty bottle says so with its count and the Low badge, not "less than a day".
+  if (m.quantityOnHand != null && m.quantityOnHand <= 0) return null;
+  const n = Math.floor(days);
+  return n < 1 ? "less than a day left" : `about ${n} ${n === 1 ? "day" : "days"} left`;
+}
+

@@ -129,6 +129,26 @@ export default async function MyNotificationsPage({ searchParams }: { searchPara
               )}
             </fieldset>
           )}
+          {(channels.teams || channels.email) && (
+            <fieldset className="space-y-1">
+              <legend className={`${fieldLabel} block`}>Morning summary</legend>
+              <p className="text-xs text-muted-foreground">
+                At 7:00 am (or when your quiet hours end): today&apos;s chores and doses, school due, car work and birthdays this week.
+              </p>
+              {channels.teams && (
+                <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
+                  <input type="checkbox" name="digestTeams" defaultChecked={reminderPrefs?.digestTeams ?? false} className="size-4" />
+                  In Teams
+                </label>
+              )}
+              {channels.email && (
+                <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
+                  <input type="checkbox" name="digestEmail" defaultChecked={reminderPrefs?.digestEmail ?? false} className="size-4" />
+                  By email
+                </label>
+              )}
+            </fieldset>
+          )}
           <fieldset>
             <legend className={`${fieldLabel} block`}>Quiet hours</legend>
             <p className="text-xs text-muted-foreground">Nothing comes to your phones, Teams or email in these hours, except a missed dose. Leave both empty for none.</p>

@@ -18,7 +18,7 @@ export function plainCardText(text: string): string {
 }
 
 /** The message activity Bot Connector posts: one Adaptive Card, its link as text (no buttons to answer). */
-export function teamsActivity(title: string, link: string, card: TeamsCard = STORE_CARD) {
+export function teamsActivity(title: string, link: string, card: TeamsCard = STORE_CARD, lines: string[] = []) {
   return {
     type: "message",
     attachments: [
@@ -31,6 +31,8 @@ export function teamsActivity(title: string, link: string, card: TeamsCard = STO
           body: [
             { type: "TextBlock", text: card.heading, weight: "Bolder", size: "Small", isSubtle: true },
             { type: "TextBlock", text: plainCardText(title), wrap: true, size: "Medium", weight: "Bolder" },
+            // Phase 62c: a morning summary's lines, one block each.
+            ...lines.map((line) => ({ type: "TextBlock", text: `• ${plainCardText(line)}`, wrap: true, spacing: "Small" })),
             { type: "TextBlock", text: `[${card.linkText}](${link})`, wrap: true },
           ],
         },

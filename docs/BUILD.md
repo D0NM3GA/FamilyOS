@@ -1647,3 +1647,19 @@ and overdue are two reminders in a cycle, and a changed interval starts a new cy
 1,000 miles a day is taken as an odometer typo (no estimate). A recall's title uses the first part
 of NHTSA's component path. Known: by miles, an item can be "due in about 7 days" while the Cars
 page still calls it OK (its band is 500 miles).
+
+### 62c — The morning summary and days left
+
+`lib/reminders/digest.ts` sends each grown-up who opted in (`digestEmail`, `digestTeams`) one message a
+day from 7:00 household time, the first tick after, outside their quiet hours: today's chores and
+doses (theirs and the household's count), and the school, car and date titles this tick's
+planners found (dates not about themselves). It's claimed first (`digestLastOn` by an
+`updateMany`, so two app instances can't both send), and nothing to say sends nothing. Email
+carries the lines in its body (`emailPayload`'s new `lines`), Teams as a block each on the card
+(`teamsActivity`'s `lines`). My notifications gains **Morning summary**, by Teams and by email where
+each works. Grown-ups see "about N days left" under each dose on Meds and beside the count on
+Manage (`daysLeftLabel`, from the same days of supply as the reminder).
+Fable's review of 62c: today's chores are made before they're counted (like doses); an empty
+bottle shows its count and the Low badge, not "less than a day left". Known: the summary is sent
+at most once a day, so a failed send isn't retried until tomorrow, and its failures go to the log
+and Sentry, not to the per-channel "last error" fields.
