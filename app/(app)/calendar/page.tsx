@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { randomUUID } from "node:crypto";
+import { calendarWriteGranted } from "@/lib/calendar-sync/access";
+import { AddEvent } from "./add-event";
 import { scheduleAutoSync } from "@/lib/calendar-sync/auto";
 import { Suspense } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { isSessionOwner, requireActiveProfile } from "@/lib/active-profile";
-import { isAdult } from "@/lib/authz";
+import { isAdmin, isAdult } from "@/lib/authz";
 import { formatMonthDay } from "@/lib/format";
 import { getHouseholdSettings } from "@/lib/household-settings";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
@@ -79,9 +82,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   // Microsoft sign-in, as Home does; scheduleAutoSync keeps its own lease and 30-minute pace).
 
   const outlook = onMicrosoft && profile.authUserId ? getCalendarEvents(profile.authUserId, { start, end: addDays(start, days) }, { calendarId: profile.homeCalendarId }) : null;
-  const [agenda] = await Promise.all([
+  const [agenda, , canAddEvents] = await Promise.all([
     getAgendaWeek(profile, { start, days, eventsOnly: isMonth, timeZone: zone, now, disabledApps }),
     onMicrosoft ? scheduleAutoSync(profile).catch(() => {}) : null,
+    // Phase 64b: adding an event needs a grown-up on their own Microsoft sign-in who let the app write.
+    isAdult(profile) && onMicrosoft && profile.authUserId ? calendarWriteGranted(profile.authUserId) : false,
   ]);
   // Phase 63b: bills by name on their due days, for a grown-up on their own sign-in with Money on;
   // billDays checks the money gate itself (members only, no amounts, surprises hidden).
@@ -138,6 +143,22 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             </Link>
           ))}
         </nav>
+      )}
+
+      {canAddEvents ? (
+        <AddEvent today={dayKey(today)} members={members.map((m) => ({ id: m.id, name: names.get(m.id) ?? m.firstName }))} transactionId={randomUUID()} />
+      ) : (
+        // Granting write access is on Outlook sync, which admins open.
+        isAdmin(profile) &&
+        onMicrosoft && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            To add events from here, let the app write to your Outlook calendar under{" "}
+            <Link href="/calendar/outlook" className="underline">
+              Outlook sync
+            </Link>
+            .
+          </p>
+        )
       )}
 
       <nav aria-label={isMonth ? "Months" : "Weeks"} className="mt-4 flex items-center gap-2">
