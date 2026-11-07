@@ -1511,6 +1511,52 @@ bill paid in one and due in the other; and a refund follows a re-guessed charge 
 
 ## Phase 61 — The server safety net
 
+### 61a — Jobs that can't take each other down, and System
+
+`lib/background.ts` runs each job (zone, money, purges, Entra, cleanup) in its own try/catch
+(`runTick`), so a bank feed that's down no longer skips the Entra check that ends access; a
+failure goes to `captureError` and a log line with the real (scrubbed) reason. Each job upserts its
+`SystemHeartbeat` row (ok or failed, kept apart), and a heartbeat that can't be written is only a
+log line. `HEALTHCHECK_PING_URL` is called after the tick, `/fail` appended when a job failed,
+never throwing. The cleanup job (`lib/retention.ts`) deletes sessions a day past expiry and
+notifications read 90 days ago, in batches; sign-in events stay append-only, rate-limit rows are
+Better Auth's, and change history is kept. `lib/observability/log.ts` writes one JSON line per event
+(fields typed to plain values, strings scrubbed and clipped), `describeError` keeps Prisma errors
+to class and code as Sentry's scrubbing does, and `captureError` logs as well, falling back to the
+console in the browser. The server's `console.*` lines moved to it, except the proxy (which must
+stay free of Sentry and Prisma) and `lib/crypto.ts`'s key hint. Data & backups shows **System** to
+admins: each job's and the nightly backup's last good run, late after three missed ticks or 36
+hours, and the short reason when failing. Bunson loads through `next/dynamic` (`bunson-lazy.tsx`),
+so his code is fetched only when he's chatty. The static CSP's stale comment and README's line
+about backups not leaving the machine are fixed.
+Fable's review of 61a: `docs/PLAN.md` had been mangled by a `String.replace` whose replacement held
+`$` and a backtick (a special pattern: "everything before the match"); it was rebuilt, and plan
+edits now use split and join. The Entra check swallowed its own errors and only logged an
+unfinished check, so it could never show as failing; it now throws to the tick (a fixed
+`Entra check: <outcome>` after its notices). `captureError` takes an event name and fields, so each
+error is one log line with its context, not two.
+
+### 61b — Encrypted backups in three places
+
+`scripts/backup-prod.sh` encrypts each checked dump with `age` to the public keys in
+`BACKUP_AGE_RECIPIENTS` (default `/etc/familyos/backup-recipients.txt`) and keeps only the
+`.dump.age` (its header is checked); without the file it refuses, before dumping anything. The
+private key is the owner's, in the password manager. It copies to the NAS as before and to
+`BACKUP_RCLONE_REMOTE` (`rclone copyto`, then `rclone check --one-way` on that run's files, and
+`rclone delete --min-age` for the keep-days). Each run upserts the `backup` row of
+`system_heartbeat` through psql (size and where it was kept, or the step it failed at; a database
+without the table is only a log line) and calls `BACKUP_PING_URL`. `scripts/restore-drill.sh`
+decrypts a `.dump.age` into its own 700 temp folder with `AGE_IDENTITY_FILE` or a pasted key, and
+restores with `--no-privileges` (a dump names the app's database role, which a fresh drill database
+doesn't have). CI's container test installs `age`, checks a backup without a key is refused and
+leaves nothing, backs up with a throwaway key and drills with it; `container.yml`'s filter now
+includes the backup scripts. The admin guide covers the key, OneDrive and disk encryption.
+Fable's review of 61b: a plain dump left by a run killed outright (power cut) is removed at the
+next start; the README and guide restores use `--no-owner --no-privileges` like the drill; the drill
+says to set `AGE_IDENTITY_FILE` when there's no terminal, and asks for the one key line; the
+heartbeat says why it couldn't be written and writes UTC times; OneDrive keeps the same nights as
+the server.
+
 ### 61c — A database login that can only touch data
 
 The app connects as `DATABASE_URL`, its own login (`familyos_app` in production, `familycrm_app` in
@@ -1532,4 +1578,3 @@ Fable's review of 61c: the app's container no longer sees the owner's URL (compo
 goes in its own statement, apart from the grants, since Postgres logs a failing statement whole; the
 seeds use the owner's URL as the docs say; the two URLs are compared by host, port and database,
 named in the error; and the role test checks each refusal is for rights, not some other error.
-

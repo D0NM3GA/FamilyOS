@@ -90,6 +90,16 @@ E2E_BASE_URL=http://localhost:3100 npx playwright test "$@"
 
 # Phase 42.6: the restore drill, for real: the household the browser tests just made, backed up by
 # the nightly script and restored into a throwaway stack.
+# Phase 61: encrypted with a throwaway age key, which the drill then decrypts with; and a backup
+# with no public key is refused rather than made in the clear.
 mkdir -p "$work/backups"
-COMPOSE_PROJECT=familyos-test BACKUP_DIR="$work/backups" scripts/backup-prod.sh
-scripts/restore-drill.sh "$(ls "$work"/backups/familyos-*.dump | head -n1)"
+age-keygen -o "$work/backup-key.txt" 2> /dev/null
+age-keygen -y "$work/backup-key.txt" > "$work/backup-recipients.txt"
+if COMPOSE_PROJECT=familyos-test BACKUP_DIR="$work/backups" BACKUP_AGE_RECIPIENTS="$work/none.txt" scripts/backup-prod.sh 2> /dev/null; then
+  echo "backup-prod.sh made a backup without a public key" >&2
+  exit 1
+fi
+test -z "$(ls "$work"/backups/ 2> /dev/null)" || { echo "a refused backup left a file behind" >&2; exit 1; }
+COMPOSE_PROJECT=familyos-test BACKUP_DIR="$work/backups" BACKUP_AGE_RECIPIENTS="$work/backup-recipients.txt" scripts/backup-prod.sh
+test -z "$(ls "$work"/backups/*.dump 2> /dev/null)" || { echo "a plain dump was left beside the encrypted one" >&2; exit 1; }
+AGE_IDENTITY_FILE="$work/backup-key.txt" scripts/restore-drill.sh "$(ls "$work"/backups/familyos-*.dump.age | head -n1)"

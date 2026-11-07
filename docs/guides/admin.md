@@ -431,17 +431,43 @@ There are three kinds. Use all three.
 ### Nightly, on the server (everything)
 
 `scripts/backup-prod.sh` dumps the whole database through the running database container, checks
-the dump can be read, keeps 14 days in `/var/backups/familyos` (with a `.counts` file beside each
-for the restore drill), and copies each to the NAS. If the NAS share isn't mounted it stops with an
-error instead of quietly filling the VM's own disk, and it compares the copy.
+the dump can be read, **encrypts it** with `age`, keeps 14 days in `/var/backups/familyos` (with a
+`.counts` file beside each for the restore drill: table names and row counts only), and copies each
+to the NAS and to OneDrive: three copies, two kinds of storage, one away from the house. If the NAS
+share isn't mounted, or a copy doesn't check out, it stops with an error. Only the encrypted file
+is ever kept.
+
+**The key, once.** On your own computer (not the server), with `age` installed:
+
+```bash
+age-keygen -o backup-key.txt        # prints "Public key: age1…"
+```
+
+Put the line starting `AGE-SECRET-KEY-` from `backup-key.txt` in the password manager (that one line
+is what the restore asks you to paste),
+then delete the file. Put the **public** key on the server: `echo age1… >
+/etc/familyos/backup-recipients.txt`. The server can then make backups it can't read; restoring
+one needs the key from the password manager. Without that file the script refuses to run.
+
+**OneDrive, once.** Install `rclone` on the server and run `rclone config` as yourself: a new
+remote named `onedrive`, type OneDrive, signed in with an account of the family's tenant. Make a
+folder for the backups and nothing else (say `Backups/app`), and check `rclone lsd onedrive:` works.
 
 In **your** crontab (`crontab -e`, not root's):
 
 ```bash
-15 3 * * *  BACKUP_NAS_DIR=/mnt/nas/familyos /opt/familyos/scripts/backup-prod.sh >> /var/log/familyos-backup.log 2>&1
+15 3 * * *  BACKUP_NAS_DIR=/mnt/nas/familyos BACKUP_RCLONE_REMOTE=onedrive:Backups/app /opt/familyos/scripts/backup-prod.sh >> /var/log/familyos-backup.log 2>&1
 ```
 
-Run it once by hand to see it work, and look at `/var/log/familyos-backup.log` now and then.
+Run it once by hand to see it work. **Settings → Data & backups → System** shows the last night's
+run (size and where it was kept), or that it failed and at which step; `BACKUP_PING_URL` (in the
+crontab line) is called after each run, with `/fail` on the end when it failed, for a checker that
+emails you. The log is `/var/log/familyos-backup.log`.
+
+**Disk encryption.** The database's own files on the VM aren't encrypted by the app (only its
+stored connection secrets are). Keep the VM's disk encrypted (the hypervisor's disk encryption, or
+LUKS inside the VM) and the NAS share on an encrypted volume. Check with `lsblk -f` on the VM (a
+`crypto_LUKS` layer under the root disk) and in the NAS's storage settings.
 
 ### In the app: the household backup
 
@@ -475,7 +501,10 @@ start everything so any newer migrations run before the app:
 ```bash
 cd /opt/familyos
 docker compose -f docker-compose.prod.yml stop app
-docker compose -f docker-compose.prod.yml exec -T db pg_restore -U familyos -d familyos --clean --if-exists --single-transaction < /var/backups/familyos/<file>.dump
+(umask 077; read -rsp 'Backup key: ' k && printf '%s\n' "$k" > /tmp/backup-key.txt)   # paste it from the password manager
+(umask 077; age -d -i /tmp/backup-key.txt -o /tmp/restore.dump /var/backups/familyos/<file>.dump.age)
+docker compose -f docker-compose.prod.yml exec -T db pg_restore -U familyos -d familyos --clean --if-exists --single-transaction --no-owner --no-privileges < /tmp/restore.dump
+shred -u /tmp/restore.dump /tmp/backup-key.txt
 docker compose -f docker-compose.prod.yml up -d
 ```
 
@@ -493,8 +522,11 @@ people, and reconnect bank feeds and other connections.
 Every few months, and after any big change, prove a backup really restores:
 
 ```bash
-cd /opt/familyos && scripts/restore-drill.sh /var/backups/familyos/<newest>.dump
+cd /opt/familyos && scripts/restore-drill.sh /var/backups/familyos/<newest>.dump.age
 ```
+
+It asks you to paste the backup key from the password manager (or set `AGE_IDENTITY_FILE`), and
+removes it again with everything else it made.
 
 It restores the dump into a throwaway stack beside the real one (its own database, network and
 settings, fresh keys, no background jobs, no Microsoft, alerts or tunnel), migrates, starts the
@@ -636,8 +668,20 @@ purpose, at least 7 days after a release.
 | Break-glass certificate | `/var/log/familyos-cert.log` |
 | Sign-in changes | Settings → Sign-in → Recent changes |
 | Backups and restores | Settings → Data & backups → Backup history |
+| Did the jobs and the nightly backup run? | Settings → Data & backups → System |
 
 Run the `docker compose` lines from `/opt/familyos`.
+
+**The app's log** is one JSON line per event (`time`, `level`, `event` and a few fields, never a
+name), so it filters well: `docker compose -f docker-compose.prod.yml logs app | grep '"level":"error"'`.
+Every error caught and handled is a line too (`error.caught`), with or without Sentry.
+
+**System** (admins, at the bottom of Data & backups) shows each background job's last good run and
+last failure, and the nightly backup's. **Late** means it hasn't run when it should have (a job
+every 30 minutes, the backup every night); **Failing** shows the short reason. For a nudge when
+nothing is looking, set `HEALTHCHECK_PING_URL` in the settings file to a check-in URL (a
+healthchecks.io check, or your own): the app calls it after each run of the jobs, with `/fail` on
+the end when one failed, so the checker can email you when a ping is missing or failed.
 
 **Everyone gets "Forbidden".** The app is refusing requests without a valid Cloudflare Access
 token. Its log says why, once a minute per reason:

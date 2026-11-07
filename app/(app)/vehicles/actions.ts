@@ -408,8 +408,7 @@ export async function logMaintenanceDone(
       const { created } = await requestItemByName({ householdId: profile.householdId, name, addedById: profile.id });
       if (created) added.push(name);
     } catch (err) {
-      console.error("[vehicles] failed to request a low-supply shopping-list item", err);
-      captureError(err);
+      captureError(err, "vehicles.supply_item_failed");
     }
   }
   if (added.length > 0) revalidatePath("/groceries");

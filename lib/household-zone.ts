@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { canonicalizeTimeZone } from "@/lib/household-settings";
-import { captureError } from "@/lib/observability";
+import { captureError, log } from "@/lib/observability";
 import { sameClockIn, wallClock } from "@/lib/zone-clock";
 
 /**
@@ -52,7 +52,7 @@ export function applyProcessZone(zone: string | null): boolean {
 function announce(zone: string): void {
   if (zoneState.announced === zone) return;
   zoneState.announced = zone;
-  console.info(`[zone] The server now keeps the household's time (${zone}).`);
+  log.info("zone.switched", { zone });
 }
 
 /**

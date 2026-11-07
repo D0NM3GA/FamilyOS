@@ -9,6 +9,7 @@ import { getDisabledApps } from "@/lib/app-switches";
 import { isAppOn, isLinkOn } from "@/lib/apps";
 import { exportCatalog } from "./catalog";
 import { RestoreForm } from "./restore-form";
+import { SystemCard } from "./system-card";
 
 /**
  * Data & backups (Phase 16): every CSV export, plus the whole-household backup for admins.
@@ -189,6 +190,7 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
         )}
       </section>
 
+      {isAdmin(profile) && <SystemCard timeZone={timeZone} />}
     </div>
   );
 }
