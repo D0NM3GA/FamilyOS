@@ -59,6 +59,7 @@ const section: MoneySection = {
       name: "Family",
       emoji: null,
       cushionCents: null,
+      countSchoolFees: false,
       createdAt: "2026-10-01T00:00:00.000Z",
       members: [{ personId: "p1", signInEmail: "p1@x.example", createdAt: "2026-10-01T00:00:00.000Z", alertBills: true, alertSync: true, alertOverBudget: false, alertLowBalance: true }],
       accounts: [],
@@ -192,6 +193,7 @@ describe("Phase 28.5: planMoneyRestore", () => {
         name: "Family",
         emoji: null,
         cushionCents: 25000,
+        countSchoolFees: true,
         createdAt: T,
         members: [member("dad"), member("grandma"), member("gone"), member("kid"), member("stranger"), member("auto", "auto@sign.example")],
         accounts: [account],
@@ -219,6 +221,7 @@ describe("Phase 28.5: planMoneyRestore", () => {
         name: "Kids",
         emoji: null,
         cushionCents: null,
+        countSchoolFees: false,
         createdAt: T,
         members: [member("kid")],
         accounts: [],
@@ -270,6 +273,7 @@ describe("Phase 28.5: planMoneyRestore", () => {
     const r = planMoneyRestore(s, ctx(), { householdId: "h", newId: () => `id${++n}` });
     if (!r.ok) throw new Error(r.errors.join());
     expect(r.rows.jars[0].cushionCents).toBe(25000);
+    expect(r.rows.jars[0].countSchoolFees).toBe(true);
     expect(r.rows.accounts[0]).toMatchObject({ name: "Checking", spending: true });
     expect(r.rows.members.find((m) => m.personId === "live-dad")?.alertLowBalance).toBe(false);
   });

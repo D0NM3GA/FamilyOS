@@ -54,6 +54,8 @@ export const moneySectionSchema = z.object({
       emoji: nullableText,
       // Phase 32; older backups have none.
       cushionCents: z.number().int().nullable().default(null),
+      // Phase 63b: older files count no school fees.
+      countSchoolFees: z.boolean().default(false),
       createdAt: iso,
       members: z.array(
         z.object({
@@ -191,6 +193,7 @@ export async function readHouseholdMoney(tx: Tx | typeof prisma, householdId: st
       name: true,
       emoji: true,
       cushionCents: true,
+      countSchoolFees: true,
       createdAt: true,
       members: {
         select: {
@@ -265,6 +268,7 @@ export async function readHouseholdMoney(tx: Tx | typeof prisma, householdId: st
       name: j.name,
       emoji: j.emoji,
       cushionCents: j.cushionCents,
+      countSchoolFees: j.countSchoolFees,
       createdAt: isoOf(j.createdAt),
       members: j.members.map(({ person, ...m }) => ({ ...m, signInEmail: normEmail(person.authUser?.email ?? person.email), createdAt: isoOf(m.createdAt) })),
       accounts: j.accounts.map((a) => ({ ...a, balanceAt: isoOrNull(a.balanceAt), createdAt: isoOf(a.createdAt) })),
@@ -350,6 +354,7 @@ export async function buildMyMoneyBackup(personId: string, householdId: string, 
       emoji: true,
       createdAt: true,
       cushionCents: true,
+      countSchoolFees: true,
       members: { select: { person: { select: { id: true, firstName: true } } } },
       accounts: {
         select: {
@@ -411,6 +416,7 @@ export async function buildMyMoneyBackup(personId: string, householdId: string, 
       name: j.name,
       emoji: j.emoji,
       cushionCents: j.cushionCents,
+      countSchoolFees: j.countSchoolFees,
       createdAt: isoOf(j.createdAt),
       members: j.members.map((m) => m.person.firstName),
       accounts: j.accounts.map(({ balanceDays, ...a }) => ({
@@ -497,7 +503,7 @@ export function planMoneyRestore(section: MoneySection, ctx: MoneyRestoreContext
 
   const counts: MoneyRestoreCounts = { jars: 0, jarsSkipped: 0, membersKept: 0, membersWaiting: 0, membersDropped: 0 };
   const rows = {
-    jars: [] as { id: string; householdId: string; name: string; emoji: string | null; cushionCents: number | null; createdAt: Date }[],
+    jars: [] as { id: string; householdId: string; name: string; emoji: string | null; cushionCents: number | null; countSchoolFees: boolean; createdAt: Date }[],
     members: [] as { jarId: string; personId: string; createdAt: Date; alertBills: boolean; alertSync: boolean; alertOverBudget: boolean; alertLowBalance: boolean }[],
     accounts: [] as Record<string, unknown>[],
     categories: [] as Record<string, unknown>[],
@@ -530,7 +536,7 @@ export function planMoneyRestore(section: MoneySection, ctx: MoneyRestoreContext
     counts.membersWaiting += kept.filter((x) => x.r.waiting).length;
     const jarPeople = new Map(kept.map((x) => [x.m.personId, x.r.id]));
     const jarId = newId();
-    rows.jars.push({ id: jarId, householdId: opts.householdId, name: jar.name, emoji: jar.emoji, cushionCents: jar.cushionCents, createdAt: new Date(jar.createdAt) });
+    rows.jars.push({ id: jarId, householdId: opts.householdId, name: jar.name, emoji: jar.emoji, cushionCents: jar.cushionCents, countSchoolFees: jar.countSchoolFees, createdAt: new Date(jar.createdAt) });
     for (const { m, r } of kept) {
       rows.members.push({
         jarId,

@@ -1804,6 +1804,9 @@ model MoneyJar {
   emoji       String?
   /// Phase 32: "keep at least $X in checking" (Safe to spend subtracts it). Null: none.
   cushionCents Int?
+  /// Phase 63b: open school fees with an amount count in this jar's Coming up and Safe to spend
+  /// (off by default, so two jars don't both count the same fee). Its members switch it.
+  countSchoolFees Boolean @default(false)
   createdAt   DateTime  @default(now())
 
   members      MoneyJarMember[]
