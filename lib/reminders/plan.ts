@@ -198,3 +198,70 @@ export function planDates(dates: DateRow[], grownUps: GrownUp[], now: Date): Rem
   }
   return out;
 }
+
+// ---- cars ----------------------------------------------------------------------------------
+
+/** Car work due within this many days (by date, or by miles at the car's usual rate). */
+export const CAR_AHEAD_DAYS = 7;
+
+export type CarItemRow = {
+  itemId: string;
+  title: string;
+  vehicle: { id: string; name: string };
+  status: "OVERDUE" | "UPCOMING" | "OK" | "UNKNOWN";
+  daysRemaining: number | null;
+  milesRemaining: number | null;
+  /** Days until the miles run out at the car's usual rate (lib/vehicles/mileage.ts), or null. */
+  daysByMiles: number | null;
+  /** What the last service was, so the next cycle reminds again: lastDoneAt's ISO or the mileage. */
+  cycle: string;
+};
+
+/** Overdue (once per cycle), or due within a week by date or by estimated miles. To every grown-up. */
+export function planCars(items: CarItemRow[], grownUps: GrownUp[]): Reminder[] {
+  const out: Reminder[] = [];
+  for (const i of items) {
+    // Never logged: there's nothing to count from (Phase 60's "Not logged yet").
+    if (i.status === "UNKNOWN") continue;
+    const byDate = i.daysRemaining != null && i.daysRemaining <= CAR_AHEAD_DAYS ? i.daysRemaining : null;
+    const byMiles = i.daysByMiles != null && i.daysByMiles <= CAR_AHEAD_DAYS ? i.daysByMiles : null;
+    const overdue = i.status === "OVERDUE";
+    if (!overdue && byDate == null && byMiles == null) continue;
+    const soonest = Math.min(byDate ?? Infinity, byMiles ?? Infinity);
+    const when = overdue
+      ? "is overdue"
+      : soonest <= 0
+        ? "is due now"
+        : byDate != null && byDate === soonest
+          ? `is due in ${soonest} ${soonest === 1 ? "day" : "days"}`
+          : `is due in about ${soonest} ${soonest === 1 ? "day" : "days"}`;
+    out.push({
+      kind: "REMINDER_CAR",
+      // Due soon and then overdue are two reminders in a cycle, at most.
+      key: `car:${i.itemId}:${i.cycle}${overdue ? ":overdue" : ""}`,
+      recipients: grownUps.map((g) => g.id),
+      title: `${i.title} on the ${i.vehicle.name} ${when}`,
+      href: `/vehicles/${encodeURIComponent(i.vehicle.id)}`,
+      urgent: false,
+    });
+  }
+  return out;
+}
+
+export type NewRecall = { vehicle: { id: string; name: string }; campaignNumber: string; component: string; parkIt: boolean };
+
+/** A recall found since the car was last checked, and not marked handled. To every grown-up. */
+export function planRecalls(recalls: NewRecall[], grownUps: GrownUp[]): Reminder[] {
+  return recalls.map((r) => {
+    // NHTSA's component is a path ("FUEL SYSTEM, GASOLINE:DELIVERY:FUEL PUMP"): its first part reads well.
+    const part = r.component.split(":")[0].trim().toLowerCase() || "details on its page";
+    return {
+      kind: "REMINDER_RECALL" as const,
+      key: `recall:${r.vehicle.id}:${r.campaignNumber}`,
+      recipients: grownUps.map((g) => g.id),
+      title: r.parkIt ? `A safety recall for the ${r.vehicle.name} says not to drive it (${part})` : `A safety recall for the ${r.vehicle.name}: ${part}`,
+      href: `/vehicles/${encodeURIComponent(r.vehicle.id)}`,
+      urgent: r.parkIt,
+    };
+  });
+}
