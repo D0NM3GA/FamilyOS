@@ -240,7 +240,7 @@ export function forecast(input: {
   // Monthly and slower, like found bills of that kind: just the next one still to pay.
   for (const b of manual) {
     const own = ownKeys(b, found);
-    const due = nextDueOn(b, today, (d) => paidSince(own, d, b.amountCents, true));
+    const due = nextDueOn(b, today, (d) => paidSince(own, d, b.amountCents, true, `manual:${b.id}`));
     if (!due || due > until) continue;
     planned.push({ on: due < today ? today : due, label: b.name, cents: b.amountCents, varies: false, late: due < today, manual: true });
   }

@@ -31,7 +31,7 @@ import { PageHeader } from "@/components/page-header";
 import { btn, chip, chipRow, iconBtn, sectionTitle } from "@/components/styles";
 import { AgendaWeek } from "./agenda-week";
 import { AgendaMonth } from "./agenda-month";
-import { getHouseholdMembers } from "@/lib/people";
+import { getHouseholdMembers, shortNames } from "@/lib/people";
 import { personColor } from "@/lib/person-color";
 import { requireAppOn } from "@/lib/app-guard";
 import { signInKind } from "@/lib/sign-in-kind";
@@ -82,9 +82,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   }
   if (!outlook && isAdult(profile) && microsoftEnabled()) notes.push("Outlook events show here on the profile of whoever signed in with Microsoft.");
 
-  const firstNames = new Set(members.map((m) => m.firstName));
-  const who = typeof whoParam === "string" && firstNames.has(whoParam) ? whoParam : null;
-  const colors = new Map(members.map((m) => [m.firstName, personColor(m).bg]));
+  // Phase 60: by person id, so two people sharing a first name keep their own chip and colour.
+  const memberIds = new Set(members.map((m) => m.id));
+  const names = shortNames(members);
+  const who = typeof whoParam === "string" && memberIds.has(whoParam) ? whoParam : null;
+  const colors = new Map(members.map((m) => [m.id, personColor(m).bg]));
   const whoQuery = who ? `&who=${encodeURIComponent(who)}` : "";
   const weekHref = (at: Date, keepWho = true) => `/calendar?week=${dayKey(at)}${keepWho ? whoQuery : ""}`;
   const monthHref = (at: Date) => `/calendar?view=month&month=${monthKey(at)}${whoQuery}`;
@@ -92,7 +94,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     const asked = person ? `&who=${encodeURIComponent(person)}` : "";
     return isMonth ? `/calendar?view=month&month=${monthKey(month)}${asked}` : `/calendar?week=${dayKey(start)}${asked}`;
   };
-  const view_ = { start, today, zone, notes, who, firstNames, colors, days, isMonth, month, whoQuery };
+  const view_ = { start, today, zone, notes, who, memberIds, colors, days, isMonth, month, whoQuery };
 
   return (
     <div className="max-w-[90rem] p-4 sm:p-6">
@@ -116,10 +118,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           <Link href={here(null)} aria-current={!who ? "page" : undefined} className={chip}>
             Everyone
           </Link>
-          {[...firstNames].map((name) => (
-            <Link key={name} href={here(name)} aria-current={who === name ? "page" : undefined} className={`${chip} inline-flex items-center gap-1.5`}>
-              <span aria-hidden className="size-3 rounded-full ring-1 ring-ink/30" style={{ backgroundColor: colors.get(name) }} />
-              {name}
+          {members.map((m) => (
+            <Link key={m.id} href={here(m.id)} aria-current={who === m.id ? "page" : undefined} className={`${chip} inline-flex items-center gap-1.5`}>
+              <span aria-hidden className="size-3 rounded-full ring-1 ring-ink/30" style={{ backgroundColor: colors.get(m.id) }} />
+              {names.get(m.id) ?? m.firstName}
             </Link>
           ))}
         </nav>
@@ -156,7 +158,7 @@ type ViewProps = {
   zone: string;
   notes: React.ReactNode[];
   who: string | null;
-  firstNames: Set<string>;
+  memberIds: Set<string>;
   colors: Map<string, string>;
   days: number;
   isMonth: boolean;
@@ -165,14 +167,14 @@ type ViewProps = {
 };
 
 /** The week or the month, for everyone or one person, with each row in its person's color. */
-function Shown({ items, start, today, notes, who, firstNames, colors, days, isMonth, month, whoQuery }: ViewProps) {
-  const shown = who ? itemsForPerson(items, who, firstNames) : items;
+function Shown({ items, start, today, notes, who, memberIds, colors, days, isMonth, month, whoQuery }: ViewProps) {
+  const shown = who ? itemsForPerson(items, who, memberIds) : items;
   const grouped = groupIntoDays(shown, start, today, days);
   if (isMonth) {
     return <AgendaMonth days={grouped} month={month} whoQuery={whoQuery} notes={[...notes, "A month shows what's happening. Chores and doses are on each week."]} />;
   }
   const colorOf = (item: AgendaItem) => {
-    const person = itemPerson(item, firstNames);
+    const person = itemPerson(item, memberIds);
     return person ? (colors.get(person) ?? null) : null;
   };
   return <AgendaWeek days={grouped} notes={notes} colorOf={colorOf} />;

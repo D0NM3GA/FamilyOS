@@ -71,6 +71,7 @@ export type TaskRow = {
   timed: boolean;
   status: "PENDING" | "DONE" | "SKIPPED";
   assigneeName: string | null;
+  assigneeId: string | null;
 };
 
 /**
@@ -93,7 +94,7 @@ export async function loadTaskInstances(
       id: true,
       dueDate: true,
       status: true,
-      assignedTo: { select: { firstName: true } },
+      assignedTo: { select: { id: true, firstName: true } },
       definition: { select: { title: true, domain: true, timesOfDay: true } },
     },
     orderBy: { dueDate: "asc" },
@@ -106,6 +107,7 @@ export async function loadTaskInstances(
     timed: t.definition.timesOfDay.length > 0,
     status: t.status,
     assigneeName: t.assignedTo?.firstName ?? null,
+    assigneeId: t.assignedTo?.id ?? null,
   }));
 }
 

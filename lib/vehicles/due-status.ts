@@ -7,7 +7,11 @@
  */
 import { addMonths, atMidnight, daysBetween } from "@/lib/tasks/schedule";
 
-export type DueStatus = "OVERDUE" | "UPCOMING" | "OK";
+/**
+ * UNKNOWN (Phase 60): never logged, so there's nothing to count from. It used to be OVERDUE,
+ * which made every starter item on a new car red and filled Home's overdue list on day one.
+ */
+export type DueStatus = "OVERDUE" | "UPCOMING" | "OK" | "UNKNOWN";
 
 export type MaintenanceItemLike = {
   intervalMiles: number | null;
@@ -34,7 +38,7 @@ export const UPCOMING_MILES_BAND = 500;
 export const UPCOMING_DAYS_BAND = 30;
 
 const NEVER_DONE: DueResult = {
-  status: "OVERDUE",
+  status: "UNKNOWN",
   dueByMileage: null,
   dueByDate: null,
   milesRemaining: null,
@@ -46,7 +50,7 @@ const NEVER_DONE: DueResult = {
  * time-of-day — normalized internally). Each axis (mileage, date) contributes only when
  * both its interval AND a last-done baseline are present, so an item tracked by mileage
  * alone doesn't get penalized for having no last-done date, and vice versa. An item with
- * neither axis's baseline set has never been serviced and is due immediately.
+ * neither axis's baseline set has never been logged: UNKNOWN, until someone logs it.
  */
 export function computeDueStatus(
   item: MaintenanceItemLike,

@@ -72,12 +72,13 @@ export async function categorizeJar(db: Db, jarId: string): Promise<number> {
       }),
     ]);
     const ruleFor = new Map(rules.map((r) => [r.key, r.categoryId]));
+    const refundFrom = await refundCategories(tx, jarId, rows, ruleFor);
 
     const writes = new Map<string, string[]>(); // "<categoryId|null>:<source|null>" → ids
     for (const r of rows) {
       const ruled = r.merchantKey ? ruleFor.get(r.merchantKey) : undefined;
       const guessed = ruled ? undefined : guessCategory(r.merchantKey, r.amountCents);
-      const categoryId = ruled ?? (guessed ? (findCategoryByKey(categories, guessed)?.id ?? null) : null);
+      const categoryId = ruled ?? (guessed ? (findCategoryByKey(categories, guessed)?.id ?? null) : (refundFrom.get(r.merchantKey) ?? null));
       const source = ruled ? "RULE" : categoryId ? "AUTO" : null;
       if (r.categoryId === categoryId && r.categorySource === source) continue;
       const k = `${categoryId ?? ""}:${source ?? ""}`;
@@ -94,6 +95,33 @@ export async function categorizeJar(db: Db, jarId: string): Promise<number> {
     }
     return changed;
   });
+}
+
+/** A merchant key that's really "no merchant": rows from before Phase 26, or text with no name in it. */
+const isKeyless = (key: string) => key === "" || key === "-";
+
+/**
+ * Phase 60: money back from a merchant (a store return) goes where that merchant's latest charge
+ * went, so the refund lowers that category's spending instead of sitting uncategorized. Any
+ * source counts, a person's pick included; keyless rows never pair up. Worked out again every
+ * pass, so re-filing the charge moves its refund too. A merchant rule still wins, and a keyword
+ * guess (income, a transfer) is never overruled: only rows nothing else would file ask.
+ */
+async function refundCategories(
+  tx: Tx,
+  jarId: string,
+  rows: { merchantKey: string; amountCents: number }[],
+  ruleFor: Map<string, string>,
+): Promise<Map<string, string>> {
+  const keys = [...new Set(rows.filter((r) => r.amountCents > 0 && !isKeyless(r.merchantKey) && !ruleFor.has(r.merchantKey) && !guessCategory(r.merchantKey, r.amountCents)).map((r) => r.merchantKey))];
+  if (keys.length === 0) return new Map();
+  const charges = await tx.finTransaction.findMany({
+    where: { jarId, state: "ACTIVE", amountCents: { lt: 0 }, categoryId: { not: null }, merchantKey: { in: keys } },
+    orderBy: [{ postedOn: "desc" }, { id: "asc" }],
+    distinct: ["merchantKey"],
+    select: { merchantKey: true, categoryId: true },
+  });
+  return new Map(charges.map((c) => [c.merchantKey, c.categoryId!]));
 }
 
 /**

@@ -222,21 +222,26 @@ const US_STATES = new Set(
 const KEYWORDS: [string, RegExp][] = [
   ["transfers", /\b(payment thank you|autopay|auto pay|online payment|transfer|zelle|venmo|cash app|card payment|credit card payment|epay)\b/],
   ["income", /\b(payroll|direct dep|direct deposit|salary|paycheck|interest paid|dividend)\b/],
-  ["subscriptions", /\b(netflix|spotify|hulu|disney|youtube|apple com bill|itunes|prime video|audible|patreon|xbox|playstation|nintendo|max|paramount|peacock|icloud|google storage|chatgpt|openai|adobe)\b/],
+  ["subscriptions", /\b(netflix|spotify|hulu|disney|youtube|apple com bill|itunes|prime video|audible|patreon|xbox|playstation|nintendo|hbo max|paramount|peacock|icloud|google storage|chatgpt|openai|adobe)\b/],
   ["groceries", /\b(kroger|walmart grocery|aldi|sams club|sam s club|costco|whole foods|trader joe|meijer|publix|heb|safeway|food lion|grocery|groceries|market)\b/],
   ["dining", /\b(doordash|uber eats|ubereats|grubhub|restaurant|cafe|coffee|starbucks|dunkin|mcdonald|chick fil a|chickfila|taco bell|wendy|burger|pizza|chipotle|panera|subway|kfc|sonic|dairy queen|bar & grill|grill)\b/],
-  ["car", /\b(shell|exxon|mobil|chevron|bp|marathon|speedway|circle k|qt|quiktrip|wawa|sunoco|valero|fuel|gas|auto parts|autozone|jiffy|oil change|car wash|parking|toll)\b/],
-  ["health", /\b(pharmacy|cvs|walgreens|rite aid|dental|dentist|clinic|hospital|doctor|medical|optometr|vision)\b/],
-  ["bills", /\b(electric|energy|power|water|sewer|internet|comcast|xfinity|spectrum|verizon|at&t|att|t mobile|tmobile|insurance|geico|progressive|state farm|mortgage|rent|utility|utilities)\b/],
+  ["car", /\b(shell|exxon|mobil|chevron|bp|marathon|speedway|circle k|qt|quiktrip|wawa|sunoco|valero|fuel|gas station|gasoline|auto parts|autozone|jiffy|oil change|car wash|parking|toll)\b/],
+  ["health", /\b(pharmacy|cvs|walgreens|rite aid|dental|dentist|clinic|hospital|doctor|medical|optometr|vision|healthcare|unitedhealth|unitedhealthcare|health insurance)\b/],
+  ["bills", /\b(electric|energy|power|natural gas|gas company|water|sewer|internet|comcast|xfinity|spectrum|verizon|at&t|att|t mobile|tmobile|insurance|geico|progressive|state farm|mortgage|rent|utility|utilities)\b/],
   ["kids", /\b(daycare|school|tuition|toys|lego|childcare)\b/],
   ["home", /\b(home depot|lowe s|lowes|ikea|wayfair|ace hardware|hardware)\b/],
   ["travel", /\b(airline|airlines|delta|united|southwest|american air|hotel|marriott|hilton|airbnb|expedia|uber|lyft)\b/],
   ["shopping", /\b(amazon|amzn|target|walmart|best buy|etsy|ebay|kohl|macy|old navy|tj maxx)\b/],
 ];
 
+/** Phase 60: a key that is only "max" (MAX.COM, the streaming service). "Office Max" isn't one. */
+const EXACT_KEYS: Record<string, string> = { max: "subscriptions" };
+
 /** A starting category key for a row, or null when nothing's clear. */
 export function guessCategory(key: string, amountCents: number): string | null {
   const text = ` ${key} `;
+  const exact = EXACT_KEYS[key];
+  if (exact) return amountCents > 0 ? null : exact;
   for (const [cat, re] of KEYWORDS) {
     if (!re.test(text)) continue;
     if (cat === "income" && amountCents <= 0) continue;

@@ -176,9 +176,9 @@ describe("important dates", () => {
 describe("chores, meds, school and cars", () => {
   it("a dose keeps its time; a chore is all day; done and skipped stay but show it", () => {
     const items = taskItems([
-      { id: "m1", domain: "MED", title: "Vitamins", dueDate: new Date(2026, 9, 7, 8, 0), timed: true, status: "DONE", assigneeName: "Kid" },
-      { id: "c1", domain: "CHORE", title: "Dishes", dueDate: new Date(2026, 9, 7), timed: false, status: "PENDING", assigneeName: null },
-      { id: "c2", domain: "CHORE", title: "Trash", dueDate: new Date(2026, 9, 8), timed: false, status: "SKIPPED", assigneeName: "Dad" },
+      { id: "m1", domain: "MED", title: "Vitamins", dueDate: new Date(2026, 9, 7, 8, 0), timed: true, status: "DONE", assigneeName: "Kid", assigneeId: "k1" },
+      { id: "c1", domain: "CHORE", title: "Dishes", dueDate: new Date(2026, 9, 7), timed: false, status: "PENDING", assigneeName: null, assigneeId: null },
+      { id: "c2", domain: "CHORE", title: "Trash", dueDate: new Date(2026, 9, 8), timed: false, status: "SKIPPED", assigneeName: "Dad", assigneeId: "d1" },
     ]);
     expect(items.map((i) => [i.key, i.day, i.minutes, i.status, i.href])).toEqual([
       ["med:m1", "2026-10-07", 480, "done", "/meds"],
@@ -250,17 +250,22 @@ describe("outside calendars", () => {
 });
 
 describe("whose rows, and which month", () => {
-  const row = (kind: AgendaItem["kind"], who: string | null) => ({ key: `${kind}:${who}`, kind, who }) as AgendaItem;
-  const members = new Set(["Ivy", "Max"]);
+  const row = (kind: AgendaItem["kind"], who: string | null, whoId: string | null = null) => ({ key: `${kind}:${whoId ?? who}`, kind, who, whoId }) as AgendaItem;
+  const members = new Set(["ivy-id", "max-id", "grandpa-max-id"]);
 
   it("keeps one person's rows and what's nobody's", () => {
-    const items = [row("chore", "Ivy"), row("chore", "Max"), row("date", "Tom Parker"), row("vehicle", "Family Van"), row("schoolEvent", null)];
-    expect(itemsForPerson(items, "Ivy", members).map((i) => i.key)).toEqual(["chore:Ivy", "date:Tom Parker", "vehicle:Family Van", "schoolEvent:null"]);
+    const items = [row("chore", "Ivy", "ivy-id"), row("chore", "Max", "max-id"), row("date", "Tom Parker"), row("vehicle", "Family Van"), row("schoolEvent", null)];
+    expect(itemsForPerson(items, "ivy-id", members).map((i) => i.key)).toEqual(["chore:ivy-id", "date:Tom Parker", "vehicle:Family Van", "schoolEvent:null"]);
   });
 
   it("doesn't take a car or a contact for a person", () => {
-    expect(itemPerson(row("vehicle", "Max"), members)).toBeNull();
-    expect(itemPerson(row("homework", "Max"), members)).toBe("Max");
+    expect(itemPerson(row("vehicle", "Max", "max-id"), members)).toBeNull();
+    expect(itemPerson(row("homework", "Max", "max-id"), members)).toBe("max-id");
+  });
+
+  it("keeps two people who share a first name apart", () => {
+    const items = [row("chore", "Max", "max-id"), row("med", "Max", "grandpa-max-id")];
+    expect(itemsForPerson(items, "grandpa-max-id", members).map((i) => i.key)).toEqual(["med:grandpa-max-id"]);
   });
 
   it("reads a month and falls back to this one", () => {

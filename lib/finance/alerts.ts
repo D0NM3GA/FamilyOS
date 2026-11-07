@@ -287,7 +287,7 @@ async function evaluateJar(
       }
       const paid = paidCheck(outRows, new Set(found.map((f) => f.key)), today);
       for (const b of manual) {
-        const a = manualBillAlert(jar, b, nextDueOn(b, today, (d) => paid(ownKeys(b, found), d, b.amountCents, true)), today);
+        const a = manualBillAlert(jar, b, nextDueOn(b, today, (d) => paid(ownKeys(b, found), d, b.amountCents, true, `manual:${b.id}`)), today);
         if (a) alerts.push(a);
       }
     }

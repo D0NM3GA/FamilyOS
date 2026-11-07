@@ -1481,3 +1481,30 @@ person page's plain summary (no rows, menus or panel). A kid sees a brother's or
 plain text, not a link to a panel they can't open. A paused app's items don't open in the panel.
 `lib/work-items` joins `FINANCE_AGGREGATOR_GUARD` in eslint, like Home: it can never read the money
 jars. Badges are read only when a household member is on the list, and named in the household's zone.
+
+## Phase 60 — The fix-it batch
+
+Small corrections from the review of 2026-11-07. **Money:** a pending feed row the feed stopped
+reporting is superseded when it's older than 14 days (`STALE_PENDING_DAYS`), wherever the sync
+window starts, except when the feed sent no rows at all for the account (an account error, where a
+wrong mark would stick). `paidCheck` spends a shared charge (a check, or one from nothing regular):
+one bill takes it, the nearest in amount still unused, while a bill's own merchant pays it as
+before; answers are remembered per bill and due day, so the bills page asking twice gets one answer.
+A refund nothing else would file goes where the merchant's latest charge went (`refundCategories`
+in `lib/finance/organize.ts`, any source, never keyless rows), as AUTO, so re-filing the charge moves
+it. Keywords: `max` only as a whole key or "hbo max", gas stations rather than any "gas", natural
+gas to Bills, health insurance and healthcare to Health. **Meds:** `canTakeYet` refuses a dose
+before its day, and Upcoming's cards pass `notYet` so they offer no Taken. **Cars:** a never-logged
+item is `UNKNOWN` ("Not logged yet") instead of OVERDUE, so a new car's starter items aren't red
+and Home's overdue list stays true. **Alerts:** the bell marks read only what it showed (`markRead`,
+the recipient's own) and keeps counting the rest; the Notifications page marks what it showed from
+a client effect, not during render. **People:** search needs every word to match a name, email or
+phone; school contacts join prescribers and pharmacies off "Haven't talked in a while", and a
+check-in of 0 means never. **Calendar:** chips, colours and `?who=` go by person id
+(`AgendaItem.whoId`), with short names when first names clash. **School:** a fee's amount uses
+`parseMoneyInput`, with the old $100,000 cap.
+Fable's review of 60: "UNITEDHEALTHCARE" as one word is Health too; a fee over the cap says so
+instead of asking for "12.50"; the Notifications page and its mark-read action share one page size.
+Accepted: on the bills page, Coming up and Safe to spend each ask their own `paidCheck` (the
+forecast asks found bills first), so in a rare month a check a found bill took can show a hand-added
+bill paid in one and due in the other; and a refund follows a re-guessed charge one sync later.

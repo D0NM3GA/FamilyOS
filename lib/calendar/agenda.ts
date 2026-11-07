@@ -25,6 +25,8 @@ export type AgendaItem = {
   title: string;
   /** Who it's for or about: an assignee, a student, a car. */
   who: string | null;
+  /** Phase 60: the family member it belongs to (chores, doses, schoolwork, a kid's school feed), for the filter and colours. */
+  whoId?: string | null;
   /** Local "YYYY-MM-DD". */
   day: string;
   /** Minutes after midnight; null for an all-day item. */
@@ -214,6 +216,7 @@ export function taskItems(rows: readonly TaskRow[]): AgendaItem[] {
       emoji: med ? "💊" : "🧹",
       title: t.title,
       who: t.assigneeName,
+      whoId: t.assigneeId,
       day: dayKey(t.dueDate),
       minutes: t.timed ? t.dueDate.getHours() * 60 + t.dueDate.getMinutes() : null,
       status: t.status === "DONE" ? "done" : t.status === "SKIPPED" ? "skipped" : "open",
@@ -234,6 +237,7 @@ export function schoolDueItems(rows: readonly SchoolDueRow[]): AgendaItem[] {
     emoji: s.kind === "task" ? "🎒" : "📝",
     title: s.title,
     who: s.who,
+    whoId: s.studentId,
     day: dayKey(s.dueDate),
     minutes: null,
     status: s.done ? "done" : "open",
@@ -291,6 +295,7 @@ export function schoolEventItems(rows: readonly SchoolEventRow[], start: Date, t
         emoji: "🏫",
         title: r.title,
         who: r.who,
+        whoId: r.studentId,
         status: "open" as const,
         href: schoolHref(r.studentId),
         external: false,
@@ -335,9 +340,9 @@ export function outlookItems(events: readonly CalendarEvent[], start: Date, time
 /** Kinds whose `who` is a family member's first name (a car's name or a contact's full name isn't). */
 const PERSON_KINDS: ReadonlySet<AgendaKind> = new Set(["chore", "med", "school", "homework", "schoolEvent"]);
 
-/** The family member a row belongs to, if any. Matched by first name, so two sharing one share a color. */
+/** The family member (their id) a row belongs to, if any. By id since Phase 60, so two sharing a first name keep apart. */
 export function itemPerson(item: AgendaItem, members: ReadonlySet<string>): string | null {
-  return PERSON_KINDS.has(item.kind) && item.who && members.has(item.who) ? item.who : null;
+  return PERSON_KINDS.has(item.kind) && item.whoId && members.has(item.whoId) ? item.whoId : null;
 }
 
 /** One person's rows, plus what's nobody's in particular (a birthday, a school event). */

@@ -28,6 +28,10 @@ describe("parseTaskForm", () => {
     expect(parseTaskForm(fd({ title: "x", kind: "NOPE" })).ok).toBe(false);
     expect(parseTaskForm(fd({ title: "x", kind: "FORM", dueDate: "2026-02-30" })).ok).toBe(false);
     expect(parseTaskForm(fd({ title: "x", kind: "FORM", amount: "lots" })).ok).toBe(false);
+    // Phase 60: whole cents only, and the old $100,000 cap.
+    expect(parseTaskForm(fd({ title: "x", kind: "FEE", amount: "12.345" })).ok).toBe(false);
+    expect(parseTaskForm(fd({ title: "x", kind: "FEE", amount: "100001" }))).toEqual({ ok: false, error: "That's more than $100,000." });
+    expect(parseTaskForm(fd({ title: "x", kind: "FEE", amount: "19.99" }))).toMatchObject({ ok: true, fields: { amountCents: 1999 } });
   });
 });
 

@@ -229,7 +229,7 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
         {manual.length > 0 && (
           <ul className="mt-2 flex flex-col gap-2">
             {manual.map((b) => (
-              <ManualBillCard key={b.id} jarId={jar.id} bill={b} next={nextDueOn(b, today, (d) => paid(ownKeys(b, found), d, b.amountCents, true))} today={today} choices={choices} />
+              <ManualBillCard key={b.id} jarId={jar.id} bill={b} next={nextDueOn(b, today, (d) => paid(ownKeys(b, found), d, b.amountCents, true, `manual:${b.id}`))} today={today} choices={choices} />
             ))}
           </ul>
         )}

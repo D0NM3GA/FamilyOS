@@ -24,7 +24,7 @@ const personSchema = z.object({
   notesAdultsOnly: z.boolean(),
   isHouseholdMember: z.boolean(),
   role: z.enum(["ADULT", "KID"]).optional(),
-  contactCadenceDays: z.coerce.number().int().positive().optional(),
+  contactCadenceDays: z.coerce.number().int().nonnegative().max(3650).optional(),
   color: z.enum(PersonColor).optional(),
 });
 

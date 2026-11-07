@@ -231,16 +231,37 @@ export const isCheckKey = (key: string) => /^(check|cheque|chk|ck|draft)\b/.test
  * A bill added by hand (`handAdded`) is stricter: only its own merchant or a check pays it.
  * Otherwise any one-off purchase of about its size (a $460 trip to the hardware store against
  * $500 of school fees) marked it paid, and Safe to spend erred high.
+ *
+ * Phase 60: a shared charge (a check, or one from nothing regular) pays one bill, not every bill
+ * of about its size: the nearest in amount still unused is spent. A bill's own merchant pays it
+ * as before, and is tried first, so a found bill only reaches for a shared charge when nothing of
+ * its own paid it (the forecast asks for found bills before hand-added ones). Answers are
+ * remembered per `billKey` and due day, so asking again (the bills page's Coming up, then each
+ * bill's card) gets the same answer. One closure per page or job, as every caller builds it.
  */
 export function paidCheck(rows: RecurringRow[], regular: Set<string>, today: string) {
   const outs = rows.filter((r) => r.amountCents < 0);
   const from = (due: string) => new Date(Date.parse(`${due}T00:00:00Z`) - LATE_DAYS * DAY).toISOString().slice(0, 10);
-  return (own: string[], due: string, cents: number, handAdded = false) =>
-    outs.some((r) => {
-      const g = groupKeyOf(r);
-      const from_ = own.includes(g) || (handAdded ? isCheckKey(g) : !regular.has(g));
-      return from_ && r.postedOn >= from(due) && r.postedOn <= today && Math.abs(-r.amountCents - cents) <= cents * 0.25;
-    });
+  const spent = new Set<RecurringRow>();
+  const answered = new Map<string, boolean>();
+  return (own: string[], due: string, cents: number, handAdded = false, billKey = own.join("|")) => {
+    const asked = `${billKey}@${due}@${cents}`;
+    const known = answered.get(asked);
+    if (known !== undefined) return known;
+    const near = (r: RecurringRow) => r.postedOn >= from(due) && r.postedOn <= today && Math.abs(-r.amountCents - cents) <= cents * 0.25;
+    let paid = outs.some((r) => own.includes(groupKeyOf(r)) && near(r));
+    if (!paid) {
+      const shared = outs
+        .filter((r) => !spent.has(r) && !own.includes(groupKeyOf(r)) && (handAdded ? isCheckKey(groupKeyOf(r)) : !regular.has(groupKeyOf(r))) && near(r))
+        .sort((a, b) => Math.abs(-a.amountCents - cents) - Math.abs(-b.amountCents - cents) || a.postedOn.localeCompare(b.postedOn) || a.amountCents - b.amountCents);
+      if (shared[0]) {
+        spent.add(shared[0]);
+        paid = true;
+      }
+    }
+    answered.set(asked, paid);
+    return paid;
+  };
 }
 export type PaidCheck = ReturnType<typeof paidCheck>;
 

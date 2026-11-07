@@ -65,14 +65,17 @@ export async function listPeople(
       householdId,
       ...(filter === "member" ? { isHouseholdMember: true } : {}),
       ...(filter === "contact" ? { isHouseholdMember: false } : {}),
-      ...(query
+      // Phase 60: every word has to match somewhere, so "Ivy Parker" finds Ivy Parker.
+      ...(searchWords(query).length
         ? {
-            OR: [
-              { firstName: { contains: query, mode: "insensitive" } },
-              { lastName: { contains: query, mode: "insensitive" } },
-              { email: { contains: query, mode: "insensitive" } },
-              { phone: { contains: query, mode: "insensitive" } },
-            ],
+            AND: searchWords(query).map((word) => ({
+              OR: [
+                { firstName: { contains: word, mode: "insensitive" as const } },
+                { lastName: { contains: word, mode: "insensitive" as const } },
+                { email: { contains: word, mode: "insensitive" as const } },
+                { phone: { contains: word, mode: "insensitive" as const } },
+              ],
+            })),
           }
         : {}),
     },
@@ -184,6 +187,11 @@ export async function upcomingImportantDates(householdId: string, withinDays = 3
     .sort((a, b) => a.next.getTime() - b.next.getTime());
 }
 
+/** A search box's words: blanks dropped, five at most (each one is a clause in the query). */
+export function searchWords(query: string | undefined): string[] {
+  return (query ?? "").trim().split(/\s+/).filter(Boolean).slice(0, 5);
+}
+
 /** Default "nag after N days of silence" cadence for a contact with no per-person override. */
 export const DEFAULT_CONTACT_CADENCE_DAYS = 21;
 
@@ -222,6 +230,8 @@ export function pickStaleContacts<T extends StaleCandidate>(
   for (const p of people) {
     if (p.id === excludeId) continue;
     if (p.isHouseholdMember && p.contactCadenceDays == null) continue;
+    // Phase 60: 0 is "never remind me" (a plumber, a dentist).
+    if (p.contactCadenceDays === 0) continue;
 
     const cadence = p.contactCadenceDays ?? DEFAULT_CONTACT_CADENCE_DAYS;
     const anchor = p.lastContactedAt ?? p.createdAt;
@@ -251,6 +261,8 @@ const staleCandidates = cache((householdId: string) =>
       // for never-contacted external contacts generally.
       prescribedMedications: { none: {} },
       pharmacyMedications: { none: {} },
+      // Phase 60: a teacher or school office is a working contact too.
+      schoolContactFor: { none: {} },
     },
     omit: { photo: true },
     orderBy: [{ lastContactedAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],

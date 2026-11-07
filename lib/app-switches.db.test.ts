@@ -103,7 +103,7 @@ describe.skipIf(!RUN)("app switches (database)", { timeout: 60_000 }, () => {
   });
 
   test("the bell leaves out pings into a turned-off app, without marking them read", async () => {
-    const { markAllRead, recentNotifications, unreadCount } = await import("@/lib/notifications");
+    const { markRead, recentNotifications, unreadCount } = await import("@/lib/notifications");
     const dad = await prisma.person.findFirstOrThrow({ where: { householdId: ids.h, firstName: "Dad" }, select: { id: true } });
     // Start from an empty inbox (the money test above left him a bill alert).
     await prisma.notification.deleteMany({ where: { recipientId: dad.id } });
@@ -115,8 +115,12 @@ describe.skipIf(!RUN)("app switches (database)", { timeout: 60_000 }, () => {
     });
     const disabled = ["store"];
     expect(await unreadCount(dad.id, disabled)).toBe(1);
-    expect((await recentNotifications(dad.id, 10, disabled)).map((n) => n.href)).toEqual(["/data#history"]);
-    await markAllRead(dad.id, disabled);
+    const shown = await recentNotifications(dad.id, 10, disabled);
+    expect(shown.map((n) => n.href)).toEqual(["/data#history"]);
+    // Phase 60: only what was shown is marked read; someone else can't mark Dad's.
+    await markRead("someone-else", shown.map((n) => n.id));
+    expect(await unreadCount(dad.id, disabled)).toBe(1);
+    await markRead(dad.id, shown.map((n) => n.id));
     expect(await unreadCount(dad.id, disabled)).toBe(0);
     // Back with the Store, still unread.
     expect(await unreadCount(dad.id, [])).toBe(1);

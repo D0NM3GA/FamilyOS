@@ -15,6 +15,9 @@ import {
 } from "@/lib/vehicles/format";
 import { PrintEmpty as Empty, PrintSection, PrintShell, PrintTable, Td } from "@/components/print/print-shell";
 import { requireAppOn } from "@/lib/app-guard";
+import type { DueStatus } from "@/lib/vehicles/due-status";
+
+const DUE_LABEL: Record<DueStatus, string> = { OVERDUE: "Overdue", UPCOMING: "Due soon", OK: "OK", UNKNOWN: "Not logged yet" };
 
 // Browsers print the document title in the page header/footer.
 export const metadata: Metadata = { title: "Vehicle record" };
@@ -62,7 +65,7 @@ export default async function VehiclePrintPage({ params }: { params: Promise<{ i
                 <Td>{formatInterval(item)}</Td>
                 <Td>{formatLastDoneDetail(item) ?? "Never"}</Td>
                 <Td>
-                  {due.status === "OVERDUE" ? "Overdue" : due.status === "UPCOMING" ? "Due soon" : "OK"}
+                  {DUE_LABEL[due.status]}
                   {formatDueDetail(due) ? ` — ${formatDueDetail(due)}` : ""}
                 </Td>
               </tr>

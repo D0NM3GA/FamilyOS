@@ -162,6 +162,17 @@ describe("reconciler", () => {
     expect(supersededPending(pending, new Set(["P2"]), "2025-09-01")).toEqual(["1"]);
   });
 
+  it("an unreported hold older than two weeks goes too, unless the feed sent nothing", () => {
+    const pending = [
+      { id: "old", externalId: "P1", postedOn: "2025-08-01", amountCents: -9000 },
+      { id: "edge", externalId: "P2", postedOn: "2025-09-16", amountCents: -100 },
+      { id: "still", externalId: "P3", postedOn: "2025-07-01", amountCents: -100 },
+    ];
+    // 2025-09-16 is exactly 14 days before 2025-09-30: not yet stale.
+    expect(supersededPending(pending, new Set(["P3"]), "2025-09-20", "2025-09-30")).toEqual(["old"]);
+    expect(supersededPending(pending, new Set(), "2025-09-20", "2025-09-30")).toEqual([]);
+  });
+
   it("same amount same day is the same money; within 3 days is a question; answered pairs stay quiet", () => {
     const manual = [
       { id: "m1", postedOn: "2025-10-04", amountCents: -5499 },

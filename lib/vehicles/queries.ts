@@ -29,7 +29,7 @@ export const getVehiclesWithStatus = cache(async (householdId: string) => {
   });
 
   const today = new Date();
-  const STATUS_RANK: Record<DueResult["status"], number> = { OVERDUE: 0, UPCOMING: 1, OK: 2 };
+  const STATUS_RANK: Record<DueResult["status"], number> = { OVERDUE: 0, UPCOMING: 1, UNKNOWN: 2, OK: 3 };
 
   return vehicles.map((vehicle) => {
     const items = vehicle.maintenanceItems
@@ -71,7 +71,7 @@ export async function getVehicleDetail(householdId: string, vehicleId: string) {
   ]);
 
   const today = new Date();
-  const STATUS_RANK: Record<DueResult["status"], number> = { OVERDUE: 0, UPCOMING: 1, OK: 2 };
+  const STATUS_RANK: Record<DueResult["status"], number> = { OVERDUE: 0, UPCOMING: 1, UNKNOWN: 2, OK: 3 };
   const items = vehicle.maintenanceItems
     .map((item) => ({ item, due: computeDueStatus(item, vehicle.currentMileage, today) }))
     .sort((a, b) => STATUS_RANK[a.due.status] - STATUS_RANK[b.due.status]);

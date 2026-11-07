@@ -1,23 +1,26 @@
 import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
-import { recentNotifications } from "@/lib/notifications";
+import { NOTIFICATIONS_PAGE_SIZE, recentNotifications } from "@/lib/notifications";
 import { getDisabledApps } from "@/lib/app-switches";
 import { formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
+import { MarkShown } from "./mark-shown";
 
 export const metadata = { title: "Notifications" };
 
 /**
  * Everything the bell has said to the active profile (its own inbox only), newest first.
- * Phase 36: not the pings that lead into a turned-off app (back with the app).
+ * Phase 36: not the pings that lead into a turned-off app (back with the app). Phase 60: what
+ * it shows unread counts as read once it's on screen (MarkShown).
  */
 export default async function NotificationsPage() {
   const profile = await requireActiveProfile();
-  const items = await recentNotifications(profile.id, 100, await getDisabledApps(profile.householdId));
+  const items = await recentNotifications(profile.id, NOTIFICATIONS_PAGE_SIZE, await getDisabledApps(profile.householdId));
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4 sm:p-6">
       <PageHeader title="🔔 Notifications" />
+      <MarkShown ids={items.filter((n) => n.unread).map((n) => n.id)} />
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">All quiet. Nothing yet.</p>
       ) : (
@@ -32,7 +35,7 @@ export default async function NotificationsPage() {
           ))}
         </ul>
       )}
-      <p className="text-xs text-muted-foreground">The latest 100.</p>
+      <p className="text-xs text-muted-foreground">The latest {NOTIFICATIONS_PAGE_SIZE}.</p>
     </div>
   );
 }

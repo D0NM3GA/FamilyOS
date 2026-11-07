@@ -35,6 +35,10 @@ and **statement CSVs that work out their own columns (52)**. **Quick status work
 homework types, a history of every change, editing in place (kids change their own homework and
 grown-ups approve it or put it back), moving a chore to another day, picking several and acting
 once, a list view with filters, a side panel with history, School's Everyone and People's badges.
+**The fix-it batch (60)**, the first of six phases from the review of 2026-11-07, corrects money
+numbers that ran high (old holds, one check paying several bills, refunds), doses taken ahead,
+new cars shown all overdue, the bell's read marks, check-in reminders, full-name search, the
+calendar's person chips and school fee amounts.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they

@@ -60,6 +60,9 @@ export function unreadCount(personId: string, disabledApps: readonly string[] = 
   return prisma.notification.count({ where: { ...visibleTo(personId, disabledApps), readAt: null } });
 }
 
+/** How many the Notifications page shows (and so the most it marks read at once). */
+export const NOTIFICATIONS_PAGE_SIZE = 100;
+
 /** The bell's list, newest first, narrowed to what the client needs. */
 export async function recentNotifications(personId: string, take = 10, disabledApps: readonly string[] = []) {
   const rows = await prisma.notification.findMany({
@@ -71,6 +74,11 @@ export async function recentNotifications(personId: string, take = 10, disabledA
   return rows.map((r) => ({ id: r.id, title: r.title, href: r.href, unread: r.readAt === null, createdAt: r.createdAt }));
 }
 
-export async function markAllRead(personId: string, disabledApps: readonly string[] = []) {
-  await prisma.notification.updateMany({ where: { ...visibleTo(personId, disabledApps), readAt: null }, data: { readAt: new Date() } });
+/**
+ * Phase 60: marks read only the ones that were shown. The bell lists 10, and marking every
+ * unread one read lost the rest unseen. Always the recipient's own: someone else's id does nothing.
+ */
+export async function markRead(personId: string, ids: readonly string[]) {
+  if (ids.length === 0) return;
+  await prisma.notification.updateMany({ where: { recipientId: personId, id: { in: [...ids] }, readAt: null }, data: { readAt: new Date() } });
 }

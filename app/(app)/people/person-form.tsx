@@ -140,14 +140,17 @@ export function PersonForm({
             <input
               type="number"
               name="contactCadenceDays"
-                defaultValue={defaults?.contactCadenceDays ?? ""}
+              min={0}
+              max={3650}
+              defaultValue={defaults?.contactCadenceDays ?? ""}
               placeholder="21"
               className={`${field} mt-1 w-full`}
             />
           </label>
           <p className="mt-1 text-xs text-muted-foreground">
             How often Home&apos;s &ldquo;Haven&apos;t talked in a while&rdquo; card reminds you about
-            them. Household members are left out unless you set this, say for a kid away at college.
+            them; 0 means never. Household members are left out unless you set this, say for a kid away at
+            college. A med&apos;s doctor or pharmacy and school contacts never show there.
           </p>
         </div>
       </MoreOptions>
