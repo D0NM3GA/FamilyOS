@@ -37,7 +37,8 @@ printf 'unused' > "$work/secrets/tunnel_token"
 printf 'unused' > "$work/secrets/cf_dns_token"
 cat > "$work/familyos.env" <<ENV
 BETTER_AUTH_URL=http://localhost:3000
-DATABASE_URL=postgresql://familyos:${password}@db:5432/familyos?schema=public
+MIGRATE_DATABASE_URL=postgresql://familyos:${password}@db:5432/familyos?schema=public
+DATABASE_URL=postgresql://familyos_app:${password}app@db:5432/familyos?schema=public
 BETTER_AUTH_SECRET=$(key)
 INTEGRATION_ENCRYPTION_KEY=$(key)
 BACKGROUND_JOBS=0
@@ -49,7 +50,7 @@ export FAMILYOS_EDGE_SUBNET=172.30.142.0/24 FAMILYOS_APP_IP=172.30.142.20 FAMILY
 echo "drill: restoring $(basename "$dump") into a throwaway database"
 "${compose[@]}" down -v --remove-orphans > /dev/null 2>&1 || true
 "${compose[@]}" up -d --wait db > /dev/null
-"${compose[@]}" exec -T db pg_restore -U familyos -d familyos --clean --if-exists --single-transaction --no-owner < "$dump" \
+"${compose[@]}" exec -T db pg_restore -U familyos -d familyos --clean --if-exists --single-transaction --no-owner --no-privileges < "$dump" \
   || fail "pg_restore couldn't restore it"
 
 echo "drill: migrating and starting the app"

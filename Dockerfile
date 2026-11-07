@@ -40,8 +40,9 @@ RUN node -e 'const fs = require("node:fs"); const p = JSON.parse(fs.readFileSync
  && npm prune --offline --ignore-scripts --no-audit \
  && find node_modules -mindepth 1 -maxdepth 1 -type d -empty -delete
 
-# ---- migrate: `prisma migrate deploy`, run once before the app starts (docker-compose.prod.yml).
-# Only the CLI, its config, the schema and the migrations: no app code, seeds, lockfile or .npmrc.
+# ---- migrate: `prisma migrate deploy` and the app's database login (scripts/migrate.mjs), run once
+# before the app starts (docker-compose.prod.yml). Only the CLI, its config, the schema, the
+# migrations and that script: no app code, seeds, lockfile or .npmrc.
 FROM ${NODE_IMAGE} AS migrate
 # Fixed labels only (the commit is in the published tag and its provenance record, not here).
 LABEL org.opencontainers.image.source="https://github.com/D0NM3GA/FamilyOS" \
@@ -54,8 +55,10 @@ COPY --from=migrate-deps /app/package.json ./
 COPY prisma.config.ts ./
 COPY prisma/schema.prisma ./prisma/
 COPY prisma/migrations ./prisma/migrations
+# Phase 61c: migrations, then the app's own login with data rights only (scripts/app-role.mjs).
+COPY scripts/migrate.mjs scripts/app-role.mjs ./scripts/
 USER node
-CMD ["node_modules/.bin/prisma", "migrate", "deploy"]
+CMD ["node", "scripts/migrate.mjs"]
 
 # ---- run: the standalone server only. Root-owned files the node user can read but not change;
 # compose adds a read-only root filesystem with tmpfs for Next's cache.

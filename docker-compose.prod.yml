@@ -55,6 +55,9 @@ services:
     image: ${FAMILYOS_IMAGE:-ghcr.io/d0nm3ga/familyos}:${FAMILYOS_VERSION:?set FAMILYOS_VERSION in .env beside this file}
     restart: unless-stopped
     env_file: ${FAMILYOS_ENV_FILE:-/etc/familyos/familyos.env}
+    # Phase 61c: the owner's login is for migrate only; the app never sees it (this wins over env_file).
+    environment:
+      MIGRATE_DATABASE_URL: ""
     depends_on:
       migrate: { condition: service_completed_successfully }
     # Never published on the host: only the tunnel reaches it.

@@ -12,7 +12,7 @@
     "lint": "eslint",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "db:migrate": "prisma migrate dev && prisma generate",
+    "db:migrate": "prisma migrate dev && prisma generate && node scripts/migrate.mjs",
     "db:seed": "prisma db seed",
     "db:seed:demo": "tsx prisma/seed-demo.ts",
     "db:studio": "prisma studio",

@@ -36,16 +36,24 @@ export class CookieJar {
   }
 }
 
-/** Creates `<prefix>_<time>`, migrates it, and points DATABASE_URL (and lib/prisma) at it. */
+/**
+ * Creates `<prefix>_<time>`, migrates it, and points DATABASE_URL (and lib/prisma) at it. Phase
+ * 61c: made, migrated and dropped as the owner (MIGRATE_DATABASE_URL), then used as the app's own
+ * login, with its grants made in the new database by scripts/migrate.mjs.
+ */
 export function scratchDatabase(prefix: string) {
   const devUrl = process.env.DATABASE_URL!;
+  const ownerUrl = process.env.MIGRATE_DATABASE_URL || devUrl;
   const dbName = `${prefix}_${Date.now()}`;
-  const u = new URL(devUrl);
-  u.pathname = `/${dbName}`;
-  const scratchUrl = u.toString();
+  const inScratch = (raw: string) => {
+    const u = new URL(raw);
+    u.pathname = `/${dbName}`;
+    return u.toString();
+  };
+  const scratchUrl = inScratch(devUrl);
 
   async function admin(sql: string) {
-    const client = new PrismaClient({ adapter: new PrismaPg({ connectionString: devUrl }) });
+    const client = new PrismaClient({ adapter: new PrismaPg({ connectionString: ownerUrl }) });
     try {
       await client.$executeRawUnsafe(sql);
     } finally {
@@ -56,7 +64,7 @@ export function scratchDatabase(prefix: string) {
   return {
     async create() {
       await admin(`CREATE DATABASE "${dbName}"`);
-      execSync("npx prisma migrate deploy", { env: { ...process.env, DATABASE_URL: scratchUrl }, stdio: "ignore" });
+      execSync("node scripts/migrate.mjs", { env: { ...process.env, DATABASE_URL: scratchUrl, MIGRATE_DATABASE_URL: inScratch(ownerUrl) }, stdio: "ignore" });
       process.env.DATABASE_URL = scratchUrl;
       delete globalThis.__prisma;
     },
