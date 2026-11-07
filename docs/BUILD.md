@@ -1474,3 +1474,10 @@ chores for seven days, their open homework (`personOpenSchoolwork`, for whoever 
 forms they're handling (grown-ups), as list rows with pills and the side panel (`?item=`); the
 meds summary and the links to the boards stay. `lib/work-items` is the shared layer across Chores and
 School, outside the eslint domain zones like Home, so People reads schoolwork through it.
+Fable's review of 59.4b: the record page handed the whole person row to the homework rows, which
+would have shipped their notes and contacts to the browser; the adapters now build `who` from the
+id and first name alone, whatever they're given, and a test checks the keys. Big buttons keeps the
+person page's plain summary (no rows, menus or panel). A kid sees a brother's or sister's chores as
+plain text, not a link to a panel they can't open. A paused app's items don't open in the panel.
+`lib/work-items` joins `FINANCE_AGGREGATOR_GUARD` in eslint, like Home: it can never read the money
+jars. Badges are read only when a household member is on the list, and named in the household's zone.

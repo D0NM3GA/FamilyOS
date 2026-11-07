@@ -25,7 +25,8 @@ export function schoolTaskItem(t: SchoolTaskLike, viewer: Viewer, now: Date = ne
     type: "SCHOOL_TASK",
     id: t.id,
     title: t.title,
-    who: t.owner,
+    // Only an id and a first name reach the browser.
+    who: t.owner ? { id: t.owner.id, firstName: t.owner.firstName } : null,
     due: t.dueDate,
     status: t.status,
     looks,

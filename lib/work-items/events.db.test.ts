@@ -488,5 +488,23 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     expect((await personOpenSchoolwork(await viewerOf(ids.max), ivy)).length).toBe(0);
     const forMom = await personOpenSchoolwork(await viewerOf(ids.mom), ivy);
     expect(forMom.some((r) => r.item.title === "Unit test")).toBe(true);
+    // Whatever person row comes in, only an id and a first name go out to the browser.
+    const wholeRow = await prisma.person.findUniqueOrThrow({ where: { id: ids.kid } });
+    for (const r of await personOpenSchoolwork(await viewerOf(ids.mom), wholeRow)) expect(Object.keys(r.item.who ?? {}).sort()).toEqual(["firstName", "id"]);
+
+    // Contacts and other households are never counted.
+    const contact = await prisma.person.create({ data: { householdId: ids.h, firstName: "Sam", lastName: "Parker", isHouseholdMember: false } });
+    await prisma.taskInstance.create({ data: { definitionId: ids.def, dueDate: addDays(today, -2), assignedToId: contact.id } });
+    const elsewhere = await prisma.household.create({ data: { name: `e2e-history-badges-${t}` } });
+    try {
+      const theirKid = await prisma.person.create({ data: { householdId: elsewhere.id, firstName: "Ivy", role: "KID", isHouseholdMember: true } });
+      const theirProfile = await prisma.schoolProfile.create({ data: { personId: theirKid.id, schoolName: "Example Middle" } });
+      await prisma.schoolAssignment.create({ data: { profileId: theirProfile.id, className: "Art", title: "Theirs", status: "MISSING" } });
+      const again = await peopleBadges(await viewerOf(ids.mom), { chores: true, school: true });
+      expect(again.has(contact.id)).toBe(false);
+      expect(again.has(theirKid.id)).toBe(false);
+    } finally {
+      await prisma.household.delete({ where: { id: elsewhere.id } });
+    }
   });
 });

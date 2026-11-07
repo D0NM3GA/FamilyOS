@@ -36,7 +36,7 @@ export async function personOpenSchoolwork(viewer: Viewer, person: { id: string;
   return [
     ...work.map((a) => ({
       type: "ASSIGNMENT" as const,
-      item: assignmentItem({ ...a, student: person }, viewer, now) as WorkItem,
+      item: assignmentItem({ ...a, student: { id: person.id, firstName: person.firstName } }, viewer, now) as WorkItem,
       label: a.className,
       due: a.dueDate,
       late: isOverdue(a, now),

@@ -283,7 +283,7 @@ const globalSentryRestriction = {
 // members-only, and these show data to whoever is looking. Comes after the Sentry rule
 // because a later no-restricted-imports for the same file replaces the earlier one.
 const FINANCE_AGGREGATOR_GUARD = {
-  files: ["lib/search.ts", "lib/activity.ts", "lib/bunson-facts.ts", "app/(app)/data/**/*.{ts,tsx}", "app/(app)/page.tsx", "app/(app)/layout.tsx", "app/(app)/search/**/*.{ts,tsx}", "lib/calendar/**/*.{ts,tsx}", "lib/calendar-sync/**/*.{ts,tsx}", "app/(app)/calendar/**/*.{ts,tsx}"],
+  files: ["lib/search.ts", "lib/activity.ts", "lib/bunson-facts.ts", "app/(app)/data/**/*.{ts,tsx}", "app/(app)/page.tsx", "app/(app)/layout.tsx", "app/(app)/search/**/*.{ts,tsx}", "lib/calendar/**/*.{ts,tsx}", "lib/calendar-sync/**/*.{ts,tsx}", "app/(app)/calendar/**/*.{ts,tsx}", "lib/work-items/**/*.{ts,tsx}"],
   // lib/backup is a zone of its own, whose domain rule already forbids lib/finance. Phase 28:
   // the one sanctioned meeting point is app/api/backup/* (unzoned), which hands lib/backup
   // lib/finance/backup.ts's sealMoney so the household file carries jars sealed, never

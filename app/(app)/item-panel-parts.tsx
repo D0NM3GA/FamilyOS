@@ -92,7 +92,8 @@ export function ItemListRow<S extends string>({
 }: {
   item: WorkItem<S>;
   refParam: string;
-  href: string;
+  /** The side panel; without one (an item the viewer can't open there) the title is plain text. */
+  href?: string;
   who: string | null;
   when: string;
   extra?: string | null;
@@ -106,9 +107,13 @@ export function ItemListRow<S extends string>({
     <li className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 py-1.5">
       {selectable && item.status === ("PENDING" as S) && <SelectBox id={item.id} label={item.title} />}
       <ItemStatus item={item} refParam={refParam} locked={picking} />
-      <Link href={href} scroll={false} className="min-w-0 flex-1 basis-40 truncate text-sm font-bold text-foreground hover:underline">
-        {item.title}
-      </Link>
+      {href ? (
+        <Link href={href} scroll={false} className="min-w-0 flex-1 basis-40 truncate text-sm font-bold text-foreground hover:underline">
+          {item.title}
+        </Link>
+      ) : (
+        <span className="min-w-0 flex-1 basis-40 truncate text-sm font-bold text-foreground">{item.title}</span>
+      )}
       <span className="text-xs text-muted-foreground">{who ?? "Anyone"}</span>
       <span className={`text-xs ${late ? "font-bold text-destructive" : "text-muted-foreground"}`}>{when}</span>
       {extra && <span className="text-xs text-muted-foreground">{extra}</span>}

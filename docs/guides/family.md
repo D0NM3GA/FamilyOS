@@ -164,8 +164,9 @@ The family's address book: everyone in the house, plus grandparents, friends, te
 - Household members show what's open at a glance: **2 overdue**, **1 missing**, **Test Thu**
   (kids see only their own).
 - A family member's page has **Open items**: their chores for the week, their homework and tests,
-  and forms they're handling, each with its status to tap. Tap a name to see it on the side, with
-  its history. Kids looking at a brother's or sister's page see chores only.
+  and forms they're handling, each with its status to tap. Tap an item to see it on the side, with
+  its history. Kids looking at a brother's or sister's page see their chores only, as plain text.
+  In Big buttons the page keeps its simple summary.
 
 <!-- screenshot: a person's page -->
 

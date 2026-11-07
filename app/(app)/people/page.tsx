@@ -29,9 +29,11 @@ export default async function PeoplePage({
 
   const people = await listPeople(profile.householdId, { query: q, filter });
   // Phase 59.4b: what's open for each household member, at a glance.
-  const [disabled, settings] = await Promise.all([getDisabledApps(profile.householdId), getHouseholdSettings(profile.householdId)]);
-  const badges = await peopleBadges(profile, { chores: isAppOn(disabled, "chores"), school: isAppOn(disabled, "school") });
-  const zone = settings.timezone ?? undefined;
+  // Only worth reading when a household member is on the list.
+  const members = people.some((p) => p.isHouseholdMember);
+  const [disabled, settings] = members ? await Promise.all([getDisabledApps(profile.householdId), getHouseholdSettings(profile.householdId)]) : [null, null];
+  const badges = disabled ? await peopleBadges(profile, { chores: isAppOn(disabled, "chores"), school: isAppOn(disabled, "school") }) : new Map();
+  const zone = settings?.timezone ?? undefined;
 
   return (
     <div className="p-4 sm:p-6">
@@ -107,7 +109,7 @@ export default async function PeoplePage({
                         {badgeWords(badges.get(person.id)!, zone).map((w) => (
                           <span
                             key={w}
-                            className={`rounded-full px-1.5 text-[11px] font-bold ${
+                            className={`rounded-full px-1.5 text-xs font-bold ${
                               w.startsWith("Test")
                                 ? "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300"
                                 : "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300"
