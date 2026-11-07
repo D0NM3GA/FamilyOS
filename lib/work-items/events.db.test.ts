@@ -430,4 +430,39 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     expect(all.some((i) => i.id === free.id)).toBe(true);
     expect(all.every((i) => i.assignedToId === null)).toBe(true);
   });
+
+  test("Phase 59.4a: the panel follows the board's Skip and keeps a chore's notes for grown-ups; another household's item is nothing", async () => {
+    const { getPanel } = await import("./panel");
+    const viewerOf = async (id: string) => prisma.person.findUniqueOrThrow({ where: { id }, select: { id: true, householdId: true, role: true } });
+    const def = await prisma.taskDefinition.create({ data: { householdId: ids.h, title: "Water the garden", notes: "Not the roses", frequencyType: "WEEKLY", interval: 1, startDate: today, assignmentStrategy: "FIXED" } });
+    const later = await prisma.taskInstance.create({ data: { definitionId: def.id, dueDate: addDays(today, 5), assignedToId: null } });
+    const now = await prisma.taskInstance.create({ data: { definitionId: def.id, dueDate: today, assignedToId: null } });
+    const momLater = await getPanel(await viewerOf(ids.mom), { type: "CHORE", id: later.id });
+    expect(momLater?.type === "CHORE" && momLater.item.options.PENDING?.map((o) => o.value)).toEqual(["DONE"]);
+    const momNow = await getPanel(await viewerOf(ids.mom), { type: "CHORE", id: now.id });
+    expect(momNow?.type === "CHORE" && momNow.item.options.PENDING?.map((o) => o.value)).toEqual(["DONE", "SKIPPED"]);
+    expect(momLater?.facts).toContain("Not the roses");
+    expect((await getPanel(await viewerOf(ids.kid), { type: "CHORE", id: later.id }))?.facts).not.toContain("Not the roses");
+
+    const elsewhere = await prisma.household.create({ data: { name: `e2e-history-panel-${t}` } });
+    try {
+      const theirDef = await prisma.taskDefinition.create({ data: { householdId: elsewhere.id, title: "Theirs", frequencyType: "ONCE", startDate: today, assignmentStrategy: "FIXED" } });
+      const theirs = await prisma.taskInstance.create({ data: { definitionId: theirDef.id, dueDate: today } });
+      const theirTask = await prisma.schoolTask.create({ data: { householdId: elsewhere.id, title: "Theirs" } });
+      expect(await getPanel(await viewerOf(ids.mom), { type: "CHORE", id: theirs.id })).toBeNull();
+      expect(await getPanel(await viewerOf(ids.mom), { type: "SCHOOL_TASK", id: theirTask.id })).toBeNull();
+    } finally {
+      await prisma.household.delete({ where: { id: elsewhere.id } });
+    }
+  });
+
+  test("Phase 59.4a: the list's pill can't do more than the domain's own actions allow", async () => {
+    const { setWorkItemStatus } = await import("@/app/(app)/work-item-actions");
+    const skipped = await prisma.taskInstance.create({ data: { definitionId: ids.def, dueDate: addDays(today, 11), assignedToId: ids.kid, status: "SKIPPED", completedAt: new Date(), completedById: ids.mom } });
+    await as(ids.kid);
+    await expect(setWorkItemStatus(`CHORE:${skipped.id}`, "SKIPPED", "PENDING")).rejects.toThrow("Only adults");
+    await setWorkItemStatus(`CHORE:${skipped.id}`, "SKIPPED", "DONE"); // already skipped: nothing happens
+    expect((await prisma.taskInstance.findUniqueOrThrow({ where: { id: skipped.id } })).status).toBe("SKIPPED");
+    await expect(setWorkItemStatus("NOPE:1", "A", "B")).rejects.toThrow("Unknown item");
+  });
 });

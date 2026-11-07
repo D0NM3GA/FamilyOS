@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { isAdult } from "@/lib/roles";
 import { canEditAssignmentDetails, canSeeStudent } from "@/lib/school/permissions";
 import { toISODate } from "@/lib/format";
+import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { assignmentItem } from "./assignment";
 import { choreItem } from "./chore";
 import { schoolTaskItem } from "./school-task";
@@ -60,8 +61,10 @@ export async function getPanel(viewer: Viewer, ref: ItemRef, now: Date = new Dat
     });
     if (!i) return null;
     if (!adult && i.assignedToId !== null && i.assignedToId !== viewer.id) return null;
-    const item = choreItem(i, viewer, { skippable: adult, now });
-    const facts = [i.assignedTo ? `For ${i.assignedTo.firstName}` : "Anyone can do it", i.definition.points ? `${i.definition.points} ⭐` : null, i.definition.notes].filter((f): f is string => Boolean(f));
+    // Skip as the board offers it: today's and overdue ones, not what's still to come.
+    const item = choreItem(i, viewer, { skippable: adult && i.dueDate < addDays(atMidnight(now), 1), now });
+    // A chore's notes are a grown-up's (the card never shows them, and Manage is grown-ups only).
+    const facts = [i.assignedTo ? `For ${i.assignedTo.firstName}` : "Anyone can do it", i.definition.points ? `${i.definition.points} ⭐` : null, adult ? i.definition.notes : null].filter((f): f is string => Boolean(f));
     return { type: "CHORE", item, facts, history: await historyOf(ref) };
   }
   if (ref.type === "ASSIGNMENT") {

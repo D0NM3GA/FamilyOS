@@ -52,7 +52,9 @@ export default async function ChoresPage({
   const big = resolveViewMode(profile.viewMode, viewerIsAdult) === "BIG";
   // Phase 59.4a: "anyone" is the list's Anyone's chip (only unassigned chores), not a person.
   const anyone = !big && params.person === "anyone";
-  const personFilter = anyone ? undefined : (params.person ?? (big && params.all !== "1" ? profile.id : undefined));
+  // A bookmarked ?person=anyone in Big buttons is simply no person.
+  const rawPerson = params.person === "anyone" ? undefined : params.person;
+  const personFilter = anyone ? undefined : (rawPerson ?? (big && params.all !== "1" ? profile.id : undefined));
   const show = !big && (params.show === "overdue" || params.show === "today") ? params.show : null;
   const itemRef = big ? null : parseItemRef(params.item);
   const bigCards = big && personFilter === profile.id;
@@ -131,6 +133,7 @@ export default async function ChoresPage({
   const boardCards = (
     <div className="mt-6 space-y-6">
       {nothingLeft && <BunsonMoment kind="cheer" text={MOMENT_LINES.choresDone} />}
+      {show === "overdue" && overdue.length === 0 && <EmptyNote>Nothing overdue.</EmptyNote>}
       {showOverdue && overdue.length > 0 && (
         <Section title="Overdue" tone="text-destructive">
           {overdue.map((i, idx) => (
@@ -243,6 +246,7 @@ export default async function ChoresPage({
   // the side panel.
   const boardList = (
     <div className="mt-6 space-y-6">
+      {show === "overdue" && overdue.length === 0 && <EmptyNote>Nothing overdue.</EmptyNote>}
       {showOverdue && overdue.length > 0 && (
         <div>
           <h2 className={`${sectionTitle} text-destructive`}>Overdue</h2>
@@ -255,10 +259,14 @@ export default async function ChoresPage({
           {dueToday.length === 0 ? <EmptyNote>Nothing due today.</EmptyNote> : <ul className="mt-2 divide-y divide-border">{dueToday.map((i) => listRow(i, true))}</ul>}
         </div>
       )}
-      {showUpcoming && upcoming.length > 0 && (
+      {showUpcoming && (
         <div>
           <h2 className={sectionTitle}>Next {horizonDays} days</h2>
-          <ul className="mt-2 divide-y divide-border">{upcoming.map((i) => listRow(i, false))}</ul>
+          {upcoming.length === 0 ? (
+            <EmptyNote>Nothing else in the next {horizonDays} days.</EmptyNote>
+          ) : (
+            <ul className="mt-2 divide-y divide-border">{upcoming.map((i) => listRow(i, false))}</ul>
+          )}
         </div>
       )}
     </div>
@@ -266,7 +274,7 @@ export default async function ChoresPage({
 
   return (
     // A new person on the filter is a new selection (the key resets it).
-    <SelectionProvider key={personFilter ?? "everyone"}>
+    <SelectionProvider key={`${anyone ? "anyone" : (personFilter ?? "everyone")}:${show ?? "all"}`}>
       <div className="p-4 sm:p-6">
         <PageHeader title="🧹 Chores">
           {selecting && <SelectToggle />}
@@ -312,7 +320,7 @@ export default async function ChoresPage({
           tally={tally}
           path="/chores"
           everyoneHref={big ? "/chores?all=1" : "/chores"}
-          selected={personFilter}
+          selected={anyone ? "anyone" : personFilter}
         />
 
         {/* Phase 59.4a: quick filters, kept in the address so a view can be bookmarked. */}

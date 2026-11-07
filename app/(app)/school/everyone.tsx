@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
-import { card, chip, chipRow } from "@/components/styles";
+import { btn, card, chip, chipRow } from "@/components/styles";
 import { SelectionProvider, SelectToggle } from "@/components/selection";
 import { getEveryoneOpen } from "@/lib/school/queries";
 import { matchesShow, type SchoolShow } from "@/lib/school/rules";
@@ -68,7 +68,11 @@ export async function Everyone({
 
   return (
     <div className="max-w-5xl p-4 sm:p-6">
-      <PageHeader title="🎒 School" />
+      <PageHeader title="🎒 School">
+        <Link href="/data#school" className={btn}>
+          Export
+        </Link>
+      </PageHeader>
       <nav className={`mt-4 ${chipRow}`} aria-label="Students">
         <Link href="/school?kid=all" aria-current="page" className={chip}>
           Everyone
@@ -81,7 +85,7 @@ export async function Everyone({
       </nav>
 
       <div className="mt-6 grid gap-4">
-        <SelectionProvider key="everyone-homework">
+        <SelectionProvider key={`everyone-homework-${show ?? "all"}`}>
           <section className={`min-w-0 ${card}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className={cardTitle}>Everyone&apos;s homework & tests</h2>

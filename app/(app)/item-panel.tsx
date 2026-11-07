@@ -4,6 +4,7 @@ import { isAdult } from "@/lib/authz";
 import { getPanel } from "@/lib/work-items/panel";
 import { itemParam, type ItemRef } from "@/lib/work-items/history";
 import { formatDateTime } from "@/lib/format";
+import { getHouseholdSettings } from "@/lib/household-settings";
 import { sectionTitle } from "@/components/styles";
 import { ItemStatus, PanelShell } from "./item-panel-parts";
 import { PanelAssignmentForms, PanelTaskForm } from "./item-panel-forms";
@@ -18,6 +19,7 @@ export async function ItemPanel({ itemRef, closeHref }: { itemRef: ItemRef; clos
   const viewer = await requireActiveProfile();
   const panel = await getPanel(viewer, itemRef);
   if (!panel) return null;
+  const zone = (await getHouseholdSettings(viewer.householdId)).timezone ?? undefined;
   const refParam = itemParam(itemRef.type, itemRef.id);
   const people =
     panel.type === "SCHOOL_TASK"
@@ -69,7 +71,7 @@ export async function ItemPanel({ itemRef, closeHref }: { itemRef: ItemRef; clos
             {panel.history.map((h) => (
               <li key={h.id}>
                 <span className="font-bold text-foreground">{h.who ?? "Someone"}</span> <span className="text-foreground">{h.text}</span>
-                <span className="block text-xs text-muted-foreground">{formatDateTime(h.at)}</span>
+                <span className="block text-xs text-muted-foreground">{formatDateTime(h.at, zone)}</span>
               </li>
             ))}
           </ol>

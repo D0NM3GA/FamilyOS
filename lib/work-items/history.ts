@@ -56,6 +56,11 @@ export function describeEvent(e: EventLike): string {
     case "STATUS":
       return `marked it ${status(e.toValue)}`;
     case "ASSIGN":
+      // A form's ASSIGN is who's handling it; a chore's is whose it is.
+      if (e.itemType === "SCHOOL_TASK") {
+        if (!e.toValue) return `took it off ${e.fromValue ?? "whoever had it"}`;
+        return e.fromValue ? `handed it to ${e.toValue} (was ${e.fromValue})` : `handed it to ${e.toValue}`;
+      }
       return e.toValue ? `gave it to ${e.toValue}${e.fromValue ? ` (was ${e.fromValue})` : " (was anyone's)"}` : "made it anyone's";
     case "MOVE":
       return `moved it from ${value(e.fromValue)} to ${value(e.toValue)}`;

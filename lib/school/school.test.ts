@@ -94,5 +94,7 @@ describe("matchesShow (Phase 59.4a)", () => {
     expect(matchesShow(a({ kind: "QUIZ" }), "tests", today)).toBe(true);
     expect(matchesShow(a({ status: "MISSING" }), "missing", today)).toBe(true);
     expect(matchesShow(a({}), null, today)).toBe(true);
+    // Missing work isn't "overdue": that filter is for work still to do.
+    expect(matchesShow(a({ status: "MISSING", dueDate: new Date(2026, 10, 1) }), "overdue", today)).toBe(false);
   });
 });

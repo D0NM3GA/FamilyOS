@@ -11,6 +11,8 @@ describe("parseItemRef", () => {
     expect(parseItemRef("CHORE:a b")).toBeNull();
     expect(parseItemRef("CHORE:")).toBeNull();
     expect(parseItemRef(undefined)).toBeNull();
+    expect(parseItemRef("SCHOOL_TASK:t1")).toEqual({ type: "SCHOOL_TASK", id: "t1" });
+    expect(parseItemRef(`CHORE:${"a".repeat(80)}`)).toBeNull();
   });
 });
 
@@ -28,5 +30,16 @@ describe("describeEvent", () => {
     expect(describeEvent(e("ASSIGNMENT", "GRADE", null, null, "18/20"))).toBe("graded it 18/20");
     expect(describeEvent(e("ASSIGNMENT", "PUT_BACK", "title", "Chapter 3", "Ch 3"))).toBe('put back the name to "Ch 3"');
     expect(describeEvent(e("ASSIGNMENT", "APPROVE", null, null, null))).toBe("approved the change");
+    expect(describeEvent(e("ASSIGNMENT", "GRADE", null, "18/20", null))).toBe("took the grade off");
+    expect(describeEvent(e("CHORE", "STATUS", null, "PENDING", "SKIPPED"))).toBe("marked it skipped");
+    expect(describeEvent(e("ASSIGNMENT", "PUT_BACK", null, null, null))).toBe("put back the change");
+    expect(describeEvent(e("SCHOOL_TASK", "EDIT", "amount", null, "$12.50"))).toBe('changed the amount from none to "$12.50"');
+    expect(describeEvent(e("SCHOOL_TASK", "EDIT", "kid", "Ivy", "Max"))).toBe('changed who it\'s for from "Ivy" to "Max"');
+    expect(describeEvent(e("CHORE", "SOMETHING", null, null, null))).toBe("changed it");
+  });
+  it("says who's handling a form, not whose it is", () => {
+    expect(describeEvent(e("SCHOOL_TASK", "ASSIGN", null, null, "Mom"))).toBe("handed it to Mom");
+    expect(describeEvent(e("SCHOOL_TASK", "ASSIGN", null, "Dad", "Mom"))).toBe("handed it to Mom (was Dad)");
+    expect(describeEvent(e("SCHOOL_TASK", "ASSIGN", null, "Dad", null))).toBe("took it off Dad");
   });
 });

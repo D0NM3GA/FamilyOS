@@ -73,7 +73,8 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
   // Links keep the student and filter, and add or drop one.
   const here = (change: Record<string, string | null>) => {
     const q = new URLSearchParams();
-    for (const [k, v] of Object.entries({ kid: kid ?? null, show, item: null, ...change })) if (v) q.set(k, v);
+    // The student shown, not ?kid=all when this page fell back from it.
+    for (const [k, v] of Object.entries({ kid: kid === "all" ? null : (kid ?? null), show, item: null, ...change })) if (v) q.set(k, v);
     const qs = q.toString();
     return qs ? `/school?${qs}` : "/school";
   };
@@ -267,7 +268,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
           </SelectionProvider>
         )}
 
-        <SelectionProvider key={`homework-${selectedId}`}>
+        <SelectionProvider key={`homework-${selectedId}-${show ?? "all"}`}>
           <section className={`min-w-0 ${card} lg:col-span-2`}>
             <div className="flex flex-wrap items-baseline justify-between gap-x-3">
               <h2 className={cardTitle}>Homework & tests</h2>

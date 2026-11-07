@@ -9,6 +9,7 @@ import { SelectBox, useSelection } from "@/components/selection";
 import { iconBtn, chip } from "@/components/styles";
 import type { WorkItem } from "@/lib/work-items/types";
 import { setWorkItemStatus } from "./work-item-actions";
+import { useReportMilestone } from "@/components/tasks/milestone-toast";
 
 /**
  * Phase 59.4a: the side panel's frame (a bottom sheet on a phone, a right-hand panel on a computer,
@@ -22,7 +23,8 @@ export function PanelShell({ title, closeHref, children }: { title: string; clos
   useEffect(() => heading.current?.focus(), [title]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) router.push(closeHref, { scroll: false });
+      // A menu open in the panel closes first; the next Escape closes the panel.
+      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector(":popover-open")) router.replace(closeHref, { scroll: false });
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -37,7 +39,7 @@ export function PanelShell({ title, closeHref, children }: { title: string; clos
         <h2 ref={heading} id={titleId} tabIndex={-1} className="font-heading text-xl font-extrabold outline-none">
           {title}
         </h2>
-        <Link href={closeHref} scroll={false} aria-label="Close" className={iconBtn}>
+        <Link href={closeHref} replace scroll={false} aria-label="Close" className={iconBtn}>
           <X size={18} aria-hidden />
         </Link>
       </div>
@@ -51,13 +53,15 @@ export function ItemStatus<S extends string>({ item, refParam, locked = false }:
   const [status, setStatus] = useOptimistic(item.status);
   const [pending, start] = useTransition();
   const [failed, setFailed] = useState(false);
+  const reportMilestone = useReportMilestone();
   const look = item.looks[status]!;
   const pick = (to: S) =>
     start(async () => {
       setFailed(false);
       setStatus(to);
       try {
-        await setWorkItemStatus(refParam, status, to);
+        const r = await setWorkItemStatus(refParam, status, to);
+        if (r && r.milestone) reportMilestone(r.milestone);
       } catch (err) {
         console.error("[item-status] failed", err);
         setFailed(true);
@@ -112,7 +116,7 @@ export function ItemListRow<S extends string>({
   );
 }
 
-// Cards or List, per person on this device: useSyncExternalStore like nav-rail.tsx, so the server
+// Cards or List, per person on this device: useSyncExternalStore like theme-toggle.tsx, so the server
 // render (cards) and the first browser render agree, then the saved choice applies.
 const listeners = new Set<() => void>();
 function subscribe(cb: () => void) {
@@ -159,5 +163,5 @@ export function BoardView({ personId, board, cards, list }: { personId: string; 
 /** The panel's edit forms close it on save or Cancel, like a row's own edit closes itself. */
 export function useClosePanel(closeHref: string) {
   const router = useRouter();
-  return () => router.push(closeHref, { scroll: false });
+  return () => router.replace(closeHref, { scroll: false });
 }

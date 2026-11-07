@@ -203,7 +203,7 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
   picked in the row of people, **For Ivy…** has two shortcuts: **Sick day** skips what they have
   today (it asks first), and **Hand off to Max** gives Ivy's chores for today and tomorrow to Max.
   Not in Big buttons.
-- **Cards or List.** Under the row of people, **Cards** and **List** switch how the board looks
+- **Cards or List.** Under the filters, **Cards** and **List** switch how the board looks
   (each person's choice is kept on that device). The list is one line per chore: its status, name,
   who, when and stickers. Tap a name to open its details on the side: its status and its history
   (who did what, and when). **Overdue**, **Today**, **Mine** and **Anyone's** narrow the board,

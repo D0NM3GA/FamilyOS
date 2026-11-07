@@ -1455,3 +1455,11 @@ the page's other params: Chores' Overdue, Today, Mine (`person=<self>`), Anyone'
 the pill, a few facts, the row's own edit forms, and the history in words (`describeEvent`), shown
 only to whoever can see the item. Escape or the close link drops the param. School's homework stays a
 list of rows, so its Cards / List switch wasn't built; the panel opens from Details & history.
+Fable's review of 59.4a: a selection resets with the filter too (its provider's key includes it),
+so a bulk action can't reach rows no longer shown. The panel offers Skip as the board does (today
+and overdue, not what's to come) and shows a chore's notes to grown-ups only, since the card never
+showed them. A form's owner change reads "handed it to Mom", not a chore's "gave it to". The list's
+and panel's pill report a milestone; Escape with a menu open closes the menu first; closing the
+panel replaces its history entry, so Back doesn't reopen it; history times use the household's
+zone; filtered boards say when nothing matches; Anyone's isn't shown alongside Everyone; a
+bookmarked Anyone's in Big buttons is no filter; Everyone has Export like a student's page.
