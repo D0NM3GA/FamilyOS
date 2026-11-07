@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { scheduleAutoSync } from "@/lib/calendar-sync/auto";
 import { Suspense } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { isSessionOwner, requireActiveProfile } from "@/lib/active-profile";
@@ -74,8 +75,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   // Started now, awaited inside the Suspense boundary below.
   // Phase 40.1b: a passkey sign-in has no Outlook behind it.
   const onMicrosoft = sessionOwner && profile.authUserId !== null && (await signInKind(profile)) === "microsoft";
+  // Phase 64a: the family's Outlook calendar stays current from here too (its owner, on their own
+  // Microsoft sign-in, as Home does; scheduleAutoSync keeps its own lease and 30-minute pace).
+
   const outlook = onMicrosoft && profile.authUserId ? getCalendarEvents(profile.authUserId, { start, end: addDays(start, days) }, { calendarId: profile.homeCalendarId }) : null;
-  const agenda = await getAgendaWeek(profile, { start, days, eventsOnly: isMonth, timeZone: zone, now, disabledApps });
+  const [agenda] = await Promise.all([
+    getAgendaWeek(profile, { start, days, eventsOnly: isMonth, timeZone: zone, now, disabledApps }),
+    onMicrosoft ? scheduleAutoSync(profile).catch(() => {}) : null,
+  ]);
   // Phase 63b: bills by name on their due days, for a grown-up on their own sign-in with Money on;
   // billDays checks the money gate itself (members only, no amounts, surprises hidden).
   const bills = isAdult(profile) && sessionOwner && !disabledApps.includes("money") ? await billDays(dayKey(start), dayKey(addDays(start, days - 1))) : [];

@@ -27,6 +27,8 @@ export function BigHome({
   medTimes,
   overdueMedIds,
   school,
+  schoolToday = [],
+  birthdays = [],
   onCompleteChore,
   onUndoChore,
   onCompleteMed,
@@ -48,6 +50,9 @@ export function BigHome({
   medTimes: Record<string, string>;
   /** Missed doses from earlier days, which also show their date ("Yesterday · 8:00 AM"). */
   overdueMedIds: string[];
+  /** Phase 64a: school calendar events today (their own and the family's), and birthdays this week. */
+  schoolToday?: { key: string; title: string }[];
+  birthdays?: { key: string; text: string }[];
   school: SchoolDueItem[];
   onCompleteChore: Complete;
   onUndoChore: Undo;
@@ -139,6 +144,24 @@ export function BigHome({
                 timeLabel={medTimes[i.id]}
                 index={idx}
               />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {(schoolToday.length > 0 || birthdays.length > 0) && (
+        <section>
+          <h2 className="text-2xl font-extrabold">Today and this week</h2>
+          <ul className="mt-3 space-y-2">
+            {schoolToday.map((e) => (
+              <li key={e.key} className="ui-card rounded-2xl bg-card px-4 py-3 text-lg font-bold ring-1 ring-border">
+                🏫 {e.title}
+              </li>
+            ))}
+            {birthdays.map((b) => (
+              <li key={b.key} className="ui-card rounded-2xl bg-card px-4 py-3 text-lg font-bold ring-1 ring-border">
+                🎂 {b.text}
+              </li>
             ))}
           </ul>
         </section>
