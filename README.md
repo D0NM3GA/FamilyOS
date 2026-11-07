@@ -93,7 +93,7 @@ docs/BUILD.md), not with a real Microsoft sign-in.
 cp .env.example .env      # then fill in the real values — see below
 npm ci                    # exactly what package-lock.json says
 npm run db:up             # starts Postgres 17 in Docker
-npm run db:migrate        # applies Prisma migrations
+npm run db:migrate        # applies Prisma migrations, then makes the app's own login
 npm run dev               # http://localhost:3000
 ```
 
@@ -128,8 +128,9 @@ machine too; what matters is in docs/PLAN.md and docs/BUILD.md.
 
 | Var | What it is |
 |---|---|
-| `DATABASE_URL` | Postgres connection string (matches `docker-compose.yml`) |
-| `POSTGRES_PASSWORD` | Overrides the dev Postgres password — only takes effect on a fresh Docker volume (see `.env.example`). Keep in sync with `DATABASE_URL` by hand. |
+| `DATABASE_URL` | The app's own Postgres login, data rights only (Phase 61c); `npm run db:migrate` makes it |
+| `MIGRATE_DATABASE_URL` | The owner from `docker-compose.yml`: migrations, seeds and test databases run as it. Leave it out (and use the owner in `DATABASE_URL`) to keep one login |
+| `POSTGRES_PASSWORD` | Overrides the dev Postgres password — only takes effect on a fresh Docker volume (see `.env.example`). Keep in sync with `MIGRATE_DATABASE_URL` by hand. |
 | `BETTER_AUTH_SECRET` | Session/cookie signing secret (`npx @better-auth/cli secret`) |
 | `BETTER_AUTH_URL` | Base URL, `http://localhost:3000` in dev |
 | `MICROSOFT_CLIENT_ID` / `_SECRET` / `_TENANT_ID` | Optional: from the Entra app registration, for Microsoft sign-in and the Microsoft 365 features. All three or none (a partial set stops the app at start) |
@@ -382,7 +383,7 @@ be on Cloudflare; and Cloudflare Access keeps everyone but the family away from 
    who runs it, so it and its folder belong to the owner:
    `sudo chown <you> /etc/familyos /etc/familyos/familyos.env`, then `chmod 700 /etc/familyos` and
    `chmod 600 /etc/familyos/familyos.env`. The secrets (Docker mounts these itself) go in
-   `/etc/familyos/secrets` (700): `db_password` (the same password as in `DATABASE_URL`, mode
+   `/etc/familyos/secrets` (700): `db_password` (the owner's, the same password as in `MIGRATE_DATABASE_URL`, mode
    600) and `tunnel_token`, the tunnel's token. `cloudflared` runs as a non-root user (65532), so
    its token belongs to it: `sudo chown 65532:65532 /etc/familyos/secrets/tunnel_token` and
    `sudo chmod 400 /etc/familyos/secrets/tunnel_token`. **Keep a copy of `familyos.env` in the
@@ -465,7 +466,15 @@ logs -f app`.
 - **Changing the database password later:** `POSTGRES_PASSWORD_FILE` only applies to a fresh
   volume, so run `ALTER USER familyos PASSWORD '…'` in the database
   (`docker compose -f docker-compose.prod.yml exec db psql -U familyos`), then update
-  `db_password` and `DATABASE_URL` and restart.
+  `db_password` and `MIGRATE_DATABASE_URL` and restart. The app's own login (`DATABASE_URL`) is
+  set by the migrate service on every start: change it in the settings file and recreate.
+- **Two database logins (Phase 61c):** the app connects as `familyos_app`, which can read and write
+  data and nothing else (no creating, dropping or emptying tables); migrations run as the owner.
+  `scripts/migrate.mjs` (the migrate image's command) runs `prisma migrate deploy`, then makes or
+  updates that login and its grants in this database, and default grants for tables later
+  migrations make. The app's container never sees the owner's URL (compose blanks it there).
+  An install with one URL keeps one login; moving over is in
+  `docs/guides/admin.md` §15.
 - **Sentry:** `SENTRY_DSN` in the settings file, read when the app starts (Phase 46: never built
   into the image); the server hands it to each page for the browser. A restart applies a change.
 - **Base images** (Node, Postgres, cloudflared) are pinned by digest in `Dockerfile` and
@@ -1097,7 +1106,7 @@ commands work in PowerShell, cmd, and bash alike:
 
 ```bash
 docker compose cp backups/<file>.dump postgres:/tmp/restore.dump
-docker compose exec postgres pg_restore -U familycrm -d familycrm_dev --clean --if-exists /tmp/restore.dump
+docker compose exec postgres pg_restore -U familycrm -d familycrm_dev --clean --if-exists --no-owner --no-privileges /tmp/restore.dump
 ```
 
 (A shell redirect like `pg_restore ... < backups/<file>.dump` works in bash, but PowerShell

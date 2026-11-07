@@ -1960,6 +1960,158 @@ calendar chips by person, Meds' Upcoming. `admin.md` if it describes any of thes
 Everything else from the review: the server safety net (61), reminders (62), data between apps
 (63), daily friction (64) and new capabilities (65).
 
+## Phase 61 — scope (the server safety net, 2026-11-07)
+
+The second phase from the review of 2026-11-07. It decides whether a bad night is recoverable
+and visible: backups that are encrypted and kept in three places, jobs that can't take each
+other down, a page that says whether they ran, a database login that can only touch data, and
+guard tests for the rules that were convention. Checked against the code 2026-11-07; Fable's
+scope review (same day) is folded in below.
+
+### The owner's answers (2026-11-07)
+
+- **Backups go to the NAS and OneDrive** (3-2-1: the server, the NAS, the cloud).
+- **Encrypted with `age`; the private key lives only in Bitwarden.** The server holds the public
+  key, so it can make backups it can't read.
+- **The least-privilege database login now**, the same in development, CI and production.
+
+### 61a — Jobs that can't take each other down, and a page that says they ran
+
+- **One failure, one job** (`lib/background.ts`): each job (zone sync, money, purges, the Entra
+  check, the new cleanup) runs in its own try/catch. A failure reports the real error through
+  `captureError` (scrubbed by `lib/observability/scrub.ts`), not just its class name, and the next
+  job still runs.
+- **Heartbeats:** a `SystemHeartbeat` table (`name` id, `lastOkAt`, `lastErrorAt`, `lastError`
+  short and scrubbed, `detail` text, `updatedAt`). Each job records ok or failed on every tick;
+  the nightly backup records its own row (see 61b). Not household data: no FK, not in the app's
+  backup file (`lib/backup`), cleared by nothing.
+- **System card** on Data (grown-ups' page, beside Backup history): each job's last good run
+  and last failure, and the nightly backup's last run with its size and where it was copied. A
+  job quiet for more than three ticks, or a backup older than 36 hours, shows as late.
+- **An outside check-in (optional):** `HEALTHCHECK_PING_URL` is called after a tick where every
+  job succeeded, and `/fail` appended when one didn't (the healthchecks.io convention). `http:` or
+  `https:` (the owner sets it; a LAN-hosted checker is fine), a 10-second timeout, after the
+  tick's work, with its own `.catch` so a failed ping is only a log line. `BACKUP_PING_URL` does the
+  same for the backup script.
+- **Cleanup** (`lib/retention.ts`, a job on the tick): sessions expired more than a day ago and
+  read notifications older than 90 days, in batches, with counts in the job's heartbeat detail.
+  Not touched: sign-in events (append-only by design, `lib/sign-in-events.ts`: a security log the
+  owner reads), rate-limit rows (Better Auth prunes its own), sign-in challenges (already purged),
+  work-item history (kept).
+- **Logs in one shape** (`lib/observability/log.ts`): `log.info|warn|error(event, fields)` writes
+  one JSON line to stdout (time, level, event, fields) on the server; fields are scrubbed with
+  `scrubText`. Fields are ids, counts and fixed words only (typed `Record<string, string |
+  number | boolean>`), never names. `captureError` also logs the error's class (and for Prisma
+  errors only class and code, the rule `scrubEvent` keeps; other messages through `scrubText`),
+  so an error is seen without Sentry. The server's `console.*` calls (14) move to it, except
+  `proxy.ts` and `lib/crypto.ts`'s key hint (the proxy must not pull Sentry or Prisma in). Client
+  components keep `console.error`. A heartbeat's `lastError` is the same short, scrubbed text.
+
+### 61b — Encrypted backups in three places
+
+`scripts/backup-prod.sh`:
+
+- After the dump is checked with `pg_restore --list`, it's encrypted with
+  `age -R "$BACKUP_AGE_RECIPIENTS"` (a file of public keys, default
+  `/etc/familyos/backup-recipients.txt`) to `familyos-<time>.dump.age`, and the plain dump is
+  removed. No recipients file: the script stops with an error (an unencrypted backup is never
+  quietly made again). The `.counts` file holds table names and numbers only and stays plain,
+  named `familyos-<time>.dump.age.counts`; the keep-days `find` patterns cover both names.
+- **NAS** as today, with the `.age` file. **OneDrive:** when `BACKUP_RCLONE_REMOTE` is set (an
+  rclone remote the owner configures, e.g. `onedrive:Backups/app`), `rclone copyto` each file,
+  then `rclone check --one-way --include "familyos-<time>.*"` on the folder that it arrived; old
+  ones past `BACKUP_KEEP_DAYS` removed with `rclone delete --min-age <keep>d`. A failed copy fails the script (and its ping).
+- Writes its heartbeat row (`backup`) through psql, an upsert that sets `updatedAt` itself
+  (Prisma's `@updatedAt` has no database default): time, size, and "NAS, OneDrive" or which
+  copies failed. Pings `BACKUP_PING_URL`.
+- `scripts/restore-drill.sh` takes a `.age` file and an identity (`AGE_IDENTITY_FILE`, or asks to
+  paste the key from Bitwarden into a file in the drill's own temp folder), decrypts into that
+  temp folder, and carries on as today. A plain `.dump` still works for old backups. Its
+  `pg_restore` gains `--no-privileges` (a dump names the app's role, which a fresh drill
+  database doesn't have yet; migrate grants it again), and so does README's restore.
+- CI's container test (`scripts/container-test.sh`) installs `age`, makes a throwaway key pair,
+  and backs up and drills with it. `container.yml`'s change filter adds the scripts it runs.
+- README "Running in production": install `age` and `rclone`, make the key pair
+  (`age-keygen`), keep the private key in Bitwarden, put the public key on the server, set up the
+  OneDrive remote with a folder of its own. Disk encryption: the VM's disk and the NAS share
+  should be encrypted (LUKS or the hypervisor's), since database files are plaintext at rest;
+  say how to check.
+
+### 61c — A database login that can only touch data
+
+- Two URLs: **`DATABASE_URL`** is the app's (role `familyos_app` in production, `familycrm_app` in
+  development and CI): `SELECT, INSERT, UPDATE, DELETE` on the tables and `USAGE, SELECT` on
+  sequences, nothing else, plus `SELECT` on `_prisma_migrations` (the app's own backup file records
+  the last migration, `lib/backup/build.ts`). **`MIGRATE_DATABASE_URL`** is the owner's, used by
+  `prisma.config.ts` when set (migrations, seeds, test databases being made) and by the migrate
+  service.
+- **`scripts/migrate.mjs`** (the migrate image's command, and `npm run db:migrate`): runs
+  `prisma migrate deploy` with the owner URL, then makes sure the app's role exists with the
+  password in `DATABASE_URL` and has exactly those grants, through `prisma db execute --stdin`
+  (no new dependency; it reads the URL from `prisma.config.ts`, so the script hands the child the
+  owner URL in its env). The password is percent-decoded and goes in as a quoted literal with
+  quotes doubled; the role name must match `^[a-z_][a-z0-9_]*$`. It also sets `ALTER DEFAULT
+  PRIVILEGES FOR ROLE <owner> IN SCHEMA public` so tables later migrations make are covered.
+  Grants live in each database, so everything that makes a database runs this script, not bare
+  `migrate deploy`. When both URLs name the
+  same user (an install that hasn't split them yet), it says so and does nothing more.
+- Docker: the migrate stage of the `Dockerfile` copies `scripts/migrate.mjs` and runs it; `familyos.env.example`,
+  `.env.example`, CI (`ci.yml`), `scripts/restore-drill.sh`, `container-test.sh` and
+  `break-glass-test.sh` set both URLs, and CI's migrate step runs the script.
+  `lib/test-support/auth-harness.ts` and `e2e/serve.mjs` make and drop databases with the owner
+  URL, run the script with both URLs pointed at the new database, and run the app with the app's.
+- A DB test checks the app's role can't `CREATE TABLE` (Postgres 15+), `DROP`, `TRUNCATE` or
+  write `_prisma_migrations`, and can do everything the app's own raw SQL does (advisory locks,
+  `household-zone.ts`'s updates and deletes).
+- README and `docs/guides/admin.md`: the new setting, and the one-time move for an existing
+  install (add `MIGRATE_DATABASE_URL` with the old login, change `DATABASE_URL` to the new role,
+  recreate).
+
+### 61d — Guard tests for what was convention
+
+- **Every server action checks who's asking** (`lib/action-guard.test.ts`): every exported async
+  function in a `"use server"` file starts with a known check: the core ones
+  (`requireActiveProfile`, `requireAdult` and friends), a file's own helper that itself starts
+  with a core check (the test reads the helper), or another exported action of the same file (a
+  delegation, as `lib/adult-apps.test.ts` allows). An allowlist with a reason each covers the rest
+  (setup and invite before anyone is signed in, the dev preview).
+- **Actions of a switchable app check it's on:** a new `assertAppOn(householdId, app)` in
+  `lib/app-guard.ts` throws ("That app is turned off") instead of redirecting, and every action
+  in a switchable app's folder calls it: inside the domain's own helper where there is one
+  (`requireJar`/`moneyViewer` for Money, `petProfile` for the pet, whose redirect becomes this),
+  else as the action's next await after its auth check. The guard test enforces it per folder.
+  Home and the list call chores and school actions only for apps that are on (`appsOffFor`), so a
+  throw there means a stale page.
+- **e2e: a kid's profile.** In `smoke.spec.ts`, Ivy (made in the guided-setup test) gets a PIN from
+  Settings → Household, Dad switches to her profile, and Money, Settings, Data and Cars send her
+  Home; a grown-up export route answers 403 from her session; five wrong PINs (`MAX_PIN_ATTEMPTS`)
+  lock the switch; then back to Dad with his own PIN.
+
+### 61e — Small things
+
+- README: the stale "nothing is scheduled or copied off the machine yet" line.
+- `next.config.ts`: the static CSP header stays (it covers what the proxy skips: `/api/`, static
+  files, RSC requests, and the two are enforced together); only its stale comment is fixed.
+- The mascot: a statically imported client component ships with the route even when it doesn't
+  render (Next's lazy-loading guide), so Bunson loads through `next/dynamic` in a small client
+  wrapper, fetched only when he's chatty.
+
+### Tests
+
+Unit: job isolation (one throws, the rest run, heartbeats say so), retention cutoffs, the log's
+shape and scrubbing, the ping URL rule, the role script's SQL (quoting), the action guard.
+DB: heartbeats, retention, the app role's limits. e2e: the kid profile. A shell test for the
+backup script's refusal without recipients (`BACKUP_NAS_NOT_A_MOUNT=1` style, run in CI's
+container test).
+
+### Not in this phase
+
+Splitting `finances/actions.ts`; column encryption for med notes; anything from 62–65.
+
+### Pull requests
+
+61a jobs and System (with 61e), 61b backups, 61c database login, 61d guards and the kid e2e.
+
 ## Open items
 
 ### Waiting on a decision

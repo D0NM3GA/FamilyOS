@@ -1508,3 +1508,28 @@ instead of asking for "12.50"; the Notifications page and its mark-read action s
 Accepted: on the bills page, Coming up and Safe to spend each ask their own `paidCheck` (the
 forecast asks found bills first), so in a rare month a check a found bill took can show a hand-added
 bill paid in one and due in the other; and a refund follows a re-guessed charge one sync later.
+
+## Phase 61 — The server safety net
+
+### 61c — A database login that can only touch data
+
+The app connects as `DATABASE_URL`, its own login (`familyos_app` in production, `familycrm_app` in
+development and CI), with SELECT, INSERT, UPDATE and DELETE on the tables, USAGE and SELECT on
+sequences, and read-only `_prisma_migrations` (the app's backup file records the last migration).
+`MIGRATE_DATABASE_URL` is the owner, read by `prisma.config.ts` first, so migrations, seeds and
+`prisma migrate dev` run as it. `scripts/migrate.mjs` (the migrate image's command now, CI's migrate
+step, `npm run db:migrate`, the browser tests' fresh database and the auth tests' scratch ones) runs
+`prisma migrate deploy`, then the SQL `scripts/app-role.mjs` builds through `prisma db execute
+--stdin`: the role made if missing, its password set from `DATABASE_URL` (percent-decoded, quotes
+doubled, the name checked), grants reset to exactly those, and default privileges for the owner's
+later tables. Both URLs naming one login skips it, so an install not yet split keeps working.
+`e2e/serve.mjs` makes the e2e database as the owner and runs the app as `DATABASE_URL`'s login against
+it; the drill restores with `--no-privileges`. Every database test file passed running as the app's
+login against a scratch database, and `lib/app-role.db.test.ts` checks it can't create, drop,
+truncate or alter tables, or delete migration history.
+Fable's review of 61c: the app's container no longer sees the owner's URL (compose blanks
+`MIGRATE_DATABASE_URL` for it, and the e2e server passes it to the migrate step only); the password
+goes in its own statement, apart from the grants, since Postgres logs a failing statement whole; the
+seeds use the owner's URL as the docs say; the two URLs are compared by host, port and database,
+named in the error; and the role test checks each refusal is for rights, not some other error.
+

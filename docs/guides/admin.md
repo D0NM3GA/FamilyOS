@@ -105,7 +105,8 @@ image.
 | Setting | What to put | Notes |
 | --- | --- | --- |
 | `BETTER_AUTH_URL` | The address from step 2, `https://familyos.example.com` | Permanent (passkeys) |
-| `DATABASE_URL` | `postgresql://familyos:<db password>@db:5432/familyos?schema=public` | The same password as the `db_password` file. Letters and digits only, or percent-encode `@ : / % #` |
+| `MIGRATE_DATABASE_URL` | `postgresql://familyos:<db password>@db:5432/familyos?schema=public` | The database's owner: the same password as the `db_password` file. Migrations run as it. Letters and digits only, or percent-encode `@ : / % #` |
+| `DATABASE_URL` | `postgresql://familyos_app:<app password>@db:5432/familyos?schema=public` | The app's own login, which can only read and write data. A different password (`openssl rand -hex 24`); the migrate service makes the login with it on every start |
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` | Signs sign-ins and cookies. Make it once and keep it |
 | `INTEGRATION_ENCRYPTION_KEY` | `openssl rand -base64 32` (a different one) | Encrypts stored connections (bank feed, phone-alert keys) and seals money jars in backups. Make it once and keep it |
 | `TRUSTED_PROXIES` | `172.30.43.10` | The tunnel's fixed address in `docker-compose.prod.yml`; leave it unless you change the subnet |
@@ -130,13 +131,13 @@ Compose reads this file and treats `$` specially: write a literal `$` in a value
 
 | File | Holds | Owner and mode |
 | --- | --- | --- |
-| `/etc/familyos/secrets/db_password` | The database password, the same as in `DATABASE_URL` | you, `600` |
+| `/etc/familyos/secrets/db_password` | The database owner's password, the same as in `MIGRATE_DATABASE_URL` | you, `600` |
 | `/etc/familyos/secrets/tunnel_token` | The Cloudflare Tunnel's token (section 5) | **uid 65532**, `400` |
 | `/etc/familyos/secrets/cf_dns_token` | A Cloudflare API token that can only edit DNS for your zone (section 14) | you, `600` |
 
 ```bash
 cd /etc/familyos/secrets
-openssl rand -hex 24 > db_password && chmod 600 db_password       # then put the same value in DATABASE_URL
+openssl rand -hex 24 > db_password && chmod 600 db_password       # then put the same value in MIGRATE_DATABASE_URL
 # paste the tunnel token into tunnel_token, then:
 sudo chown 65532:65532 tunnel_token && sudo chmod 400 tunnel_token
 # paste the DNS-only API token into cf_dns_token, then:
@@ -596,13 +597,23 @@ docker compose -f docker-compose.prod.yml run --rm migrate node_modules/.bin/pri
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-**Changing the database password:** the password file only applies to a brand-new database, so
-change it inside the database first, then update `db_password` and `DATABASE_URL`, and recreate:
+**Changing the database passwords:** the app's (`DATABASE_URL`): change it in `familyos.env` and
+recreate; the migrate service sets it on its way up. The owner's: the password file only applies
+to a brand-new database, so change it inside the database first, then update `db_password` and
+`MIGRATE_DATABASE_URL`, and recreate:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec db psql -U familyos
 # ALTER USER familyos PASSWORD '<new password>';
 ```
+
+**Moving an install from before Phase 61 to two logins (once):** add `MIGRATE_DATABASE_URL` with
+the line `DATABASE_URL` has now (the owner), change `DATABASE_URL` to
+`postgresql://familyos_app:<a new password>@db:5432/familyos?schema=public`, then
+`docker compose -f docker-compose.prod.yml up -d`. The migrate service makes the `familyos_app`
+login with exactly what the app needs before the app starts; its log says so. Until then, an
+install with only `DATABASE_URL` keeps working as one login. The app's own container never sees
+the owner's URL: `docker-compose.prod.yml` blanks `MIGRATE_DATABASE_URL` for it.
 
 **Sentry (optional error reports):** set `SENTRY_DSN` in `familyos.env` and recreate the app
 (as for any setting). Nothing about it is built into the image. What it may receive
