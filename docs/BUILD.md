@@ -1536,3 +1536,23 @@ unfinished check, so it could never show as failing; it now throws to the tick (
 `Entra check: <outcome>` after its notices). `captureError` takes an event name and fields, so each
 error is one log line with its context, not two.
 
+### 61b — Encrypted backups in three places
+
+`scripts/backup-prod.sh` encrypts each checked dump with `age` to the public keys in
+`BACKUP_AGE_RECIPIENTS` (default `/etc/familyos/backup-recipients.txt`) and keeps only the
+`.dump.age` (its header is checked); without the file it refuses, before dumping anything. The
+private key is the owner's, in the password manager. It copies to the NAS as before and to
+`BACKUP_RCLONE_REMOTE` (`rclone copyto`, then `rclone check --one-way` on that run's files, and
+`rclone delete --min-age` for the keep-days). Each run upserts the `backup` row of
+`system_heartbeat` through psql (size and where it was kept, or the step it failed at; a database
+without the table is only a log line) and calls `BACKUP_PING_URL`. `scripts/restore-drill.sh`
+decrypts a `.dump.age` into its own 700 temp folder with `AGE_IDENTITY_FILE` or a pasted key, and
+restores with `--no-privileges` (a dump names the app's database role, which a fresh drill database
+doesn't have). CI's container test installs `age`, checks a backup without a key is refused and
+leaves nothing, backs up with a throwaway key and drills with it; `container.yml`'s filter now
+includes the backup scripts. The admin guide covers the key, OneDrive and disk encryption.
+Fable's review of 61b: a plain dump left by a run killed outright (power cut) is removed at the
+next start; the README and guide restores use `--no-owner --no-privileges` like the drill; the drill
+says to set `AGE_IDENTITY_FILE` when there's no terminal, and asks for the one key line; the
+heartbeat says why it couldn't be written and writes UTC times; OneDrive keeps the same nights as
+the server.
