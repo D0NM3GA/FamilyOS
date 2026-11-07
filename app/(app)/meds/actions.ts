@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
@@ -100,6 +101,7 @@ export async function createTaskDefinition(
   formData: FormData,
 ): Promise<TaskFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "meds");
   const result = parseMedForm(formData);
   if ("error" in result) return { error: result.error };
 
@@ -130,6 +132,7 @@ export async function updateTaskDefinition(
   formData: FormData,
 ): Promise<TaskFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "meds");
   const result = parseMedForm(formData);
   if ("error" in result) return { error: result.error };
 
@@ -176,6 +179,7 @@ export async function updateTaskDefinition(
 
 export async function setDefinitionActive(definitionId: string, active: boolean) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "meds");
 
   const updated = await prisma.taskDefinition.updateMany({
     where: { id: definitionId, householdId: profile.householdId, domain: "MED" },
@@ -210,6 +214,7 @@ export async function setDefinitionActive(definitionId: string, active: boolean)
  */
 export async function addStock(definitionId: string, formData: FormData) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "meds");
   const amount = Number(formData.get("amount"));
   if (!Number.isFinite(amount) || amount <= 0) return;
 
@@ -243,6 +248,7 @@ export async function addStock(definitionId: string, formData: FormData) {
  */
 export async function completeInstance(instanceId: string) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "meds");
 
   const instance = await prisma.taskInstance.findUnique({
     where: { id: instanceId },
@@ -318,6 +324,7 @@ export async function completeInstance(instanceId: string) {
 
 export async function uncompleteInstance(instanceId: string) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "meds");
 
   const instance = await prisma.taskInstance.findUnique({
     where: { id: instanceId },
@@ -363,7 +370,8 @@ export async function uncompleteInstance(instanceId: string) {
 /** Proxies RxTerms so the browser never calls a third party directly and a lookup failure
  * can't break form submission — the client just gets an empty suggestion list. */
 export async function searchMedicationNames(query: string): Promise<string[]> {
-  await requireActiveProfile();
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "meds");
   return searchRxTerms(query);
 }
 
@@ -373,11 +381,13 @@ export async function searchMedicationNames(query: string): Promise<string[]> {
  */
 export async function skipInstance(instanceId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "meds");
   if (await skipTask({ householdId: profile.householdId, domain: "MED", instanceId, byId: profile.id })) revalidateBoard();
 }
 
 export async function unskipInstance(instanceId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "meds");
   if (await unskipTask({ householdId: profile.householdId, domain: "MED", instanceId })) revalidateBoard();
 }
 
@@ -388,6 +398,7 @@ export async function unskipInstance(instanceId: string) {
  */
 export async function markOlderMissed(personId: string | null) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "meds");
   // A malformed id does nothing, rather than falling back to everyone.
   if (personId !== null && (typeof personId !== "string" || personId.length === 0 || personId.length > 64)) return;
   const who = personId;

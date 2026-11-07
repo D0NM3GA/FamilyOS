@@ -1579,6 +1579,27 @@ goes in its own statement, apart from the grants, since Postgres logs a failing 
 seeds use the owner's URL as the docs say; the two URLs are compared by host, port and database,
 named in the error; and the role test checks each refusal is for rights, not some other error.
 
+### 61d — Guard tests for what was convention
+
+`lib/action-guard.test.ts` reads every `"use server"` file: each exported action's first await must be
+a core check (`requireActiveProfile`, `requireAdult`, `requireAdmin`, `requireJar`, `moneyViewer`),
+a helper in the same file that leads to one (up to three deep: `managingAdmin` → `signedInAdmin` →
+`requireActiveProfile`), or another action of the file; nine named exceptions (setup, invite, the
+profile picker, the dev preview, and the work-item router whose targets check) each say why. Every
+action in a switchable app's folder must call `assertAppOn` (new in `lib/app-guard.ts`: it sends the tab to the app's
+"turned off" note, as its pages do) with its own app, directly after its check (91
+actions, added by a script) or in the helper it starts with (Money's `moneyViewer`, the pet's
+`petProfile`, whose redirect it replaces, and Calendar's two). A tab left open on an app the family
+turned off can no longer change its data. The browser tests gain a kid's profile: Ivy gets a PIN in
+Settings → Household, Dad hands over, Money, Data, Cars and the Garage send her Home, a grown-up
+download answers 403, and back on Dad's PIN five wrong guesses lock her tile, even to the right PIN.
+Fable's review of 61d: `assertAppOn` redirects rather than throwing (the house rule: Next hides a
+thrown action's message in production, so a form would have shown "Something went wrong"), and
+lives in `lib/app-guard.ts` beside `requireAppOn`, away from the module background jobs import; a
+person's Money download answers 404 while Money is off, like the jar export; the guard test reads
+`$` in an awaited name and refuses `export const … = async` actions it couldn't see; Calendar's
+helpers check the app after the admin check, as the others do.
+
 ## Phase 62 — Reminders
 
 ### 62a — The engine, preferences, and four kinds
@@ -1626,4 +1647,3 @@ and overdue are two reminders in a cycle, and a changed interval starts a new cy
 1,000 miles a day is taken as an odometer typo (no estimate). A recall's title uses the first part
 of NHTSA's component path. Known: by miles, an item can be "due in about 7 days" while the Cars
 page still calls it OK (its band is 500 miles).
-

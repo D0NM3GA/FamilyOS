@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isOwnSignIn, requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
+import { assertAppOn } from "@/lib/app-guard";
 
 /**
  * Phase 25: the one gate for money. A jar opens only for an adult who is one of its members
@@ -21,6 +22,8 @@ export async function moneyViewer(): Promise<MoneyViewer | null> {
   const profile = await requireActiveProfile();
   if (!isAdult(profile) || !profile.isHouseholdMember) return null;
   if (!(await isOwnSignIn(profile))) return null;
+  // Phase 61d: Money turned off means no reads or writes through here either (pages redirect first).
+  await assertAppOn(profile.householdId, "money");
   return { id: profile.id, householdId: profile.householdId, firstName: profile.firstName };
 }
 

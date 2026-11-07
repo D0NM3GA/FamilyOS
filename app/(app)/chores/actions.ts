@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -69,6 +70,7 @@ export async function createTaskDefinition(
   formData: FormData,
 ): Promise<TaskFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
   const result = parseTaskForm(formData);
   if ("error" in result) return { error: result.error };
 
@@ -91,6 +93,7 @@ export async function updateTaskDefinition(
   formData: FormData,
 ): Promise<TaskFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
   const result = parseTaskForm(formData);
   if ("error" in result) return { error: result.error };
 
@@ -113,6 +116,7 @@ export async function updateTaskDefinition(
 
 export async function setDefinitionActive(definitionId: string, active: boolean) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
 
   const updated = await prisma.taskDefinition.updateMany({
     where: { id: definitionId, householdId: profile.householdId, domain: "CHORE" },
@@ -169,6 +173,7 @@ export async function setDefinitionActive(definitionId: string, active: boolean)
  */
 export async function completeInstance(instanceId: string): Promise<{ milestone?: number | null }> {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "chores");
   const viewer = { id: profile.id, householdId: profile.householdId, adult: isAdult(profile) };
   const result = await prisma.$transaction((tx) => completeChore(tx, viewer, instanceId));
   if (!result.ok && result.reason === "not found") throw new Error("Chore not found");
@@ -182,6 +187,7 @@ export async function completeInstance(instanceId: string): Promise<{ milestone?
 
 export async function uncompleteInstance(instanceId: string) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "chores");
   const viewer = { id: profile.id, householdId: profile.householdId, adult: isAdult(profile) };
   const result = await prisma.$transaction((tx) => uncompleteChore(tx, viewer, instanceId));
   if (!result.ok && result.reason === "not found") throw new Error("Chore not found");
@@ -207,6 +213,7 @@ export async function uncompleteInstance(instanceId: string) {
  */
 export async function reassignInstance(instanceId: string, newAssigneeId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
 
   const target = await prisma.person.findFirst({
     where: { id: newAssigneeId, householdId: profile.householdId, isHouseholdMember: true },
@@ -225,12 +232,14 @@ export async function reassignInstance(instanceId: string, newAssigneeId: string
  */
 export async function skipInstance(instanceId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
   const skipped = (await prisma.$transaction((tx) => skipChore(tx, { id: profile.id, householdId: profile.householdId, adult: true }, instanceId))).ok;
   if (skipped) revalidateBoard();
 }
 
 export async function unskipInstance(instanceId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
   const back = (await prisma.$transaction((tx) => unskipChore(tx, { id: profile.id, householdId: profile.householdId, adult: true }, instanceId))).ok;
   if (back) revalidateBoard();
 }
@@ -242,6 +251,7 @@ export async function unskipInstance(instanceId: string) {
  */
 export async function markOlderMissed(personId: string | null) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
   // A malformed id does nothing, rather than falling back to everyone.
   if (personId !== null && (typeof personId !== "string" || personId.length === 0 || personId.length > 64)) return;
   const who = personId;
@@ -263,6 +273,7 @@ export async function markOlderMissed(personId: string | null) {
  */
 export async function moveInstance(instanceId: string, to: MoveTarget | "back"): Promise<{ moved: boolean }> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
   if (to !== "today" && to !== "tomorrow" && to !== "back") return { moved: false };
   const moved = await moveChore({ householdId: profile.householdId, instanceId, to, byId: profile.id });
   revalidateBoard();
@@ -284,6 +295,7 @@ const choreBulk = bulkSchema(["DONE", "SKIP", "REASSIGN", "TOMORROW"] as const);
  */
 export async function bulkChores(input: unknown): Promise<BulkResult | { error: string }> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
   const parsed = choreBulk.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "That didn't look right." };
   const { ids, action, value } = parsed.data;
