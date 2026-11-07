@@ -5,8 +5,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { ALL_STORES, splitForShop, tripSavedHref, type ShopRow } from "@/lib/groceries/shop";
-import { chip, chipRow } from "@/components/styles";
-import { completeTrip } from "../actions";
+import { chip, chipRow, field } from "@/components/styles";
+import { completeTrip, tripRestockQuestions } from "../actions";
+import type { RestockQuestion } from "@/lib/groceries/restock";
 import { useShopQueue } from "../shop-queue";
 
 const UNDO_MS = 5000;
@@ -91,6 +92,9 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
   const [finishing, startFinish] = useTransition();
   const { celebrate } = useLook();
   const [finishError, setFinishError] = useState<string | null>(null);
+  // Phase 63a: "Picked up X: how many?" for items a medicine or car supply put on the list.
+  const [questions, setQuestions] = useState<RestockQuestion[] | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const screenOn = useWakeLock();
 
   useEffect(() => () => clearTimeout(undoTimer.current), []);
@@ -115,16 +119,49 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
     setFinishError(null);
     startFinish(async () => {
       try {
-        const result = await completeTrip();
-        // Another device may have finished the trip first: nothing saved, nothing to mark.
-        if (result.saved) celebrate();
-        router.replace(tripSavedHref(result.saved ? result.purchaseId : null));
+        // A grown-up is asked first when something in the cart restocks a medicine or a car supply.
+        const asks = await tripRestockQuestions();
+        if (asks.length > 0) {
+          setQuestions(asks);
+          return;
+        }
+        await save([]);
       } catch (err) {
-        // A signed-out profile redirects; let that navigation happen without a scary note.
         if (err instanceof TypeError) setFinishError("Couldn't save the trip. Check your signal and try again.");
         else setFinishError("Couldn't save the trip yet. Reload and try again.");
       }
     });
+  }
+
+  function saveWithAnswers(skip: boolean) {
+    setFinishError(null);
+    const typed = Object.values(answers).map(Number);
+    if (!skip && typed.some((n) => Number.isFinite(n) && n > 10_000)) {
+      setFinishError("That's more than 10,000: check the number.");
+      return;
+    }
+    startFinish(async () => {
+      try {
+        // A tick made after the question appeared reaches the server first, so the trip is what's in the cart.
+        if (pending > 0) await flush();
+        const restock = skip
+          ? []
+          : Object.entries(answers)
+              .map(([itemId, text]) => ({ itemId, amount: Number(text) }))
+              .filter((r) => Number.isFinite(r.amount) && r.amount > 0);
+        await save(restock);
+      } catch (err) {
+        if (err instanceof TypeError) setFinishError("Couldn't save the trip. Check your signal and try again.");
+        else setFinishError("Couldn't save the trip yet. Reload and try again.");
+      }
+    });
+  }
+
+  async function save(restock: { itemId: string; amount: number }[]) {
+    const result = await completeTrip(restock);
+    // Another device may have finished the trip first: nothing saved, nothing to mark.
+    if (result.saved) celebrate();
+    router.replace(tripSavedHref(result.saved ? result.purchaseId : null));
   }
 
   return (
@@ -207,11 +244,47 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
         <p className="text-sm font-semibold text-muted-foreground">
           {allCart} in the cart · {leftOver} {leftOver === 1 ? "stays" : "stay"} on the list for next time
         </p>
+        {questions && questions.length > 0 && (
+          <fieldset className="space-y-2 rounded-xl bg-muted/60 p-3">
+            <legend className="text-sm font-extrabold">Picked up anything to restock?</legend>
+            <p className="text-xs text-muted-foreground">Add what you bought to the count at home. Leave a box empty to skip it.</p>
+            {questions.map((q) => (
+              <label key={q.itemId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="font-bold">
+                  Picked up {q.name}: how many?
+                  <span className="block text-xs font-normal text-muted-foreground">
+                    On hand: {q.onHand}
+                    {q.unit ? ` ${q.unit}` : ""}
+                  </span>
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="any"
+                  value={answers[q.itemId] ?? ""}
+                  autoFocus={q === questions[0]}
+                  onChange={(e) => setAnswers((a) => ({ ...a, [q.itemId]: e.target.value }))}
+                  className={`${field} w-24`}
+                />
+              </label>
+            ))}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={finishing} onClick={() => saveWithAnswers(false)} className="rounded-xl border-2 border-ink bg-lime px-4 py-2 font-extrabold text-ink disabled:opacity-50">
+                {finishing ? "Saving the trip…" : "Add and save the trip"}
+              </button>
+              <button type="button" disabled={finishing} onClick={() => saveWithAnswers(true)} className="rounded-xl border-2 border-ink/30 px-4 py-2 font-bold disabled:opacity-50">
+                Skip
+              </button>
+            </div>
+          </fieldset>
+        )}
         {finishError && <p role="alert" className="text-sm font-semibold text-tomato">{finishError}</p>}
         <button
           type="button"
           onClick={pending > 0 ? () => void flush() : finish}
           disabled={finishing || allCart === 0}
+          hidden={Boolean(questions && questions.length > 0)}
           className="rounded-xl border-2 border-ink bg-lime py-3 text-lg font-extrabold text-ink disabled:opacity-50"
         >
           {pending > 0

@@ -1,4 +1,7 @@
 "use server";
+import { isAdult } from "@/lib/authz";
+
+import { restockQuestions, restockSchema, cleanRestock, type Restock, type RestockQuestion } from "@/lib/groceries/restock";
 
 import { assertAppOn } from "@/lib/app-guard";
 import { redirect, RedirectType } from "next/navigation";
@@ -8,7 +11,7 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAdult } from "@/lib/authz";
-import { findOrCreateProductByName, getOrCreateActiveList, productNameKey } from "@/lib/shopping-list";
+import { findOrCreateProductByName, getOrCreateActiveList, productNameKey, restockFromTrip } from "@/lib/shopping-list";
 import { searchProductsLocal } from "@/lib/groceries/queries";
 import { normalizeBarcode } from "@/lib/groceries/barcode";
 import { lookupBarcode } from "@/lib/groceries/openfoodfacts";
@@ -258,25 +261,44 @@ export async function setRequestedBy(itemId: string, personId: string | null) {
 }
 
 /** Snapshots checked-off items into a Purchase and clears them from the list. `saved` is
- * false when there was nothing checked (say another phone already finished the trip). */
-export async function completeTrip(): Promise<{ saved: false } | { saved: true; purchaseId: string }> {
+ * false when there was nothing checked (say another phone already finished the trip).
+ *
+ * Phase 63a: `restock` is a grown-up's answers to "Picked up X: how many?" (restockQuestions)
+ * for items a medicine or a car supply put on the list. Each item is taken off the list with
+ * `done` checked, in the transaction, and only items actually taken off are bought and restocked,
+ * so a second tap or a second phone does nothing twice. */
+export async function completeTrip(restock: Restock = []): Promise<{ saved: false } | { saved: true; purchaseId: string }> {
   const profile = await requireActiveProfile();
   await assertAppOn(profile.householdId, "groceries");
   const list = await getOrCreateActiveList(profile.householdId);
+  // Answers out of range are refused (the trip isn't saved) rather than quietly dropped, so no one
+  // thinks the count went up when it didn't. Kids save the trip as before, restocking nothing:
+  // medicine and Garage counts are grown-ups' to change.
+  const amounts = isAdult(profile) ? cleanRestock(restockSchema.parse(restock)) : new Map<string, number>();
 
   const doneItems = await prisma.shoppingListItem.findMany({
     where: { listId: list.id, done: true },
     include: { product: { select: { name: true } } },
+    // Claimed in id order, so two phones finishing at once lock rows in the same order (no deadlock).
+    orderBy: { id: "asc" },
   });
   if (doneItems.length === 0) return { saved: false };
 
   const purchaseId = await prisma.$transaction(async (tx) => {
+    // Claim each row: only the ones this call actually took off the list count.
+    const taken: typeof doneItems = [];
+    for (const item of doneItems) {
+      const { count } = await tx.shoppingListItem.deleteMany({ where: { id: item.id, listId: list.id, done: true } });
+      if (count === 1) taken.push(item);
+    }
+    if (taken.length === 0) return null;
+
     const purchase = await tx.purchase.create({
       data: { householdId: profile.householdId, listId: list.id, purchasedById: profile.id },
     });
 
     await tx.purchaseItem.createMany({
-      data: doneItems.map((item) => ({
+      data: taken.map((item) => ({
         purchaseId: purchase.id,
         productId: item.productId,
         description: item.product.name,
@@ -286,14 +308,31 @@ export async function completeTrip(): Promise<{ saved: false } | { saved: true; 
       })),
     });
 
-    await tx.shoppingListItem.deleteMany({
-      where: { id: { in: doneItems.map((i) => i.id) } },
-    });
+    for (const item of taken) {
+      const amount = amounts.get(item.id);
+      if (!amount) continue;
+      await restockFromTrip(tx, profile.householdId, { medicationId: item.medicationId, vehicleSupplyId: item.vehicleSupplyId }, amount);
+    }
     return purchase.id;
   });
+  if (!purchaseId) return { saved: false };
 
   revalidateGroceries();
+  if (amounts.size) {
+    revalidatePath("/meds");
+    revalidatePath("/meds/manage");
+    revalidatePath("/vehicles/supplies");
+  }
   return { saved: true, purchaseId };
+}
+
+/** Phase 63a: what Finish asks a grown-up before saving (nothing for kids, nothing without a source). */
+export async function tripRestockQuestions(): Promise<RestockQuestion[]> {
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
+  if (!isAdult(profile)) return [];
+  const list = await getOrCreateActiveList(profile.householdId);
+  return restockQuestions(list.id, profile.householdId);
 }
 
 /** The /groceries Finish trip form (form actions return nothing), landing where the Shop view does. */
