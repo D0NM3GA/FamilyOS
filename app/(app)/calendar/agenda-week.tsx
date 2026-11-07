@@ -13,6 +13,7 @@ import { emptyDayLine, isLate, timeLabel, type AgendaDay, type AgendaItem, type 
 /** A stripe colour per kind, so a busy day can be scanned by what's on it. */
 const KIND_LOOK: Record<AgendaKind, { stripe: string; label: string }> = {
   date: { stripe: "border-l-pink-400", label: "Important date" },
+  bill: { stripe: "border-l-lime", label: "Bill" },
   outlook: { stripe: "border-l-grape", label: "Outlook" },
   schoolEvent: { stripe: "border-l-orange-400", label: "School calendar" },
   school: { stripe: "border-l-orange-400", label: "School to-do" },

@@ -14,7 +14,7 @@ import type { ImportantDateRow, SchoolDueRow, SchoolEventRow, TaskRow, VehicleDu
  * timed one is an instant, read in the household's zone, like lib/format's formatEventWhen.
  */
 
-export type AgendaKind = "date" | "outlook" | "schoolEvent" | "vehicle" | "school" | "homework" | "med" | "chore";
+export type AgendaKind = "date" | "bill" | "outlook" | "schoolEvent" | "vehicle" | "school" | "homework" | "med" | "chore";
 export type AgendaStatus = "open" | "done" | "skipped";
 
 export type AgendaItem = {
@@ -125,13 +125,14 @@ export function timeLabel(minutes: number): string {
 /** Within a day, all-day items come first, in this order; timed ones follow by time. */
 const KIND_ORDER: Record<AgendaKind, number> = {
   date: 0,
-  outlook: 1,
-  schoolEvent: 2,
-  vehicle: 3,
-  school: 4,
-  homework: 5,
-  med: 6,
-  chore: 7,
+  bill: 1,
+  outlook: 2,
+  schoolEvent: 3,
+  vehicle: 4,
+  school: 5,
+  homework: 6,
+  med: 7,
+  chore: 8,
 };
 
 export function compareAgendaItems(a: AgendaItem, b: AgendaItem): number {
@@ -365,3 +366,24 @@ export const shiftMonth = (first: Date, by: number) => new Date(first.getFullYea
 export const monthLabel = (first: Date) => first.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 /** A month's grid is always six weeks, starting on the Sunday on or before the 1st. */
 export const MONTH_GRID_DAYS = 42;
+
+/**
+ * Phase 63b: a bill's name on its due day (lib/finance/calendar-bills.ts gives only names and
+ * days, for the viewer's own jars). An event, not a to-do or anyone's; it links to Money's jar list.
+ */
+export function billItems(rows: readonly { day: string; name: string }[]): AgendaItem[] {
+  return rows.map((b) => ({
+    key: `bill:${b.day}:${b.name}`,
+    kind: "bill" as const,
+    emoji: "💸",
+    title: b.name,
+    who: null,
+    day: b.day,
+    minutes: null,
+    status: "open" as const,
+    note: "bill due",
+    href: "/finances",
+    external: false,
+  }));
+}
+
