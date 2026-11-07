@@ -11,10 +11,13 @@ import { scheduleFeedRefresh } from "@/lib/school/feeds/schedule";
 import { byDueDate, classAverages, isOverdue } from "@/lib/school/rules";
 import { formatMoney } from "@/lib/money";
 import { PageHeader } from "@/components/page-header";
-import { btn, btnDanger, card, chip, chipRow, fieldLabel, iconBtn, sectionTitle } from "@/components/styles";
-import { addAssignment, addTask, deleteAssignment, deleteTask, setAssignmentStatus, setTaskDone } from "./actions";
-import { ConfirmButton } from "@/components/confirm-button";
+import { btn, card, chip, chipRow, fieldLabel, iconBtn, sectionTitle } from "@/components/styles";
+import { addAssignment, addTask, deleteAssignment, deleteTask, setAssignmentStatus, setTaskDone, setTaskStatus } from "./actions";
 import { AssignmentForm, TaskForm } from "./forms";
+import { AssignmentRow, SchoolTaskRow } from "./rows";
+import { assignmentItem } from "@/lib/work-items/assignment";
+import { schoolTaskItem } from "@/lib/work-items/school-task";
+import { canRemoveAssignment } from "@/lib/school/permissions";
 import { requireAppOn } from "@/lib/app-guard";
 import { SubmitButton } from "@/components/submit";
 
@@ -181,27 +184,22 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                 {tasks.map((t) => {
                   const late = t.dueDate != null && t.dueDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
                   return (
-                    <li key={t.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 py-2">
-                      <form action={setTaskDone.bind(null, t.id, true)}>
-                        <DoneButton label={`Mark ${t.title} done`} />
-                      </form>
-                      <div className="min-w-0 flex-1 basis-40">
-                        <p className="text-sm text-foreground">
-                          <span className="text-xs text-muted-foreground">{KIND_LABEL[t.kind]}</span> {t.title}
-                          {t.amountCents != null && <span className="text-muted-foreground"> · {formatMoney(t.amountCents)}</span>}
-                        </p>
-                        <p className={`text-xs ${late ? "font-bold text-destructive" : "text-muted-foreground"}`}>
-                          {t.dueDate ? `${late ? "Was due" : "Due"} ${formatFullDate(t.dueDate)}` : "No due date"}
-                          {t.kid ? ` · ${t.kid.firstName}` : " · everyone"}
-                          {t.owner ? ` · ${t.owner.firstName} has it` : ""}
-                        </p>
-                      </div>
-                      <form action={deleteTask.bind(null, t.id)} className="ml-auto">
-                        <ConfirmButton message={`Remove "${t.title}"? This can't be undone.`} aria-label={`Remove ${t.title}`} className={btnDanger}>
-                          Remove
-                        </ConfirmButton>
-                      </form>
-                    </li>
+                    <SchoolTaskRow
+                      key={t.id}
+                      item={schoolTaskItem({ id: t.id, title: t.title, dueDate: t.dueDate, status: t.status, owner: t.owner }, viewer, today)}
+                      details={{ kind: KIND_LABEL[t.kind], amount: t.amountCents != null ? formatMoney(t.amountCents) : null }}
+                      meta={[
+                        t.dueDate ? `${late ? "Was due" : "Due"} ${formatFullDate(t.dueDate)}` : "No due date",
+                        t.kid ? t.kid.firstName : "everyone",
+                        t.owner ? `${t.owner.firstName} has it` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                      late={late}
+                      removeQuestion={`Remove "${t.title}"? This can't be undone.`}
+                      onStatus={setTaskStatus}
+                      onRemove={deleteTask}
+                    />
                   );
                 })}
               </ul>
@@ -248,60 +246,20 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                 <ul className="mt-2 divide-y divide-border">
                   {open.map((a) => {
                     const overdue = isOverdue(a, today);
-                    // Mirrors the server rules (actions.ts): a kid can't clear "missing" or
-                    // remove graded or missing work, so those controls aren't offered.
-                    const canTick = adult || a.status !== "MISSING";
-                    const canRemove = adult || (a.score == null && a.status !== "MISSING");
+                    const student = { id: person.id, firstName: person.firstName };
                     return (
-                      <li key={a.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 py-2">
-                        {canTick ? (
-                          <form action={setAssignmentStatus.bind(null, a.id, "DONE")}>
-                            <DoneButton label={`Mark ${a.title} done`} />
-                          </form>
-                        ) : (
-                          <span aria-hidden className="size-11 shrink-0 sm:size-9" />
-                        )}
-                        <div className="min-w-0 flex-1 basis-40">
-                          <p className="text-sm text-foreground">
-                            <span className="text-xs font-bold text-muted-foreground">{a.className}</span> {a.title}
-                            {a.status === "MISSING" && (
-                              <span className="ml-2 inline-block -rotate-1 rounded-md bg-tomato px-1.5 text-xs font-bold text-ink">
-                                Missing
-                              </span>
-                            )}
-                          </p>
-                          <p className={`text-xs ${overdue ? "font-bold text-destructive" : "text-muted-foreground"}`}>
-                            {a.dueDate ? `${overdue ? "Was due" : "Due"} ${formatFullDate(a.dueDate)}` : "No due date"}
-                          </p>
-                        </div>
-                        {(adult || canRemove) && (
-                          <div className="ml-auto flex flex-wrap items-center gap-2">
-                            {adult && a.status !== "MISSING" && (
-                              <form action={setAssignmentStatus.bind(null, a.id, "MISSING")}>
-                                <SubmitButton aria-label={`Mark ${a.title} missing`} className={btn}>
-                                  Missing
-                                </SubmitButton>
-                              </form>
-                            )}
-                            {adult && (
-                              <Link href={`/school/${person.id}/assignments/${a.id}`} aria-label={`Edit ${a.title}`} className={btn}>
-                                Edit
-                              </Link>
-                            )}
-                            {canRemove && (
-                              <form action={deleteAssignment.bind(null, a.id)}>
-                                <ConfirmButton
-                                  message={`Remove "${a.title}"${a.score != null ? " and its grade" : ""}? This can't be undone.`}
-                                  aria-label={`Remove ${a.title}`}
-                                  className={btnDanger}
-                                >
-                                  Remove
-                                </ConfirmButton>
-                              </form>
-                            )}
-                          </div>
-                        )}
-                      </li>
+                      <AssignmentRow
+                        key={a.id}
+                        item={assignmentItem({ ...a, student }, viewer, today)}
+                        className={a.className}
+                        dueText={a.dueDate ? `${overdue ? "Was due" : "Due"} ${formatFullDate(a.dueDate)}` : "No due date"}
+                        overdue={overdue}
+                        editHref={adult ? `/school/${person.id}/assignments/${a.id}` : undefined}
+                        canRemove={canRemoveAssignment(viewer, { studentId: person.id, status: a.status, score: a.score })}
+                        removeQuestion={`Remove "${a.title}"${a.score != null ? " and its grade" : ""}? This can't be undone.`}
+                        onStatus={setAssignmentStatus}
+                        onRemove={deleteAssignment}
+                      />
                     );
                   })}
                 </ul>
@@ -407,14 +365,5 @@ function Row({ label, value }: { label: string; value: string | null | undefined
       <dt className={`shrink-0 sm:w-28 ${fieldLabel}`}>{label}</dt>
       <dd className="whitespace-pre-line text-foreground">{value}</dd>
     </div>
-  );
-}
-
-/** A done box: small to look at, a whole thumb wide to tap. */
-function DoneButton({ label }: { label: string }) {
-  return (
-    <SubmitButton aria-label={label} className={`group ${iconBtn}`}>
-      <span aria-hidden className="size-5 rounded-md border-2 border-input transition group-hover:border-foreground" />
-    </SubmitButton>
   );
 }

@@ -2,16 +2,33 @@
 
 import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
-import { useEffect, useId, useRef, type ComponentProps, type ReactNode, type ToggleEvent } from "react";
+import { useEffect, useId, useRef, type ComponentProps, type ReactNode, type RefObject, type ToggleEvent } from "react";
 import { btn, menuItem } from "./styles";
 
 /**
  * The less-used things behind a ⋯, so a row or page shows one main action. A native popover: the
  * browser closes it on Esc or a tap elsewhere, and hands focus back to the button.
  */
-export function MoreMenu({ label, big = false, children }: { label: string; big?: boolean; children: ReactNode }) {
+export function MoreMenu({
+  label,
+  big = false,
+  face,
+  triggerClassName,
+  triggerRef,
+  children,
+}: {
+  label: string;
+  big?: boolean;
+  /** Phase 59.1a: what the button shows instead of ⋯ (the status pill), with its own classes. */
+  face?: ReactNode;
+  triggerClassName?: string;
+  /** For a caller that needs to hand focus back to the ⋯ (a question it showed after the menu closed). */
+  triggerRef?: RefObject<HTMLButtonElement | null>;
+  children: ReactNode;
+}) {
   const id = useId();
-  const trigger = useRef<HTMLButtonElement>(null);
+  const ownTrigger = useRef<HTMLButtonElement>(null);
+  const trigger = triggerRef ?? ownTrigger;
   const panel = useRef<HTMLDivElement>(null);
   const stopWatching = useRef<() => void>(() => {});
   useEffect(() => () => stopWatching.current(), []);
@@ -52,9 +69,9 @@ export function MoreMenu({ label, big = false, children }: { label: string; big?
         popoverTarget={id}
         aria-label={label}
         title={label}
-        className={`${btn} inline-flex shrink-0 items-center justify-center ${big ? "size-14" : "min-w-11"}`}
+        className={triggerClassName ?? `${btn} inline-flex shrink-0 items-center justify-center ${big ? "size-14" : "min-w-11"}`}
       >
-        <MoreHorizontal size={big ? 22 : 18} aria-hidden />
+        {face ?? <MoreHorizontal size={big ? 22 : 18} aria-hidden />}
       </button>
       <div
         ref={panel}

@@ -98,6 +98,15 @@ describe("every form in the app", () => {
     expect(TSX.flatMap(({ file, text }) => unaskedUses(file, text, names))).toEqual([]);
   });
 
+  // Phase 59.1a: School's rows are trusted to ask (lib/forms-guard.ts's ASKING_COMPONENTS), so the
+  // file they live in must still ask, right where it calls the remove it was handed.
+  test("School's rows still ask before removing", () => {
+    const rows = fs.readFileSync(path.join(ROOT, "app/(app)/school/rows.tsx"), "utf8");
+    const asks = rows.match(/<ConfirmAction\b[\s\S]*?await onRemove\(/g) ?? [];
+    expect(asks).toHaveLength(2);
+    expect(rows.match(/onRemove\(/g)).toHaveLength(2);
+  });
+
   test("the one-tap list only names real actions", () => {
     for (const name of Object.keys(ONE_TAP_OK)) expect(DESTRUCTIVE).toContain(name);
   });

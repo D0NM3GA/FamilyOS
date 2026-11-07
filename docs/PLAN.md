@@ -1681,7 +1681,9 @@ reverting with a short error on failure. Without, it's a plain label.
 - **Homework rows:** the pill replaces the Missing button; Edit and Remove move into a ⋯ menu.
   The tick box stays as the one-tap "turned in".
 - **Forms & to-dos:** the pill beside the tick box.
-- **Chore cards:** a pill beside the title; the Done button stays the primary action.
+- **Chore cards:** a pill in the card's action cluster (a menu can't sit inside the title's
+  `<p>`); the Done button stays the primary action. The pill holds Skip / Missed, so the ⋯ keeps
+  only Give to and nothing is offered twice (Fable's implementation review, 2026-11-07).
 
 ### 59.1b — Homework, tests, quizzes and projects
 

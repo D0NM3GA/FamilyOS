@@ -11,6 +11,9 @@ import { AwayTime } from "@/components/away-time";
 import { useReportMilestone } from "./milestone-toast";
 import { useRewardWords } from "@/components/family-look";
 import { rewardCount } from "@/lib/reward-words";
+import { StatusPill } from "@/components/status-pill";
+import type { WorkItem } from "@/lib/work-items/types";
+import { canDoChore, canSkipChore, canUndoChore } from "@/lib/tasks/permissions";
 
 // Not imported from lib/people.ts's fullName: that module's top-level `import { prisma }`
 // pulls the whole Postgres/pg dependency chain (Node built-ins like `tls`) into this
@@ -110,6 +113,7 @@ export function TaskInstanceCard({
   size = "normal",
   completeLabel = "Done",
   quietDone = false,
+  pill,
 }: {
   instance: Instance;
   viewerId: string;
@@ -161,12 +165,17 @@ export function TaskInstanceCard({
   quietDone?: boolean;
   /** The complete button's label, e.g. "Done!" for chores or "Taken" for meds. */
   completeLabel?: string;
+  /**
+   * Phase 59.1a: the chore's status pill (lib/work-items/chore.ts), worked out on the server.
+   * Chores passes it outside Big buttons; Meds and Home pass none, so their cards are unchanged.
+   */
+  pill?: WorkItem<Instance["status"]>;
 }) {
   const reward = useRewardWords();
   const big = size === "big";
   const zone = useHouseholdZone();
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(instance.status);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const [celebrating, setCelebrating] = useState(false);
   const { celebrate: celebrateLook } = useLook();
   // Set only when onComplete's result actually reports one (Meds' plain-void action never
@@ -181,16 +190,15 @@ export function TaskInstanceCard({
   // reverting the status also reverts the fade, instead of leaving the card stuck invisible.
   const exiting = disappearsOnComplete && optimisticStatus !== "PENDING";
 
-  const canComplete =
-    optimisticStatus === "PENDING" &&
-    (viewerIsAdult || instance.assignedTo?.id === viewerId || (claimable && !instance.assignedTo));
-  const canUndo =
-    optimisticStatus === "DONE" &&
-    (viewerIsAdult || instance.completedBy?.id === viewerId);
+  const who = { id: viewerId, adult: viewerIsAdult };
+  const canComplete = optimisticStatus === "PENDING" && canDoChore(who, { assignedToId: instance.assignedTo?.id ?? null }, claimable);
+  const canUndo = optimisticStatus === "DONE" && canUndoChore(who, { completedById: instance.completedBy?.id ?? null });
   const others = (reassignCandidates ?? []).filter((m) => m.id !== instance.assignedTo?.id);
   const canReassign = Boolean(onReassign) && others.length > 0 && viewerIsAdult && optimisticStatus === "PENDING";
-  const canSkip = Boolean(onSkip) && viewerIsAdult && optimisticStatus === "PENDING";
-  const canUnskip = Boolean(onUnskip) && viewerIsAdult && optimisticStatus === "SKIPPED";
+  const canSkip = Boolean(onSkip) && canSkipChore(who) && optimisticStatus === "PENDING";
+  // With a pill, Skip lives in the pill and the ⋯ keeps only Give to, so nothing is offered twice.
+  const skipInMenu = canSkip && !pill;
+  const canUnskip = Boolean(onUnskip) && canSkipChore(who) && optimisticStatus === "SKIPPED";
 
   // Skipping takes away the menu the focus was in, so it moves on to the Undo that replaces it.
   const undoButton = useRef<HTMLButtonElement>(null);
@@ -278,6 +286,13 @@ export function TaskInstanceCard({
     });
   }
 
+  function handlePick(to: Instance["status"]) {
+    if (to === "DONE") handleComplete();
+    else if (to === "SKIPPED" && onSkip) handleSkip();
+    else if (to === "PENDING" && (optimisticStatus !== "SKIPPED" || onUnskip)) handleUndo();
+  }
+  const pillLook = pill && !big ? pill.looks[optimisticStatus] : undefined;
+
   const dateLabel = [showDate ? formatRelative(instance.dueDate, zone) : null, timeLabel]
     .filter(Boolean)
     .join(" · ");
@@ -361,11 +376,15 @@ export function TaskInstanceCard({
           </p>
         )}
 
-        {(canReassign || canSkip || canComplete || canUndo || canUnskip) && (
+        {(pillLook || canReassign || skipInMenu || canComplete || canUndo || canUnskip) && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {(canReassign || canSkip) && (
+            {pill && pillLook && (
+              // One change at a time: "Undo" waits until the server has the completion it undoes.
+              <StatusPill look={pillLook} options={isPending ? [] : pill.options[optimisticStatus]} title={instance.definition.title} onPick={handlePick} />
+            )}
+            {(canReassign || skipInMenu) && (
               <MoreMenu label={`More for ${instance.definition.title}`} big={big}>
-                {canSkip && (
+                {skipInMenu && (
                   <button type="button" onClick={handleSkip} title={`Nobody does this one: no ${reward.many}`} className={menuItem}>
                     {skipLabel}
                   </button>
