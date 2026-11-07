@@ -12,6 +12,7 @@ import {
   fullName,
   nextOccurrence,
   dayInZone,
+  personConnections,
 } from "@/lib/people";
 import { getHouseholdSettings } from "@/lib/household-settings";
 import { getDisabledApps } from "@/lib/app-switches";
@@ -103,6 +104,8 @@ export default async function PersonRecordPage({
     ]);
 
   const chorePoints = choreTally?.find((t) => t.person.id === person.id)?.points ?? 0;
+  // Phase 63c: what this person is to the family elsewhere (a doctor, a pharmacy, a teacher), for grown-ups.
+  const connections = viewerIsAdult ? await personConnections(person.id, profile.householdId, { meds: on("meds"), school: on("school") }) : null;
 
   // Phase 59.4b: everything open for this person, each with its pill and its side panel. Homework
   // only for whoever can see it (grades are personal); forms they're handling, for grown-ups.
@@ -225,6 +228,29 @@ export default async function PersonRecordPage({
         <RecordTabs
           catchUp={
             <>
+              {connections && (connections.meds.length > 0 || connections.school.length > 0) && (
+                <Card title="Connected to">
+                  <ul className="space-y-1 text-sm">
+                    {connections.meds.map((m) => (
+                      <li key={`med-${m.definitionId}`}>
+                        💊 {m.as === "prescribes" ? "Prescribes" : "Fills"}{" "}
+                        <Link href={`/meds/${m.definitionId}/edit`} className="font-medium underline">
+                          {m.title}
+                        </Link>
+                        {m.whose.length > 0 && <span className="text-muted-foreground"> for {m.whose.join(", ")}</span>}
+                      </li>
+                    ))}
+                    {connections.school.map((c) => (
+                      <li key={`school-${c.studentId}`}>
+                        🎒 {c.role || "School contact"} for{" "}
+                        <Link href={`/school?kid=${encodeURIComponent(c.studentId)}`} className="font-medium underline">
+                          {c.studentName}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
               <Card title="Recent interactions">
                 {interactions.length === 0 ? (
                   <EmptyNote>Nothing logged yet — use the box above.</EmptyNote>
