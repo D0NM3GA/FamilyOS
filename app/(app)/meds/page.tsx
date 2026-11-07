@@ -165,6 +165,7 @@ export default async function MedsPage({
                 timeLabel={formatTimeOfDay(i.dueDate)}
                 disappearsOnComplete
                 quietDone
+                notYet
                 index={idx}
               />
             ))}

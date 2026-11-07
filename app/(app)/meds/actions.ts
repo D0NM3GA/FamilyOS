@@ -7,6 +7,7 @@ import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAdult, assertOwnRecord } from "@/lib/authz";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { doseConsumption, isLowStock } from "@/lib/meds/quantity";
+import { canTakeYet } from "@/lib/meds/dose-window";
 import { searchRxTerms } from "@/lib/meds/rxterms";
 import { medFormSchema } from "@/lib/meds/form";
 import { requestItemByName } from "@/lib/shopping-list";
@@ -251,6 +252,8 @@ export async function completeInstance(instanceId: string) {
     throw new Error("Medication dose not found");
   }
   assertOwnRecord(profile, instance.assignedToId);
+  // Phase 60: not ahead of its day (Upcoming hides Taken; this is for a stale page).
+  if (!canTakeYet(instance.dueDate)) throw new Error("That dose isn't due yet");
 
   const pointsRecipient = instance.assignedToId ?? profile.id;
   const now = new Date();

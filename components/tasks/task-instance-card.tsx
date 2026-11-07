@@ -118,6 +118,7 @@ export function TaskInstanceCard({
   moves,
   onMove,
   selectable = false,
+  notYet = false,
 }: {
   instance: Instance;
   viewerId: string;
@@ -179,6 +180,8 @@ export function TaskInstanceCard({
   onMove?: (instanceId: string, to: "today" | "tomorrow" | "back") => Promise<{ moved: boolean }>;
   /** Phase 59.3: shows a tick box while the board is selecting (components/selection.tsx). */
   selectable?: boolean;
+  /** Phase 60: can't be done yet (Meds' Upcoming: a dose is taken from its day on), so no complete button. */
+  notYet?: boolean;
 }) {
   const reward = useRewardWords();
   const big = size === "big";
@@ -201,7 +204,7 @@ export function TaskInstanceCard({
   const exiting = disappearsOnComplete && optimisticStatus !== "PENDING";
 
   const who = { id: viewerId, adult: viewerIsAdult };
-  const canComplete = optimisticStatus === "PENDING" && canDoChore(who, { assignedToId: instance.assignedTo?.id ?? null }, claimable);
+  const canComplete = !notYet && optimisticStatus === "PENDING" && canDoChore(who, { assignedToId: instance.assignedTo?.id ?? null }, claimable);
   const canUndo = optimisticStatus === "DONE" && canUndoChore(who, { completedById: instance.completedBy?.id ?? null });
   const others = (reassignCandidates ?? []).filter((m) => m.id !== instance.assignedTo?.id);
   const canReassign = Boolean(onReassign) && others.length > 0 && viewerIsAdult && optimisticStatus === "PENDING";
