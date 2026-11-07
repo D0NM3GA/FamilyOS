@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -30,6 +31,7 @@ const nameSchema = z.string().trim().min(1, "Give the feed a name, like \"Lincol
 
 export async function addFeed(_prev: FeedFormState, fd: FormData): Promise<FeedFormState> {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "school");
   return saveFeed(admin, String(fd.get("name") ?? ""), String(fd.get("url") ?? ""), String(fd.get("kidPersonId") ?? "") || null);
 }
 
@@ -93,6 +95,7 @@ async function saveFeed(admin: { householdId: string }, rawName: string, rawUrl:
 
 export async function refreshFeedNow(feedId: string): Promise<FeedFormState> {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "school");
   const { count } = await prisma.schoolFeed.updateMany({
     where: { id: feedId, householdId: admin.householdId, OR: [{ leaseUntil: null }, { leaseUntil: { lt: new Date() } }] },
     data: { leaseUntil: new Date(Date.now() + 2 * 60_000) },
@@ -106,6 +109,7 @@ export async function refreshFeedNow(feedId: string): Promise<FeedFormState> {
 
 export async function removeFeed(feedId: string) {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "school");
   await prisma.schoolFeed.deleteMany({ where: { id: feedId, householdId: admin.householdId } });
   revalidateFeeds();
 }
@@ -128,6 +132,7 @@ export type FindState = {
  */
 export async function findSchoolCalendars(_prev: FindState, fd: FormData): Promise<FindState> {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "school");
   const site = schoolSiteUrl(String(fd.get("site") ?? ""));
   if (!site) return { error: FINDER_ERRORS.address };
   const household = await prisma.household.findUniqueOrThrow({ where: { id: admin.householdId }, select: { timezone: true } });
@@ -162,6 +167,7 @@ export async function findSchoolCalendars(_prev: FindState, fd: FormData): Promi
 /** Adds one found calendar: the address comes out of the sealed list, never from the browser. */
 export async function addFoundCalendar(_prev: FeedFormState, fd: FormData): Promise<FeedFormState> {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "school");
   const entry = openFound(String(fd.get("sealed") ?? ""), Number(fd.get("index")), { householdId: admin.householdId, personId: admin.id });
   if (!entry) return { error: "That search has expired. Find the calendars again." };
   return saveFeed(admin, String(fd.get("name") ?? "") || entry.name, entry.url, String(fd.get("kidPersonId") ?? "") || null);

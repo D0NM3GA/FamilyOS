@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/app/generated/prisma/client";
@@ -39,6 +40,7 @@ function revalidateSupplies() {
 
 export async function createSupply(_prev: SupplyFormState, formData: FormData): Promise<SupplyFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const parsed = parseSupplyForm(formData);
   if (!parsed.ok) return { error: parsed.error };
   if (await nameTaken(profile.householdId, parsed.fields.name)) return duplicateName(parsed.fields.name);
@@ -52,6 +54,7 @@ export async function createSupply(_prev: SupplyFormState, formData: FormData): 
 
 export async function updateSupply(supplyId: string, _prev: SupplyFormState, formData: FormData): Promise<SupplyFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const parsed = parseSupplyForm(formData);
   if (!parsed.ok) return { error: parsed.error };
   if (await nameTaken(profile.householdId, parsed.fields.name, supplyId)) return duplicateName(parsed.fields.name);
@@ -68,6 +71,7 @@ export async function updateSupply(supplyId: string, _prev: SupplyFormState, for
 /** Deactivate instead of delete: a delete would erase what past services took from it. */
 export async function setSupplyActive(supplyId: string, active: boolean) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   await prisma.vehicleSupply.updateMany({ where: { id: supplyId, householdId: profile.householdId }, data: { active } });
   revalidateSupplies();
 }
@@ -78,6 +82,7 @@ export async function setSupplyActive(supplyId: string, active: boolean) {
  */
 export async function addSupplyStock(supplyId: string, _prev: SupplyFormState, formData: FormData): Promise<SupplyFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const amount = Number(String(formData.get("amount") ?? "").trim());
   if (!Number.isFinite(amount) || amount <= 0 || amount > 100_000) return { error: "Enter an amount above zero." };
   if (!(await addStock(prisma, profile.householdId, supplyId, roundQuantity(amount)))) {

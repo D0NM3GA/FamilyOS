@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -37,6 +38,7 @@ async function ownProfile(householdId: string, personId: string) {
 
 export async function saveProfile(personId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "school");
   if (!(await householdMember(profile.householdId, personId))) return { error: "That family member wasn't found." };
   const parsed = parseProfileForm(fd);
   if (!parsed.ok) return { error: parsed.error };
@@ -57,6 +59,7 @@ const contactSchema = z.object({
 /** Links a teacher/office contact: an existing People contact, or a new one made here. */
 export async function addSchoolContact(profileId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "school");
   const school = await prisma.schoolProfile.findFirst({ where: { id: profileId, person: { householdId: profile.householdId } }, select: { id: true } });
   if (!school) return { error: "Add the school details first." };
   const parsed = contactSchema.safeParse(Object.fromEntries(["role", "existingPersonId", "firstName", "lastName", "email", "phone"].map((k) => [k, String(fd.get(k) ?? "").trim()])));
@@ -96,12 +99,14 @@ export async function addSchoolContact(profileId: string, _prev: SchoolFormState
 
 export async function removeSchoolContact(profileId: string, personId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "school");
   await prisma.schoolContact.deleteMany({ where: { profileId, personId, profile: { person: { householdId: profile.householdId } } } });
   revalidateSchool();
 }
 
 export async function addTask(_prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "school");
   const parsed = parseTaskForm(fd);
   if (!parsed.ok) return { error: parsed.error };
   const { kidPersonId, ownerPersonId } = parsed.fields;
@@ -115,6 +120,7 @@ export async function addTask(_prev: SchoolFormState, fd: FormData): Promise<Sch
 
 export async function setTaskDone(taskId: string, done: boolean) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "school");
   await prisma.$transaction((tx) => setTaskDoneIn(tx, profile, taskId, done));
   revalidateSchool();
 }
@@ -127,6 +133,7 @@ export async function setTaskStatus(taskId: string, status: "OPEN" | "DONE") {
 
 export async function deleteTask(taskId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "school");
   await prisma.$transaction(async (tx) => {
     const { count } = await tx.schoolTask.deleteMany({ where: { id: taskId, householdId: profile.householdId } });
     if (count > 0) await deleteEventsFor(tx, "SCHOOL_TASK", [taskId]);
@@ -136,6 +143,7 @@ export async function deleteTask(taskId: string) {
 
 export async function addAssignment(personId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
   const viewer = await requireActiveProfile();
+  await assertAppOn(viewer.householdId, "school");
   if (!canSeeStudent(viewer, personId)) return { error: "You can only add your own homework." };
   const school = await ownProfile(viewer.householdId, personId);
   if (!school) return { error: "Add the school details first." };
@@ -160,6 +168,7 @@ async function findAssignment(viewer: { householdId: string; id: string; role: "
 
 export async function setAssignmentStatus(assignmentId: string, status: "TODO" | "DONE" | "MISSING") {
   const viewer = await requireActiveProfile();
+  await assertAppOn(viewer.householdId, "school");
   if (!["TODO", "DONE", "MISSING"].includes(status)) throw new Error("Unknown status");
   const result = await prisma.$transaction((tx) => setAssignmentStatusIn(tx, viewer, assignmentId, status));
   if (!result.ok && result.reason === "not found") throw new Error("Assignment not found");
@@ -170,6 +179,7 @@ export async function setAssignmentStatus(assignmentId: string, status: "TODO" |
 /** Adults: the full edit, including the grade. */
 export async function updateAssignment(assignmentId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
   const viewer = await requireAdult();
+  await assertAppOn(viewer.householdId, "school");
   const existing = await findAssignment(viewer, assignmentId);
   if (!existing) return { error: "Assignment not found." };
   const parsed = parseAssignmentForm(fd);
@@ -200,6 +210,7 @@ export async function updateAssignment(assignmentId: string, _prev: SchoolFormSt
 
 export async function deleteAssignment(assignmentId: string) {
   const viewer = await requireActiveProfile();
+  await assertAppOn(viewer.householdId, "school");
   const existing = await findAssignment(viewer, assignmentId);
   if (!existing) throw new Error("Assignment not found");
   // Kids can remove their own homework, not a grade or a "missing" a grown-up recorded.
@@ -229,6 +240,7 @@ const CHANGED_MEANWHILE = "Someone changed this one just now. Reload the page an
  */
 export async function setAssignmentDetails(assignmentId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
   const viewer = await requireActiveProfile();
+  await assertAppOn(viewer.householdId, "school");
   const parsed = parseAssignmentDetails(fd);
   if (!parsed.ok) return { error: parsed.error };
   const kid = !isAdult(viewer);
@@ -261,6 +273,7 @@ export async function setAssignmentDetails(assignmentId: string, _prev: SchoolFo
 /** Grown-ups: the score and what it's out of, from the row. */
 export async function gradeAssignment(assignmentId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
   const viewer = await requireAdult();
+  await assertAppOn(viewer.householdId, "school");
   const parsed = parseGrade(fd);
   if (!parsed.ok) return { error: parsed.error };
   const result = await prisma.$transaction(async (tx) => {
@@ -298,6 +311,7 @@ function seenChange(seen: string): Date {
  */
 export async function approveKidChange(assignmentId: string, seen: string) {
   const viewer = await requireAdult();
+  await assertAppOn(viewer.householdId, "school");
   const at = seenChange(seen);
   const approved = await prisma.$transaction(async (tx) => {
     const { count } = await tx.schoolAssignment.updateMany({
@@ -317,6 +331,7 @@ export async function approveKidChange(assignmentId: string, seen: string) {
  */
 export async function putBackKidChange(assignmentId: string, seen: string) {
   const viewer = await requireAdult();
+  await assertAppOn(viewer.householdId, "school");
   const at = seenChange(seen);
   const done = await prisma.$transaction(async (tx) => {
     const a = await tx.schoolAssignment.findFirst({
@@ -356,6 +371,7 @@ export async function putBackKidChange(assignmentId: string, seen: string) {
 /** Grown-ups: a form, fee or to-do's full edit. */
 export async function updateTask(taskId: string, _prev: SchoolFormState, fd: FormData): Promise<SchoolFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "school");
   const parsed = parseTaskForm(fd);
   if (!parsed.ok) return { error: parsed.error };
   const { kidPersonId, ownerPersonId } = parsed.fields;
@@ -400,6 +416,7 @@ export async function updateTask(taskId: string, _prev: SchoolFormState, fd: For
 /** Grown-ups: "I've got it", in one tap. */
 export async function claimTask(taskId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "school");
   await prisma.$transaction(async (tx) => {
     const before = await tx.schoolTask.findFirst({ where: { id: taskId, householdId: profile.householdId }, include: { owner: { select: { firstName: true } } } });
     if (!before || before.ownerPersonId === profile.id) return;
@@ -420,6 +437,7 @@ const schoolBulk = bulkSchema(["TODO", "DONE", "MISSING", "FORM_DONE"] as const)
  */
 export async function bulkSchool(input: unknown): Promise<BulkResult | { error: string }> {
   const viewer = await requireAdult();
+  await assertAppOn(viewer.householdId, "school");
   const parsed = schoolBulk.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "That didn't look right." };
   const { ids, action } = parsed.data;

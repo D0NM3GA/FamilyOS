@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -27,6 +28,7 @@ function sniffImage(bytes: Uint8Array): boolean {
  */
 export async function readReceipt(_prev: ReadState, formData: FormData): Promise<ReadState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "groceries");
   const file = formData.get("photo");
   const purchaseId = typeof formData.get("purchase") === "string" ? String(formData.get("purchase")).slice(0, 64) || null : null;
   if (!(file instanceof File) || file.size === 0) return { status: "error", message: "Pick a photo of the receipt first." };
@@ -76,6 +78,7 @@ const reviewSchema = z.object({
 /** Saves the reviewed prices and learned matches. Grown-ups only; every id household-checked. */
 export async function saveReceipt(review: z.input<typeof reviewSchema>): Promise<{ error: string } | void> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "groceries");
   const parsed = reviewSchema.safeParse(review);
   if (!parsed.success) return { error: "Something about that receipt didn't look right. Try reading it again." };
   const saved = await saveReceiptPrices(profile.householdId, parsed.data);
