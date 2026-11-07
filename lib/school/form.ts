@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseMoneyInput } from "@/lib/money";
 import { parseLocalDate } from "@/lib/format";
 
 /**
@@ -61,8 +62,9 @@ export function parseTaskForm(fd: FormData): Result<TaskFields> {
   if (!TASK_KINDS.includes(kind)) return { ok: false, error: "Pick a kind." };
   const dueDate = optionalDate(get(fd, "dueDate"));
   if (dueDate === "invalid") return { ok: false, error: "Enter a valid date." };
-  const amount = optionalNumber(get(fd, "amount").replace(/[$,]/g, ""), 100_000);
-  if (amount === "invalid") return { ok: false, error: "Enter an amount like 12.50." };
+  // Phase 60: whole cents by the money rule (lib/money.ts), never float maths; up to $100,000 as before.
+  const amount = parseMoneyInput(get(fd, "amount"), { max: 10_000_000 });
+  if (!amount.ok) return { ok: false, error: /too large/i.test(amount.error) ? "That's more than $100,000." : "Enter an amount like 12.50." };
   return {
     ok: true,
     fields: {
@@ -71,7 +73,7 @@ export function parseTaskForm(fd: FormData): Result<TaskFields> {
       kidPersonId: get(fd, "kidPersonId") || null,
       ownerPersonId: get(fd, "ownerPersonId") || null,
       dueDate,
-      amountCents: amount === null ? null : Math.round(amount * 100),
+      amountCents: amount.cents,
       notes: get(fd, "notes").trim().slice(0, 2000) || null,
     },
   };
