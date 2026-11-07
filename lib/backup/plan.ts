@@ -420,6 +420,7 @@ export function remapBackup(
   const items = mapFor(b.maintenanceItems);
   const logs = mapFor(b.serviceLogs);
   const supplies = mapFor(b.vehicleSupplies);
+  const meds = mapFor(b.medications);
   const schoolProfiles = mapFor(b.schoolProfiles);
   // Phase 59.1c: history events point at these by id, so they get maps like the rest.
   const schoolTaskIds = mapFor(b.schoolTasks);
@@ -451,6 +452,9 @@ export function remapBackup(
         kidPick: r.kidPick,
         addedById: opt(people, r.addedById),
         requestedById: opt(people, r.requestedById),
+        // Phase 63a: the medicine or supply it came from, when that's in the file too.
+        medicationId: r.medicationId ? (meds.get(r.medicationId) ?? null) : null,
+        vehicleSupplyId: r.vehicleSupplyId ? (supplies.get(r.vehicleSupplyId) ?? null) : null,
         createdAt: date(r.createdAt),
       },
     ];
@@ -536,7 +540,7 @@ export function remapBackup(
       .map((r) => ({ definitionId: req(defs, r.id), personIds: r.assigneeIds.map((id) => req(people, id)) })),
     medications: b.medications.map((r) => ({
       ...r,
-      id: newId(),
+      id: req(meds, r.id),
       taskDefinitionId: req(defs, r.taskDefinitionId),
       prescriberId: opt(people, r.prescriberId),
       pharmacyId: opt(people, r.pharmacyId),

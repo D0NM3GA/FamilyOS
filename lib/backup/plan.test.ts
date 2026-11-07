@@ -168,7 +168,7 @@ function fullBackup(): Backup {
     { id: "p1", name: "Eggs", barcode: "123", brand: null, imageUrl: null, sizeAmount: 12, sizeUnit: "count", container: "carton", defaultStoreId: "s1", groupId: "g1", createdAt: T },
   ];
   b.shoppingListItems = [
-    { id: "li1", productId: "p1", quantity: 1, done: false, kidPick: true, addedById: "mom", requestedById: "kid", createdAt: T },
+    { id: "li1", productId: "p1", quantity: 1, done: false, kidPick: true, addedById: "mom", requestedById: "kid", medicationId: null, vehicleSupplyId: null, createdAt: T },
   ];
   b.purchases = [{ id: "pu1", purchasedAt: T, purchasedById: "mom" }];
   b.purchaseItems = [{ id: "pi1", purchaseId: "pu1", productId: "p1", description: "Eggs", quantity: 1, requestedById: "kid", kidPick: true }];
