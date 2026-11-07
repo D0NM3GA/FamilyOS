@@ -11,6 +11,7 @@ import { getDailyForecast, type ForecastPeriod } from "@/lib/weather";
 import { weatherFlagFor } from "@/lib/chores/weather-flag";
 import { TaskInstanceCard } from "@/components/tasks/task-instance-card";
 import { toCardInstance } from "@/lib/tasks/card";
+import { choreItem } from "@/lib/work-items/chore";
 import { MilestoneToastBoard } from "@/components/tasks/milestone-toast";
 import { PersonFilterRow } from "@/components/tasks/person-filter-row";
 import { PageHeader } from "@/components/page-header";
@@ -48,7 +49,7 @@ export default async function ChoresPage({
   const horizon = addDays(new Date(), 14);
   await ensureInstancesGenerated(profile.householdId, horizon, "CHORE");
 
-  const [{ overdue, dueToday, upcoming, olderMissed }, tally, members, household] = await Promise.all([
+  const [{ overdue, dueToday, upcoming, olderMissed, today }, tally, members, household] = await Promise.all([
     // Big cards look a few days ahead, not two weeks — it's a "my stuff now" list.
     // Big "my chores" includes "Anyone" ones they can grab.
     getBoardInstances(profile.householdId, { personId: personFilter, includeUnassigned: bigCards, domain: "CHORE", horizonDays }),
@@ -73,6 +74,11 @@ export default async function ChoresPage({
     overdue.length === 0 && dueToday.length > 0 && dueToday.every((i) => i.status !== "PENDING");
 
   const reassignCandidates = members.map((m) => ({ id: m.id, firstName: m.firstName }));
+  // Phase 59.1a: each card's status pill, worked out here so the browser never decides a day.
+  // Big buttons keeps its cards as they were.
+  // The board's own today, so a pill and its section can't disagree across midnight.
+  const pillFor = (i: (typeof allInstances)[number], skippable: boolean) =>
+    big ? undefined : choreItem(toCardInstance(i), profile, { skippable: skippable && viewerIsAdult, now: today });
 
   return (
     <div className="p-4 sm:p-6">
@@ -142,6 +148,7 @@ export default async function ChoresPage({
                   skipLabel="Missed"
                   reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
                   weatherNote={weatherNoteFor(i)}
+                  pill={pillFor(i, true)}
                   disappearsOnComplete
                   index={idx}
                   {...cardLook}
@@ -181,6 +188,7 @@ export default async function ChoresPage({
                   onUnskip={viewerIsAdult ? unskipInstance : undefined}
                   reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
                   weatherNote={weatherNoteFor(i)}
+                  pill={pillFor(i, true)}
                   showDate={false}
                   index={idx}
                   {...cardLook}
@@ -209,6 +217,7 @@ export default async function ChoresPage({
                   onReassign={viewerIsAdult ? reassignInstance : undefined}
                   reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
                   weatherNote={weatherNoteFor(i)}
+                  pill={pillFor(i, false)}
                   disappearsOnComplete
                   quietDone
                   index={idx}

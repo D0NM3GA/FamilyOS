@@ -1610,6 +1610,247 @@ Checked 2026-11-01, beyond the files named above:
 - **Data:** a migration adding `look`, `lookColor`, `lookPromptSeenAt` on `Person`, the backup
   exclusions in `coverage.test.ts`, and `prisma/seed-demo.ts` giving the made-up family a mix.
 
+## Phase 59 — scope (quick status work: chores, school and people, 2026-11-07)
+
+The owner wants status work to feel like a good ticketing tool: see where everything stands
+at a glance, change it in one or two taps, act on several at once, and open an item's details
+without leaving the list. Checked against the code 2026-11-07; Fable's scope review (same day)
+checked it again and is folded in.
+
+- **Chores** (`chores/page.tsx`, `components/tasks/task-instance-card.tsx`): Done and Undo are
+  optimistic; Skip and reassign sit in the ⋯ menu. Status shows only as which section a card is
+  in. One chore at a time; the only bulk action is "Mark older missed".
+- **Homework & tests** (`school/page.tsx`): To do, Done and Missing. A test looks like
+  homework (no type). The due date, class or grade change only on a separate edit page, so
+  grading takes two page loads. One kid at a time.
+- **Forms & to-dos:** done or removed, **never edited**: changing who has it or when it's due
+  means delete and add again.
+- **People:** the list shows name, contact and role, nothing about what's open. The record
+  shows chore counts and only the school's name.
+
+### The rules every part keeps
+
+- **One new permission, nothing else changes** (the owner's call, 2026-11-07): a kid may edit the
+  details of their own homework (see 59.2), and grown-ups review it. Every other quick action
+  calls the same rule the full action does today: a kid can't set or clear Missing, can't remove
+  graded or missing work, touches only their own homework, may do their own or an "Anyone" chore
+  and undo only what they did; only grown-ups skip, reassign, move, grade or handle forms. Rules
+  that live inline in an action today move to pure functions both paths share, with tests.
+- **Big buttons is unchanged.** Pills menus, selecting, the list view and presets are hidden
+  whenever the view is Big buttons (`big`, including its "Everyone" board), not only on big cards.
+- **Meds, and Home's big view, keep the card as it is.** The shared card gains the new pieces
+  behind props Chores passes; Meds and Home pass none this phase.
+- **Destructive stays asking first.** A status change isn't destructive; a remove is. `MoreMenu`
+  closes on any tap inside it, so Remove in a ⋯ menu sets row state that shows `ConfirmAction` in
+  the row, outside the menu (`ConfirmButton` stays acceptable where it's used today).
+- **Only what's needed reaches the browser.** List rows, the side panel, pills and badges are
+  client-rendered, so each maps down like `toCardInstance` (`lib/tasks/card.ts`): people as
+  `{ id, firstName }`, history actors as first names only.
+- **Phone first.** Every menu, popover and panel works by touch at 44px; nothing is hover-only.
+  Keyboard shortcuts are out of this phase.
+- **Guides in the same PR** (`docs/guides/family.md`, `docs/guides/admin.md`) for each part
+  that changes what people see.
+
+### 59.1a — One status language
+
+**`lib/work-items`** (pure, no Prisma): one shape for "something with a status that someone
+does", and an adapter per domain.
+
+- `WorkItem = { type, id, title, who, due, status, statusLabel, tone, nextStatuses }`, where
+  `type` is `CHORE` | `ASSIGNMENT` | `SCHOOL_TASK` and `who` is `{ id, firstName } | null`.
+- `status` is the shared vocabulary: `DUE`, `DUE_TODAY`, `OVERDUE`, `DONE`, `TURNED_IN`,
+  `GRADED`, `SKIPPED`, `MISSED`, `MISSING`. Derived, never stored, from the existing enums
+  (`PENDING/DONE/SKIPPED`, `TODO/DONE/MISSING`, `OPEN/DONE`):
+  - overdue and due today from the due date, using each board's own rule (chores:
+    `overdueSince`, a 7-day window; homework: `isOverdue`, unbounded), so pills match the boards;
+  - a skipped chore is "Missed" when it was skipped after its due day (`completedAt`'s day is
+    later than `dueDate`'s), "Skipped" otherwise;
+  - an assignment's status wins and a score is a suffix: `DONE` with a score is "Graded 18/20",
+    `DONE` without is "Turned in", `MISSING` is "Missing" even with a score.
+- Each adapter maps its row and the viewer to a `WorkItem` and lists the next statuses that
+  viewer may pick, from the shared permission functions. Chore: Done / Skip or Missed / Undo.
+  Assignment: Turned in / To do / Missing. Form: Done / Open.
+- Unit tests over each adapter's mapping and permissions, kid and grown-up.
+
+**`components/status-pill.tsx`:** shows `statusLabel` in its `tone` (the existing
+destructive/amber/green/muted classes, which pair light and `dark:` shades and pass `axe` in
+every look). With next statuses it's a button opening a small menu (the `MoreMenu` pattern);
+picking one calls the domain's server action optimistically, like the chore card's Done,
+reverting with a short error on failure. Without, it's a plain label.
+
+- **Homework rows:** the pill replaces the Missing button; Edit and Remove move into a ⋯ menu.
+  The tick box stays as the one-tap "turned in".
+- **Forms & to-dos:** the pill beside the tick box.
+- **Chore cards:** a pill in the card's action cluster (a menu can't sit inside the title's
+  `<p>`); the Done button stays the primary action. The pill holds Skip / Missed, so the ⋯ keeps
+  only Give to and nothing is offered twice (Fable's implementation review, 2026-11-07).
+
+### 59.1b — Homework, tests, quizzes and projects
+
+- **`SchoolAssignment.kind`:** enum `AssignmentKind { HOMEWORK TEST QUIZ PROJECT }`, default
+  `HOMEWORK`, so existing rows are homework. In `lib/school/form.ts` as `ASSIGNMENT_KINDS`
+  (`TASK_KINDS` there is already the forms' kinds).
+- The add and edit forms gain a type picker; tests and quizzes show their own icon; the
+  homework card's heading counts "Tests this week: n". Export (`lib/school/export.ts`) and the
+  backup schema carry it (`coverage.test.ts` forces both).
+
+### 59.1c — A history of changes
+
+```
+model WorkItemEvent {
+  id          String       @id @default(cuid())
+  householdId String       (FK, cascade)
+  itemType    WorkItemType (CHORE | ASSIGNMENT | SCHOOL_TASK)
+  itemId      String       (no FK: polymorphic)
+  actorId     String?      (Person, SetNull)
+  action      String       (STATUS | ASSIGN | MOVE | EDIT | GRADE | APPROVE | PUT_BACK)
+  field       String?      (for EDIT: which field)
+  fromValue   String?      (capped at 200 characters; never notes)
+  toValue     String?
+  createdAt   DateTime
+  @@index([itemType, itemId, createdAt])
+  @@index([householdId, createdAt])
+}
+```
+
+- **Written in the same transaction as the change** by `recordEvent(tx, …)`, from every status
+  and field action in Chores and School: complete, undo, reassign, skip, unskip, mark older
+  missed (which becomes a `findMany` of ids, then the update and one event each), set assignment
+  status, update assignment, set task done. Not from instance generation. A notes edit records
+  the field name only.
+- **Cleanup in code, since `itemId` has no foreign key.** Every delete of the three item models
+  deletes its events in the same transaction: `deleteAssignment`, `deleteTask`, deactivating a
+  chore (`setDefinitionActive`, which deletes pending instances), and the zone move's raw
+  `DELETE FROM task_instance` (`lib/household-zone.ts`). Meds' instance deletes have no events;
+  they're allowlisted with that reason. A guard test, like `forms-guard.test.ts` but scanning
+  `app/` and `lib/`, finds every Prisma delete and raw `DELETE FROM` of those tables and fails on
+  one with no cleanup or allowlist entry. Reads look up by `itemId`, so a missed orphan is
+  invisible, not wrong.
+- **Backups:** included (it's the family's record). Restore gives every row a new id, so:
+  `workItemEvents` joins `lib/backup/schema.ts` and `build.ts`; the restore wipe deletes the
+  household's events; `schoolTasks` and `schoolAssignments` gain id maps like `taskInstances`
+  has; and each event's `itemId` is remapped by `itemType` (and `actorId` through `people`),
+  dropping any that point at nothing. Covered in `restore.db.test.ts`. Exports leave it out.
+- **Who sees it:** whoever sees the item. A kid sees history on their own homework, and on chores
+  assigned to them or to anyone.
+- Lands before 59.2 and 59.3, which record events.
+
+### 59.2 — Change fields in place
+
+- **Forms & to-dos get an edit:** `updateTask` (grown-ups) with `addTask`'s parser: title,
+  kind, kid, owner, due date, amount, notes. Opened from the row's ⋯ menu as an inline form under
+  the row; "I've got it" in the ⋯ menu sets the owner to the active grown-up in one tap.
+- **Homework quick fields:** tapping the due date, class, title or type opens it in place; "Grade
+  it" opens a score / out-of pair on any assignment, as the full form allows. Narrow actions
+  (`setAssignmentDetails`, `gradeAssignment`) apply `updateAssignment`'s rules and record events.
+  The full edit page stays for notes and everything at once.
+- **Kids edit their own, grown-ups review** (the owner's call, 2026-11-07): a kid may change the
+  title, class, type and due date of their own homework that isn't Missing or graded. The change
+  applies at once, sets `SchoolAssignment.kidChangedAt`, and records `EDIT` events with the old
+  values. Grown-ups see "Changed by Ivy" on the row, and School's heading says "2 changes to
+  check". **Approve** clears the flag; **Put back** restores each changed field's oldest
+  `fromValue` since the last review, clears the flag, and records `PUT_BACK`. Grades, Missing,
+  notes and removing what a grown-up recorded stay grown-up only.
+- **Chores: Move to tomorrow, and Move to today** (grown-ups; the owner's call, 2026-11-07), in
+  the card's ⋯ menu, for a pending chore whose definition isn't daily: tomorrow for one due today
+  or overdue, and today for an overdue one. A daily chore already has tomorrow's copy
+  (`@@unique([definitionId, dueDate])`), so it keeps Skip instead. The option shows only when the
+  target day has no instance of that chore; the action checks again under the lock and does
+  nothing if one appeared.
+  - **`TaskInstance.movedFrom DateTime?`** keeps the original day. `planInstances` regenerates
+    from today and skips only dates that already have an instance, so a chore moved off today
+    would be created again. `recentInstances`' query and `PriorInstance` carry `movedFrom`, and
+    `planInstances` treats those dates as taken. A second move keeps the first `movedFrom`.
+  - **Move back** (the undo) restores `movedFrom` while it's still pending, and clears it.
+  - **Zone moves (Phase 49):** `movedFrom` joins `DAY_COLUMNS` in `lib/household-zone.ts`,
+    shifted plainly (no dedupe), with a `household-zone.db.test.ts` case; the move runs under
+    `withStoredDays`.
+  - Turning a chore off deletes its pending instances, a moved one included; turning it back on
+    brings today's back. Chores' edit doesn't delete instances (only Meds' does), so an edit
+    leaves a moved one alone. Backups carry the column.
+
+### 59.3 — Pick several, act once
+
+- **Select mode** (grown-ups, not Big buttons): a "Select" button on Chores and on School's
+  homework list turns rows into checkboxes, with a sticky bar at the bottom: count, the actions
+  that fit everything selected, and Cancel. Client state; it clears when the page or filter
+  changes.
+- **Actions:** Chores: Done, Skip / Missed, Reassign to…, Move to tomorrow. Homework: Turned
+  in, To do, Missing. Forms: Done.
+- **The per-item cores move out of the actions first.** `completeInstance`, `uncompleteInstance`
+  and `reassignInstance` live in `chores/actions.ts` with their own transaction, auth and
+  revalidation, and throw on a bad id; `lib/tasks/skip.ts` uses the global client. Each becomes a
+  core in `lib/tasks/` taking a `Prisma.TransactionClient` and returning `{ ok, reason }`; the
+  single actions and the bulk action both wrap them. School's status cores the same.
+- **Bulk server side:** one action per domain taking `{ ids, action, value }`, zod-checked, at
+  most 30 ids, all in one transaction. An id that fails a rule is skipped and counted, never
+  thrown, and the bar says "Done 4, skipped 1 (already done)". Events per item. On a bulk Done,
+  the highest milestone crossed is reported once, through the existing `MilestoneToastBoard`.
+- **Two presets, fixed in code,** in a small client menu beside the person filter on Chores
+  (which is a server component):
+  - **Sick day:** skip everything that person has due today (asks first, says how many).
+  - **Hand off:** reassign that person's pending chores for today and tomorrow to someone else.
+  Both are the bulk action with a prepared selection, so they inherit its rules and tests.
+
+### 59.4 — See everything open, and the person at the centre
+
+**59.4a, School across students and the list view:**
+
+- **"Everyone" on School** (grown-ups, more than one student): `?kid=all`, a chip before the
+  students' (an unknown value still falls back to the first student). One list of every student's
+  open homework, tests and forms, each row with the student's name. Kids see only their own tab.
+- **Compact list:** a Cards / List switch on Chores and on School's homework list, remembered
+  per person on the device (`localStorage`, wrapped, keyed like `nav-rail.tsx`, rendered after
+  hydration the same way). List rows are one line: pill, title, who, due, and points or class.
+  Filter chips live in the URL: Overdue, Today, Mine (`person=<self>`), Unassigned (a new
+  `getBoardInstances` option) on Chores; Overdue, This week, Tests, Missing on School.
+- **Side panel:** tapping a row's title in the list opens a panel (bottom sheet on a phone,
+  right-hand panel on a computer, the `look-sheet.tsx` pattern) with the item's fields editable
+  through the 59.2 actions, its pill, and its history (who, what, when, newest first). The URL
+  gains `?item=<type>:<id>` alongside the page's own params, so back closes it and a link opens
+  it. Cards keep today's behaviour.
+
+**59.4b, People:**
+
+- **People list badges** for household members: "2 overdue", "1 missing", "Test Thu" (the
+  soonest test this week), counted by each board's own overdue rule, from one grouped query per
+  type, only for apps that are on. A kid viewer sees only their own badges.
+- **Person record "Open items":** replaces the chore-count summary with that person's open
+  chores (7 days), homework and tests, and forms they own, as `WorkItem` rows with pills and the
+  side panel. A kid looking at a sibling sees chores only, as today. Links to the full boards
+  stay.
+
+### Tests
+
+- Unit: each adapter's mapping, labels and next statuses per role; `planInstances` with
+  `movedFrom`; the bulk cap and partial-failure count; badge counting; Put back's choice of value.
+- DB (`*.db.test.ts`): events written in the same transaction and deleted with their item;
+  restore remapping events; `updateTask` scoping; move with and without a clash, and across a
+  zone move; a kid's edit flagged, approved and put back; bulk across households refused.
+- Guard: every delete of an assignment, school task or chore instance cleans up events.
+- Browser: `axe` over School (Everyone, list view, side panel open) and Chores in select mode,
+  in two looks.
+
+### Not in this phase
+
+- Keyboard shortcuts (j/k, x, d, s, ?): later, if the computer gets used for this.
+- Meds and vehicle jobs on the shared pieces (they'd be a fourth and fifth adapter).
+- Presets anyone can build; an activity feed rebuilt on `WorkItemEvent`.
+- Notifications for a kid's change; it shows on School and the row.
+- An LMS connector filling assignments (still waiting on the school's system).
+
+### Pull requests
+
+59.1a pills, 59.1b kinds, 59.1c history, 59.2 edit in place, 59.3 select and bulk, 59.4a
+Everyone, list and panel, 59.4b People. Each against `main` with auto-merge and Auto-fix on.
+
+### The owner's answers (2026-11-07)
+
+- **Kids edit their own homework details; grown-ups have the final say.** The change applies at
+  once, and a grown-up approves it or puts it back.
+- **Moving chores:** not daily ones (Skip covers them); Move to tomorrow, and Move to today for an
+  overdue one.
+
 ## Open items
 
 ### Waiting on a decision

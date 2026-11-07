@@ -30,8 +30,8 @@ export function SubmitButton({
  * The question, a "yes" button and Cancel, in place of the button that asked. Focus moves to
  * "yes" so the question is read out with it; Cancel puts focus back on the button it replaced.
  */
-function useAsking() {
-  const [asking, setAsking] = useState(false);
+function useAsking(initiallyAsking = false, onCancel?: () => void) {
+  const [asking, setAsking] = useState(initiallyAsking);
   const trigger = useRef<HTMLButtonElement>(null);
   const cancelled = useRef(false);
   useEffect(() => {
@@ -44,8 +44,11 @@ function useAsking() {
     trigger,
     ask: () => setAsking(true),
     cancel: () => {
-      cancelled.current = true;
+      // Asked from somewhere else (a ⋯ menu): there's no button here to go back to, so the
+      // caller puts focus back where it belongs.
+      cancelled.current = !onCancel;
       setAsking(false);
+      onCancel?.();
     },
   };
 }
@@ -136,8 +139,17 @@ export function ConfirmAction({
   className = btnDanger,
   yesClassName,
   "aria-label": ariaLabel,
-}: ConfirmProps & { onConfirm: () => void; pending: boolean }) {
-  const { asking, trigger, ask, cancel } = useAsking();
+  initiallyAsking = false,
+  onCancel,
+}: ConfirmProps & {
+  onConfirm: () => void;
+  pending: boolean;
+  /** Phase 59.1a: open on the question, for a Remove chosen from a ⋯ menu (which closes on any tap). */
+  initiallyAsking?: boolean;
+  /** Called on Cancel instead of going back to the button, when the caller shows the question. */
+  onCancel?: () => void;
+}) {
+  const { asking, trigger, ask, cancel } = useAsking(initiallyAsking, onCancel);
   if (!asking) {
     return (
       <button ref={trigger} type="button" disabled={pending} aria-label={ariaLabel} className={className} onClick={ask}>

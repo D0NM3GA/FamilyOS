@@ -75,6 +75,9 @@ const ASKING_COMPONENTS: Record<string, (tag: string) => boolean> = {
   SmallActionButton: (tag) => /\bconfirmText=/.test(tag),
   // Phase 52: "Remove this import" asks with ConfirmAction before it runs.
   StatementImport: () => true,
+  // Phase 59.1a: School's rows put Remove in the ⋯ menu and ask with ConfirmAction in the row.
+  AssignmentRow: () => true,
+  SchoolTaskRow: () => true,
 };
 
 /** The names of destructive server actions a `"use server"` file exports. */

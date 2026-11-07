@@ -187,9 +187,12 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
   buttons). Made a mistake? Tap the undo arrow. Kids tick their own chores and Anyone chores.
 - **Anyone: grab it!** chores are for whoever gets there first; kids can grab them too.
 - What's after today is folded under **Next 14 days**. Tap it to look ahead.
-- Grown-ups have a **⋯** on each chore: **Skip** it (it's called **Missed** once it's overdue:
-  nobody gets stickers for it) or **Give to** someone else. Chores from before last week that were never
+- Grown-ups can **Skip** a chore from its label (it's called **Missed** once it's overdue: nobody
+  gets stickers for it), and **Give to** someone else from its **⋯**. Chores from before last week that were never
   marked can be cleared with **Mark them missed**.
+- Each chore shows where it stands: **Due today**, **Overdue**, **To do**, **Done**, **Skipped** or
+  **Missed**. When you can change it, the label has a little arrow: tap it to pick what's next
+  (**Done**, **Skip**, **Undo**). Not in Big buttons.
 - Outdoor chores show a rain warning when rain is likely (once an admin has set where home is).
 - Each chore earns stickers for whoever did it.
 - The row of people under the title picks whose chores to see, and shows each person's sticker
@@ -308,9 +311,15 @@ trips**.
 
 ## School
 
-For each kid: **Homework & tests** (tick them off when they're done), **Recent grades** and
+For each kid: **Homework & tests** (tick them off when they're turned in), **Recent grades** and
 **Averages**, **Teachers & contacts**, and the **School calendar, next two weeks**. Grown-ups also
 see **Forms & to-dos** (things to sign, pay or buy) and who's handling each.
+
+Each piece of homework and each form shows where it stands: **To do**, **Due today**, **Overdue**,
+**Turned in**, **Graded 18/20** or **Missing**. When you can change it, the label has a little
+arrow: tap it to pick what's next. Kids can move their own
+work between **To do** and **Turned in**; only a grown-up marks work **Missing** or clears it.
+**Edit** and **Remove** are under each row's **⋯**, and Remove asks first.
 
 Kids see their own. Grown-ups set up each kid's school details and add homework. Admins add the
 school's calendar under **Calendars**: type the school's website and the app finds its calendar

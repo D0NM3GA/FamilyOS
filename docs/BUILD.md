@@ -1334,3 +1334,23 @@ then each member's picture, short name and total; tapping one filters the board 
 keep the members' order so nothing moves under a finger, and the leader's picture bobs. Names come
 from `shortNames` in `lib/people.ts` (the owner's call): the first name alone, and where two people
 share it, letters of the last name until they part ("Max P.", then "Max Pa.").
+
+## Phase 59 — Quick status work
+
+### 59.1a — One status language
+
+`lib/work-items` turns a chore, a piece of homework or a school form into one `WorkItem`: the
+shared words (Due today, Overdue, To do, Done, Turned in, Graded 18/20, Skipped, Missed, Missing),
+a tone, and what the viewer may change it to. Adapters run on the server and work out the pill for
+every status the item can reach, so the browser switches looks optimistically without deciding a
+day in its own zone. `StatusPill` draws it, as a label or, with options, a `MoreMenu` whose face is
+the pill. Who-may-do-what moved out of the actions into `lib/school/permissions.ts` and
+`lib/tasks/permissions.ts`, which the actions, the chore card and the adapters all call. School's
+rows are client components now (`school/rows.tsx`): the tick box and the pill change status at
+once and put it back if the save fails; Edit and Remove sit under ⋯, and Remove opens
+`ConfirmAction` already asking (`initiallyAsking`), in the row, because `MoreMenu` closes on any tap
+inside it; Cancel hands focus back to the ⋯ (`triggerRef`). Chores' cards show the pill outside Big
+buttons, in the action cluster, and Skip moves from the ⋯ into it; Meds and Home pass none, so their
+⋯ keeps Skip. The pill's menu waits while a change is saving, so Undo can't run before the
+completion it undoes. `isAdult` moved to `lib/roles.ts` (re-exported by `lib/authz.ts`), so these
+pure modules never pull Prisma into a client bundle.

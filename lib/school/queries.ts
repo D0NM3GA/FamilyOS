@@ -3,6 +3,7 @@ import { isAdult } from "@/lib/authz";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { byDueDate, isOverdue } from "./rules";
 import { wallClockToInstant } from "./feeds/parse";
+import { canSeeStudent } from "./permissions";
 
 /**
  * School reads (Phase 18). Visibility: adults see every student; a kid sees only
@@ -12,9 +13,7 @@ import { wallClockToInstant } from "./feeds/parse";
 
 type Viewer = { id: string; householdId: string; role: "ADMIN" | "ADULT" | "KID" | null };
 
-export function canSeeStudent(viewer: Viewer, personId: string): boolean {
-  return isAdult(viewer) || viewer.id === personId;
-}
+export { canSeeStudent };
 
 /**
  * Household members who are (or could be) students: kids, plus anyone who already has a
@@ -61,7 +60,7 @@ export async function getStudentHub(viewer: Viewer, personId: string) {
   const [tasks, recentlyDone] = await Promise.all([
     prisma.schoolTask.findMany({
       where: { householdId: viewer.householdId, status: "OPEN", OR: forThisStudent },
-      include: { owner: { select: { firstName: true } }, kid: { select: { firstName: true } } },
+      include: { owner: { select: { id: true, firstName: true } }, kid: { select: { firstName: true } } },
     }),
     // Ticked off in the last two weeks, so a mis-tap can be undone.
     prisma.schoolTask.findMany({
