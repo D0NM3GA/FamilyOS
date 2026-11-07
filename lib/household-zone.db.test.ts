@@ -88,16 +88,19 @@ describe.skipIf(!RUN)("moving stored days between zones (database)", () => {
     const med = await definition(h, at("2026-03-29T04:00:00Z"), ["01:30", "02:30"]);
     // 1:30 and 2:30 AM in New York (EDT) on the night London's clocks skip from 1 to 2 AM: 1:30
     // doesn't exist there, so it becomes 2:30 BST, where the other dose lands too.
-    await prisma.taskInstance.createMany({
+    const [dropped] = await prisma.taskInstance.createManyAndReturn({
       data: [
         { definitionId: med.id, dueDate: at("2026-03-29T05:30:00Z"), status: "PENDING" },
         { definitionId: med.id, dueDate: at("2026-03-29T06:30:00Z"), status: "DONE" },
       ],
     });
+    // Phase 59.1c: the one that's dropped takes its history with it.
+    await prisma.workItemEvent.create({ data: { householdId: h, itemType: "CHORE", itemId: dropped.id, action: "ASSIGN" } });
 
     await move(h, "America/New_York", "Europe/London");
 
     expect(await dues(med.id)).toEqual([{ due: "2026-03-29T01:30:00.000Z", status: "DONE" }]);
+    expect(await prisma.workItemEvent.count({ where: { itemId: dropped.id } })).toBe(0);
   });
 
   test("instants, connector rows and timed prices stay put; typed-in rows and receipt days move", async () => {

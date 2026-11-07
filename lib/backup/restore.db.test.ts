@@ -127,6 +127,12 @@ function fixture(): Backup {
       { personId: "Kid", species: "bird", stage: "baby", form: 0, foundAt: T2 },
       { personId: "Kid2", species: "bird", stage: "baby", form: 0, foundAt: T2 },
     ],
+    // Phase 59.1c: one for each kind of item, so each follows its item to a new id.
+    workItemEvents: [
+      { id: "ev1", itemType: "CHORE", itemId: "ti1", actorId: "Kid", action: "STATUS", field: null, fromValue: "PENDING", toValue: "DONE", createdAt: T },
+      { id: "ev2", itemType: "ASSIGNMENT", itemId: "sa1", actorId: "Mom", action: "GRADE", field: null, fromValue: null, toValue: "18/20", createdAt: T2 },
+      { id: "ev3", itemType: "SCHOOL_TASK", itemId: "st1", actorId: null, action: "EDIT", field: "title", fromValue: "Trip slip", toValue: "Field trip slip", createdAt: T2 },
+    ],
     sealedMoney: null,
   };
 }
@@ -164,7 +170,10 @@ const REFS: Record<string, Record<string, string>> = {
   petMemorials: { personId: "people" },
   petGifts: { personId: "people", instanceId: "taskInstances" },
   petDiscoveries: { personId: "people" },
+  workItemEvents: { actorId: "people" },
 };
+/** Phase 59.1c: an event's itemId points into the table its itemType names. */
+const ITEM_TABLE: Record<string, string> = { CHORE: "taskInstances", ASSIGNMENT: "schoolAssignments", SCHOOL_TASK: "schoolTasks" };
 const HEADER = new Set(["format", "schemaVersion", "exportedAt", "exportedTimeZone", "databaseMigration", "household", "sealedMoney"]);
 
 /** JSON with object keys sorted: Postgres jsonb (a pet's state) doesn't keep key order. */
@@ -186,7 +195,7 @@ function normalize(b: Backup, dropPeople: Set<string> = new Set()) {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(row)) {
       if (k === "id") continue;
-      const target = refs[k];
+      const target = table === "workItemEvents" && k === "itemId" ? ITEM_TABLE[row.itemType as string] : refs[k];
       if (!target) out[k] = v;
       else if (Array.isArray(v)) out[k] = v.map((id) => key(target, byId.get(`${target}:${id}`)![1])).sort();
       else out[k] = v == null ? null : key(target, byId.get(`${target}:${v}`)![1]);

@@ -92,6 +92,7 @@ function emptyBackup(): Backup {
     petMemorials: [],
     petGifts: [],
     petDiscoveries: [],
+    workItemEvents: [],
     sealedMoney: null,
   };
 }
@@ -158,6 +159,9 @@ function fullBackup(): Backup {
   b.schoolAssignments = [
     { id: "sa1", profileId: "sp1", className: "Math", title: "Quiz", kind: "QUIZ", dueDate: T, status: "DONE", score: 9, maxScore: 10, notes: null, source: "MANUAL", externalId: null, doneAt: T, createdAt: T },
   ];
+  const ev = (id: string, itemType: "CHORE" | "ASSIGNMENT" | "SCHOOL_TASK", itemId: string, actorId: string | null) =>
+    ({ id, itemType, itemId, actorId, action: "STATUS", field: null, fromValue: "PENDING", toValue: "DONE", createdAt: T });
+  b.workItemEvents = [ev("ev1", "CHORE", "ti1", "kid"), ev("ev2", "ASSIGNMENT", "sa1", "mom"), ev("ev3", "SCHOOL_TASK", "st1", "gone"), ev("ev4", "ASSIGNMENT", "nowhere", "kid")];
   b.stores = [{ id: "s1", name: "Kroger", createdAt: T }];
   b.productGroups = [{ id: "g1", name: "Dairy", emoji: "🥛", sortOrder: 1, starterKey: "dairy", createdAt: T }];
   b.products = [
@@ -517,6 +521,14 @@ describe("remapBackup", () => {
     expect(rows.petPlays[0]).toMatchObject({ personId: kid, game: "catch" });
     expect(rows.petMemorials[0]).toMatchObject({ householdId: "H", personId: kid, name: "Old Pip", goneAt: new Date(T) });
     expect(rows.petGifts[0]).toMatchObject({ householdId: "H", personId: kid, instanceId: rows.taskInstances[0].id, day: "2026-01-01", openedAt: null });
+    // Phase 59.1c: history follows each item to its new id; one for an item not in the file is
+    // dropped, and an actor not in the file becomes nobody.
+    expect(rows.workItemEvents.map((e) => [e.itemType, e.itemId, e.actorId])).toEqual([
+      ["CHORE", rows.taskInstances[0].id, kid],
+      ["ASSIGNMENT", rows.schoolAssignments[0].id, "live-mom"],
+      ["SCHOOL_TASK", rows.schoolTasks[0].id, null],
+    ]);
+    expect(rows.workItemEvents.every((e) => e.householdId === "H")).toBe(true);
     expect(rows.petDiscoveries).toEqual([
       { householdId: "H", personId: kid, species: "blob", stage: "egg", form: 0, foundAt: new Date(T) },
       { householdId: "H", personId: kid, species: "blob", stage: "baby", form: 0, foundAt: new Date(T) },

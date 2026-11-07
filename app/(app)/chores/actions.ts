@@ -9,7 +9,8 @@ import { requireAdult, isAdult } from "@/lib/authz";
 import { milestoneCrossed } from "@/lib/tasks/milestones";
 import { canDoChore, canUndoChore } from "@/lib/tasks/permissions";
 import { atMidnight } from "@/lib/tasks/schedule";
-import { markOlderMissed as markOlderTasksMissed, skipInstance as skipTask, unskipInstance as unskipTask } from "@/lib/tasks/skip";
+import { markOlderMissedIds, skipInstance as skipTask, unskipInstance as unskipTask } from "@/lib/tasks/skip";
+import { deleteEventsFor, recordEvent, recordEvents } from "@/lib/work-items/events";
 
 export type TaskFormState = { error?: string };
 
@@ -119,8 +120,15 @@ export async function setDefinitionActive(definitionId: string, active: boolean)
   // otherwise keep showing on the board, Home and the calendar after the chore is paused.
   // Reactivating rolls forward from today like a new chore.
   if (updated.count > 0 && !active) {
-    await prisma.taskInstance.deleteMany({
-      where: { definitionId, status: "PENDING", dueDate: { gte: atMidnight(new Date()) } },
+    // Their history goes with them (Phase 59.1c: WorkItemEvent has no foreign key to clean up for it).
+    await prisma.$transaction(async (tx) => {
+      const going = await tx.taskInstance.findMany({
+        where: { definitionId, status: "PENDING", dueDate: { gte: atMidnight(new Date()) } },
+        select: { id: true },
+      });
+      const ids = going.map((i) => i.id);
+      await tx.taskInstance.deleteMany({ where: { id: { in: ids } } });
+      await deleteEventsFor(tx, "CHORE", ids);
     });
   }
 
@@ -180,6 +188,7 @@ export async function completeInstance(instanceId: string): Promise<{ milestone?
       data: { status: "DONE", completedAt: now, completedById: profile.id },
     });
     if (count === 0) return { completed: false, milestone: null };
+    await recordEvent(tx, { householdId: profile.householdId, itemType: "CHORE", itemId: instance.id, actorId: profile.id, action: "STATUS", fromValue: "PENDING", toValue: "DONE" });
 
     const priorCompletions = await tx.pointsLedger.count({
       where: { personId: pointsRecipient, instanceId: { not: null }, instance: { definition: { domain: "CHORE" } } },
@@ -226,6 +235,7 @@ export async function uncompleteInstance(instanceId: string) {
     if (count === 0) return;
 
     await tx.pointsLedger.deleteMany({ where: { instanceId: instance.id } });
+    await recordEvent(tx, { householdId: profile.householdId, itemType: "CHORE", itemId: instance.id, actorId: profile.id, action: "STATUS", fromValue: "DONE", toValue: "PENDING" });
   });
 
   revalidatePath("/chores");
@@ -252,18 +262,31 @@ export async function reassignInstance(instanceId: string, newAssigneeId: string
 
   const instance = await prisma.taskInstance.findFirst({
     where: { id: instanceId, definition: { householdId: profile.householdId, domain: "CHORE" } },
+    include: { assignedTo: { select: { firstName: true } } },
   });
   if (!instance) return;
 
   const target = await prisma.person.findFirst({
     where: { id: newAssigneeId, householdId: profile.householdId, isHouseholdMember: true },
-    select: { id: true },
+    select: { id: true, firstName: true },
   });
   if (!target) return;
 
-  await prisma.taskInstance.updateMany({
-    where: { id: instanceId, status: "PENDING" },
-    data: { assignedToId: target.id },
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.taskInstance.updateMany({
+      where: { id: instanceId, status: "PENDING", assignedToId: instance.assignedToId },
+      data: { assignedToId: target.id },
+    });
+    if (count === 0 || instance.assignedToId === target.id) return;
+    await recordEvent(tx, {
+      householdId: profile.householdId,
+      itemType: "CHORE",
+      itemId: instanceId,
+      actorId: profile.id,
+      action: "ASSIGN",
+      fromValue: instance.assignedTo?.firstName ?? null,
+      toValue: target.firstName,
+    });
   });
 
   revalidatePath("/chores");
@@ -276,12 +299,22 @@ export async function reassignInstance(instanceId: string, newAssigneeId: string
  */
 export async function skipInstance(instanceId: string) {
   const profile = await requireAdult();
-  if (await skipTask({ householdId: profile.householdId, domain: "CHORE", instanceId, byId: profile.id })) revalidateBoard();
+  const skipped = await prisma.$transaction(async (tx) => {
+    if (!(await skipTask({ householdId: profile.householdId, domain: "CHORE", instanceId, byId: profile.id, db: tx }))) return false;
+    await recordEvent(tx, { householdId: profile.householdId, itemType: "CHORE", itemId: instanceId, actorId: profile.id, action: "STATUS", fromValue: "PENDING", toValue: "SKIPPED" });
+    return true;
+  });
+  if (skipped) revalidateBoard();
 }
 
 export async function unskipInstance(instanceId: string) {
   const profile = await requireAdult();
-  if (await unskipTask({ householdId: profile.householdId, domain: "CHORE", instanceId })) revalidateBoard();
+  const back = await prisma.$transaction(async (tx) => {
+    if (!(await unskipTask({ householdId: profile.householdId, domain: "CHORE", instanceId, db: tx }))) return false;
+    await recordEvent(tx, { householdId: profile.householdId, itemType: "CHORE", itemId: instanceId, actorId: profile.id, action: "STATUS", fromValue: "SKIPPED", toValue: "PENDING" });
+    return true;
+  });
+  if (back) revalidateBoard();
 }
 
 /**
@@ -294,7 +327,15 @@ export async function markOlderMissed(personId: string | null) {
   // A malformed id does nothing, rather than falling back to everyone.
   if (personId !== null && (typeof personId !== "string" || personId.length === 0 || personId.length > 64)) return;
   const who = personId;
-  if (await markOlderTasksMissed({ householdId: profile.householdId, domain: "CHORE", byId: profile.id, personId: who })) revalidateBoard();
+  const marked = await prisma.$transaction(async (tx) => {
+    const ids = await markOlderMissedIds({ householdId: profile.householdId, domain: "CHORE", byId: profile.id, personId: who, db: tx });
+    await recordEvents(
+      tx,
+      ids.map((itemId) => ({ householdId: profile.householdId, itemType: "CHORE" as const, itemId, actorId: profile.id, action: "STATUS" as const, fromValue: "PENDING", toValue: "SKIPPED" })),
+    );
+    return ids.length;
+  });
+  if (marked) revalidateBoard();
 }
 
 function revalidateBoard() {

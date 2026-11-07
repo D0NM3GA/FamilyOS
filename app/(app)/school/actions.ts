@@ -7,6 +7,8 @@ import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult, requireAdult } from "@/lib/authz";
 import { parseAssignmentForm, parseProfileForm, parseTaskForm } from "@/lib/school/form";
 import { canRemoveAssignment, canSeeStudent, canSetAssignmentStatus } from "@/lib/school/permissions";
+import { deleteEventsFor, recordEvent, recordEvents } from "@/lib/work-items/events";
+import { assignmentChanges } from "@/lib/work-items/changes";
 
 /**
  * School (Phase 18). Adults manage everything. A kid can add, tick off and delete their
@@ -108,9 +110,15 @@ export async function addTask(_prev: SchoolFormState, fd: FormData): Promise<Sch
 
 export async function setTaskDone(taskId: string, done: boolean) {
   const profile = await requireAdult();
-  await prisma.schoolTask.updateMany({
-    where: { id: taskId, householdId: profile.householdId },
-    data: { status: done ? "DONE" : "OPEN", doneAt: done ? new Date() : null },
+  const to = done ? "DONE" : "OPEN";
+  await prisma.$transaction(async (tx) => {
+    // Only a real change: ticking off one that's already done leaves no history.
+    const { count } = await tx.schoolTask.updateMany({
+      where: { id: taskId, householdId: profile.householdId, status: done ? "OPEN" : "DONE" },
+      data: { status: to, doneAt: done ? new Date() : null },
+    });
+    if (count === 0) return;
+    await recordEvent(tx, { householdId: profile.householdId, itemType: "SCHOOL_TASK", itemId: taskId, actorId: profile.id, action: "STATUS", fromValue: done ? "OPEN" : "DONE", toValue: to });
   });
   revalidateSchool();
 }
@@ -123,7 +131,10 @@ export async function setTaskStatus(taskId: string, status: "OPEN" | "DONE") {
 
 export async function deleteTask(taskId: string) {
   const profile = await requireAdult();
-  await prisma.schoolTask.deleteMany({ where: { id: taskId, householdId: profile.householdId } });
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.schoolTask.deleteMany({ where: { id: taskId, householdId: profile.householdId } });
+    if (count > 0) await deleteEventsFor(tx, "SCHOOL_TASK", [taskId]);
+  });
   revalidateSchool();
 }
 
@@ -160,7 +171,12 @@ export async function setAssignmentStatus(assignmentId: string, status: "TODO" |
   if (!canSetAssignmentStatus(viewer, { studentId: existing.profile.personId, status: existing.status }, status)) {
     throw new Error("Ask a grown-up to change that one");
   }
-  await prisma.schoolAssignment.update({ where: { id: assignmentId }, data: { status, doneAt: status === "DONE" ? new Date() : null } });
+  await prisma.$transaction(async (tx) => {
+    await tx.schoolAssignment.update({ where: { id: assignmentId }, data: { status, doneAt: status === "DONE" ? new Date() : null } });
+    if (existing.status !== status) {
+      await recordEvent(tx, { householdId: viewer.householdId, itemType: "ASSIGNMENT", itemId: assignmentId, actorId: viewer.id, action: "STATUS", fromValue: existing.status, toValue: status });
+    }
+  });
   revalidateSchool();
 }
 
@@ -171,10 +187,14 @@ export async function updateAssignment(assignmentId: string, _prev: SchoolFormSt
   if (!existing) return { error: "Assignment not found." };
   const parsed = parseAssignmentForm(fd);
   if (!parsed.ok) return { error: parsed.error };
-  await prisma.schoolAssignment.update({
-    where: { id: assignmentId },
-    // Editing the grade later mustn't move when it was finished.
-    data: { ...parsed.fields, doneAt: parsed.fields.status === "DONE" ? (existing.doneAt ?? new Date()) : null },
+  const before = await prisma.schoolAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.schoolAssignment.update({
+      where: { id: assignmentId },
+      // Editing the grade later mustn't move when it was finished.
+      data: { ...parsed.fields, doneAt: parsed.fields.status === "DONE" ? (existing.doneAt ?? new Date()) : null },
+    });
+    await recordEvents(tx, assignmentChanges(before, parsed.fields).map((c) => ({ ...c, householdId: viewer.householdId, itemId: assignmentId, actorId: viewer.id })));
   });
   revalidateSchool();
   return { notice: "Saved." };
@@ -188,6 +208,9 @@ export async function deleteAssignment(assignmentId: string) {
   if (!canRemoveAssignment(viewer, { studentId: existing.profile.personId, status: existing.status, score: existing.score })) {
     throw new Error("Ask a grown-up to remove that one");
   }
-  await prisma.schoolAssignment.delete({ where: { id: assignmentId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.schoolAssignment.delete({ where: { id: assignmentId } });
+    await deleteEventsFor(tx, "ASSIGNMENT", [assignmentId]);
+  });
   revalidateSchool();
 }

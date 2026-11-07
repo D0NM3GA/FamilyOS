@@ -251,6 +251,8 @@ export async function applyRestore(
       await tx.vehicle.deleteMany({ where: { householdId } }); // cascades items, logs, fuel, acks, item supplies, supply uses
       await tx.vehicleSupply.deleteMany({ where: { householdId } });
       await tx.schoolTask.deleteMany({ where: { householdId } });
+      // Phase 59.1c: history of the chores and schoolwork going below (no foreign key cascades it).
+      await tx.workItemEvent.deleteMany({ where: { householdId } });
       // Every student's profile, linked people's included (cascades contacts and homework).
       await tx.schoolProfile.deleteMany({ where: { person: { householdId } } });
       // Phase 20: orders reference rewards (a NO ACTION FK), so they go first. The bell's
@@ -328,6 +330,8 @@ export async function applyRestore(
       // After the chores' instances, which a present points at.
       await createInChunks(rows.petGifts, (data) => tx.petGift.createMany({ data }));
       await createInChunks(rows.petDiscoveries, (data) => tx.petDiscovery.createMany({ data }));
+      // Phase 59.1c: after the chores, schoolwork and forms it describes.
+      await createInChunks(rows.workItemEvents, (data) => tx.workItemEvent.createMany({ data }));
 
       // 4a. Phase 49: the file's days move to the restored household's zone, each keeping its
       // date and clock time, and the household records the zone they're in now.

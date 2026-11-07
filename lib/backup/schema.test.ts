@@ -110,6 +110,10 @@ describe("backupSchema", () => {
     expect(parsed.vehicleServiceSupplyUses).toEqual([]);
   });
 
+  test("Phase 59.1c: a file from before history restores with none", () => {
+    expect(backupSchema.parse({ ...empty }).workItemEvents).toEqual([]);
+  });
+
   test("Phase 59.1b: an assignment from before types is homework; a typed one keeps its type", () => {
     const at = "2026-01-01T00:00:00.000Z";
     const row = { id: "a1", profileId: "p1", className: "Math", title: "Ch 3", dueDate: null, status: "TODO", score: null, maxScore: null, notes: null, source: "MANUAL", externalId: null, doneAt: null, createdAt: at };

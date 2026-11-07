@@ -424,6 +424,13 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     }),
   ]);
 
+  // Phase 59.1c: the history of chores, schoolwork and forms.
+  const workItemEvents = await tx.workItemEvent.findMany({
+    where: { householdId },
+    select: { id: true, itemType: true, itemId: true, actorId: true, action: true, field: true, fromValue: true, toValue: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
+
   // Phase 47: the digital pet. Pets, items and memories carry householdId; a game payout
   // only its person.
   const [pets, petItems, petPlays, petMemorials, petGifts, petDiscoveries] = await Promise.all([
@@ -542,6 +549,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     petMemorials: petMemorials.map((m) => ({ ...m, bornAt: iso(m.bornAt), goneAt: iso(m.goneAt), createdAt: iso(m.createdAt) })),
     petGifts: petGifts.map((g) => ({ ...g, grantedAt: iso(g.grantedAt), openedAt: isoOrNull(g.openedAt) })),
     petDiscoveries: petDiscoveries.map((d) => ({ ...d, foundAt: iso(d.foundAt) })),
+    workItemEvents: workItemEvents.map((e) => ({ ...e, createdAt: iso(e.createdAt) })),
     sealedMoney: hooks.sealMoney ? await hooks.sealMoney(tx, householdId) : null,
   };
 
