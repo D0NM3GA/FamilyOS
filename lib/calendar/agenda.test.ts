@@ -291,3 +291,15 @@ describe("bills (Phase 63b)", () => {
     ]);
   });
 });
+
+describe("Home's Today strip (Phase 64a)", () => {
+  it("all-day first, then by time, at most eight with a count of the rest", async () => {
+    const { todayStrip } = await import("./agenda");
+    const item = (key: string, minutes: number | null, kind: AgendaItem["kind"] = "outlook") => ({ key, kind, emoji: "", title: key, who: null, day: "2026-11-07", minutes, status: "open", note: null, href: null, external: false }) as AgendaItem;
+    const items = [item("late", 18 * 60), item("allday", null, "date"), item("early", 8 * 60), ...Array.from({ length: 7 }, (_, i) => item(`x${i}`, 12 * 60 + i))];
+    const { shown, more } = todayStrip(items);
+    expect(shown.slice(0, 2).map((i) => i.key)).toEqual(["allday", "early"]);
+    expect(shown).toHaveLength(8);
+    expect(more).toBe(2);
+  });
+});

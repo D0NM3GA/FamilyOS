@@ -387,3 +387,12 @@ export function billItems(rows: readonly { day: string; name: string }[]): Agend
   }));
 }
 
+
+/** Phase 64a: Home's Today strip shows this many, then "and N more". */
+export const TODAY_STRIP_MAX = 8;
+
+/** Today's items for Home's strip, in the day's order (all-day first, then by time), capped. Pure. */
+export function todayStrip(items: readonly AgendaItem[], max = TODAY_STRIP_MAX): { shown: AgendaItem[]; more: number } {
+  const sorted = [...items].sort(compareAgendaItems);
+  return { shown: sorted.slice(0, max), more: Math.max(0, sorted.length - max) };
+}
