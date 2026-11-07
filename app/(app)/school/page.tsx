@@ -332,14 +332,23 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                             ? { action: gradeAssignment.bind(null, a.id), defaults: { score: a.score?.toString() ?? "", maxScore: a.maxScore?.toString() ?? "" } }
                             : undefined
                         }
-                        kidChange={adult && a.kidChangedAt ? { who: person.firstName, onApprove: approveKidChange, onPutBack: putBackKidChange } : undefined}
+                        kidChange={
+                          adult && a.kidChangedAt
+                            ? {
+                                who: person.firstName,
+                                onApprove: approveKidChange.bind(null, a.id, a.kidChangedAt.toISOString()),
+                                onPutBack: putBackKidChange.bind(null, a.id, a.kidChangedAt.toISOString()),
+                              }
+                            : undefined
+                        }
                       />
                     );
                   })}
                 </ul>
               )}
+              {/* Done recently opens when it holds a kid's change to check, so the heading's count can be found. */}
               {doneRecently.length > 0 && (
-                <details className="mt-3 text-sm">
+                <details className="mt-3 text-sm" open={adult && doneRecently.some((a) => a.kidChangedAt != null)}>
                   <summary className="cursor-pointer py-3 font-bold text-muted-foreground sm:py-1">Done recently ({doneRecently.length})</summary>
                   <ul className="mt-1 space-y-1">
                     {doneRecently.map((a) => (
@@ -352,7 +361,14 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                             Undo
                           </SubmitButton>
                         </form>
-                        {adult && a.kidChangedAt && <KidChange who={person.firstName} title={a.title} onApprove={approveKidChange.bind(null, a.id)} onPutBack={putBackKidChange.bind(null, a.id)} />}
+                        {adult && a.kidChangedAt && (
+                          <KidChange
+                            who={person.firstName}
+                            title={a.title}
+                            onApprove={approveKidChange.bind(null, a.id, a.kidChangedAt.toISOString())}
+                            onPutBack={putBackKidChange.bind(null, a.id, a.kidChangedAt.toISOString())}
+                          />
+                        )}
                       </li>
                     ))}
                   </ul>

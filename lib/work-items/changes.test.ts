@@ -80,6 +80,8 @@ describe("Phase 59.2a: kids' own changes", () => {
     ];
     expect(putBackValues(events, "ivy")).toEqual({ dueDate: "2026-11-09", title: "Ch 3" });
     expect(putBackValues([...events, e("PUT_BACK", "title", "x", "dad")], "ivy")).toEqual({});
+    // A due date that was blank before puts back to blank: the key is there, with null.
+    expect(putBackValues([e("EDIT", "dueDate", null, "ivy")], "ivy")).toEqual({ dueDate: null });
   });
 });
 

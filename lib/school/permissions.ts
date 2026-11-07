@@ -32,8 +32,8 @@ export function canSetAssignmentStatus(
  * of their own work, but not once it's missing or graded; a grown-up reviews what they changed.
  */
 export function canEditAssignmentDetails(viewer: Viewer, a: { studentId: string; status: AssignmentStatusValue; score: number | null }): boolean {
-  if (!canSeeStudent(viewer, a.studentId)) return false;
-  return isAdult(viewer) || (a.score == null && a.status !== "MISSING");
+  // The same line as removing, today; kept as its own rule since the two may part.
+  return canRemoveAssignment(viewer, a);
 }
 
 /** Kids can remove their own homework, not a grade or a "missing" a grown-up recorded. */

@@ -259,7 +259,8 @@ export async function setAssignmentDetails(assignmentId: string, _prev: SchoolFo
     });
     if (!before || !canEditAssignmentDetails(viewer, { studentId: before.profile.personId, status: before.status, score: before.score })) return "refused" as const;
     const changes = assignmentChanges(before, { ...before, ...parsed.fields });
-    if (changes.length === 0) return "same" as const;
+    // A grown-up saving a flagged one unchanged still counts as checking it, like the full edit.
+    if (changes.length === 0 && (kid || !before.kidChangedAt)) return "same" as const;
     const { count } = await tx.schoolAssignment.updateMany({
       where: { id: assignmentId, updatedAt: before.updatedAt },
       data: { ...parsed.fields, kidChangedAt: kid ? new Date() : null },
@@ -285,9 +286,12 @@ export async function gradeAssignment(assignmentId: string, _prev: SchoolFormSta
   const result = await prisma.$transaction(async (tx) => {
     const before = await tx.schoolAssignment.findFirst({ where: { id: assignmentId, profile: { person: { householdId: viewer.householdId } } } });
     if (!before) return "gone" as const;
-    const changes = assignmentChanges(before, { ...before, ...parsed.fields });
+    // Graded work has been turned in (the owner's call): a score on To do work marks it done too.
+    const turnIn = parsed.fields.score != null && before.status === "TODO";
+    const after = { ...parsed.fields, ...(turnIn ? { status: "DONE" as const, doneAt: before.doneAt ?? new Date() } : {}) };
+    const changes = assignmentChanges(before, { ...before, ...after });
     if (changes.length === 0) return "same" as const;
-    const { count } = await tx.schoolAssignment.updateMany({ where: { id: assignmentId, updatedAt: before.updatedAt }, data: { ...parsed.fields, kidChangedAt: null } });
+    const { count } = await tx.schoolAssignment.updateMany({ where: { id: assignmentId, updatedAt: before.updatedAt }, data: { ...after, kidChangedAt: null } });
     if (count === 0) return "changed" as const;
     await recordEvents(tx, [
       ...changes.map((c) => ({ ...c, householdId: viewer.householdId, itemId: assignmentId, actorId: viewer.id })),
@@ -301,16 +305,29 @@ export async function gradeAssignment(assignmentId: string, _prev: SchoolFormSta
   return { notice: "Saved." };
 }
 
-/** Grown-ups: a kid's change is fine as it is. */
-export async function approveKidChange(assignmentId: string) {
+/** The kid's change the grown-up was looking at, by when it was made (an ISO string from the page). */
+function seenChange(seen: string): Date {
+  const at = new Date(seen);
+  if (typeof seen !== "string" || Number.isNaN(at.getTime())) throw new Error("Unknown change");
+  return at;
+}
+
+/**
+ * Grown-ups: a kid's change is fine as it is. Only the change they saw: if the kid changed it
+ * again since, this does nothing and the row says to refresh.
+ */
+export async function approveKidChange(assignmentId: string, seen: string) {
   const viewer = await requireAdult();
-  await prisma.$transaction(async (tx) => {
+  const at = seenChange(seen);
+  const approved = await prisma.$transaction(async (tx) => {
     const { count } = await tx.schoolAssignment.updateMany({
-      where: { id: assignmentId, kidChangedAt: { not: null }, profile: { person: { householdId: viewer.householdId } } },
+      where: { id: assignmentId, kidChangedAt: at, profile: { person: { householdId: viewer.householdId } } },
       data: { kidChangedAt: null },
     });
     if (count > 0) await recordEvent(tx, { householdId: viewer.householdId, itemType: "ASSIGNMENT", itemId: assignmentId, actorId: viewer.id, action: "APPROVE" });
+    return count > 0;
   });
+  if (!approved) throw new Error("That change has changed; refresh the page");
   revalidateSchool();
 }
 
@@ -318,30 +335,41 @@ export async function approveKidChange(assignmentId: string) {
  * Grown-ups: undo a kid's changes since the last review, back to what each field was before
  * their first change (from the history, lib/work-items/changes.ts's putBackValues).
  */
-export async function putBackKidChange(assignmentId: string) {
+export async function putBackKidChange(assignmentId: string, seen: string) {
   const viewer = await requireAdult();
-  await prisma.$transaction(async (tx) => {
+  const at = seenChange(seen);
+  const done = await prisma.$transaction(async (tx) => {
     const a = await tx.schoolAssignment.findFirst({
-      where: { id: assignmentId, kidChangedAt: { not: null }, profile: { person: { householdId: viewer.householdId } } },
+      where: { id: assignmentId, kidChangedAt: at, profile: { person: { householdId: viewer.householdId } } },
       include: { profile: { select: { personId: true } } },
     });
-    if (!a) return;
-    const events = await tx.workItemEvent.findMany({ where: { itemType: "ASSIGNMENT", itemId: assignmentId }, orderBy: { createdAt: "asc" } });
+    if (!a) return false;
+    // Ties broken by id (time-ordered), since one save's events share a moment.
+    const events = await tx.workItemEvent.findMany({ where: { itemType: "ASSIGNMENT", itemId: assignmentId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
     const back = putBackValues(events, a.profile.personId);
     const data: { title?: string; className?: string; kind?: AssignmentKindValue; dueDate?: Date | null } = {};
+    // Title and class are required, so an empty one in history is never put back; a due date can
+    // genuinely have been blank, so null puts it back to none, and only an unreadable one is skipped.
     if (back.title) data.title = back.title;
     if (back.className) data.className = back.className;
     if (back.kind && (ASSIGNMENT_KINDS as readonly string[]).includes(back.kind)) data.kind = back.kind as AssignmentKindValue;
-    if ("dueDate" in back) data.dueDate = back.dueDate ? parseLocalDate(back.dueDate) : null;
+    if ("dueDate" in back) {
+      const day = back.dueDate ? parseLocalDate(back.dueDate) : null;
+      if (day || back.dueDate == null) data.dueDate = day;
+    }
     const changes = assignmentChanges(a, { ...a, ...data });
-    await tx.schoolAssignment.update({ where: { id: assignmentId }, data: { ...data, kidChangedAt: null } });
+    // Pinned to the row read, so a kid's save landing in between isn't overwritten unseen.
+    const { count } = await tx.schoolAssignment.updateMany({ where: { id: assignmentId, updatedAt: a.updatedAt }, data: { ...data, kidChangedAt: null } });
+    if (count === 0) return false;
     await recordEvents(
       tx,
       changes.map((c) => ({ ...c, action: "PUT_BACK" as const, householdId: viewer.householdId, itemId: assignmentId, actorId: viewer.id })),
     );
     // Nothing left to restore still counts as reviewed.
     if (changes.length === 0) await recordEvent(tx, { householdId: viewer.householdId, itemType: "ASSIGNMENT", itemId: assignmentId, actorId: viewer.id, action: "PUT_BACK" });
+    return true;
   });
+  if (!done) throw new Error("That change has changed; refresh the page");
   revalidateSchool();
 }
 

@@ -40,7 +40,7 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     who.profile = await prisma.person.findUniqueOrThrow({ where: { id: personId }, omit: { photo: true } });
   };
   const history = (itemId: string) =>
-    prisma.workItemEvent.findMany({ where: { itemId }, orderBy: { createdAt: "asc" }, select: { action: true, fromValue: true, toValue: true, field: true, actorId: true } });
+    prisma.workItemEvent.findMany({ where: { itemId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { action: true, fromValue: true, toValue: true, field: true, actorId: true } });
   const chore = (dueDate: Date, assignedToId: string | null = ids.kid) =>
     prisma.taskInstance.create({ data: { definitionId: ids.def, dueDate, assignedToId } });
 
@@ -173,17 +173,25 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     expect((await row()).kidChangedAt).not.toBeNull();
 
     await as(ids.mom);
-    await putBackKidChange(a.id);
+    const seen = (await row()).kidChangedAt!.toISOString();
+    await putBackKidChange(a.id, seen);
     const back = await row();
     expect([back.title, due(back.dueDate!), back.kidChangedAt]).toEqual(["Ch 4", due(addDays(today, 2)), null]);
 
     await as(ids.kid);
     await setAssignmentDetails(a.id, {}, details({ kind: "TEST", dueDate: due(addDays(today, 2)) }));
+    const firstLook = (await row()).kidChangedAt!.toISOString();
+    // The kid changes it again before the grown-up taps Approve: the stale approve is refused.
+    await new Promise((r) => setTimeout(r, 5));
+    await setAssignmentDetails(a.id, {}, details({ kind: "QUIZ", dueDate: due(addDays(today, 2)) }));
     await as(ids.mom);
-    await approveKidChange(a.id);
+    await expect(approveKidChange(a.id, firstLook)).rejects.toThrow("refresh");
+    await expect(putBackKidChange(a.id, firstLook)).rejects.toThrow("refresh");
+    expect((await row()).kidChangedAt).not.toBeNull();
+    await approveKidChange(a.id, (await row()).kidChangedAt!.toISOString());
     const kept = await row();
-    expect([kept.kind, kept.kidChangedAt]).toEqual(["TEST", null]);
-    expect((await history(a.id)).map((e) => e.action)).toEqual(["EDIT", "EDIT", "EDIT", "PUT_BACK", "PUT_BACK", "EDIT", "APPROVE"]);
+    expect([kept.kind, kept.kidChangedAt]).toEqual(["QUIZ", null]);
+    expect((await history(a.id)).map((e) => e.action)).toEqual(["EDIT", "EDIT", "EDIT", "PUT_BACK", "PUT_BACK", "EDIT", "EDIT", "APPROVE"]);
 
     // Graded work is a grown-up's to change.
     const { gradeAssignment } = await import("@/app/(app)/school/actions");
@@ -191,8 +199,36 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     g.set("score", "9");
     g.set("maxScore", "10");
     expect(await gradeAssignment(a.id, {}, g)).toEqual({ notice: "Saved." });
+    // Graded To do work has been turned in.
+    expect((await row()).status).toBe("DONE");
     await as(ids.kid);
     expect(await setAssignmentDetails(a.id, {}, details({ title: "Easy" }))).toEqual({ error: "Ask a grown-up to change that one." });
+    await expect(gradeAssignment(a.id, {}, g)).rejects.toThrow("Only adults");
+  });
+
+  test("Phase 59.2a: a grown-up's own save checks a kid's change, and Put back with nothing to undo still clears it", async () => {
+    const { setAssignmentDetails, putBackKidChange } = await import("@/app/(app)/school/actions");
+    const details = (title: string) => {
+      const f = new FormData();
+      for (const [k, v] of Object.entries({ className: "Art", title, kind: "PROJECT", dueDate: "" })) f.set(k, v);
+      return f;
+    };
+    const a = await prisma.schoolAssignment.create({ data: { profileId: ids.profile, className: "Art", title: "Collage", kind: "PROJECT" } });
+    const row = () => prisma.schoolAssignment.findUniqueOrThrow({ where: { id: a.id } });
+    await as(ids.kid);
+    await setAssignmentDetails(a.id, {}, details("Big collage"));
+    await as(ids.mom);
+    expect(await setAssignmentDetails(a.id, {}, details("Big collage"))).toEqual({ notice: "Saved." });
+    expect((await row()).kidChangedAt).toBeNull();
+
+    // The kid changes it and changes it back: nothing to restore, but it's still checked.
+    await as(ids.kid);
+    await setAssignmentDetails(a.id, {}, details("Huge collage"));
+    await setAssignmentDetails(a.id, {}, details("Big collage"));
+    await as(ids.mom);
+    await putBackKidChange(a.id, (await row()).kidChangedAt!.toISOString());
+    expect([(await row()).title, (await row()).kidChangedAt]).toEqual(["Big collage", null]);
+    expect((await history(a.id)).map((e) => e.action).slice(-1)).toEqual(["PUT_BACK"]);
   });
 
   test("Phase 59.2a: a form is edited in place, and I've got it hands it over in one tap", async () => {
@@ -207,5 +243,19 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     const saved = await prisma.schoolTask.findUniqueOrThrow({ where: { id: task.id } });
     expect([saved.kind, saved.amountCents, saved.kidPersonId, saved.ownerPersonId]).toEqual(["FEE", 1000, ids.kid, ids.mom]);
     expect((await history(task.id)).map((e) => `${e.action}:${e.field ?? ""}:${e.toValue ?? ""}`)).toEqual(["EDIT:kind:FEE", "EDIT:kid:Ivy", "EDIT:amount:$10.00", "ASSIGN::Mom"]);
+
+    // A kid can't take one on, and another household's is never found.
+    await as(ids.kid);
+    await expect(claimTask(task.id)).rejects.toThrow("Only adults");
+    const elsewhere = await prisma.household.create({ data: { name: `e2e-history-other-${t}` } });
+    try {
+      const theirs = await prisma.schoolTask.create({ data: { householdId: elsewhere.id, title: "Not ours" } });
+      await as(ids.mom);
+      expect(await updateTask(theirs.id, {}, f)).toEqual({ error: "That one wasn't found." });
+      await claimTask(theirs.id);
+      expect((await prisma.schoolTask.findUniqueOrThrow({ where: { id: theirs.id } })).ownerPersonId).toBeNull();
+    } finally {
+      await prisma.household.delete({ where: { id: elsewhere.id } });
+    }
   });
 });

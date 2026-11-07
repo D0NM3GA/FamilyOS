@@ -6,10 +6,10 @@ import { useOptimistic, useRef, useState, useTransition, type ReactNode } from "
 import { MoreMenu } from "@/components/more-menu";
 import { StatusPill } from "@/components/status-pill";
 import { ConfirmAction } from "@/components/submit";
-import { iconBtn, menuItem } from "@/components/styles";
+import { btn, iconBtn, menuItem } from "@/components/styles";
 import type { WorkItem } from "@/lib/work-items/types";
 import { ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
-import { btn } from "@/components/styles";
+import { Pencil } from "lucide-react";
 import { AssignmentDetailsForm, GradeForm, TaskForm } from "./forms";
 import type { SchoolFormState } from "./actions";
 
@@ -35,9 +35,17 @@ export function KidChange({ who, title, onApprove, onPutBack }: { who: string; t
       <button type="button" disabled={pending} onClick={() => run(onApprove)} aria-label={`Approve ${who}'s change to ${title}`} className={btn}>
         Approve
       </button>
-      <button type="button" disabled={pending} onClick={() => run(onPutBack)} aria-label={`Put back ${who}'s change to ${title}`} className={btn}>
+      {/* It overwrites what they typed, so it asks first, in place. */}
+      <ConfirmAction
+        question={`Put back ${title} as it was before ${who} changed it?`}
+        yes="Put back"
+        pending={pending}
+        onConfirm={() => run(onPutBack)}
+        aria-label={`Put back ${who}'s change to ${title}`}
+        className={btn}
+      >
         Put back
-      </button>
+      </ConfirmAction>
       {failed && <span role="alert" className="basis-full text-destructive">Couldn&apos;t save that. Refresh the page and try again.</span>}
     </div>
   );
@@ -137,11 +145,18 @@ export function AssignmentRow({
   /** Phase 59.2a: grown-ups' "Grade it". */
   grade?: { action: FormAction; defaults: { score: string; maxScore: string } };
   /** Phase 59.2a: a kid's change waiting for a grown-up. */
-  kidChange?: { who: string; onApprove: (id: string) => Promise<void>; onPutBack: (id: string) => Promise<void> };
+  kidChange?: { who: string; onApprove: () => Promise<void>; onPutBack: () => Promise<void> };
 }) {
   const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus);
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState<null | "details" | "grade">(null);
+  const words = useRef<HTMLButtonElement>(null);
+  // Closing an edit hands focus back to what opened it.
+  const closeEdit = () => {
+    const was = editing;
+    setEditing(null);
+    requestAnimationFrame(() => (was === "details" ? words.current : more.current)?.focus());
+  };
   // Cancel hands focus back to the ⋯ the question came from.
   const more = useRef<HTMLButtonElement>(null);
   const look = item.looks[status]!;
@@ -159,13 +174,14 @@ export function AssignmentRow({
       {details ? (
         // Tapping the words opens the quick edit, where the viewer may change them.
         <button
+          ref={words}
           type="button"
           aria-expanded={editing === "details"}
-          aria-label={`Change ${item.title}: ${className}, ${dueText}`}
+          aria-label={`Change ${item.title}: ${className}${kind === "HOMEWORK" ? "" : `, ${ASSIGNMENT_KIND_LABEL[kind]}`}, ${dueText}`}
           onClick={() => setEditing(editing === "details" ? null : "details")}
           className="min-h-11 min-w-0 flex-1 basis-40 rounded-lg px-1 text-left hover:bg-muted"
         >
-          <AssignmentWords className={className} kind={kind} title={item.title} dueText={dueText} late={overdue && status === "TODO"} />
+          <AssignmentWords className={className} kind={kind} title={item.title} dueText={dueText} late={overdue && status === "TODO"} editable />
         </button>
       ) : (
         <div className="min-w-0 flex-1 basis-40">
@@ -195,10 +211,10 @@ export function AssignmentRow({
         )}
       </div>
       {kidChange && (
-        <KidChange who={kidChange.who} title={item.title} onApprove={() => kidChange.onApprove(item.id)} onPutBack={() => kidChange.onPutBack(item.id)} />
+        <KidChange who={kidChange.who} title={item.title} onApprove={kidChange.onApprove} onPutBack={kidChange.onPutBack} />
       )}
-      {editing === "details" && details && <AssignmentDetailsForm action={details.action} defaults={details.defaults} onClose={() => setEditing(null)} />}
-      {editing === "grade" && grade && <GradeForm action={grade.action} defaults={grade.defaults} onClose={() => setEditing(null)} />}
+      {editing === "details" && details && <AssignmentDetailsForm action={details.action} defaults={details.defaults} onClose={closeEdit} />}
+      {editing === "grade" && grade && <GradeForm action={grade.action} defaults={grade.defaults} onClose={closeEdit} />}
       {confirming && (
         <ConfirmAction
           initiallyAsking
@@ -230,12 +246,14 @@ export function AssignmentRow({
 }
 
 
-function AssignmentWords({ className, kind, title, dueText, late }: { className: string; kind: AssignmentKind; title: string; dueText: string; late: boolean }) {
+function AssignmentWords({ className, kind, title, dueText, late, editable = false }: { className: string; kind: AssignmentKind; title: string; dueText: string; late: boolean; editable?: boolean }) {
   return (
     <>
       <span className="block text-sm text-foreground">
         <span className="text-xs font-bold text-muted-foreground">{className}</span> <KindTag kind={kind} />
-        {title}
+        {/* A dotted line and a pencil say it can be changed, without needing a hover. */}
+        <span className={editable ? "underline decoration-dotted decoration-muted-foreground underline-offset-4" : undefined}>{title}</span>
+        {editable && <Pencil size={12} aria-hidden className="ml-1 inline text-muted-foreground" />}
       </span>
       <span className={`block text-xs ${late ? "font-bold text-destructive" : "text-muted-foreground"}`}>{dueText}</span>
     </>

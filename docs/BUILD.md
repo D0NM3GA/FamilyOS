@@ -1394,3 +1394,10 @@ back (`putBackValues`: each field's value from before the kid's first change sin
 review, read from the history). A grown-up's own edit or grade clears it with an APPROVE event.
 Forms get `updateTask` (the add form reused in the row, with defaults) and `claimTask` ("I've got
 it"), both recorded. `kidChangedAt` rides in the backup (defaulting to null for older files).
+Fable's review of 59.2a: Approve and Put back act only on the change the grown-up saw (the page
+sends its `kidChangedAt`, and Put back also pins `updatedAt`), and refuse with "refresh" if the kid
+changed it again. History reads break ties by id, since one save's events share a moment. Put back
+asks first, never clears a due date from an unreadable value, and closing an inline edit hands
+focus back to what opened it. The owner's calls, made in the build and open to change: grading To do
+work marks it done, and Done recently opens when it holds a change to check. The words a kid or
+grown-up can tap get a dotted line and a pencil, so the edit isn't found only by hovering.
