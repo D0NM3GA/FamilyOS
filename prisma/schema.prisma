@@ -227,6 +227,8 @@ model Person {
   notifications         Notification[]
   /// Phase 21: how this admin wants Sticker Store alerts delivered.
   alertPrefs            AlertPrefs?
+  reminderPrefs         ReminderPrefs?
+  remindersSent         ReminderSent[]
   /// Phase 21.6: phones/browsers that get this person's push alerts.
   pushSubscriptions     PushSubscription[]
   /// Phase 21.5: who last set the family's Teams link.
@@ -643,6 +645,13 @@ enum NotificationKind {
   /// Phase 40.2c: someone's sign-in changed (lib/sign-in-notices.ts): reset, removed, a new
   /// role, a passkey added, an invite used.
   SIGN_IN_CHANGED
+  /// Phase 62: reminders (lib/reminders), once per thing per person (ReminderSent).
+  REMINDER_DOSE
+  REMINDER_MED_LOW
+  REMINDER_SCHOOL
+  REMINDER_DATE
+  REMINDER_CAR
+  REMINDER_RECALL
 }
 
 enum BackupKind {
@@ -854,6 +863,8 @@ model Vehicle {
 
   currentMileage   Int       @default(0)
   mileageUpdatedAt DateTime?
+  /// Phase 62b: when the reminders job last asked NHTSA about this car (once a day at most).
+  recallsCheckedAt DateTime?
 
   /// Deactivating hides a sold/retired vehicle from the board without deleting its
   /// maintenance history — there's no vehicle delete in v1 (see docs/PLAN.md).
@@ -1628,6 +1639,42 @@ model Passkey {
 
   @@index([userId])
   @@map("passkey")
+}
+
+/// Phase 62: one grown-up's reminder settings (Settings → My notifications). `off` lists the
+/// reminder kinds (NotificationKind REMINDER_*) they switched off. Quiet hours are minutes after
+/// midnight in the household's time, both or neither, and may wrap midnight. Teams and email are
+/// reminders' own switches (AlertPrefs' are admins' store alerts). Not in the app's backup file.
+model ReminderPrefs {
+  personId     String   @id
+  person       Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  off          String[] @default([])
+  quietStart   Int?
+  quietEnd     Int?
+  teamsEnabled Boolean  @default(false)
+  emailEnabled Boolean  @default(false)
+  /// Phase 62c: the morning summary, by email and/or Teams, and the last day it went.
+  digestEmail  Boolean  @default(false)
+  digestTeams  Boolean  @default(false)
+  digestLastOn String?
+  updatedAt    DateTime @updatedAt
+
+  @@map("reminder_prefs")
+}
+
+/// Phase 62: a reminder that went to someone, so it goes once. The key names the thing and its
+/// occurrence (lib/reminders). Claimed with the bell row in one transaction; cleared after 400
+/// days. Not in the app's backup file.
+model ReminderSent {
+  id       String   @id @default(cuid())
+  personId String
+  person   Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  key      String
+  sentAt   DateTime @default(now())
+
+  @@unique([personId, key])
+  @@index([sentAt])
+  @@map("reminder_sent")
 }
 
 /// Phase 21: a person's alert channels beyond the in-app bell (on/off per channel, plus the

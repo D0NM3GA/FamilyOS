@@ -10,7 +10,11 @@ import { RewardWord } from "@/components/family-look";
 import { SubmitButton } from "@/components/submit";
 import { btn } from "@/components/styles";
 import { othersSignInNoticesOn } from "@/lib/sign-in-notices";
-import { setSignInNotices } from "./actions";
+import { saveReminders, setSignInNotices } from "./actions";
+import { appOn } from "@/lib/app-switches";
+import { listedKinds, readReminderPrefs, reminderChannels } from "@/lib/reminders/prefs";
+import { clockText } from "@/lib/reminders/quiet";
+import { field, fieldLabel } from "@/components/styles";
 
 export const metadata = { title: "My notifications" };
 
@@ -19,8 +23,9 @@ export const metadata = { title: "My notifications" };
  * which jars' money alerts they get. Store-order alerts for the family stay on the admins'
  * Alerts page. Plain, like the rest of Settings.
  */
-export default async function MyNotificationsPage() {
+export default async function MyNotificationsPage({ searchParams }: { searchParams: Promise<{ reminders?: string }> }) {
   const profile = await requireActiveProfile();
+  const remindersNote = (await searchParams).reminders;
   if (!isAdult(profile)) {
     return <p className="p-4 text-muted-foreground sm:p-6">Notifications are for grown-ups for now.</p>;
   }
@@ -42,6 +47,16 @@ export default async function MyNotificationsPage() {
       : [],
   ]);
   const vapid = await getVapid();
+  // Phase 62: reminders, only the kinds whose app is on.
+  const [medsOn, schoolOn, carsOn, reminderPrefs, channels] = await Promise.all([
+    appOn(profile.householdId, "meds"),
+    appOn(profile.householdId, "school"),
+    appOn(profile.householdId, "cars"),
+    readReminderPrefs(profile.id),
+    reminderChannels(profile.householdId, profile.id),
+  ]);
+  const kinds = listedKinds((app) => (app === "meds" ? medsOn : app === "school" ? schoolOn : carsOn));
+  const off = new Set(reminderPrefs?.off ?? []);
   // Phase 40.2c: an admin's notices about other people's sign-ins can be switched off.
   // Own sign-in only, as the switch's action checks (not the DEV-ONLY dev sign-in).
   const signInSwitch = isAdmin(profile) && (await isSessionOwner(profile)) ? await othersSignInNoticesOn(profile.id) : null;
@@ -80,6 +95,58 @@ export default async function MyNotificationsPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section id="reminders" className="scroll-mt-6 space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+        <h2 className="text-base font-semibold">Reminders</h2>
+        <p className="text-sm text-muted-foreground">
+          The app reminds you about these in the bell and on your phones{channels.teams || channels.email ? ", and where you choose below" : ""}.
+        </p>
+        <form action={saveReminders} className="space-y-4">
+          <fieldset className="space-y-1">
+            <legend className="sr-only">Remind me when</legend>
+            {kinds.map((k) => (
+              <label key={k.kind} className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
+                <input type="checkbox" name="kind" value={k.kind} defaultChecked={!off.has(k.kind)} className="size-4" />
+                {k.label}
+              </label>
+            ))}
+          </fieldset>
+          {(channels.teams || channels.email) && (
+            <fieldset className="space-y-1">
+              <legend className={`${fieldLabel} block`}>Also send them</legend>
+              {channels.teams && (
+                <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
+                  <input type="checkbox" name="teams" defaultChecked={reminderPrefs?.teamsEnabled ?? false} className="size-4" />
+                  In Teams
+                </label>
+              )}
+              {channels.email && (
+                <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
+                  <input type="checkbox" name="email" defaultChecked={reminderPrefs?.emailEnabled ?? false} className="size-4" />
+                  By email
+                </label>
+              )}
+            </fieldset>
+          )}
+          <fieldset>
+            <legend className={`${fieldLabel} block`}>Quiet hours</legend>
+            <p className="text-xs text-muted-foreground">Nothing comes to your phones, Teams or email in these hours, except a missed dose. Leave both empty for none.</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+              <label className="flex items-center gap-1">
+                From <input type="time" name="quietFrom" defaultValue={clockText(reminderPrefs?.quietStart ?? null)} className={field} />
+              </label>
+              <label className="flex items-center gap-1">
+                to <input type="time" name="quietTo" defaultValue={clockText(reminderPrefs?.quietEnd ?? null)} className={field} />
+              </label>
+            </div>
+          </fieldset>
+          {remindersNote === "quiet" && <p role="alert" className="text-sm font-bold text-destructive">Give quiet hours both a start and an end, or leave both empty.</p>}
+          {remindersNote === "saved" && <p role="status" className="text-sm font-bold text-foreground">Saved.</p>}
+          <SubmitButton className={btn} pendingText="Saving…">
+            Save reminders
+          </SubmitButton>
+        </form>
       </section>
 
       {jars.length > 0 && (

@@ -1,0 +1,140 @@
+import { describe, expect, it } from "vitest";
+import { DOSE_GRACE_MS, isMedLow, nextOn, planDates, planDoses, planMedLow, planSchool, type DoseRow, type MedRow } from "./plan";
+import { daysOfSupply, dosesPerDay } from "./supply";
+import { clockText, inQuietHours, parseClock } from "./quiet";
+import { grownUpsOf } from "./people";
+import { listedKinds, nextOff } from "./prefs";
+
+const NOW = new Date(2026, 10, 7, 10, 0);
+const dad = { id: "dad" };
+const mom = { id: "mom" };
+const grownUps = [dad, mom];
+
+describe("missed doses", () => {
+  const dose = (over: Partial<DoseRow> = {}): DoseRow => ({
+    definitionId: "def1",
+    dueDate: new Date(2026, 10, 7, 8, 0),
+    title: "Amoxicillin",
+    timeLabel: "8:00 AM",
+    timed: true,
+    active: true,
+    status: "PENDING",
+    assignedTo: { id: "ivy", firstName: "Ivy" },
+    ...over,
+  });
+
+  it("reminds the person it's for and the grown-ups, through quiet hours, keyed by the dose's time", () => {
+    const [r] = planDoses([dose()], grownUps, NOW);
+    expect(r).toMatchObject({ kind: "REMINDER_DOSE", recipients: ["ivy", "dad", "mom"], urgent: true, href: "/meds" });
+    expect(r.title).toBe("Ivy's 8:00 AM dose of Amoxicillin wasn't marked");
+    expect(r.key).toBe("dose:def1:2026-11-07:0800");
+  });
+
+  it("waits out the grace period, and lets a day-old one go", () => {
+    expect(planDoses([dose({ dueDate: new Date(NOW.getTime() - DOSE_GRACE_MS + 60_000) })], grownUps, NOW)).toEqual([]);
+    expect(planDoses([dose({ dueDate: new Date(NOW.getTime() - 25 * 60 * 60_000) })], grownUps, NOW)).toEqual([]);
+  });
+
+  it("skips taken, untimed and stopped medications; no one assigned goes to the grown-ups", () => {
+    expect(planDoses([dose({ status: "DONE" }), dose({ timed: false }), dose({ active: false })], grownUps, NOW)).toEqual([]);
+    const [r] = planDoses([dose({ assignedTo: null })], grownUps, NOW);
+    expect(r.recipients).toEqual(["dad", "mom"]);
+    expect(r.title).toBe("The 8:00 AM dose of Amoxicillin wasn't marked");
+  });
+});
+
+describe("days of supply", () => {
+  const base = { quantityOnHand: 30, doseAmount: 1, frequencyType: "DAILY", interval: 1, daysOfWeek: [] as number[], timesOfDay: ["08:00", "20:00"] };
+  it("per schedule", () => {
+    expect(dosesPerDay(base)).toBe(2);
+    expect(dosesPerDay({ ...base, frequencyType: "INTERVAL_DAYS", interval: 2 })).toBe(1);
+    expect(dosesPerDay({ ...base, frequencyType: "DAYS_OF_WEEK", daysOfWeek: [1, 3, 5], timesOfDay: ["08:00"] })).toBeCloseTo(3 / 7);
+    expect(dosesPerDay({ ...base, frequencyType: "WEEKLY", timesOfDay: ["08:00"] })).toBeCloseTo(1 / 7);
+    expect(dosesPerDay({ ...base, frequencyType: "MONTHLY" })).toBeNull();
+    expect(daysOfSupply(base)).toBe(15);
+    expect(daysOfSupply({ ...base, doseAmount: null })).toBeNull();
+    expect(daysOfSupply({ ...base, quantityOnHand: null })).toBeNull();
+  });
+
+  const med = (over: Partial<MedRow> = {}): MedRow => ({ medicationId: "m1", title: "Vitamin D", active: true, refillThresholdQuantity: null, ...base, ...over });
+  it("low at a week or less, or at the refill count", () => {
+    expect(isMedLow(med({ quantityOnHand: 14 }))).toEqual({ low: true, days: 7 });
+    expect(isMedLow(med({ quantityOnHand: 16 })).low).toBe(false);
+    expect(isMedLow(med({ quantityOnHand: 40, refillThresholdQuantity: 40 })).low).toBe(true);
+    expect(isMedLow(med({ quantityOnHand: 3, doseAmount: null })).low).toBe(false);
+  });
+
+  it("plans one per low med and lists the rest to forget", () => {
+    const { reminders, notLow } = planMedLow([med({ quantityOnHand: 9 }), med({ medicationId: "m2", quantityOnHand: 60 }), med({ medicationId: "m3", active: false })], grownUps);
+    expect(reminders).toHaveLength(1);
+    expect(reminders[0]).toMatchObject({ key: "med:m1", recipients: ["dad", "mom"], title: "Vitamin D is running low (about 4 days left)" });
+    expect(notLow).toEqual(["m2", "m3"]);
+  });
+});
+
+describe("school", () => {
+  const task = (dueDate: Date | null, owner: { id: string; adult: boolean } | null = null) => ({ id: "t1", title: "field trip form", dueDate, status: "OPEN", owner, kid: { firstName: "Max" } });
+  it("today and tomorrow only, to the grown-up handling it or everyone", () => {
+    const today = new Date(2026, 10, 7);
+    const tomorrow = new Date(2026, 10, 8);
+    expect(planSchool([task(today)], grownUps, NOW)[0]).toMatchObject({ title: "Max's field trip form is due today", recipients: ["dad", "mom"], key: "school:t1:2026-11-07" });
+    expect(planSchool([task(tomorrow, { id: "mom", adult: true })], grownUps, NOW)[0]).toMatchObject({ title: "Max's field trip form is due tomorrow", recipients: ["mom"] });
+    expect(planSchool([task(tomorrow, { id: "ivy", adult: false })], grownUps, NOW)[0].recipients).toEqual(["dad", "mom"]);
+    expect(planSchool([task(new Date(2026, 10, 9)), task(new Date(2026, 10, 6)), task(null)], grownUps, NOW)).toEqual([]);
+  });
+});
+
+describe("birthdays and anniversaries", () => {
+  const date = (month: number, day: number, type = "BIRTHDAY", personId = "grandma") => ({ id: `d-${month}-${day}`, type, month, day, year: null, person: { id: personId, firstName: "Grandma" } });
+  it("within a week, never to the person it's about, wrapping the year", () => {
+    expect(planDates([date(11, 10)], grownUps, NOW)[0]).toMatchObject({ title: "Grandma's birthday is in 3 days", key: "date:d-11-10:2026-11-10", recipients: ["dad", "mom"] });
+    expect(planDates([date(11, 7, "ANNIVERSARY")], grownUps, NOW)[0].title).toBe("Grandma's anniversary is today");
+    expect(planDates([date(11, 15), date(11, 6), date(11, 8, "OTHER")], grownUps, NOW)).toEqual([]);
+    expect(planDates([date(11, 8, "BIRTHDAY", "dad")], grownUps, NOW)[0].recipients).toEqual(["mom"]);
+    expect(nextOn({ month: 1, day: 2 }, new Date(2026, 11, 30, 9)).getFullYear()).toBe(2027);
+  });
+
+  it("Feb 29 falls on Feb 28 in other years; a date for a year to come waits", () => {
+    const feb = new Date(2027, 1, 25, 9);
+    expect(nextOn({ month: 2, day: 29 }, feb)).toEqual(new Date(2027, 1, 28));
+    expect(planDates([{ ...date(2, 29), id: "leap" }], grownUps, feb)[0]).toMatchObject({ title: "Grandma's birthday is in 3 days", key: "date:leap:2027-02-28" });
+    expect(planDates([{ ...date(11, 10, "ANNIVERSARY"), year: 2027 }], grownUps, NOW)).toEqual([]);
+  });
+});
+
+describe("quiet hours", () => {
+  it("a window, one that wraps midnight, and none", () => {
+    const at = (h: number, m = 0) => new Date(2026, 10, 7, h, m);
+    const night = { quietStart: 21 * 60, quietEnd: 7 * 60 };
+    expect(inQuietHours(night, at(22))).toBe(true);
+    expect(inQuietHours(night, at(6, 59))).toBe(true);
+    expect(inQuietHours(night, at(7))).toBe(false);
+    expect(inQuietHours({ quietStart: 13 * 60, quietEnd: 14 * 60 }, at(13, 30))).toBe(true);
+    expect(inQuietHours({ quietStart: null, quietEnd: null }, at(23))).toBe(false);
+    expect(inQuietHours(null, at(23))).toBe(false);
+    expect(parseClock("21:30")).toBe(1290);
+    expect(parseClock("25:00")).toBeNull();
+    expect(clockText(1290)).toBe("21:30");
+  });
+});
+
+describe("grown-ups", () => {
+  it("adults and admins whose access hasn't ended", () => {
+    const rows = [
+      { id: "dad", role: "ADMIN", entraAccessEndedAt: null },
+      { id: "mom", role: "ADULT", entraAccessEndedAt: null },
+      { id: "ivy", role: "KID", entraAccessEndedAt: null },
+      { id: "gone", role: "ADULT", entraAccessEndedAt: new Date() },
+    ];
+    expect(grownUpsOf(rows).map((p) => p.id)).toEqual(["dad", "mom"]);
+  });
+});
+
+describe("reminder settings", () => {
+  it("lists only kinds whose app is on, and keeps hidden kinds' switches when saving", () => {
+    expect(listedKinds((app) => app !== "school").map((k) => k.kind)).toEqual(["REMINDER_DOSE", "REMINDER_MED_LOW", "REMINDER_DATE"]);
+    // School off (hidden) stays as it was; of the listed ones, only what's unticked is off.
+    expect(nextOff(["REMINDER_SCHOOL", "REMINDER_DOSE"], ["REMINDER_DOSE", "REMINDER_MED_LOW", "REMINDER_DATE"], new Set(["REMINDER_DOSE", "REMINDER_DATE"]))).toEqual(["REMINDER_MED_LOW", "REMINDER_SCHOOL"]);
+  });
+});
+

@@ -199,6 +199,7 @@ const recipientSelect = {
   authUser: { select: { email: true, accounts: MICROSOFT_ACCOUNTS } },
   entraAccessEndedAt: true,
   alertPrefs: { select: { teamsEnabled: true, emailEnabled: true } },
+  reminderPrefs: { select: { teamsEnabled: true, emailEnabled: true } },
   pushSubscriptions: { select: { id: true, endpoint: true, p256dh: true, auth: true, failureCount: true } },
 } as const;
 
@@ -213,7 +214,8 @@ export async function deliverOrderAlerts(orderId: string, senders: Senders = def
  * its shared Teams chat instead.
  */
 export type DeliverOptions = {
-  channels: "prefs" | "teams-first" | "push-only";
+  /** "reminders" (Phase 62): Teams and email by the person's own reminder switches (ReminderPrefs), push always. */
+  channels: "prefs" | "teams-first" | "push-only" | "reminders";
   card?: TeamsCard;
   /**
    * Phase 40.2c: email too, whatever the person's store-alert email switch, when the install
@@ -246,14 +248,17 @@ export async function deliverNotifications(where: Prisma.NotificationWhereInput,
         // Phase 40.4: nothing leaves the app for someone Entra cut off (the bell keeps it).
         if (n.recipient.entraAccessEndedAt && !opts.includeEnded) return Promise.resolve();
         const p = n.recipient.alertPrefs;
-        const wantsTeams = opts.channels === "teams-first" || (opts.channels === "prefs" && Boolean(p?.teamsEnabled));
+        const rp = n.recipient.reminderPrefs;
+        const wantsTeams =
+          opts.channels === "teams-first" || (opts.channels === "prefs" && Boolean(p?.teamsEnabled)) || (opts.channels === "reminders" && Boolean(rp?.teamsEnabled));
         // Push has no switch: registered devices are the opt-in. Keys missing while devices
         // exist is a fault (they were set up once), so it's recorded, not skipped.
         const hasPhones = n.recipient.pushSubscriptions.length > 0;
         if (hasPhones && !keys.ok) await record(n.recipient.id, "push", pushProblem(keys));
         const channels: Channel[] = [];
         if (wantsTeams && teamsAppId) channels.push("teams");
-        if ((opts.channels === "prefs" && p?.emailEnabled) || (opts.alsoEmail && mailbox !== null)) channels.push("email");
+        const wantsEmail = (opts.channels === "prefs" && p?.emailEnabled) || (opts.channels === "reminders" && rp?.emailEnabled);
+        if (wantsEmail || (opts.alsoEmail && mailbox !== null)) channels.push("email");
         if (hasPhones && keys.ok) channels.push("push");
         if (channels.length === 0) return Promise.resolve();
         return sendToPerson(n.recipient, channels, teamsAppId, mailbox, n.title, n.href, appName, senders, opts.card);

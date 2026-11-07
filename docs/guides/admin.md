@@ -676,7 +676,8 @@ Run the `docker compose` lines from `/opt/familyos`.
 name), so it filters well: `docker compose -f docker-compose.prod.yml logs app | grep '"level":"error"'`.
 Every error caught and handled is a line too (`error.caught`), with or without Sentry.
 
-**System** (admins, at the bottom of Data & backups) shows each background job's last good run and
+**System** (admins, at the bottom of Data & backups) shows each background job's last good run
+(**Reminders** among them, Phase 62, with how many it sent) and
 last failure, and the nightly backup's. **Late** means it hasn't run when it should have (a job
 every 30 minutes, the backup every night); **Failing** shows the short reason. For a nudge when
 nothing is looking, set `HEALTHCHECK_PING_URL` in the settings file to a check-in URL (a

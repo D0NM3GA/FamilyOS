@@ -1,0 +1,226 @@
+import { prisma } from "@/lib/prisma";
+import { Prisma, type NotificationKind } from "@/app/generated/prisma/client";
+import { appOn } from "@/lib/app-switches";
+import { deliverNotifications } from "@/lib/alerts/dispatch";
+import type { TeamsCard } from "@/lib/alerts/teams";
+import { captureError } from "@/lib/observability";
+import { formatTimeOfDay } from "@/lib/format";
+import { addDays, atMidnight } from "@/lib/tasks/schedule";
+import { ensureInstancesGenerated } from "@/lib/tasks/instances";
+import { DOSE_LOOKBACK_MS, planDates, planDoses, planMedLow, planSchool, type Reminder, type ReminderKind } from "./plan";
+import { inQuietHours } from "./quiet";
+import { grownUpsOf } from "./people";
+
+/**
+ * Phase 62: the reminders job on the background tick (lib/background.ts). For each household:
+ * load what each kind needs (only apps that are on), plan (./plan.ts), drop what each person
+ * switched off or is in their quiet hours for (urgent ones go through), claim once per person
+ * and key with the bell row, then send outside the app on the person's channels. Each kind runs
+ * on its own, so one failing doesn't stop the rest.
+ */
+
+/** How the card in Teams (and an email's link) names where a reminder leads. */
+export const REMINDER_CARDS: Record<ReminderKind, TeamsCard> = {
+  REMINDER_DOSE: { heading: "💊 Meds", linkText: "Open Meds" },
+  REMINDER_MED_LOW: { heading: "💊 Meds", linkText: "Open Meds" },
+  REMINDER_SCHOOL: { heading: "🎒 School", linkText: "Open School" },
+  REMINDER_DATE: { heading: "📅 People", linkText: "Open their page" },
+  REMINDER_CAR: { heading: "🚐 Cars", linkText: "Open Cars" },
+  REMINDER_RECALL: { heading: "🚐 Cars", linkText: "Open Cars" },
+};
+
+/** Send history older than this is forgotten. */
+export const REMINDER_MEMORY_DAYS = 400;
+
+type Person = { id: string; adult: boolean; off: string[]; quietStart: number | null; quietEnd: number | null };
+
+export async function runReminders(now: Date = new Date()): Promise<string> {
+  await prisma.reminderSent.deleteMany({ where: { sentAt: { lt: new Date(now.getTime() - REMINDER_MEMORY_DAYS * 86_400_000) } } });
+  const households = await prisma.household.findMany({ select: { id: true } });
+  let sent = 0;
+  for (const h of households) {
+    try {
+      sent += await remindHousehold(h.id, now);
+    } catch (err) {
+      captureError(err, "reminders.household_failed");
+    }
+  }
+  return `${sent} sent`;
+}
+
+/** One household's reminders (exported for tests, which run one household, not the whole database). */
+export async function remindHousehold(householdId: string, now: Date): Promise<number> {
+  const people = await loadPeople(householdId);
+  const grownUps = people.filter((p) => p.adult);
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const plans: Reminder[] = [];
+
+  const kinds: [string, () => Promise<Reminder[]>][] = [];
+  if (await appOn(householdId, "meds")) {
+    kinds.push(["doses", () => doseReminders(householdId, grownUps, now)]);
+    kinds.push(["med_low", () => medLowReminders(householdId, grownUps)]);
+  }
+  if (await appOn(householdId, "school")) kinds.push(["school", () => schoolReminders(householdId, grownUps, now)]);
+  kinds.push(["dates", () => dateReminders(householdId, grownUps, now)]);
+
+  for (const [name, plan] of kinds) {
+    try {
+      plans.push(...(await plan()));
+    } catch (err) {
+      captureError(err, "reminders.kind_failed", { kind: name });
+    }
+  }
+
+  // What already went, read once: claiming only what's new keeps a steady tick from opening (and
+  // rolling back) a transaction per reminder still in its window. The claim's unique key stays
+  // the guard against a race.
+  const already = new Set(
+    (
+      await prisma.reminderSent.findMany({
+        where: { personId: { in: people.map((p) => p.id) }, key: { in: [...new Set(plans.map((r) => r.key))] } },
+        select: { personId: true, key: true },
+      })
+    ).map((s) => `${s.personId}|${s.key}`),
+  );
+
+  let sent = 0;
+  const outbound = new Map<ReminderKind, string[]>();
+  for (const r of plans) {
+    for (const personId of r.recipients) {
+      const person = byId.get(personId);
+      if (!person || already.has(`${personId}|${r.key}`)) continue;
+      if (person.adult && person.off.includes(r.kind)) continue;
+      // Quiet hours defer: not claimed now, so the next tick after they end sends it.
+      if (person.adult && !r.urgent && inQuietHours(person, now)) continue;
+      const id = await claim(householdId, personId, r);
+      if (!id) continue;
+      sent++;
+      // Kids get the bell only, as for store orders.
+      if (person.adult) outbound.set(r.kind, [...(outbound.get(r.kind) ?? []), id]);
+    }
+  }
+  for (const [kind, ids] of outbound) {
+    await deliverNotifications({ id: { in: ids } }, { channels: "reminders", card: REMINDER_CARDS[kind] });
+  }
+  return sent;
+}
+
+/** Household members, with whether they're a grown-up and their reminder settings. */
+async function loadPeople(householdId: string): Promise<Person[]> {
+  const rows = await prisma.person.findMany({
+    where: { householdId, isHouseholdMember: true },
+    select: { id: true, role: true, entraAccessEndedAt: true, reminderPrefs: { select: { off: true, quietStart: true, quietEnd: true } } },
+  });
+  const adults = new Set(grownUpsOf(rows).map((g) => g.id));
+  return rows.map((p) => ({
+    id: p.id,
+    adult: adults.has(p.id),
+    off: p.reminderPrefs?.off ?? [],
+    quietStart: p.reminderPrefs?.quietStart ?? null,
+    quietEnd: p.reminderPrefs?.quietEnd ?? null,
+  }));
+}
+
+/** Once per person and key: the send record and the bell row in one transaction. Null if already sent. */
+async function claim(householdId: string, personId: string, r: Reminder): Promise<string | null> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      await tx.reminderSent.create({ data: { personId, key: r.key } });
+      const n = await tx.notification.create({
+        data: { householdId, recipientId: personId, kind: r.kind as NotificationKind, title: r.title, href: r.href },
+        select: { id: true },
+      });
+      return n.id;
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return null;
+    throw err;
+  }
+}
+
+async function doseReminders(householdId: string, grownUps: { id: string }[], now: Date): Promise<Reminder[]> {
+  // Doses are otherwise made only when a page opens: make today's (and tomorrow's) first, so a
+  // day nobody looked still reminds.
+  await ensureInstancesGenerated(householdId, addDays(atMidnight(now), 2), "MED");
+  const rows = await prisma.taskInstance.findMany({
+    where: {
+      status: "PENDING",
+      dueDate: { gte: new Date(now.getTime() - DOSE_LOOKBACK_MS), lte: now },
+      definition: { householdId, domain: "MED", active: true },
+    },
+    select: {
+      definitionId: true,
+      dueDate: true,
+      status: true,
+      assignedTo: { select: { id: true, firstName: true } },
+      definition: { select: { title: true, timesOfDay: true, active: true } },
+    },
+  });
+  return planDoses(
+    rows.map((r) => ({
+      definitionId: r.definitionId,
+      dueDate: r.dueDate,
+      title: r.definition.title,
+      timeLabel: formatTimeOfDay(r.dueDate),
+      timed: r.definition.timesOfDay.length > 0,
+      active: r.definition.active,
+      status: r.status,
+      assignedTo: r.assignedTo,
+    })),
+    grownUps,
+    now,
+  );
+}
+
+async function medLowReminders(householdId: string, grownUps: { id: string }[]): Promise<Reminder[]> {
+  const meds = await prisma.medication.findMany({
+    where: { taskDefinition: { householdId, domain: "MED" } },
+    select: {
+      id: true,
+      quantityOnHand: true,
+      doseAmount: true,
+      refillThresholdQuantity: true,
+      taskDefinition: { select: { title: true, active: true, frequencyType: true, interval: true, daysOfWeek: true, timesOfDay: true } },
+    },
+  });
+  const { reminders, notLow } = planMedLow(
+    meds.map((m) => ({
+      medicationId: m.id,
+      title: m.taskDefinition.title,
+      active: m.taskDefinition.active,
+      quantityOnHand: m.quantityOnHand,
+      doseAmount: m.doseAmount,
+      refillThresholdQuantity: m.refillThresholdQuantity,
+      frequencyType: m.taskDefinition.frequencyType,
+      interval: m.taskDefinition.interval ?? 1,
+      daysOfWeek: m.taskDefinition.daysOfWeek,
+      timesOfDay: m.taskDefinition.timesOfDay,
+    })),
+    grownUps,
+  );
+  // Restocked (or stopped): forget it, so the next time it runs low reminds again.
+  if (notLow.length) await prisma.reminderSent.deleteMany({ where: { key: { in: notLow.map((id) => `med:${id}`) }, person: { householdId } } });
+  return reminders;
+}
+
+async function schoolReminders(householdId: string, grownUps: { id: string }[], now: Date): Promise<Reminder[]> {
+  const today = atMidnight(now);
+  const tasks = await prisma.schoolTask.findMany({
+    where: { householdId, status: "OPEN", dueDate: { gte: today, lt: addDays(today, 2) } },
+    select: { id: true, title: true, dueDate: true, status: true, ownerPersonId: true, kid: { select: { firstName: true } } },
+  });
+  const adults = new Set(grownUps.map((g) => g.id));
+  return planSchool(
+    tasks.map((t) => ({ ...t, owner: t.ownerPersonId ? { id: t.ownerPersonId, adult: adults.has(t.ownerPersonId) } : null })),
+    grownUps,
+    now,
+  );
+}
+
+async function dateReminders(householdId: string, grownUps: { id: string }[], now: Date): Promise<Reminder[]> {
+  const dates = await prisma.importantDate.findMany({
+    where: { person: { householdId }, type: { in: ["BIRTHDAY", "ANNIVERSARY"] } },
+    select: { id: true, type: true, month: true, day: true, year: true, person: { select: { id: true, firstName: true } } },
+  });
+  return planDates(dates, grownUps, now);
+}

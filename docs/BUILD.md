@@ -1599,3 +1599,30 @@ lives in `lib/app-guard.ts` beside `requireAppOn`, away from the module backgrou
 person's Money download answers 404 while Money is off, like the jar export; the guard test reads
 `$` in an awaited name and refuses `export const … = async` actions it couldn't see; Calendar's
 helpers check the app after the admin check, as the others do.
+
+## Phase 62 — Reminders
+
+### 62a — The engine, preferences, and four kinds
+
+`lib/reminders`: pure planners (`plan.ts`) for a missed dose (a timed, PENDING dose of an active
+medication 90 minutes to a day past its time; to the person it's for and every grown-up; through
+quiet hours), a medicine running low (`supply.ts`'s days of supply, a week or less, or the refill
+count), a school form, fee or to-do due today or tomorrow (its grown-up owner, else every
+grown-up), and a birthday or anniversary within a week (every grown-up but the person). `run.ts`
+is the `reminders` job on the tick: per household, it first makes today's doses
+(`ensureInstancesGenerated`, otherwise only run when a page opens), plans each kind in its own
+try/catch for apps that are on, drops what a person switched off or is in their quiet hours for
+(not claimed, so the next tick after sends it), then claims a `ReminderSent` row with the bell row
+in one transaction (once per person and key) and delivers in a new `"reminders"` channel mode:
+push always, Teams and email by `ReminderPrefs`' own switches, with a card per kind. Kids get the
+bell only. Keys name the occurrence: `dose:<definition>:<time>` (an edit re-makes the instance),
+`school:<task>:<day>`, `date:<date>:<day>`, `med:<medication>`, cleared when the medicine is no
+longer low. History is kept 400 days. Settings → My notifications gains **Reminders**: a switch per
+kind whose app is on, Teams and email where they work for that person, and quiet hours. Neither
+table is in the backup file (`lib/backup/schema.ts`).
+Fable's review of 62a: a Feb 29 birthday falls on Feb 28 in other years and a date entered for a
+year still to come waits for it, as Home and the calendar show them; what already went is read
+once per household, so a steady tick doesn't open and roll back a transaction per reminder; the
+dose key is the day and clock time (a zone move shifts the stored instant); a stopped medicine is
+forgotten like a restocked one. Known: a reminder that fails to reach Teams, email or a phone is
+recorded on `AlertPrefs`' last-error fields, which the admins' Alerts page reads.

@@ -44,6 +44,9 @@ can't take each other down, a System card on Data & backups with an optional out
 JSON logs, nightly backups encrypted with age and kept on the server, the NAS and OneDrive, a
 database login for the app that can only read and write data, and guard tests that every server
 action checks who's asking and that its app is on, with a browser test of a kid's profile.
+**Reminders (62)**: missed doses, medicines running low, school things due and birthdays (cars
+and recalls, and a morning summary, follow), once each, by the bell, phone, Teams or email, with
+each grown-up's own kinds and quiet hours.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they
