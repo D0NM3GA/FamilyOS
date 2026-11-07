@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 import type { SchoolFormState } from "./actions";
+import { ASSIGNMENT_KINDS, ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
 
 type Action = (prev: SchoolFormState, fd: FormData) => Promise<SchoolFormState>;
 
@@ -192,6 +193,7 @@ export function TaskForm({
 type AssignmentDefaults = {
   className?: string;
   title?: string;
+  kind?: AssignmentKindValue;
   dueDate?: string;
   status?: string;
   score?: number | null;
@@ -233,9 +235,20 @@ export function AssignmentForm({
           <input name="dueDate" type="date" defaultValue={d.dueDate} className={box} />
         </Labeled>
       </div>
-      <Labeled label="What">
-        <input name="title" required defaultValue={d.title} placeholder="Chapter 3 worksheet" className={box} />
-      </Labeled>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+        <Labeled label="What">
+          <input name="title" required defaultValue={d.title} placeholder="Chapter 3 worksheet" className={box} />
+        </Labeled>
+        <Labeled label="Type">
+          <select name="kind" defaultValue={d.kind ?? "HOMEWORK"} className={box}>
+            {ASSIGNMENT_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {ASSIGNMENT_KIND_LABEL[k]}
+              </option>
+            ))}
+          </select>
+        </Labeled>
+      </div>
       <Labeled label="Notes">
         <input name="notes" defaultValue={d.notes ?? ""} placeholder="Optional" className={box} />
       </Labeled>

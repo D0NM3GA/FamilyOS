@@ -64,7 +64,7 @@ export const SCHOOL_EXPORTS: Record<string, CsvExport> = {
   },
   assignments: {
     label: "Homework & grades",
-    description: "Every assignment with its due date, status and score.",
+    description: "Every assignment with its type, due date, status and score.",
     build: async (householdId) => {
       const rows = await prisma.schoolAssignment.findMany({
         where: { profile: { person: { householdId } } },
@@ -76,6 +76,7 @@ export const SCHOOL_EXPORTS: Record<string, CsvExport> = {
           { header: "Student", value: (r) => r.profile.person.firstName, freeText: true },
           { header: "Class", value: (r) => r.className, freeText: true },
           { header: "Assignment", value: (r) => r.title, freeText: true },
+          { header: "Type", value: (r) => r.kind },
           { header: "Due", value: (r) => csvDate(r.dueDate) },
           { header: "Status", value: (r) => r.status },
           { header: "Score", value: (r) => r.score },

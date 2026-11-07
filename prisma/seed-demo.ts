@@ -572,9 +572,10 @@ async function seedSchool(
     data: [
       assignment(profileA.id, "Math", "Fractions worksheet (p. 42)", 1),
       assignment(profileA.id, "Reading", "Reading log: 20 minutes a night", 4),
-      assignment(profileA.id, "Science", "Plant life cycle quiz", -3, "DONE", { score: 18, maxScore: 20 }),
+      assignment(profileA.id, "Science", "Plant life cycle quiz", -3, "DONE", { score: 18, maxScore: 20, kind: "QUIZ" }),
       assignment(profileA.id, "Spelling", "Unit 6 practice", -2, "MISSING"),
-      assignment(profileA.id, "Social Studies", "State regions map", 8),
+      assignment(profileA.id, "Social Studies", "State regions map", 8, "TODO", { kind: "PROJECT" }),
+      assignment(profileA.id, "Math", "Unit 4 test: fractions", 3, "TODO", { kind: "TEST" }),
       assignment(profileB.id, "Reading", "Sight words: list 5", 2),
       assignment(profileB.id, "Math", "Counting by 5s", -1, "DONE", { score: 10, maxScore: 10 }),
       assignment(profileB.id, "Art", "Leaf rubbing collage", 5),

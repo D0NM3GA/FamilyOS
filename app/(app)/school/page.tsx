@@ -10,6 +10,7 @@ import { getStudentHub, getUpcomingSchoolEvents, listStudents } from "@/lib/scho
 import { scheduleFeedRefresh } from "@/lib/school/feeds/schedule";
 import { byDueDate, classAverages, isOverdue } from "@/lib/school/rules";
 import { formatMoney } from "@/lib/money";
+import { atMidnight } from "@/lib/tasks/schedule";
 import { PageHeader } from "@/components/page-header";
 import { btn, card, chip, chipRow, fieldLabel, iconBtn, sectionTitle } from "@/components/styles";
 import { addAssignment, addTask, deleteAssignment, deleteTask, setAssignmentStatus, setTaskDone, setTaskStatus } from "./actions";
@@ -70,6 +71,17 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
     .sort((a, b) => b.doneAt!.getTime() - a.doneAt!.getTime());
   const graded = assignments.filter((a) => a.score != null).sort((a, b) => (b.dueDate?.getTime() ?? 0) - (a.dueDate?.getTime() ?? 0));
   const averages = classAverages(assignments);
+  // Phase 59.1b: tests and quizzes still to sit, from today through the next six days.
+  const weekStart = atMidnight(today);
+  const weekEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
+  const toSit = open.filter(
+    (a) => (a.kind === "TEST" || a.kind === "QUIZ") && a.status === "TODO" && a.dueDate != null && a.dueDate >= weekStart && a.dueDate < weekEnd,
+  );
+  const testsThisWeek = toSit.length;
+  // Says what's coming: "2 tests", "1 quiz", "1 test and 1 quiz".
+  const tests = toSit.filter((a) => a.kind === "TEST").length;
+  const quizzes = testsThisWeek - tests;
+  const toSitLabel = [tests && `${tests} ${tests === 1 ? "test" : "tests"}`, quizzes && `${quizzes} ${quizzes === 1 ? "quiz" : "quizzes"}`].filter(Boolean).join(" and ");
 
   const members = adult
     ? await prisma.person.findMany({
@@ -235,7 +247,14 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
         )}
 
         <section className={`min-w-0 ${card} lg:col-span-2`}>
-          <h2 className={cardTitle}>Homework & tests</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <h2 className={cardTitle}>Homework & tests</h2>
+            {testsThisWeek > 0 && (
+              <p className="text-sm font-bold text-sky-800 dark:text-sky-300">
+                {toSitLabel} this week
+              </p>
+            )}
+          </div>
           {!school ? (
             <p className="mt-2 text-sm text-muted-foreground">Set up the school details first.</p>
           ) : (
@@ -250,6 +269,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                     return (
                       <AssignmentRow
                         key={a.id}
+                        kind={a.kind}
                         item={assignmentItem({ ...a, student }, viewer, today)}
                         className={a.className}
                         dueText={a.dueDate ? `${overdue ? "Was due" : "Due"} ${formatFullDate(a.dueDate)}` : "No due date"}

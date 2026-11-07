@@ -37,6 +37,7 @@ export default async function EditAssignmentPage({ params }: { params: Promise<{
           defaults={{
             className: a.className,
             title: a.title,
+            kind: a.kind,
             dueDate: a.dueDate ? toISODate(a.dueDate) : "",
             status: a.status,
             score: a.score,

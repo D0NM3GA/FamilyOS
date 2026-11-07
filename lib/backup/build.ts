@@ -376,6 +376,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
         profileId: true,
         className: true,
         title: true,
+        kind: true,
         dueDate: true,
         status: true,
         score: true,

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { ClipboardCheck, Hammer, ListChecks, type LucideIcon } from "lucide-react";
 import { useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { MoreMenu } from "@/components/more-menu";
 import { StatusPill } from "@/components/status-pill";
 import { ConfirmAction } from "@/components/submit";
 import { iconBtn, menuItem } from "@/components/styles";
 import type { WorkItem } from "@/lib/work-items/types";
+import { ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
 
 /**
  * Phase 59.1a: a row on School with its status pill. The pill and the tick box change the status
@@ -54,9 +56,26 @@ function RowShell({ children }: { children: ReactNode }) {
 }
 
 type AssignmentStatus = "TODO" | "DONE" | "MISSING";
+type AssignmentKind = AssignmentKindValue;
+
+/** Phase 59.1b: tests, quizzes and projects say so; homework, the usual, says nothing. */
+const KIND_ICON: Record<Exclude<AssignmentKind, "HOMEWORK">, LucideIcon> = { TEST: ClipboardCheck, QUIZ: ListChecks, PROJECT: Hammer };
+
+function KindTag({ kind }: { kind: AssignmentKind }) {
+  if (kind === "HOMEWORK") return null;
+  const Icon = KIND_ICON[kind];
+  const label = ASSIGNMENT_KIND_LABEL[kind];
+  return (
+    <span className="mr-1 inline-flex items-center gap-0.5 rounded-md bg-sky-100 px-1.5 text-xs font-bold text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">
+      <Icon size={12} aria-hidden />
+      {label}
+    </span>
+  );
+}
 
 export function AssignmentRow({
   item,
+  kind,
   className,
   dueText,
   overdue,
@@ -67,6 +86,7 @@ export function AssignmentRow({
   onRemove,
 }: {
   item: WorkItem<AssignmentStatus>;
+  kind: AssignmentKind;
   className: string;
   dueText: string;
   overdue: boolean;
@@ -95,7 +115,8 @@ export function AssignmentRow({
       )}
       <div className="min-w-0 flex-1 basis-40">
         <p className="text-sm text-foreground">
-          <span className="text-xs font-bold text-muted-foreground">{className}</span> {item.title}
+          <span className="text-xs font-bold text-muted-foreground">{className}</span> <KindTag kind={kind} />
+          {item.title}
         </p>
         <p className={`text-xs ${overdue && status === "TODO" ? "font-bold text-destructive" : "text-muted-foreground"}`}>{dueText}</p>
       </div>

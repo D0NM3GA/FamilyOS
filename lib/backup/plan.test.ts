@@ -156,7 +156,7 @@ function fullBackup(): Backup {
     { id: "st1", kidPersonId: "kid", title: "Slip", kind: "FORM", dueDate: T, amountCents: 500, ownerPersonId: "mom", status: "OPEN", doneAt: null, notes: null, createdAt: T },
   ];
   b.schoolAssignments = [
-    { id: "sa1", profileId: "sp1", className: "Math", title: "Quiz", dueDate: T, status: "DONE", score: 9, maxScore: 10, notes: null, source: "MANUAL", externalId: null, doneAt: T, createdAt: T },
+    { id: "sa1", profileId: "sp1", className: "Math", title: "Quiz", kind: "QUIZ", dueDate: T, status: "DONE", score: 9, maxScore: 10, notes: null, source: "MANUAL", externalId: null, doneAt: T, createdAt: T },
   ];
   b.stores = [{ id: "s1", name: "Kroger", createdAt: T }];
   b.productGroups = [{ id: "g1", name: "Dairy", emoji: "🥛", sortOrder: 1, starterKey: "dairy", createdAt: T }];
