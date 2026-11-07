@@ -181,7 +181,10 @@ Microsoft). Tap anything to go where it lives. The arrows and **Today** move aro
 whole month's events (chores and doses stay on the weeks). Grown-ups can pick one person with the
 name chips: each row's color shows whose it is (two people sharing a first name get their own chip). A day's doses share one row; tap it to see them.
 
-Kids see the family calendar too, with their own school things (no cars, no Outlook).
+**Bills** (💸) show on the day they're due, by name only, for the money jars you're in, when you're
+on your own sign-in. Nobody else sees them, and no amounts.
+
+Kids see the family calendar too, with their own school things (no cars, no Outlook, no bills).
 
 An admin can also keep a shared calendar in Outlook filled with birthdays and car due dates
 (**Outlook sync ⚙️**).
@@ -391,7 +394,11 @@ Inside a jar:
 - **🎯 Budget**: a monthly budget per category, and saving up for lumpy costs.
 - **🔁 Upcoming**: bills and subscriptions, what's due in the next 30 days, and **💸 Safe to
   spend** until payday. It counts regular shops too, like the weekly grocery run, so it stays on
-  the careful side; **Not a bill** takes a store out.
+  the careful side; **Not a bill** takes a store out. **🎒 School fees**: tap **Count school fees
+  in this jar** (in the jar that pays them; only one should) and open fees with an amount from
+  School count in Coming up and Safe to spend until they're done in School.
+- **Log it in Cars:** a charge filed under **Gas & car** has **⛽ Fill-up** and **🔧 Service**
+  buttons for each car: they open the car's page with the cost and day filled in.
 - **📈 Trends**: money out month by month, and where it went.
 - **💎 Net worth**: what the jar has, minus what it owes.
 
