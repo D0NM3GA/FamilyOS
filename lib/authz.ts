@@ -1,11 +1,8 @@
 import { requireActiveProfile } from "@/lib/active-profile";
 
-type RoleBearing = { role: "ADULT" | "KID" | "ADMIN" | null };
+import { isAdult, type RoleBearing } from "@/lib/roles";
 
-/** ADMIN is a superset of ADULT everywhere "adult" gating applies. */
-export function isAdult(profile: RoleBearing): boolean {
-  return profile.role === "ADULT" || profile.role === "ADMIN";
-}
+export { isAdult };
 
 /**
  * Fetches the active profile and throws if it isn't an adult — for use inside server

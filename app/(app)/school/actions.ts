@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult, requireAdult } from "@/lib/authz";
 import { parseAssignmentForm, parseProfileForm, parseTaskForm } from "@/lib/school/form";
-import { canSeeStudent } from "@/lib/school/queries";
+import { canRemoveAssignment, canSeeStudent, canSetAssignmentStatus } from "@/lib/school/permissions";
 
 /**
  * School (Phase 18). Adults manage everything. A kid can add, tick off and delete their
@@ -115,6 +115,12 @@ export async function setTaskDone(taskId: string, done: boolean) {
   revalidateSchool();
 }
 
+/** The status pill's form of setTaskDone (Phase 59.1a). */
+export async function setTaskStatus(taskId: string, status: "OPEN" | "DONE") {
+  if (status !== "OPEN" && status !== "DONE") throw new Error("Unknown status");
+  await setTaskDone(taskId, status === "DONE");
+}
+
 export async function deleteTask(taskId: string) {
   const profile = await requireAdult();
   await prisma.schoolTask.deleteMany({ where: { id: taskId, householdId: profile.householdId } });
@@ -147,11 +153,13 @@ async function findAssignment(viewer: { householdId: string; id: string; role: "
 
 export async function setAssignmentStatus(assignmentId: string, status: "TODO" | "DONE" | "MISSING") {
   const viewer = await requireActiveProfile();
-  if (status === "MISSING" && !isAdult(viewer)) throw new Error("Only a grown-up can mark work missing");
+  if (!["TODO", "DONE", "MISSING"].includes(status)) throw new Error("Unknown status");
   const existing = await findAssignment(viewer, assignmentId);
   if (!existing) throw new Error("Assignment not found");
-  // A teacher's "missing" is cleared by a grown-up, not by the student ticking it off.
-  if (existing.status === "MISSING" && !isAdult(viewer)) throw new Error("Ask a grown-up to clear a missing assignment");
+  // A teacher's "missing" is set and cleared by a grown-up, not by the student (lib/school/permissions.ts).
+  if (!canSetAssignmentStatus(viewer, { studentId: existing.profile.personId, status: existing.status }, status)) {
+    throw new Error("Ask a grown-up to change that one");
+  }
   await prisma.schoolAssignment.update({ where: { id: assignmentId }, data: { status, doneAt: status === "DONE" ? new Date() : null } });
   revalidateSchool();
 }
@@ -177,7 +185,9 @@ export async function deleteAssignment(assignmentId: string) {
   const existing = await findAssignment(viewer, assignmentId);
   if (!existing) throw new Error("Assignment not found");
   // Kids can remove their own homework, not a grade or a "missing" a grown-up recorded.
-  if (!isAdult(viewer) && (existing.score != null || existing.status === "MISSING")) throw new Error("Ask a grown-up to remove that one");
+  if (!canRemoveAssignment(viewer, { studentId: existing.profile.personId, status: existing.status, score: existing.score })) {
+    throw new Error("Ask a grown-up to remove that one");
+  }
   await prisma.schoolAssignment.delete({ where: { id: assignmentId } });
   revalidateSchool();
 }

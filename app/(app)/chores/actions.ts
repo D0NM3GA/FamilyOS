@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAdult, isAdult } from "@/lib/authz";
 import { milestoneCrossed } from "@/lib/tasks/milestones";
+import { canDoChore, canUndoChore } from "@/lib/tasks/permissions";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { markOlderMissed as markOlderTasksMissed, skipInstance as skipTask, unskipInstance as unskipTask } from "@/lib/tasks/skip";
 
@@ -168,7 +169,7 @@ export async function completeInstance(instanceId: string): Promise<{ milestone?
   }
   // A kid may do their own chore, or claim an "Anyone" one (owner's call, 2026-10-09): the stickers go
   // to whoever does it (pointsRecipient below), so grabbing one is earning it.
-  if (!isAdult(profile) && instance.assignedToId !== profile.id && instance.assignedToId !== null) return {};
+  if (!canDoChore({ id: profile.id, adult: isAdult(profile) }, instance, true)) return {};
 
   const pointsRecipient = instance.assignedToId ?? profile.id;
   const now = new Date();
@@ -213,7 +214,7 @@ export async function uncompleteInstance(instanceId: string) {
   if (!instance || instance.definition.householdId !== profile.householdId || instance.definition.domain !== "CHORE") {
     throw new Error("Chore not found");
   }
-  if (!isAdult(profile) && instance.completedById !== profile.id) return;
+  if (!canUndoChore({ id: profile.id, adult: isAdult(profile) }, instance)) return;
 
   await prisma.$transaction(async (tx) => {
     // Pins completedAt, not just status: "DONE" — undoing THE COMPLETION I SAW, not
