@@ -17,14 +17,17 @@ export function FuelLogForm({
   todayInputValue,
   currentMileage,
   showCost,
+  prefill,
 }: {
   logFuel: LogFuelAction;
   /** "YYYY-MM-DD", precomputed server-side. */
   todayInputValue: string;
   currentMileage: number;
   showCost: boolean;
+  /** Phase 63b: a Money charge sent to Cars: opens the form with its cost and day filled in. */
+  prefill?: { cost: string; date: string };
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(prefill));
   const [formInstance, setFormInstance] = useState(0);
   const [justSaved, setJustSaved] = useState(false);
   // Set when the save succeeded but the odometer wasn't moved (logFuel's jump cap) — stays
@@ -64,6 +67,7 @@ export function FuelLogForm({
       todayInputValue={todayInputValue}
       currentMileage={currentMileage}
       showCost={showCost}
+      prefill={prefill}
       onCancel={() => setOpen(false)}
       onSuccess={(n) => {
         setOpen(false);
@@ -79,6 +83,7 @@ function FuelLogFormInner({
   todayInputValue,
   currentMileage,
   showCost,
+  prefill,
   onCancel,
   onSuccess,
 }: {
@@ -86,6 +91,7 @@ function FuelLogFormInner({
   todayInputValue: string;
   currentMileage: number;
   showCost: boolean;
+  prefill?: { cost: string; date: string };
   onCancel: () => void;
   onSuccess: (notice?: string) => void;
 }) {
@@ -114,7 +120,7 @@ function FuelLogFormInner({
         <label htmlFor={`${id}-date`} className={label}>
           Date
         </label>
-        <input id={`${id}-date`} type="date" name="filledAt" defaultValue={todayInputValue} max={todayInputValue} className={input} />
+        <input id={`${id}-date`} type="date" name="filledAt" defaultValue={prefill?.date ?? todayInputValue} max={todayInputValue} className={input} />
       </div>
       <div>
         <label htmlFor={`${id}-mileage`} className={label}>
@@ -144,7 +150,7 @@ function FuelLogFormInner({
           <label htmlFor={`${id}-cost`} className={label}>
             Total cost (optional)
           </label>
-          <input id={`${id}-cost`} type="text" name="cost" inputMode="decimal" placeholder="$0.00" className={`${input} w-24`} />
+          <input id={`${id}-cost`} type="text" name="cost" inputMode="decimal" placeholder="$0.00" defaultValue={prefill?.cost} className={`${input} w-24`} />
         </div>
       )}
       <div className="min-w-[8rem] flex-1">
