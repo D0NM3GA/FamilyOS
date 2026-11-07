@@ -315,6 +315,10 @@ For each kid: **Homework & tests** (tick them off when they're turned in), **Rec
 **Averages**, **Teachers & contacts**, and the **School calendar, next two weeks**. Grown-ups also
 see **Forms & to-dos** (things to sign, pay or buy) and who's handling each.
 
+When you add schoolwork, pick its **Type**: homework (the usual), a test, a quiz or a project.
+Tests, quizzes and projects are tagged on the list, and the heading counts the tests and quizzes
+coming up this week.
+
 Each piece of homework and each form shows where it stands: **To do**, **Due today**, **Overdue**,
 **Turned in**, **Graded 18/20** or **Missing**. When you can change it, the label has a little
 arrow: tap it to pick what's next. Kids can move their own

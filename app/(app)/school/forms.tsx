@@ -192,6 +192,7 @@ export function TaskForm({
 type AssignmentDefaults = {
   className?: string;
   title?: string;
+  kind?: string;
   dueDate?: string;
   status?: string;
   score?: number | null;
@@ -233,9 +234,19 @@ export function AssignmentForm({
           <input name="dueDate" type="date" defaultValue={d.dueDate} className={box} />
         </Labeled>
       </div>
-      <Labeled label="What">
-        <input name="title" required defaultValue={d.title} placeholder="Chapter 3 worksheet" className={box} />
-      </Labeled>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+        <Labeled label="What">
+          <input name="title" required defaultValue={d.title} placeholder="Chapter 3 worksheet" className={box} />
+        </Labeled>
+        <Labeled label="Type">
+          <select name="kind" defaultValue={d.kind ?? "HOMEWORK"} className={box}>
+            <option value="HOMEWORK">Homework</option>
+            <option value="TEST">Test</option>
+            <option value="QUIZ">Quiz</option>
+            <option value="PROJECT">Project</option>
+          </select>
+        </Labeled>
+      </div>
       <Labeled label="Notes">
         <input name="notes" defaultValue={d.notes ?? ""} placeholder="Optional" className={box} />
       </Labeled>

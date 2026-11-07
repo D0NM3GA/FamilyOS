@@ -1354,3 +1354,11 @@ buttons, in the action cluster, and Skip moves from the ⋯ into it; Meds and Ho
 ⋯ keeps Skip. The pill's menu waits while a change is saving, so Undo can't run before the
 completion it undoes. `isAdult` moved to `lib/roles.ts` (re-exported by `lib/authz.ts`), so these
 pure modules never pull Prisma into a client bundle.
+
+### 59.1b — Homework, tests, quizzes and projects
+
+`SchoolAssignment.kind` (`AssignmentKind`, default `HOMEWORK`, so every existing row is homework). The
+add and edit forms have a Type select; School's rows tag tests, quizzes and projects (homework, the
+usual, carries no tag); the homework card's heading counts tests and quizzes still to sit from today
+through the next six days. The export gains a Type column. The backup carries it without a format
+version bump: `kind` defaults to homework, so a file from before it restores as it always did.

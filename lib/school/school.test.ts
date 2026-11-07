@@ -41,6 +41,11 @@ describe("parseAssignmentForm", () => {
       fields: { status: "TODO", score: 8, maxScore: 10, dueDate: null },
     });
   });
+  it("is homework unless it says otherwise, and refuses a type it doesn't know", () => {
+    expect(parseAssignmentForm(fd({ className: "Math", title: "Ch 3" }))).toMatchObject({ ok: true, fields: { kind: "HOMEWORK" } });
+    expect(parseAssignmentForm(fd({ className: "Math", title: "Unit test", kind: "TEST" }))).toMatchObject({ ok: true, fields: { kind: "TEST" } });
+    expect(parseAssignmentForm(fd({ className: "Math", title: "x", kind: "EXAM" })).ok).toBe(false);
+  });
 });
 
 describe("rules", () => {

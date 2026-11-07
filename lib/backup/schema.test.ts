@@ -110,6 +110,14 @@ describe("backupSchema", () => {
     expect(parsed.vehicleServiceSupplyUses).toEqual([]);
   });
 
+  test("Phase 59.1b: an assignment from before types is homework; a typed one keeps its type", () => {
+    const at = "2026-01-01T00:00:00.000Z";
+    const row = { id: "a1", profileId: "p1", className: "Math", title: "Ch 3", dueDate: null, status: "TODO", score: null, maxScore: null, notes: null, source: "MANUAL", externalId: null, doneAt: null, createdAt: at };
+    expect(backupSchema.parse({ ...empty, schoolAssignments: [row] }).schoolAssignments[0].kind).toBe("HOMEWORK");
+    expect(backupSchema.parse({ ...empty, schoolAssignments: [{ ...row, kind: "TEST" }] }).schoolAssignments[0].kind).toBe("TEST");
+    expect(() => backupSchema.parse({ ...empty, schoolAssignments: [{ ...row, kind: "EXAM" }] })).toThrow();
+  });
+
   test("Phase 37: a file made before starter keys gets them from the starting names, like the migration", () => {
     const at = "2026-01-01T00:00:00.000Z";
     const group = (id: string, name: string, sortOrder: number) => ({ id, name, emoji: null, sortOrder, createdAt: at });

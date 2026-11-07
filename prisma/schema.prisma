@@ -1339,6 +1339,14 @@ enum AssignmentStatus {
   MISSING
 }
 
+/// Phase 59.1b: what kind of schoolwork it is. Existing rows are homework.
+enum AssignmentKind {
+  HOMEWORK
+  TEST
+  QUIZ
+  PROJECT
+}
+
 /// Homework, projects, tests. Entered by hand for now; `source`/`externalId` are for an LMS
 /// connector once the school's system is known.
 model SchoolAssignment {
@@ -1347,6 +1355,7 @@ model SchoolAssignment {
   profile    SchoolProfile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
   className  String
   title      String
+  kind       AssignmentKind   @default(HOMEWORK)
   dueDate    DateTime?
   status     AssignmentStatus @default(TODO)
   score      Float?

@@ -13,6 +13,7 @@ import {
   TaskInstanceStatus,
   SchoolTaskKind,
   SchoolTaskStatus,
+  AssignmentKind,
   AssignmentStatus,
 } from "@/app/generated/prisma/enums";
 import { withStarterKeys } from "@/lib/starting-sections";
@@ -402,6 +403,8 @@ const schoolAssignment = z.object({
   profileId: id,
   className: text,
   title: text,
+  // Phase 59.1b. A file from before it has none: everything was homework then.
+  kind: z.enum(AssignmentKind).default("HOMEWORK"),
   dueDate: nullableIso,
   status: z.enum(AssignmentStatus),
   score: z.number().nullable(),

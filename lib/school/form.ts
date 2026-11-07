@@ -80,9 +80,14 @@ export function parseTaskForm(fd: FormData): Result<TaskFields> {
 export const ASSIGNMENT_STATUSES = ["TODO", "DONE", "MISSING"] as const;
 export type AssignmentStatusValue = (typeof ASSIGNMENT_STATUSES)[number];
 
+/** Phase 59.1b: SchoolAssignment.kind. (TASK_KINDS above are the forms' kinds.) */
+export const ASSIGNMENT_KINDS = ["HOMEWORK", "TEST", "QUIZ", "PROJECT"] as const;
+export type AssignmentKindValue = (typeof ASSIGNMENT_KINDS)[number];
+
 export type AssignmentFields = {
   className: string;
   title: string;
+  kind: AssignmentKindValue;
   dueDate: Date | null;
   status: AssignmentStatusValue;
   score: number | null;
@@ -98,6 +103,8 @@ export function parseAssignmentForm(fd: FormData): Result<AssignmentFields> {
   if (className.length > 80 || title.length > 200) return { ok: false, error: "That's too long." };
   const status = (get(fd, "status") || "TODO") as AssignmentStatusValue;
   if (!ASSIGNMENT_STATUSES.includes(status)) return { ok: false, error: "Pick a status." };
+  const kind = (get(fd, "kind") || "HOMEWORK") as AssignmentKindValue;
+  if (!ASSIGNMENT_KINDS.includes(kind)) return { ok: false, error: "Pick a type." };
   const dueDate = optionalDate(get(fd, "dueDate"));
   if (dueDate === "invalid") return { ok: false, error: "Enter a valid date." };
   const score = optionalNumber(get(fd, "score"), 10_000);
@@ -107,6 +114,6 @@ export function parseAssignmentForm(fd: FormData): Result<AssignmentFields> {
   if (maxScore === 0) return { ok: false, error: "\"Out of\" must be more than 0." };
   return {
     ok: true,
-    fields: { className, title, dueDate, status, score, maxScore, notes: get(fd, "notes").trim().slice(0, 2000) || null },
+    fields: { className, title, kind, dueDate, status, score, maxScore, notes: get(fd, "notes").trim().slice(0, 2000) || null },
   };
 }
