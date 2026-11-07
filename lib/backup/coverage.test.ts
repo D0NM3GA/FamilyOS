@@ -98,8 +98,8 @@ const checks = {
   rewardBucket: true satisfies Covered<RewardBucketModel, Row<"rewardBuckets">, Scope | "updatedAt">,
   rewardOrder: true satisfies Covered<RewardOrderModel, Row<"rewardOrders">, Scope>,
   medication: true satisfies Covered<MedicationModel, Row<"medications">, "createdAt" | "updatedAt">,
-  // recallsCheckedAt (Phase 62b): when the reminders job last asked NHTSA, housekeeping, not data.
-  vehicle: true satisfies Covered<VehicleModel, Row<"vehicles">, Scope | "updatedAt" | "recallsCheckedAt">,
+  // recallsCheckedAt, recallsBaselinedAt (Phase 62b): the reminders job's housekeeping, not data.
+  vehicle: true satisfies Covered<VehicleModel, Row<"vehicles">, Scope | "updatedAt" | "recallsCheckedAt" | "recallsBaselinedAt">,
   maintenanceItem: true satisfies Covered<VehicleMaintenanceItemModel, Row<"maintenanceItems">, "updatedAt">,
   serviceLog: true satisfies Covered<VehicleServiceLogModel, Row<"serviceLogs">>,
   fuelLog: true satisfies Covered<VehicleFuelLogModel, Row<"fuelLogs">>,

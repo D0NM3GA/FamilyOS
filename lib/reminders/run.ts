@@ -7,7 +7,10 @@ import { captureError } from "@/lib/observability";
 import { formatTimeOfDay } from "@/lib/format";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
-import { DOSE_LOOKBACK_MS, planDates, planDoses, planMedLow, planSchool, type Reminder, type ReminderKind } from "./plan";
+import { DOSE_LOOKBACK_MS, planCars, planDates, planDoses, planMedLow, planRecalls, planSchool, type NewRecall, type Reminder, type ReminderKind } from "./plan";
+import { computeDueStatus } from "@/lib/vehicles/due-status";
+import { daysUntilMiles, milesPerDay, MILEAGE_WINDOW_DAYS, type Reading } from "@/lib/vehicles/mileage";
+import { checkRecalls } from "@/lib/vehicles/nhtsa";
 import { inQuietHours } from "./quiet";
 import { grownUpsOf } from "./people";
 
@@ -61,6 +64,10 @@ export async function remindHousehold(householdId: string, now: Date): Promise<n
     kinds.push(["med_low", () => medLowReminders(householdId, grownUps)]);
   }
   if (await appOn(householdId, "school")) kinds.push(["school", () => schoolReminders(householdId, grownUps, now)]);
+  if (await appOn(householdId, "cars")) {
+    kinds.push(["cars", () => carReminders(householdId, grownUps, now)]);
+    kinds.push(["recalls", () => recallReminders(householdId, grownUps, now)]);
+  }
   kinds.push(["dates", () => dateReminders(householdId, grownUps, now)]);
 
   for (const [name, plan] of kinds) {
@@ -223,4 +230,116 @@ async function dateReminders(householdId: string, grownUps: { id: string }[], no
     select: { id: true, type: true, month: true, day: true, year: true, person: { select: { id: true, firstName: true } } },
   });
   return planDates(dates, grownUps, now);
+}
+
+/** The odometer readings a car has from the last 90 days: fill-ups, services and its own current mileage. */
+function readingsOf(v: {
+  currentMileage: number;
+  mileageUpdatedAt: Date | null;
+  fuelLogs: { filledAt: Date; mileage: number }[];
+  maintenanceItems: { serviceLogs: { doneAt: Date; mileage: number }[] }[];
+}): Reading[] {
+  return [
+    ...v.fuelLogs.map((f) => ({ at: f.filledAt, mileage: f.mileage })),
+    ...v.maintenanceItems.flatMap((i) => i.serviceLogs.map((s) => ({ at: s.doneAt, mileage: s.mileage }))),
+    ...(v.mileageUpdatedAt ? [{ at: v.mileageUpdatedAt, mileage: v.currentMileage }] : []),
+  ];
+}
+
+async function carReminders(householdId: string, grownUps: { id: string }[], now: Date): Promise<Reminder[]> {
+  const since = new Date(now.getTime() - MILEAGE_WINDOW_DAYS * 86_400_000);
+  const vehicles = await prisma.vehicle.findMany({
+    where: { householdId, active: true },
+    select: {
+      id: true,
+      name: true,
+      currentMileage: true,
+      mileageUpdatedAt: true,
+      maintenanceItems: {
+        where: { active: true },
+        select: {
+          id: true,
+          title: true,
+          intervalMiles: true,
+          intervalMonths: true,
+          lastDoneMileage: true,
+          lastDoneAt: true,
+          serviceLogs: { where: { doneAt: { gte: since } }, select: { doneAt: true, mileage: true } },
+        },
+      },
+      fuelLogs: { where: { filledAt: { gte: since } }, select: { filledAt: true, mileage: true } },
+    },
+  });
+  return planCars(
+    vehicles.flatMap((v) => {
+      const perDay = milesPerDay(readingsOf(v), now);
+      return v.maintenanceItems.map((item) => {
+        const due = computeDueStatus(item, v.currentMileage, now);
+        return {
+          itemId: item.id,
+          title: item.title,
+          vehicle: { id: v.id, name: v.name },
+          status: due.status,
+          daysRemaining: due.daysRemaining,
+          milesRemaining: due.milesRemaining,
+          daysByMiles: due.milesRemaining != null ? daysUntilMiles(due.milesRemaining, perDay) : null,
+          // The last service and the interval: a new service, or a changed interval, starts a new cycle.
+          cycle: `${item.lastDoneAt ? item.lastDoneAt.toISOString() : String(item.lastDoneMileage ?? "never")}:${item.intervalMiles ?? ""}:${item.intervalMonths ?? ""}`,
+        };
+      });
+    }),
+    grownUps,
+  );
+}
+
+/** NHTSA at most once a day per car (its fetch cache only works inside a request). */
+export const RECALL_CHECK_EVERY_MS = 24 * 60 * 60_000;
+
+/** A recall found this many days ago or less still reminds whoever hasn't had it (quiet hours, a restart). */
+export const RECALL_REMIND_DAYS = 30;
+
+/**
+ * Recalls newly listed for a car. Two steps: check NHTSA for cars due a check and record what's
+ * new (a car's first good check records everything as the baseline, never reminded, so a model
+ * fixed later doesn't flood); then plan from what's recorded, not from this tick's check, so a
+ * grown-up in quiet hours gets it after, like any other reminder. One already marked handled never
+ * reminds.
+ */
+async function recallReminders(householdId: string, grownUps: { id: string }[], now: Date): Promise<Reminder[]> {
+  const due = await prisma.vehicle.findMany({
+    where: {
+      householdId,
+      active: true,
+      year: { not: null },
+      make: { not: null },
+      model: { not: null },
+      OR: [{ recallsCheckedAt: null }, { recallsCheckedAt: { lt: new Date(now.getTime() - RECALL_CHECK_EVERY_MS) } }],
+    },
+    select: { id: true, year: true, make: true, model: true, recallsBaselinedAt: true },
+  });
+  for (const v of due) {
+    const check = await checkRecalls(v);
+    // Unavailable: try again on a later tick.
+    if (check.status === "unavailable") continue;
+    // Anything else counts as checked today; only a good answer can set or add to the baseline.
+    await prisma.vehicle.update({ where: { id: v.id }, data: { recallsCheckedAt: now } });
+    if (check.status !== "ok") continue;
+    const baseline = v.recallsBaselinedAt == null;
+    if (check.recalls.length) {
+      await prisma.vehicleRecallSeen.createMany({
+        data: check.recalls.map((r) => ({ vehicleId: v.id, campaignNumber: r.campaignNumber, component: r.component, parkIt: r.parkIt, baseline })),
+        skipDuplicates: true,
+      });
+    }
+    if (baseline) await prisma.vehicle.update({ where: { id: v.id }, data: { recallsBaselinedAt: now } });
+  }
+
+  const seen = await prisma.vehicleRecallSeen.findMany({
+    where: { baseline: false, firstSeenAt: { gte: new Date(now.getTime() - RECALL_REMIND_DAYS * 86_400_000) }, vehicle: { householdId, active: true } },
+    select: { campaignNumber: true, component: true, parkIt: true, vehicle: { select: { id: true, name: true, recallAcks: { select: { campaignNumber: true } } } } },
+  });
+  const found: NewRecall[] = seen
+    .filter((r) => !r.vehicle.recallAcks.some((a) => a.campaignNumber === r.campaignNumber))
+    .map((r) => ({ vehicle: { id: r.vehicle.id, name: r.vehicle.name }, campaignNumber: r.campaignNumber, component: r.component, parkIt: r.parkIt }));
+  return planRecalls(found, grownUps);
 }

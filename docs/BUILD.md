@@ -1626,3 +1626,24 @@ once per household, so a steady tick doesn't open and roll back a transaction pe
 dose key is the day and clock time (a zone move shifts the stored instant); a stopped medicine is
 forgotten like a restocked one. Known: a reminder that fails to reach Teams, email or a phone is
 recorded on `AlertPrefs`' last-error fields, which the admins' Alerts page reads.
+
+### 62b — Cars and recalls
+
+`planCars` reminds every grown-up about car work overdue (once per service cycle: the key carries
+the last service) or due within a week by date or by miles, the miles turned into days at the
+car's usual rate (`lib/vehicles/mileage.ts`: the last 90 days of fill-ups, services and the car's own
+reading, at least two 14 days apart); never-logged items are left out. `recallReminders` asks
+NHTSA (`checkRecalls`) at most once a day per car with a year, make and model
+(`Vehicle.recallsCheckedAt`, since Next's fetch cache doesn't apply outside a request), keeps
+`VehicleRecallSeen`, and on a car's first check only records what's listed; a campaign seen later
+reminds, unless it's already marked handled, and one that says not to drive comes through quiet
+hours. An unavailable check is retried next tick. A car's page shows "about N miles a day". The
+two kinds join Settings → My notifications while Cars is on.
+Fable's review of 62b: recall reminders are planned from `VehicleRecallSeen` rows (found in the
+last 30 days, not the baseline, not handled), not from the tick that found them, so quiet hours
+defer a recall instead of losing it; the baseline is a car's first *good* check
+(`recallsBaselinedAt`), so a model NHTSA didn't know until it was corrected doesn't flood. Due soon
+and overdue are two reminders in a cycle, and a changed interval starts a new cycle. More than
+1,000 miles a day is taken as an odometer typo (no estimate). A recall's title uses the first part
+of NHTSA's component path. Known: by miles, an item can be "due in about 7 days" while the Cars
+page still calls it OK (its band is 500 miles).

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getVehicleDetail } from "@/lib/vehicles/queries";
+import { milesPerDay } from "@/lib/vehicles/mileage";
 import { computeMpg } from "@/lib/vehicles/mpg";
 import { summarizeCosts, type CostWindow } from "@/lib/vehicles/costs";
 import { formatMoney } from "@/lib/money";
@@ -38,6 +39,15 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
 
   const today = new Date();
   const todayInputValue = toISODate(today);
+  // Phase 62b: the car's usual miles a day, which reminders use to say when mileage-based work is due.
+  const perDay = milesPerDay(
+    [
+      ...fuelLogs.map((f) => ({ at: f.filledAt, mileage: f.mileage })),
+      ...serviceLogs.map((l) => ({ at: l.doneAt, mileage: l.mileage })),
+      ...(vehicle.mileageUpdatedAt ? [{ at: vehicle.mileageUpdatedAt, mileage: vehicle.currentMileage }] : []),
+    ],
+    today,
+  );
   // fuelLogs arrive newest-first by date; computeMpg re-sorts by mileage itself.
   const mpg = computeMpg(fuelLogs);
   const costs = summarizeCosts({
@@ -101,6 +111,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         {[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || "No details yet"}
         {" · "}
         {vehicle.currentMileage.toLocaleString()} mi
+        {perDay != null && ` · about ${Math.round(perDay).toLocaleString()} miles a day`}
       </p>
 
       <Section title="Maintenance">

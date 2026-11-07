@@ -865,6 +865,9 @@ model Vehicle {
   mileageUpdatedAt DateTime?
   /// Phase 62b: when the reminders job last asked NHTSA about this car (once a day at most).
   recallsCheckedAt DateTime?
+  /// Phase 62b: when a check first came back good (the baseline); a model fixed later starts here.
+  recallsBaselinedAt DateTime?
+  recallsSeen      VehicleRecallSeen[]
 
   /// Deactivating hides a sold/retired vehicle from the board without deleting its
   /// maintenance history — there's no vehicle delete in v1 (see docs/PLAN.md).
@@ -1025,6 +1028,25 @@ model VehicleFuelLog {
 
   @@index([vehicleId, filledAt])
   @@map("vehicle_fuel_log")
+}
+
+/// Phase 62b: recall campaigns the reminders job has seen for a car. A car's first good check
+/// records what's listed as `baseline` (never reminded); a campaign found later reminds until each
+/// grown-up has had it (ReminderSent), so quiet hours defer it like any other. Not backed up: after
+/// a restore the next check starts again quietly.
+model VehicleRecallSeen {
+  id             String   @id @default(cuid())
+  vehicleId      String
+  vehicle        Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  campaignNumber String
+  component      String   @default("")
+  parkIt         Boolean  @default(false)
+  baseline       Boolean  @default(false)
+  firstSeenAt    DateTime @default(now())
+
+  @@unique([vehicleId, campaignNumber])
+  @@index([vehicleId, baseline, firstSeenAt])
+  @@map("vehicle_recall_seen")
 }
 
 /// The family's own attestation that an NHTSA recall campaign has been handled (or doesn't

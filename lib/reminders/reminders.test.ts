@@ -132,9 +132,46 @@ describe("grown-ups", () => {
 
 describe("reminder settings", () => {
   it("lists only kinds whose app is on, and keeps hidden kinds' switches when saving", () => {
-    expect(listedKinds((app) => app !== "school").map((k) => k.kind)).toEqual(["REMINDER_DOSE", "REMINDER_MED_LOW", "REMINDER_DATE"]);
+    expect(listedKinds((app) => app === "meds").map((k) => k.kind)).toEqual(["REMINDER_DOSE", "REMINDER_MED_LOW", "REMINDER_DATE"]);
+    expect(listedKinds((app) => app === "cars").map((k) => k.kind)).toEqual(["REMINDER_DATE", "REMINDER_CAR", "REMINDER_RECALL"]);
     // School off (hidden) stays as it was; of the listed ones, only what's unticked is off.
     expect(nextOff(["REMINDER_SCHOOL", "REMINDER_DOSE"], ["REMINDER_DOSE", "REMINDER_MED_LOW", "REMINDER_DATE"], new Set(["REMINDER_DOSE", "REMINDER_DATE"]))).toEqual(["REMINDER_MED_LOW", "REMINDER_SCHOOL"]);
   });
 });
 
+
+describe("miles a day", () => {
+  it("needs two readings two weeks apart in the last 90 days, and miles that went up", async () => {
+    const { milesPerDay, daysUntilMiles } = await import("@/lib/vehicles/mileage");
+    const d = (daysAgo: number) => new Date(NOW.getTime() - daysAgo * 86_400_000);
+    expect(milesPerDay([{ at: d(30), mileage: 10_000 }, { at: d(0), mileage: 10_900 }], NOW)).toBeCloseTo(30);
+    expect(milesPerDay([{ at: d(10), mileage: 10_000 }, { at: d(0), mileage: 10_300 }], NOW)).toBeNull();
+    expect(milesPerDay([{ at: d(200), mileage: 1_000 }, { at: d(0), mileage: 9_000 }], NOW)).toBeNull();
+    expect(milesPerDay([{ at: d(30), mileage: 10_900 }, { at: d(0), mileage: 10_000 }], NOW)).toBeNull();
+    // An extra digit typed on the last fill-up isn't 13,000 miles a day.
+    expect(milesPerDay([{ at: d(30), mileage: 44_000 }, { at: d(0), mileage: 440_000 }], NOW)).toBeNull();
+    expect(daysUntilMiles(150, 30)).toBe(5);
+    expect(daysUntilMiles(150, null)).toBeNull();
+  });
+});
+
+describe("cars and recalls", () => {
+  it("overdue once per cycle, due within a week by date or by miles, never-logged left out", async () => {
+    const { planCars } = await import("./plan");
+    const item = (over: object) => ({ itemId: "i1", title: "Oil change", vehicle: { id: "v1", name: "van" }, status: "OK" as const, daysRemaining: null, milesRemaining: null, daysByMiles: null, cycle: "45000", ...over });
+    expect(planCars([item({ status: "OVERDUE" })], grownUps)[0]).toMatchObject({ title: "Oil change on the van is overdue", key: "car:i1:45000:overdue", href: "/vehicles/v1" });
+    // Due soon, then overdue: two keys, so both remind.
+    expect(planCars([item({ status: "UPCOMING", daysRemaining: 5 })], grownUps)[0]).toMatchObject({ title: "Oil change on the van is due in 5 days", key: "car:i1:45000" });
+    expect(planCars([item({ status: "UPCOMING", daysRemaining: 1 })], grownUps)[0].title).toBe("Oil change on the van is due in 1 day");
+    expect(planCars([item({ status: "UPCOMING", milesRemaining: 120, daysByMiles: 4 })], grownUps)[0].title).toBe("Oil change on the van is due in about 4 days");
+    expect(planCars([item({ status: "UPCOMING", daysRemaining: 20, daysByMiles: 12 }), item({ status: "UNKNOWN" })], grownUps)).toEqual([]);
+  });
+
+  it("a recall that says not to drive comes through quiet hours", async () => {
+    const { planRecalls } = await import("./plan");
+    const [r] = planRecalls([{ vehicle: { id: "v1", name: "van" }, campaignNumber: "26V123", component: "AIR BAGS:FRONTAL", parkIt: true }], grownUps);
+    expect(r).toMatchObject({ key: "recall:v1:26V123", urgent: true, title: "A safety recall for the van says not to drive it (air bags)" });
+    const [blank] = planRecalls([{ vehicle: { id: "v1", name: "van" }, campaignNumber: "26V124", component: "", parkIt: false }], grownUps);
+    expect(blank.title).toBe("A safety recall for the van: details on its page");
+  });
+});
