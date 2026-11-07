@@ -531,20 +531,31 @@ runs it).
 A host cron job, as the owner:
 
 ```bash
-15 3 * * *  BACKUP_NAS_DIR=/mnt/nas/familyos /opt/familyos/scripts/backup-prod.sh >> /var/log/familyos-backup.log 2>&1
+15 3 * * *  BACKUP_NAS_DIR=/mnt/nas/familyos BACKUP_RCLONE_REMOTE=onedrive:Backups/app /opt/familyos/scripts/backup-prod.sh >> /var/log/familyos-backup.log 2>&1
 ```
 
 It dumps the database (`pg_dump -Fc` through the running database container), checks the file
 with `pg_restore --list`, keeps 14 days in `/var/backups/familyos` (600 files in a 700 folder),
 and copies each one to the NAS share mounted at `BACKUP_NAS_DIR` (it stops with an error if
-the share isn't mounted, rather than filling the VM's own disk, and compares the copy). To
-restore one (Phase 42 turns this into a practiced drill): stop the app, restore in one
+the share isn't mounted, rather than filling the VM's own disk, and compares the copy).
+
+Phase 61 (the owner's call: three copies, two kinds of storage, one off site): each dump is
+encrypted with `age` to the public key in `/etc/familyos/backup-recipients.txt`
+(`BACKUP_AGE_RECIPIENTS`), and only the `.dump.age` is kept; the private key lives in the
+password manager, never on the server, and without the public key the script refuses to run. It
+also copies to `BACKUP_RCLONE_REMOTE` (an rclone remote the owner sets up, OneDrive here) and
+checks the copy arrived. It records each run for Data & backups → **System** and calls
+`BACKUP_PING_URL` when set (`/fail` on failure). Setting up the key, OneDrive and disk
+encryption: `docs/guides/admin.md` §12. To restore one (Phase 42 turns this into a practiced drill): stop the app, restore in one
 transaction (a failed restore leaves the database as it was), then start everything again so
 any newer migrations run before the app:
 
 ```bash
 docker compose -f docker-compose.prod.yml stop app
-docker compose -f docker-compose.prod.yml exec -T db pg_restore -U familyos -d familyos --clean --if-exists --single-transaction < /var/backups/familyos/<file>.dump
+(umask 077; read -rsp 'Backup key: ' k && printf '%s\n' "$k" > /tmp/backup-key.txt)
+(umask 077; age -d -i /tmp/backup-key.txt -o /tmp/restore.dump /var/backups/familyos/<file>.dump.age)
+docker compose -f docker-compose.prod.yml exec -T db pg_restore -U familyos -d familyos --clean --if-exists --single-transaction --no-owner --no-privileges < /tmp/restore.dump
+shred -u /tmp/restore.dump /tmp/backup-key.txt
 docker compose -f docker-compose.prod.yml up -d
 ```
 
@@ -553,7 +564,7 @@ docker compose -f docker-compose.prod.yml up -d
 Every few months (and after any big change), prove a backup really restores:
 
 ```bash
-scripts/restore-drill.sh /var/backups/familyos/<newest>.dump
+scripts/restore-drill.sh /var/backups/familyos/<newest>.dump.age
 ```
 
 It restores the dump into a throwaway stack beside the real one (its own database, network and
