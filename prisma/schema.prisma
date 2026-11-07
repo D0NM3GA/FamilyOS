@@ -1857,6 +1857,8 @@ model MoneyJarMember {
 
   @@id([jarId, personId])
   @@map("money_jar_member")
+  /// Phase 64d: when this member last looked at "New since you last looked" (or marked it all seen).
+  lastSeenAt DateTime?
 }
 
 enum FinProvider {
@@ -1993,6 +1995,9 @@ model FinTransaction {
   payee       String?
   memo        String?
   pending     Boolean     @default(false)
+  /// Phase 64d: when a feed hold became a posted charge on the same row (the bank kept its id), so
+  /// "New since you last looked" shows it then. A hold that posts as a new row needs none.
+  postedAt    DateTime?
   state       FinTxnState @default(ACTIVE)
 
   duplicateOfId String?
@@ -2300,6 +2305,8 @@ enum JarEventKind {
   EXPORTED
   HOLDING_ADDED
   HOLDING_VALUED
+  /// Phase 64d: charges new since a member last looked were filed (and the guesses confirmed).
+  NEW_FILED
   HOLDING_REMOVED
   CATEGORY_ADDED
   CATEGORY_RENAMED
