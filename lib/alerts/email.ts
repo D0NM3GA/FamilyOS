@@ -75,13 +75,15 @@ async function graphCode(res: Response): Promise<string | null> {
  * `appName` is the family's name for the app, so the mail says who it's from. `linkText` says
  * what the link opens (a card's, like Teams'); store orders, the first emails, keep their words.
  */
-export function emailPayload(to: string, title: string, link: string, appName: string, linkText = "Open the store to make it happen") {
+export function emailPayload(to: string, title: string, link: string, appName: string, linkText = "Open the store to make it happen", lines: string[] = []) {
+  // Phase 62c: a morning summary carries its lines between the title and the link.
+  const body = lines.length ? `${title}\n\n${lines.map((l) => `• ${l}`).join("\n")}` : title;
   return {
     message: {
       subject: `${appName}: ${title}`,
       body: {
         contentType: "Text",
-        content: `${title}\n\n${linkText}: ${link}\n\n— ${appName}`,
+        content: `${body}\n\n${linkText}: ${link}\n\n— ${appName}`,
       },
       toRecipients: [{ emailAddress: { address: to } }],
     },
@@ -97,6 +99,7 @@ export async function sendEmail(
   appName: string,
   deps: { fetchFn?: typeof fetch; token?: () => Promise<string> } = {},
   linkText?: string,
+  lines?: string[],
 ): Promise<void> {
   const mailbox = from;
   let token: string;
@@ -110,7 +113,7 @@ export async function sendEmail(
     res = await (deps.fetchFn ?? fetch)(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/sendMail`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(emailPayload(to, title, link, appName, linkText)),
+      body: JSON.stringify(emailPayload(to, title, link, appName, linkText, lines)),
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
