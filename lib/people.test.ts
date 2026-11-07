@@ -7,6 +7,7 @@ import {
   interactionTime,
   dayInZone,
   shortNames,
+  searchWords,
 } from "./people";
 
 const NOW = new Date("2026-09-21T12:00:00Z");
@@ -35,7 +36,22 @@ function contact(overrides: Partial<ContactRow> = {}): ContactRow {
   };
 }
 
+describe("searchWords", () => {
+  it("splits on spaces, drops blanks and keeps five at most", () => {
+    expect(searchWords("  Ivy   Parker ")).toEqual(["Ivy", "Parker"]);
+    expect(searchWords("")).toEqual([]);
+    expect(searchWords(undefined)).toEqual([]);
+    expect(searchWords("a b c d e f g")).toHaveLength(5);
+  });
+});
+
 describe("pickStaleContacts", () => {
+  it("never reminds about someone set to 0, household member or not", () => {
+    const plumber = contact({ id: "plumber", contactCadenceDays: 0, lastContactedAt: daysAgo(400) });
+    const kid = contact({ id: "kid", isHouseholdMember: true, contactCadenceDays: 0 });
+    expect(pickStaleContacts([plumber, kid], NOW)).toEqual([]);
+  });
+
   it("excludes a household member with no cadence override, regardless of lastContactedAt", () => {
     const kid = contact({ id: "kid", isHouseholdMember: true, lastContactedAt: null });
     expect(pickStaleContacts([kid], NOW)).toEqual([]);
