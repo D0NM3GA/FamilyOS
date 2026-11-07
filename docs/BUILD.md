@@ -1463,3 +1463,21 @@ and panel's pill report a milestone; Escape with a menu open closes the menu fir
 panel replaces its history entry, so Back doesn't reopen it; history times use the household's
 zone; filtered boards say when nothing matches; Anyone's isn't shown alongside Everyone; a
 bookmarked Anyone's in Big buttons is no filter; Everyone has Export like a student's page.
+
+### 59.4b — People
+
+The People list shows badges for household members (`lib/work-items/badges.ts`): overdue by each
+board's own rule (chores inside the overdue window, homework unbounded), missing, and the soonest
+test or quiz this week; one grouped chores query and one assignments read, only for apps that are
+on, a kid's own only. A person's record replaces the chores summary with **Open items**: their
+chores for seven days, their open homework (`personOpenSchoolwork`, for whoever can see it) and the
+forms they're handling (grown-ups), as list rows with pills and the side panel (`?item=`); the
+meds summary and the links to the boards stay. `lib/work-items` is the shared layer across Chores and
+School, outside the eslint domain zones like Home, so People reads schoolwork through it.
+Fable's review of 59.4b: the record page handed the whole person row to the homework rows, which
+would have shipped their notes and contacts to the browser; the adapters now build `who` from the
+id and first name alone, whatever they're given, and a test checks the keys. Big buttons keeps the
+person page's plain summary (no rows, menus or panel). A kid sees a brother's or sister's chores as
+plain text, not a link to a panel they can't open. A paused app's items don't open in the panel.
+`lib/work-items` joins `FINANCE_AGGREGATOR_GUARD` in eslint, like Home: it can never read the money
+jars. Badges are read only when a household member is on the list, and named in the household's zone.

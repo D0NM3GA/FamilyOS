@@ -1653,7 +1653,7 @@ checked it again and is folded in.
 
 ### 59.1a — One status language
 
-**`lib/work-items`** (pure, no Prisma): one shape for "something with a status that someone
+**`lib/work-items`** (the adapters pure, no Prisma): one shape for "something with a status that someone
 does", and an adapter per domain.
 
 - `WorkItem = { type, id, title, who, due, status, statusLabel, tone, nextStatuses }`, where

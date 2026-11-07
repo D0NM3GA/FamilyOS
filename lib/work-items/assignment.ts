@@ -44,5 +44,7 @@ export function assignmentItem(a: AssignmentLike, viewer: Viewer, now: Date = ne
     ]),
   ) as Record<AssignmentStatusValue, StatusOption<AssignmentStatusValue>[]>;
 
-  return { type: "ASSIGNMENT", id: a.id, title: a.title, who: a.student, due: a.dueDate, status: a.status, looks, options };
+  // Only an id and a first name reach the browser, whatever row the caller handed in.
+  const who = { id: a.student.id, firstName: a.student.firstName };
+  return { type: "ASSIGNMENT", id: a.id, title: a.title, who, due: a.dueDate, status: a.status, looks, options };
 }

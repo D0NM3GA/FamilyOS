@@ -30,7 +30,12 @@ first-visitor setup, invites, any OIDC provider, Microsoft optional and checked 
 pulls by a pinned version, with a migrate image cut down to Prisma's CLI (48); the **household's
 timezone everywhere (49)**, with both times shown away from home; **Teams through the family's
 own Teams app (50)**, no Power Automate; **finding the school calendar from its website (51)**;
-and **statement CSVs that work out their own columns (52)**. Since 2026-10-23 the project lives
+and **statement CSVs that work out their own columns (52)**. **Quick status work (59)**, built
+2026-11-07, brings ticketing-style handling to Chores, School and People: status pills you can tap,
+homework types, a history of every change, editing in place (kids change their own homework and
+grown-ups approve it or put it back), moving a chore to another day, picking several and acting
+once, a list view with filters, a side panel with history, School's Everyone and People's badges.
+Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they
 merge themselves. The phase-by-phase log is docs/BUILD.md; what's next and what's waiting on the
