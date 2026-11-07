@@ -839,6 +839,7 @@ model Medication {
   updatedAt DateTime @updatedAt
 
   @@map("medication")
+  listItems ShoppingListItem[]
 }
 
 // ---------- Domain: vehicle maintenance (mileage-driven — bespoke, not lib/tasks/) ----------
@@ -969,6 +970,7 @@ model VehicleSupply {
 
   @@unique([householdId, name])
   @@map("vehicle_supply")
+  listItems ShoppingListItem[]
 }
 
 /// What one maintenance item uses per service, e.g. an oil change uses 5 qt of oil and one
@@ -1189,6 +1191,13 @@ model ShoppingListItem {
   /// added by an adult. Optional; set after adding, not part of the fast-add flow.
   requestedById String?
   requestedBy   Person? @relation("ItemRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  /// Phase 63a: what put it on the list (a medicine running low, a car supply a service used), so
+  /// finishing the trip can ask how many were picked up and add them to that stock.
+  medicationId    String?
+  medication      Medication?    @relation(fields: [medicationId], references: [id], onDelete: SetNull)
+  vehicleSupplyId String?
+  vehicleSupply   VehicleSupply? @relation(fields: [vehicleSupplyId], references: [id], onDelete: SetNull)
 
   /// Phase 23: a kid put this on the list themselves (tile, add box or scan), so a grown-up
   /// may veto it. Separate from requestedBy, which anyone can set and which Meds' refill

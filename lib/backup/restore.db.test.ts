@@ -102,8 +102,8 @@ function fixture(): Backup {
       { id: "p3", name: "Birthday candles", barcode: null, brand: null, imageUrl: null, sizeAmount: null, sizeUnit: null, container: null, defaultStoreId: null, groupId: null, createdAt: T2 },
     ],
     shoppingListItems: [
-      { id: "li1", productId: "p1", quantity: 2, done: false, kidPick: true, addedById: "Mom", requestedById: "Kid", createdAt: T },
-      { id: "li2", productId: "p3", quantity: 1, done: true, kidPick: false, addedById: null, requestedById: null, createdAt: T2 },
+      { id: "li1", productId: "p1", quantity: 2, done: false, kidPick: true, addedById: "Mom", requestedById: "Kid", medicationId: null, vehicleSupplyId: null, createdAt: T },
+      { id: "li2", productId: "p3", quantity: 1, done: true, kidPick: false, addedById: null, requestedById: null, medicationId: null, vehicleSupplyId: null, createdAt: T2 },
     ],
     purchases: [{ id: "pu1", purchasedAt: T, purchasedById: "Mom" }],
     purchaseItems: [{ id: "pi1", purchaseId: "pu1", productId: "p2", description: "Paper towels", quantity: 6, requestedById: "Kid", kidPick: false }],

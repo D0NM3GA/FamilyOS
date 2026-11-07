@@ -412,9 +412,10 @@ export async function logMaintenanceDone(
   // (or roll back) a service that really happened. The list dedupes by Pantry item, so a supply
   // that's still low on the next service doesn't add a second line.
   const added: string[] = [];
-  for (const name of lowSupplies) {
+  for (const { id: supplyId, name } of lowSupplies) {
     try {
-      const { created } = await requestItemByName({ householdId: profile.householdId, name, addedById: profile.id });
+      // Phase 63a: the list remembers which supply, so finishing the trip can restock it.
+      const { created } = await requestItemByName({ householdId: profile.householdId, name, addedById: profile.id, source: { vehicleSupplyId: supplyId } });
       if (created) added.push(name);
     } catch (err) {
       captureError(err, "vehicles.supply_item_failed");

@@ -2259,6 +2259,126 @@ Per-person reminder times, snoozing, reminders by SMS, money in the summary, any
 
 62a engine and four kinds, 62b cars and recalls, 62c summary and days left.
 
+## Phase 63 — scope (data flowing between apps, 2026-11-07)
+
+The fourth phase from the review of 2026-11-07: the CRM idea, where something known in one app
+helps another. Checked against the code 2026-11-07.
+
+### The owner's answers (2026-11-07)
+
+- **Bills show on the Calendar only**, by name, and only to members of that money jar; no
+  amounts, nothing on Home.
+- **Finishing a grocery trip asks how many** were picked up of an item that came from a medicine
+  or a car supply ("Picked up Amoxicillin: how many?") and adds them to its stock.
+- **Medicine refill items stay on the shared list**, as today.
+
+### 63a — Restock from a trip, and school fees in Coming up
+
+- **Where a list item came from:** `ShoppingListItem` gains `medicationId String?` and
+  `vehicleSupplyId String?` (FK, SetNull). `requestItemByName` takes an optional `source`, which the
+  meds refill hook (`completeInstance`) and the vehicles low-supply hook (`logMaintenanceDone`) pass;
+  an item already on the list gains the source if it had none. `PurchaseItem` carries the same two
+  ids, copied by `completeTrip`, so the trip remembers them.
+- **Finish trip asks:** Shop view's Finish (`shop-view.tsx` → `completeTrip`) first shows, for done
+  items with a source whose stock is counted (`quantityOnHand` not null), one number field each
+  ("Picked up Amoxicillin: how many?", prefilled with the list quantity, 0 allowed, Skip leaves
+  stock alone). `completeTrip(restock?: { itemId, amount }[])` validates with zod (ids on the
+  household's active list, done, with a source; amounts 0–10,000) and, in the same transaction,
+  adds to `Medication.quantityOnHand` (household-checked through its definition) or the supply
+  (`lib/vehicles/supply-stock.ts addStock`, already household-scoped). Items without a source, or
+  with an uncounted stock, ask nothing. Works the same from the Groceries page's own Finish if
+  there is one; offline-queued trips (`lib/offline`) restock nothing (they never asked).
+- **School fees in Coming up and Safe to spend:** open `SchoolTask`s of kind FEE with an amount
+  and a due date are read for a jar (bills page and alerts' forecast) as one-off hand-added bills
+  (`ManualBillInput` with cadence ONCE, `id` `school:<taskId>`, `matchKey` ""), so they count once
+  until paid or marked done. Read through a new finance-owned helper (finance may read school;
+  school never reads money). Jar members are adults, so nothing new reaches anyone. Marked with 🎒
+  in the list instead of ✍️, with a link to School.
+
+### 63b — Bills on the calendar, and a car charge into Cars
+
+- **Bills on the calendar:** a finance-owned `lib/finance/calendar-bills.ts` exports one function,
+  `billDays(viewer, from, until)`: for each jar the viewer is a member of (their own sign-in, as
+  `moneyViewer` requires), the found regular bills (`findRecurring` + `isRegularBill`, not hidden)
+  and hand-added bills with a due day in the range, as `{ day, name }` only (no amount, no jar
+  id). `getAgendaWeek` gains a `bill` kind (💸, "Bills" in the kind order after dates) from it, for
+  grown-ups with Money on. eslint gets a narrow exception like `TRIP_LINKS_EXCEPTION`:
+  `lib/calendar/queries.ts` may import `@/lib/finance/calendar-bills` only; everything else in the
+  aggregator guard stays. Not in the Outlook write-back (`lib/calendar-sync`): that calendar is
+  shared. Bills link to `/finances` (the jar list), never a jar id.
+- **A car charge into Cars:** on a Money charge filed under "Gas & car" (`car`), the charge sheet
+  (`txn-sheet.tsx`) offers **Log as a fill-up** and **Log as a service** for each active car, links
+  to `/vehicles/<id>?fuel=<cents>&on=<day>` or `?service=<cents>&on=<day>`. The car page reads
+  those (validated: cents a whole number up to $100,000; day a real date) and opens the fuel form,
+  or shows a note to pick the item, with cost and date filled. Nothing is linked back (no FK from a
+  log to a transaction): it only saves typing. Cars is adult-only, as Money is.
+
+### 63c — Who's connected, and search that lands on the thing
+
+- **A contact's page** (`people/[id]/page.tsx`, grown-ups) gains **Connected to**: medicines they
+  prescribe or fill (`prescribedMedications`, `pharmacyMedications`: the medicine's name and whose
+  it is, linking to its edit page) when Meds is on, and school roles (`schoolContactFor`: role and
+  the student's name, linking to School) when School is on. Only shown when there's something.
+  Queried in the page's own way (Prisma through lib/people helpers; the People zone can't import
+  meds' or school's modules).
+- **Search:** a school to-do opens in the side panel (`/school?item=SCHOOL_TASK:<id>`), chores and
+  homework likewise where a panel exists (`CHORE` for an instance isn't searchable, so chores keep
+  their links). School calendar events (`SchoolFeedEvent`, upcoming 60 days, kids only their own and
+  family-wide, School on) and shopping-list items (active list, Groceries on) join the results.
+
+### Settled after Fable's scope review (2026-11-07)
+
+These replace what's above where they differ.
+
+- **PRs:** 63a is restock only; school fees move to 63b with the calendar bills (both
+  finance-owned).
+- **Restock, once and by grown-ups:** only a grown-up's Finish asks and restocks (meds and Garage
+  stock are grown-up things); a kid's Finish saves the trip as today. Inside the transaction each
+  item is deleted with `done: true` checked, and only items actually deleted restock, so a second
+  tap or a second phone does nothing twice (and a trip with nothing left isn't saved twice).
+  Shop view flushes its offline tick queue before asking.
+- **Units:** the list's quantity is containers, stock is pills, mL or the supply's own unit, so the
+  "how many?" field starts empty, shows the current count and the unit ("on hand: 12 tablets"),
+  and empty means skip. Updates use `updateMany` with `quantityOnHand: { not: null }` (an
+  uncounted stock is skipped), rounded to three places like `supply-stock.ts`.
+- **Sources:** `consumeForService` returns `{ id, name }` so the vehicles hook can pass the supply
+  id. Two medicines with the same name share one Pantry product, so the first source wins: noted.
+  Restore remaps both ids (`lib/backup`), or drops them when the thing is gone.
+- **Where it asks:** Shop view's Finish (a client step before `completeTrip`). The Groceries page's
+  own Finish (a plain form) keeps saving without asking; its button says so isn't needed, but the
+  family guide says the question is in Shop view.
+- **School fees (63b), per jar:** a jar counts school fees only when its members switch it on
+  (`MoneyJar.countSchoolFees`, off by default, on the bills page), so two jars don't both count the
+  same fee. They go to Coming up and Safe to spend only, never to the bill alerts (School's own
+  reminders cover them). A separate `source: "school"` keeps them out of "Added by hand" and gives
+  them School's link. Due days are formatted from local midnight (they're stored that way), and a
+  fee more than three days late shows as late rather than dropping off.
+- **Calendar bills (63b):** `billDays` dedupes found and hand-added bills (`standsFor`), skips rows
+  hidden as a surprise from this viewer (`visibleToWhere`), and calls `moneyViewer()` itself; the
+  calendar page passes it the viewer only when they're on their own sign-in. The kind isn't a to-do
+  or a person's; month view shows them (they're events). The eslint exception sits after the
+  aggregator guard and re-lists what that guard bans.
+- **Car charges (63b):** the links live in the jar's page (the sheet's children), for a category
+  whose key or absorbed keys include `car`; cars are read through Prisma (finance can't import
+  Cars). The car page and fuel form gain cost and date props.
+
+### Tests
+
+Unit: restock validation, the school-fee-as-bill mapping, bill days (range, membership, names
+only), the car-charge query parsing, search hrefs. DB: a trip restocks a medicine and a supply
+once and refuses another household's ids; calendar bills only for members; connected-to queries.
+e2e: none new (the trip's existing test keeps passing with no sourced items). Guides: family.md
+(Finish trip asks, bills on the calendar, log a car charge, Connected to, search), admin.md if
+anything admins see changes.
+
+### Not in this phase
+
+Linking a fuel or service log to its charge; splitting a charge; anything from 64–65.
+
+### Pull requests
+
+63a restock and school fees, 63b calendar bills and car charges, 63c connections and search.
+
 ## Open items
 
 ### Waiting on a decision

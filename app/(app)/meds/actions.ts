@@ -310,6 +310,8 @@ export async function completeInstance(instanceId: string) {
         name: instance.definition.title,
         addedById: profile.id,
         requestedById: instance.assignedToId,
+        // Phase 63a: the list remembers which medicine, so finishing the trip can restock it.
+        ...(medication ? { source: { medicationId: medication.id } } : {}),
       });
       if (created) revalidatePath("/groceries");
     } catch (err) {

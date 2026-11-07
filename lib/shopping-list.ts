@@ -73,14 +73,24 @@ export async function requestItemByName(opts: {
   name: string;
   addedById: string;
   requestedById?: string | null;
+  /** Phase 63a: what it's for, so finishing the trip can ask how many and restock it. */
+  source?: { medicationId?: string; vehicleSupplyId?: string };
 }): Promise<{ created: boolean }> {
   const list = await getOrCreateActiveList(opts.householdId);
   const { product } = await findOrCreateProductByName(opts.householdId, opts.name);
+  const source = { medicationId: opts.source?.medicationId ?? null, vehicleSupplyId: opts.source?.vehicleSupplyId ?? null };
 
   const existing = await prisma.shoppingListItem.findFirst({
     where: { listId: list.id, productId: product.id },
   });
-  if (existing) return { created: false };
+  if (existing) {
+    // Already asked for (by hand, say): it gains the source if it had none. Two medicines sharing
+    // a name share the Pantry item, so the first source stays.
+    if (!existing.medicationId && !existing.vehicleSupplyId && (source.medicationId || source.vehicleSupplyId)) {
+      await prisma.shoppingListItem.update({ where: { id: existing.id }, data: source });
+    }
+    return { created: false };
+  }
 
   await prisma.shoppingListItem.create({
     data: {
@@ -88,7 +98,43 @@ export async function requestItemByName(opts: {
       productId: product.id,
       addedById: opts.addedById,
       requestedById: opts.requestedById ?? null,
+      ...source,
     },
   });
   return { created: true };
 }
+
+/**
+ * Phase 63a: adds what a trip picked up to the stock of the medicine or car supply that put the
+ * item on the list. Here, in the list's shared kernel, because Groceries may not import Meds or
+ * the Garage (and they already reach the list through this file). Rounded in SQL like the
+ * Garage's own (lib/vehicles/supply-stock.ts) so fractions can't drift; only this household's,
+ * and only a counted stock (a null count stays null). Returns whether it changed.
+ */
+export async function restockFromTrip(
+  db: Pick<Tx, "$executeRaw">,
+  householdId: string,
+  source: { medicationId: string | null; vehicleSupplyId: string | null },
+  amount: number,
+): Promise<boolean> {
+  if (source.medicationId) {
+    return (
+      (await db.$executeRaw`
+        UPDATE medication m
+        SET "quantityOnHand" = ROUND((m."quantityOnHand" + ${amount})::numeric, 3)::float8, "updatedAt" = now()
+        FROM task_definition d
+        WHERE m.id = ${source.medicationId} AND m."taskDefinitionId" = d.id AND d."householdId" = ${householdId}
+          AND m."quantityOnHand" IS NOT NULL`) > 0
+    );
+  }
+  if (source.vehicleSupplyId) {
+    return (
+      (await db.$executeRaw`
+        UPDATE vehicle_supply
+        SET "quantityOnHand" = ROUND(("quantityOnHand" + ${amount})::numeric, 3)::float8, "updatedAt" = now()
+        WHERE id = ${source.vehicleSupplyId} AND "householdId" = ${householdId} AND active AND "quantityOnHand" IS NOT NULL`) > 0
+    );
+  }
+  return false;
+}
+

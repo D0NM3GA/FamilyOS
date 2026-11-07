@@ -338,6 +338,9 @@ const shoppingListItem = z.object({
   kidPick: z.boolean().default(false),
   addedById: nullableId,
   requestedById: nullableId,
+  // Phase 63a (v10): what put it on the list. Older files have none.
+  medicationId: nullableId.default(null),
+  vehicleSupplyId: nullableId.default(null),
   createdAt: iso,
 });
 
@@ -487,12 +490,13 @@ export const BACKUP_FORMAT = "familyos-household-backup";
  * item, and no quantity units (an older file's units are ignored); v6 (Phase 24) receipt
  * prices and learned receipt matches; v7 (Phase 28) the sealed money jars; v8 (Phase 47) the
  * digital pet (pets, their items, game payouts, chore presents, the memory book, the collection book, and the household's care
- * hours); v9 (Phase 59.1c) the history of chores, schoolwork and school forms. Older
+ * hours); v9 (Phase 59.1c) the history of chores, schoolwork and school forms; v10 (Phase 63a)
+ * which medicine or car supply put a list item there. Older
  * files still restore with the arrays they lack defaulting to empty, so restoring one
  * removes that data here (the restore preview shows those delete counts). A v1 file still restores: those arrays
  * default to empty (and the restore preview says existing supplies will be removed).
  */
-export const BACKUP_SCHEMA_VERSION = 9;
+export const BACKUP_SCHEMA_VERSION = 10;
 
 /**
  * Phase 28 (v7): the household's money jars, sealed (AES-256-GCM over gzipped JSON, see

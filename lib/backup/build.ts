@@ -299,6 +299,8 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
         kidPick: true,
         addedById: true,
         requestedById: true,
+        medicationId: true,
+        vehicleSupplyId: true,
         createdAt: true,
       },
       orderBy: { createdAt: "asc" },
