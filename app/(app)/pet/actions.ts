@@ -1,10 +1,9 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireActiveProfile } from "@/lib/active-profile";
-import { appOn } from "@/lib/app-switches";
+import { assertAppOn } from "@/lib/app-guard";
 import { clean, crackEgg, feedMeal, feedSnack, giveMedicine, petIt, play, sayNo, type CareOutcome } from "@/lib/pet/care";
 import { isToy, SURFACES } from "@/lib/pet/items";
 import { ROOM_W } from "@/lib/pet/room";
@@ -22,7 +21,7 @@ import { cleanPetName } from "@/lib/pet/words";
 
 async function petProfile() {
   const profile = await requireActiveProfile();
-  if (!(await appOn(profile.householdId, "pet"))) redirect("/apps-off/pet");
+  await assertAppOn(profile.householdId, "pet");
   return profile;
 }
 

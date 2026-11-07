@@ -39,6 +39,14 @@ once, a list view with filters, a side panel with history, School's Everyone and
 numbers that ran high (old holds, one check paying several bills, refunds), doses taken ahead,
 new cars shown all overdue, the bell's read marks, check-in reminders, full-name search, the
 calendar's person chips and school fee amounts.
+**The server safety net (61)** keeps a bad night recoverable and visible: background jobs that
+can't take each other down, a System card on Data & backups with an optional outside check-in,
+JSON logs, nightly backups encrypted with age and kept on the server, the NAS and OneDrive, a
+database login for the app that can only read and write data, and guard tests that every server
+action checks who's asking and that its app is on, with a browser test of a kid's profile.
+**Reminders (62)**: missed doses, medicines running low, school things due, birthdays, car
+work and new recalls, once each, by the bell, phone, Teams or email, with each grown-up's own
+kinds and quiet hours, an opt-in morning summary, and days left on Meds.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they

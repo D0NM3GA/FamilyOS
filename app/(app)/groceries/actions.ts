@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { redirect, RedirectType } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -29,6 +30,7 @@ function revalidateGroceries() {
 
 export async function searchProductsAutocomplete(query: string) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   const results = await searchProductsLocal(profile.householdId, String(query).slice(0, 120));
   return results.map((p) => ({
     id: p.id,
@@ -60,6 +62,7 @@ const addInput = z.union([
 /** Adds a Pantry item by id (suggestion, chip) or by typed name, which becomes a Pantry item. */
 export async function addItem(input: { productId: string } | { name: string }) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   // Chips built from old purchase history can carry a long description; trim, don't drop.
   const parsed = addInput.safeParse("name" in input && typeof input.name === "string" ? { name: input.name.slice(0, 120) } : input);
   if (!parsed.success) return;
@@ -155,6 +158,7 @@ async function createOrAttachForBarcode(
  */
 export async function addItemByBarcode(rawBarcode: string, name?: string): Promise<BarcodeAddResult> {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   const typed = normalizeBarcode(rawBarcode);
   if (!typed) return { kind: "error", message: "That doesn't look like a barcode." };
 
@@ -213,6 +217,7 @@ async function assertOwnedItem(itemId: string, householdId: string) {
 
 export async function toggleItem(itemId: string, done: boolean) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   await assertOwnedItem(itemId, profile.householdId);
 
   await prisma.shoppingListItem.update({ where: { id: itemId }, data: { done } });
@@ -222,6 +227,7 @@ export async function toggleItem(itemId: string, done: boolean) {
 /** The row's −/+. Down to zero takes it off the list. */
 export async function setQuantity(itemId: string, quantity: number) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   await assertOwnedItem(itemId, profile.householdId);
   if (!Number.isFinite(quantity)) return;
 
@@ -234,6 +240,7 @@ export async function setQuantity(itemId: string, quantity: number) {
 /** Who an item is FOR, not who added it — e.g. a kid asks an adult to add something. */
 export async function setRequestedBy(itemId: string, personId: string | null) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   await assertOwnedItem(itemId, profile.householdId);
 
   if (personId) {
@@ -254,6 +261,7 @@ export async function setRequestedBy(itemId: string, personId: string | null) {
  * false when there was nothing checked (say another phone already finished the trip). */
 export async function completeTrip(): Promise<{ saved: false } | { saved: true; purchaseId: string }> {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   const list = await getOrCreateActiveList(profile.householdId);
 
   const doneItems = await prisma.shoppingListItem.findMany({
@@ -306,6 +314,7 @@ const undoInput = z.string().min(1).max(2048);
  */
 export async function takeOffList(itemId: string): Promise<{ undo: string; name: string } | null> {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   const parsed = itemIdInput.safeParse(itemId);
   if (!parsed.success) return null;
   const removed = await takeRowOff(profile.householdId, parsed.data);
@@ -317,6 +326,7 @@ export async function takeOffList(itemId: string): Promise<{ undo: string; name:
 /** Undo: puts the row back exactly as it was. A forged, foreign or stale token does nothing. */
 export async function undoTakeOff(token: string): Promise<{ restored: boolean }> {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   const parsed = undoInput.safeParse(token);
   const row = parsed.success ? openRemoved(parsed.data, profile.householdId) : null;
   if (!row) return { restored: false };
@@ -375,6 +385,7 @@ export async function saveItemDetails(
   formData: FormData,
 ): Promise<SheetState> {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   const householdId = profile.householdId;
   const back = sheetReturnPath(returnTo);
 
@@ -446,6 +457,7 @@ export async function saveItemDetails(
 /** "Same as…": folds another Pantry item into this one. Grown-ups only. */
 export async function mergeIntoItem(keepId: string, returnTo: SheetReturn, formData: FormData) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "groceries");
   const mergeId = String(formData.get("mergeId") ?? "");
   const result = await mergeProducts(profile.householdId, keepId, mergeId);
   revalidateGroceries();
@@ -455,6 +467,7 @@ export async function mergeIntoItem(keepId: string, returnTo: SheetReturn, formD
 /** Removes an item from the Pantry (and the list). History keeps its name. Grown-ups only. */
 export async function deletePantryItem(productId: string, returnTo: SheetReturn) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "groceries");
   await prisma.product.deleteMany({ where: { id: productId, householdId: profile.householdId } });
   revalidateGroceries();
   redirect(sheetReturnPath(returnTo), RedirectType.replace);
@@ -463,6 +476,7 @@ export async function deletePantryItem(productId: string, returnTo: SheetReturn)
 /** Pantry's "+ Add something": makes (or finds) the item and opens its sheet. */
 export async function createPantryItem(formData: FormData) {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   const name = String(formData.get("name") ?? "").trim().slice(0, 120);
   if (!productNameKey(name)) redirect("/groceries/pantry");
   const { product, created } = await findOrCreateProductByName(profile.householdId, name);
@@ -484,6 +498,7 @@ const MAX_SYNC_OPS = 1000;
  */
 export async function syncChecks(ops: { itemId: string; done: boolean }[]): Promise<{ applied: number }> {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
   // Malformed ops are dropped rather than failing the batch: the batch is all-or-nothing,
   // so one bad stored entry must never make the whole queue unsendable.
   const valid = (Array.isArray(ops) ? ops : []).slice(0, MAX_SYNC_OPS).flatMap((op) => {
@@ -502,5 +517,6 @@ export async function syncChecks(ops: { itemId: string; done: boolean }[]): Prom
  */
 export async function vetoItem(itemId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "groceries");
   if (await vetoKidPick(profile.householdId, itemId)) revalidateGroceries();
 }

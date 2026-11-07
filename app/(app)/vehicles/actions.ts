@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -79,6 +80,7 @@ export async function createVehicle(
   formData: FormData,
 ): Promise<VehicleFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const result = parseVehicleForm(formData);
   if ("error" in result) return { error: result.error };
 
@@ -104,6 +106,7 @@ export async function updateVehicle(
   formData: FormData,
 ): Promise<VehicleFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const result = parseVehicleForm(formData);
   if ("error" in result) return { error: result.error };
 
@@ -137,6 +140,7 @@ export async function updateVehicle(
 
 export async function setVehicleActive(vehicleId: string, active: boolean) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
 
   await prisma.vehicle.updateMany({
     where: { id: vehicleId, householdId: profile.householdId },
@@ -165,6 +169,7 @@ export async function updateOdometer(
   formData: FormData,
 ): Promise<VehicleFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const parsed = odometerSchema.safeParse({ mileage: String(formData.get("mileage") ?? "") });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
@@ -251,6 +256,7 @@ export async function createMaintenanceItem(
   formData: FormData,
 ): Promise<VehicleFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const vehicle = await prisma.vehicle.findFirst({
     where: { id: vehicleId, householdId: profile.householdId },
   });
@@ -276,6 +282,7 @@ export async function updateMaintenanceItem(
   formData: FormData,
 ): Promise<VehicleFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const existing = await prisma.vehicleMaintenanceItem.findFirst({
     where: { id: itemId, vehicle: { householdId: profile.householdId } },
   });
@@ -300,6 +307,7 @@ export async function updateMaintenanceItem(
 
 export async function setMaintenanceItemActive(itemId: string, active: boolean) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
 
   await prisma.vehicleMaintenanceItem.updateMany({
     where: { id: itemId, vehicle: { householdId: profile.householdId } },
@@ -330,6 +338,7 @@ export async function logMaintenanceDone(
   formData: FormData,
 ): Promise<VehicleFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
 
   const item = await prisma.vehicleMaintenanceItem.findFirst({
     where: { id: itemId, vehicle: { householdId: profile.householdId } },
@@ -435,6 +444,7 @@ function listOf(names: string[]) {
  */
 export async function undoLastService(itemId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
 
   const item = await prisma.vehicleMaintenanceItem.findFirst({
     where: { id: itemId, vehicle: { householdId: profile.householdId } },
@@ -467,6 +477,7 @@ export async function addTemplateItems(
   formData: FormData,
 ): Promise<VehicleFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const vehicle = await prisma.vehicle.findFirst({
     where: { id: vehicleId, householdId: profile.householdId },
     include: { maintenanceItems: { select: { title: true } } },
@@ -524,6 +535,7 @@ export async function logFuel(
   formData: FormData,
 ): Promise<VehicleFormState> {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   const vehicle = await prisma.vehicle.findFirst({
     where: { id: vehicleId, householdId: profile.householdId },
   });
@@ -599,6 +611,7 @@ export async function logFuel(
 /** Deletes one fill-up outright — no cache depends on it (MPG is computed at read time). */
 export async function deleteFuelLog(logId: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
 
   await prisma.vehicleFuelLog.deleteMany({
     where: { id: logId, vehicle: { householdId: profile.householdId } },
@@ -616,6 +629,7 @@ const CAMPAIGN_NUMBER = /^[A-Z0-9]{1,20}$/i;
  */
 export async function acknowledgeRecall(vehicleId: string, campaignNumber: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   if (!CAMPAIGN_NUMBER.test(campaignNumber)) return;
 
   const vehicle = await prisma.vehicle.findFirst({
@@ -637,6 +651,7 @@ export async function acknowledgeRecall(vehicleId: string, campaignNumber: strin
 /** Undo for a mis-tapped "Mark handled" — a "Do not drive" recall must never stay hidden by accident. */
 export async function unacknowledgeRecall(vehicleId: string, campaignNumber: string) {
   const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
 
   await prisma.vehicleRecallAck.deleteMany({
     where: { vehicleId, campaignNumber, vehicle: { householdId: profile.householdId } },
@@ -651,6 +666,7 @@ export async function unacknowledgeRecall(vehicleId: string, campaignNumber: str
  * stays editable). Grown-ups only, like the form; the VIN is never logged.
  */
 export async function lookUpVin(vin: string): Promise<VinDecode> {
-  await requireAdult();
+  const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
   return decodeVin(typeof vin === "string" ? vin.slice(0, 40) : "");
 }
