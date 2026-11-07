@@ -119,7 +119,8 @@ Settings → Starting views.
   Chores, Meds, Groceries, then **Show more** for the rest.
 - **The bottom bar** (on a phone) has the first four, and **All apps** for the rest.
 - **The nine dots** at the top open every app at once.
-- **Search** at the top finds people, chores, groceries and more.
+- **Search** at the top finds people, chores, groceries and more: school calendar events and
+  what's on the shopping list too, and a school form or to-do opens right in School's side panel.
 - **The bell** shows your notifications: orders, notes from grown-ups, sign-in changes. Opening
   it marks the ones it shows as read; if there are more, the count stays. The Notifications page
   keeps the latest 100, and anything new there counts as read once you've seen it.
@@ -161,6 +162,8 @@ The family's address book: everyone in the house, plus grandparents, friends, te
   interactions**: log a call, visit or note in the box at the top (**Log it**), and change the
   date if it happened earlier.
 - **Around the house** shows a family member's chores, stickers, list items and school.
+- **Connected to** (grown-ups) shows what a contact is to the family: the medicines a doctor
+  prescribes or a pharmacy fills, and whose school contact a teacher is.
 - Grown-ups can mark a note "grown-ups only" so kids don't see it.
 - With Microsoft, a contact's page can show **Recent emails** and **Sync from Microsoft** fills in
   their photo, name and phone.

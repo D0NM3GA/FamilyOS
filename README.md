@@ -47,6 +47,10 @@ action checks who's asking and that its app is on, with a browser test of a kid'
 **Reminders (62)**: missed doses, medicines running low, school things due, birthdays, car
 work and new recalls, once each, by the bell, phone, Teams or email, with each grown-up's own
 kinds and quiet hours, an opt-in morning summary, and days left on Meds.
+**Data between apps (63)**: a grocery trip restocks the medicine or car supply it bought, school
+fees count in the money jar that pays them, bills show by name on the calendar for their jar's
+members, a car charge goes into Cars in a tap, a contact shows who they're connected to, and
+search lands on the thing.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they

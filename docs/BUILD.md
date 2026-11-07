@@ -1710,3 +1710,16 @@ them (they drifted by stepping 30 days); a late school fee a check already paid 
 as well as Coming up; jars load in parallel; the stepping is a pure `billDaysOf` with its own tests;
 a fee in Coming up links to School.
 
+### 63c — Who's connected, and search that lands on the thing
+
+A contact's page shows grown-ups **Connected to**: the medicines they prescribe or fill (with whose
+they are, linking to the medicine) while Meds is on, and the students they're a school contact for
+(their role, linking to that student's School) while School is on (`personConnections` in
+`lib/people.ts`, a kernel, since People can't import Meds or School). Search opens a school to-do in
+School's side panel (`?item=SCHOOL_TASK:<id>`), and finds school calendar events in the next 60
+days (a kid only their own feeds and the family's) and items on the shopping list.
+Fable's review of 63c: an event's day follows the calendar's rules (all-day events are UTC
+midnights of their date, timed ones in the household's zone), and it links to School when Calendar
+is off; homework opens in the side panel too; the tests cover a pharmacy, a stopped medicine, a
+stopped feed, events past 60 days and a list item.
+

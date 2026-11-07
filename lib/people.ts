@@ -384,3 +384,39 @@ export async function isDeletableContact(personId: string, householdId: string):
   if (!person || person.isHouseholdMember || person.authUserId || person.role || person.schoolProfile) return false;
   return Object.values(person._count).every((n) => n === 0);
 }
+
+/**
+ * Phase 63c: what a contact is to the family elsewhere in the app: medicines they prescribe or fill
+ * (Meds) and the students they're a school contact for (School), for a grown-up's view of their page.
+ * Each only while that app is on. Queried here (a kernel) because the People zone can't import
+ * Meds' or School's modules.
+ */
+export async function personConnections(personId: string, householdId: string, apps: { meds: boolean; school: boolean }) {
+  const [meds, school] = await Promise.all([
+    apps.meds
+      ? prisma.medication.findMany({
+          where: { OR: [{ prescriberId: personId }, { pharmacyId: personId }], taskDefinition: { householdId, active: true } },
+          select: {
+            prescriberId: true,
+            taskDefinition: { select: { id: true, title: true, assignees: { select: { firstName: true } } } },
+          },
+        })
+      : [],
+    apps.school
+      ? prisma.schoolContact.findMany({
+          where: { personId, profile: { person: { householdId } } },
+          select: { role: true, profile: { select: { person: { select: { id: true, firstName: true } } } } },
+        })
+      : [],
+  ]);
+  return {
+    meds: meds.map((m) => ({
+      definitionId: m.taskDefinition.id,
+      title: m.taskDefinition.title,
+      as: m.prescriberId === personId ? ("prescribes" as const) : ("fills" as const),
+      whose: m.taskDefinition.assignees.map((a) => a.firstName),
+    })),
+    school: school.map((c) => ({ role: c.role, studentId: c.profile.person.id, studentName: c.profile.person.firstName })),
+  };
+}
+
