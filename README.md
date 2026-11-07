@@ -51,6 +51,9 @@ kinds and quiet hours, an opt-in morning summary, and days left on Meds.
 fees count in the money jar that pays them, bills show by name on the calendar for their jar's
 members, a car charge goes into Cars in a tap, a contact shows who they're connected to, and
 search lands on the thing.
+**Daily friction (64)**: today's events at the top of Home, how far off each date is, adding an
+event to the family's Outlook calendar, adding from the Shop view and notes on list items, and a
+money jar's **New since you last looked** to file new charges at once.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they
