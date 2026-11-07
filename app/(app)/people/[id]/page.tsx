@@ -34,14 +34,23 @@ import { getRewardWords } from "@/lib/household-settings";
 import { rewardCount } from "@/lib/reward-words";
 import { SubmitButton } from "@/components/submit";
 import { microsoftLinkedUserIds, signInKindOf } from "@/lib/sign-in-kind";
+import { parseItemRef, itemParam } from "@/lib/work-items/history";
+import { ItemPanel } from "../../item-panel";
+import { ItemListRow } from "../../item-panel-parts";
+import { choreItem } from "@/lib/work-items/chore";
+import { personOpenSchoolwork } from "@/lib/work-items/person-open";
+import { toCardInstance } from "@/lib/tasks/card";
 
 export default async function PersonRecordPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ item?: string }>;
 }) {
   const profile = await requireActiveProfile();
   const { id } = await params;
+  const itemRef = parseItemRef((await searchParams).item);
 
   const viewerIsAdult = isAdult(profile);
   // Grown-ups-only calls never reach a kid's page: the query leaves them out.
@@ -93,6 +102,13 @@ export default async function PersonRecordPage({
     ]);
 
   const chorePoints = choreTally?.find((t) => t.person.id === person.id)?.points ?? 0;
+
+  // Phase 59.4b: everything open for this person, each with its pill and its side panel. Homework
+  // only for whoever can see it (grades are personal); forms they're handling, for grown-ups.
+  const openSchool = person.isHouseholdMember && on("school") ? await personOpenSchoolwork(profile, person) : [];
+  const openChores = choreBoard ? [...choreBoard.overdue, ...choreBoard.dueToday.filter((i) => i.status === "PENDING"), ...choreBoard.upcoming] : [];
+  const itemHref = (type: "CHORE" | "ASSIGNMENT" | "SCHOOL_TASK", itemId: string) => `/people/${person.id}?item=${itemParam(type, itemId)}`;
+  const nowDay = atMidnight(new Date());
   const medPoints = medTally?.find((t) => t.person.id === person.id)?.points ?? 0;
 
   const now = new Date();
@@ -238,9 +254,35 @@ export default async function PersonRecordPage({
 
       {/* Right column */}
       <div className="min-w-0 space-y-4">
-        {(choreBoard || medBoard) && (
+        {(choreBoard || medBoard || openSchool.length > 0) && (
           <div className="min-w-0 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
-            <h2 className={sectionTitle}>{choreBoard && medBoard ? "Chores & meds" : choreBoard ? "Chores" : "Meds"}</h2>
+            <h2 className={sectionTitle}>Open items</h2>
+            {openChores.length + openSchool.length > 0 && (
+              <ul className="mt-2 divide-y divide-border" aria-label={`Open for ${person.firstName}`}>
+                {openChores.map((i) => (
+                  <ItemListRow
+                    key={i.id}
+                    item={choreItem(toCardInstance(i), profile, { skippable: viewerIsAdult && i.dueDate < addDays(nowDay, 1), now: nowDay })}
+                    refParam={itemParam("CHORE", i.id)}
+                    href={itemHref("CHORE", i.id)}
+                    who="Chore"
+                    when={formatRelative(i.dueDate, zone)}
+                    late={i.dueDate < nowDay}
+                  />
+                ))}
+                {openSchool.map((r) => (
+                  <ItemListRow
+                    key={r.item.id}
+                    item={r.item}
+                    refParam={itemParam(r.type, r.item.id)}
+                    href={itemHref(r.type, r.item.id)}
+                    who={r.label}
+                    when={r.due ? formatRelative(r.due, zone) : "No due date"}
+                    late={r.late}
+                  />
+                ))}
+              </ul>
+            )}
             {choreBoard && (
               <TaskSummary
                 label="Chores"
@@ -322,6 +364,7 @@ export default async function PersonRecordPage({
 
         <ImportantDates personId={person.id} dates={dates} canEdit={viewerIsAdult} />
       </div>
+      {itemRef && <ItemPanel itemRef={itemRef} closeHref={`/people/${person.id}`} />}
     </div>
   );
 }

@@ -465,4 +465,28 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     expect((await prisma.taskInstance.findUniqueOrThrow({ where: { id: skipped.id } })).status).toBe("SKIPPED");
     await expect(setWorkItemStatus("NOPE:1", "A", "B")).rejects.toThrow("Unknown item");
   });
+
+  test("Phase 59.4b: People's badges and a person's open schoolwork follow who can see what", async () => {
+    const { peopleBadges } = await import("./badges");
+    const { personOpenSchoolwork } = await import("./person-open");
+    const viewerOf = async (id: string) => prisma.person.findUniqueOrThrow({ where: { id }, select: { id: true, householdId: true, role: true, firstName: true } });
+    await prisma.taskInstance.create({ data: { definitionId: ids.def, dueDate: addDays(today, -1), assignedToId: ids.max } });
+    await prisma.schoolAssignment.create({ data: { profileId: ids.profile, className: "Math", title: "Late one", dueDate: addDays(today, -3) } });
+    await prisma.schoolAssignment.create({ data: { profileId: ids.profile, className: "Math", title: "Gone missing", status: "MISSING" } });
+    await prisma.schoolAssignment.create({ data: { profileId: ids.profile, className: "Science", title: "Unit test", kind: "TEST", dueDate: addDays(today, 2) } });
+
+    const mom = await peopleBadges(await viewerOf(ids.mom), { chores: true, school: true });
+    expect(mom.get(ids.max)?.overdue).toBeGreaterThanOrEqual(1);
+    expect(mom.get(ids.kid)).toMatchObject({ missing: expect.any(Number), nextTest: addDays(today, 2) });
+    expect(mom.get(ids.kid)!.overdue).toBeGreaterThanOrEqual(1);
+    // A kid sees only their own badges, and none when school's off.
+    const max = await peopleBadges(await viewerOf(ids.max), { chores: true, school: true });
+    expect([...max.keys()]).toEqual([ids.max]);
+    expect((await peopleBadges(await viewerOf(ids.mom), { chores: false, school: false })).size).toBe(0);
+
+    const ivy = await viewerOf(ids.kid);
+    expect((await personOpenSchoolwork(await viewerOf(ids.max), ivy)).length).toBe(0);
+    const forMom = await personOpenSchoolwork(await viewerOf(ids.mom), ivy);
+    expect(forMom.some((r) => r.item.title === "Unit test")).toBe(true);
+  });
 });

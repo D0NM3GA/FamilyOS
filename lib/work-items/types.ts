@@ -4,6 +4,9 @@
  * assignment.ts, school-task.ts) turns a row and the viewer into a WorkItem the shared pieces
  * (StatusPill now; the list view and side panel in 59.4) can draw.
  *
+ * The folder is the shared layer across Chores and School (like Home, it isn't one domain's zone in
+ * eslint.config's boundaries): pages of either, and People, read their items through it.
+ *
  * Pure, no Prisma and no server imports (the role test comes from lib/roles.ts). Adapters run on
  * the server, and only the computed WorkItem crosses to the browser, so nothing here decides a
  * date in the browser's zone.

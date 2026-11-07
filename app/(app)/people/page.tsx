@@ -6,6 +6,10 @@ import { Avatar } from "@/components/avatar";
 import { PageHeader } from "@/components/page-header";
 import { PageMore } from "@/components/more-menu";
 import { btn, btnPrimary, chip, chipRow, field } from "@/components/styles";
+import { getDisabledApps } from "@/lib/app-switches";
+import { isAppOn } from "@/lib/apps";
+import { getHouseholdSettings } from "@/lib/household-settings";
+import { badgeWords, peopleBadges } from "@/lib/work-items/badges";
 
 const FILTERS: { value: PeopleFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -24,6 +28,10 @@ export default async function PeoplePage({
     rawFilter === "member" || rawFilter === "contact" ? rawFilter : "all";
 
   const people = await listPeople(profile.householdId, { query: q, filter });
+  // Phase 59.4b: what's open for each household member, at a glance.
+  const [disabled, settings] = await Promise.all([getDisabledApps(profile.householdId), getHouseholdSettings(profile.householdId)]);
+  const badges = await peopleBadges(profile, { chores: isAppOn(disabled, "chores"), school: isAppOn(disabled, "school") });
+  const zone = settings.timezone ?? undefined;
 
   return (
     <div className="p-4 sm:p-6">
@@ -94,6 +102,22 @@ export default async function PeoplePage({
                     <p className="truncate text-xs text-muted-foreground">
                       {[person.email, person.phone].filter(Boolean).join(" · ") || "No contact info"}
                     </p>
+                    {person.isHouseholdMember && badges.has(person.id) && (
+                      <p className="mt-0.5 flex flex-wrap gap-1">
+                        {badgeWords(badges.get(person.id)!, zone).map((w) => (
+                          <span
+                            key={w}
+                            className={`rounded-full px-1.5 text-[11px] font-bold ${
+                              w.startsWith("Test")
+                                ? "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300"
+                                : "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300"
+                            }`}
+                          >
+                            {w}
+                          </span>
+                        ))}
+                      </p>
+                    )}
                   </div>
                   <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                     {person.isHouseholdMember ? person.role ?? "Household" : "Contact"}

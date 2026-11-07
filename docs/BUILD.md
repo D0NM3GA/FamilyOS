@@ -1463,3 +1463,14 @@ and panel's pill report a milestone; Escape with a menu open closes the menu fir
 panel replaces its history entry, so Back doesn't reopen it; history times use the household's
 zone; filtered boards say when nothing matches; Anyone's isn't shown alongside Everyone; a
 bookmarked Anyone's in Big buttons is no filter; Everyone has Export like a student's page.
+
+### 59.4b — People
+
+The People list shows badges for household members (`lib/work-items/badges.ts`): overdue by each
+board's own rule (chores inside the overdue window, homework unbounded), missing, and the soonest
+test or quiz this week; one grouped chores query and one assignments read, only for apps that are
+on, a kid's own only. A person's record replaces the chores summary with **Open items**: their
+chores for seven days, their open homework (`personOpenSchoolwork`, for whoever can see it) and the
+forms they're handling (grown-ups), as list rows with pills and the side panel (`?item=`); the
+meds summary and the links to the boards stay. `lib/work-items` is the shared layer across Chores and
+School, outside the eslint domain zones like Home, so People reads schoolwork through it.

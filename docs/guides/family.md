@@ -161,6 +161,11 @@ The family's address book: everyone in the house, plus grandparents, friends, te
 - Grown-ups can mark a note "grown-ups only" so kids don't see it.
 - With Microsoft, a contact's page can show **Recent emails** and **Sync from Microsoft** fills in
   their photo, name and phone.
+- Household members show what's open at a glance: **2 overdue**, **1 missing**, **Test Thu**
+  (kids see only their own).
+- A family member's page has **Open items**: their chores for the week, their homework and tests,
+  and forms they're handling, each with its status to tap. Tap a name to see it on the side, with
+  its history. Kids looking at a brother's or sister's page see chores only.
 
 <!-- screenshot: a person's page -->
 
