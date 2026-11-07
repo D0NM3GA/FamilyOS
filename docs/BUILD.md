@@ -1760,3 +1760,17 @@ Fable's review of 64b: a 404 forgets the remembered calendar id (as reads do) an
 setting to change; a refused name lookup or an expired sign-in say so; "who it's for" uses the same
 short name the picker shows.
 
+### 64c — Groceries: add from the Shop view, and notes
+
+The Shop view has the Groceries add box at its top. The box knows when the browser is offline
+(`useOnline`, a `useSyncExternalStore` on online and offline events): it then says adding waits for
+signal (ticks still queue as before), and a failed search or add says to try again instead of
+failing quietly; a new row reaches the Shop list through the action's own revalidation. A list
+item gains `note` (200 characters), set in its sheet with its own form (`setItemNote`, per list item
+like who it's for, anyone who can use the list), shown on the list row and in the Shop view, to
+everyone who sees the list. Backups move to v11 with the note; the accepted versions now include 9
+and 10, which the list had skipped.
+Fable's review of 64c: offline, the box stays on screen but disabled (what was typed and focus
+stay), naming a new barcode catches a failure too, a network failure says to check signal and
+anything else to reload, and the tests carry a note through backup and restore and accept v9 and v10.
+
