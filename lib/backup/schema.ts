@@ -48,7 +48,9 @@ import { withStarterKeys } from "@/lib/starting-sections";
  * ReminderPrefs and ReminderSent (Phase 62) are left out, like AlertPrefs: one person's reminder
  * switches and what was already sent to them. A restore can re-send a reminder once (its
  * items come back with new ids); that's the cost of keeping send history out.
- * SystemHeartbeat (Phase 61) is the server's own, not the household's.
+ * SystemHeartbeat (Phase 61) is the server's own, not the household's. VehicleRecallSeen (Phase
+ * 62b) is the reminders job's memory of which recalls it has seen; after a restore a car's next
+ * check starts again quietly. Vehicle.recallsCheckedAt is the same kind of housekeeping.
  * MailOrder / MailOrderScan (Phase 29) aren't in either backup: orders are re-read from
  * email, and a jar restore drops them with the jar (the person's scan stops until they turn
  * it on in a jar again).
