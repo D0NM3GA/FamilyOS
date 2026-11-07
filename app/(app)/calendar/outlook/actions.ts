@@ -1,5 +1,6 @@
 "use server";
 
+import { assertAppOn } from "@/lib/app-guard";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -30,12 +31,14 @@ async function requireConnectingAdmin() {
   if (!isAdmin(profile) || !profile.authUserId || !(await isSessionOwner(profile))) return null;
   // Phase 40.1b: the calendar lives in a Microsoft mailbox, so a passkey sign-in can't connect it.
   if ((await signInKind(profile)) !== "microsoft") return null;
+  await assertAppOn(profile.householdId, "calendar");
   return profile;
 }
 
 async function requireOwner() {
   const profile = await requireActiveProfile();
   if (!(await isSessionOwner(profile))) return null;
+  await assertAppOn(profile.householdId, "calendar");
   const sync = await prisma.calendarSync.findUnique({ where: { householdId: profile.householdId } });
   if (!sync || sync.ownerPersonId !== profile.id) return null;
   return { profile, sync };
@@ -198,6 +201,7 @@ export async function disconnectCalendar(_prev: CalendarFormState, formData: For
  */
 export async function forgetCalendar(_prev: CalendarFormState, formData: FormData): Promise<CalendarFormState> {
   const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "calendar");
   if (!isAdmin(profile)) return { error: "Only an admin can do that." };
   if (formData.get("confirm") !== "on") return { error: "Tick the box to confirm." };
   await prisma.calendarSync.deleteMany({ where: { householdId: profile.householdId } });
