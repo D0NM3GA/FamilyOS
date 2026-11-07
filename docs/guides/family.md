@@ -316,8 +316,8 @@ For each kid: **Homework & tests** (tick them off when they're turned in), **Rec
 see **Forms & to-dos** (things to sign, pay or buy) and who's handling each.
 
 When you add schoolwork, pick its **Type**: homework (the usual), a test, a quiz or a project.
-Tests, quizzes and projects are tagged on the list, and the heading counts the tests and quizzes
-coming up this week.
+Tests, quizzes and projects are tagged on the list, and the heading says how many tests and quizzes
+are coming up this week ("1 test and 2 quizzes this week").
 
 Each piece of homework and each form shows where it stands: **To do**, **Due today**, **Overdue**,
 **Turned in**, **Graded 18/20** or **Missing**. When you can change it, the label has a little

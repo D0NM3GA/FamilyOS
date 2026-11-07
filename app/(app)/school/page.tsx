@@ -72,10 +72,16 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
   const graded = assignments.filter((a) => a.score != null).sort((a, b) => (b.dueDate?.getTime() ?? 0) - (a.dueDate?.getTime() ?? 0));
   const averages = classAverages(assignments);
   // Phase 59.1b: tests and quizzes still to sit, from today through the next six days.
+  const weekStart = atMidnight(today);
   const weekEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
-  const testsThisWeek = open.filter(
-    (a) => (a.kind === "TEST" || a.kind === "QUIZ") && a.status === "TODO" && a.dueDate != null && a.dueDate >= atMidnight(today) && a.dueDate < weekEnd,
-  ).length;
+  const toSit = open.filter(
+    (a) => (a.kind === "TEST" || a.kind === "QUIZ") && a.status === "TODO" && a.dueDate != null && a.dueDate >= weekStart && a.dueDate < weekEnd,
+  );
+  const testsThisWeek = toSit.length;
+  // Says what's coming: "2 tests", "1 quiz", "1 test and 1 quiz".
+  const tests = toSit.filter((a) => a.kind === "TEST").length;
+  const quizzes = testsThisWeek - tests;
+  const toSitLabel = [tests && `${tests} ${tests === 1 ? "test" : "tests"}`, quizzes && `${quizzes} ${quizzes === 1 ? "quiz" : "quizzes"}`].filter(Boolean).join(" and ");
 
   const members = adult
     ? await prisma.person.findMany({
@@ -245,7 +251,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
             <h2 className={cardTitle}>Homework & tests</h2>
             {testsThisWeek > 0 && (
               <p className="text-sm font-bold text-sky-800 dark:text-sky-300">
-                {testsThisWeek === 1 ? "1 test this week" : `${testsThisWeek} tests this week`}
+                {toSitLabel} this week
               </p>
             )}
           </div>

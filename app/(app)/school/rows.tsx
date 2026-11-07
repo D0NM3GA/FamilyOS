@@ -8,6 +8,7 @@ import { StatusPill } from "@/components/status-pill";
 import { ConfirmAction } from "@/components/submit";
 import { iconBtn, menuItem } from "@/components/styles";
 import type { WorkItem } from "@/lib/work-items/types";
+import { ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
 
 /**
  * Phase 59.1a: a row on School with its status pill. The pill and the tick box change the status
@@ -55,18 +56,15 @@ function RowShell({ children }: { children: ReactNode }) {
 }
 
 type AssignmentStatus = "TODO" | "DONE" | "MISSING";
-type AssignmentKind = "HOMEWORK" | "TEST" | "QUIZ" | "PROJECT";
+type AssignmentKind = AssignmentKindValue;
 
 /** Phase 59.1b: tests, quizzes and projects say so; homework, the usual, says nothing. */
-const KIND_TAG: Record<Exclude<AssignmentKind, "HOMEWORK">, { label: string; Icon: LucideIcon }> = {
-  TEST: { label: "Test", Icon: ClipboardCheck },
-  QUIZ: { label: "Quiz", Icon: ListChecks },
-  PROJECT: { label: "Project", Icon: Hammer },
-};
+const KIND_ICON: Record<Exclude<AssignmentKind, "HOMEWORK">, LucideIcon> = { TEST: ClipboardCheck, QUIZ: ListChecks, PROJECT: Hammer };
 
 function KindTag({ kind }: { kind: AssignmentKind }) {
   if (kind === "HOMEWORK") return null;
-  const { label, Icon } = KIND_TAG[kind];
+  const Icon = KIND_ICON[kind];
+  const label = ASSIGNMENT_KIND_LABEL[kind];
   return (
     <span className="mr-1 inline-flex items-center gap-0.5 rounded-md bg-sky-100 px-1.5 text-xs font-bold text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">
       <Icon size={12} aria-hidden />

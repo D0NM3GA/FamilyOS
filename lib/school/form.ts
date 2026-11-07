@@ -83,6 +83,7 @@ export type AssignmentStatusValue = (typeof ASSIGNMENT_STATUSES)[number];
 /** Phase 59.1b: SchoolAssignment.kind. (TASK_KINDS above are the forms' kinds.) */
 export const ASSIGNMENT_KINDS = ["HOMEWORK", "TEST", "QUIZ", "PROJECT"] as const;
 export type AssignmentKindValue = (typeof ASSIGNMENT_KINDS)[number];
+export const ASSIGNMENT_KIND_LABEL: Record<AssignmentKindValue, string> = { HOMEWORK: "Homework", TEST: "Test", QUIZ: "Quiz", PROJECT: "Project" };
 
 export type AssignmentFields = {
   className: string;

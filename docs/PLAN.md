@@ -1837,6 +1837,7 @@ model WorkItemEvent {
 - Meds and vehicle jobs on the shared pieces (they'd be a fourth and fifth adapter).
 - Presets anyone can build; an activity feed rebuilt on `WorkItemEvent`.
 - Notifications for a kid's change; it shows on School and the row.
+- Tagging tests on Home's School card and the calendar (59.1b tags them on School only).
 - An LMS connector filling assignments (still waiting on the school's system).
 
 ### Pull requests
