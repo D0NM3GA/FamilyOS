@@ -201,7 +201,9 @@ Skip this whole section if the family signs in with passkeys only. Everything he
 5. **Sign in every time** (recommended, needs Entra ID P1): a Conditional Access policy on the app
    with MFA and sign-in frequency **Every time**, so a "fresh sign-in" (needed for backups, PINs
    and invites) really asks for a password. Exact steps: README "Sign in every time".
-6. **Later, as you want them:** the Outlook family calendar (`Calendars.ReadWrite`, README "In
+6. **Later, as you want them:** the Outlook family calendar (`Calendars.ReadWrite`; once an admin
+   grants it under Calendar → Outlook sync, a grown-up on their own Microsoft sign-in can also
+   **+ Add event** from the Calendar page, to the Outlook calendar that page shows; README "In
    Outlook"), alert email (section 11), receipt reading (README "Receipts").
 
 People who sign in with Microsoft use Microsoft only (no passkey), so Conditional Access always

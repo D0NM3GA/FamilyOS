@@ -189,6 +189,10 @@ name chips: each row's color shows whose it is (two people sharing a first name 
 **Bills** (💸) show on the day they're due, by name only, for the money jars you're in, when you're
 on your own sign-in. Nobody else sees them, and no amounts.
 
+**+ Add event** (grown-ups on their own Microsoft sign-in, once Outlook lets the app write): a name,
+a day, a time if it has one, and who it's for ("Ivy: Dentist"). It goes to the Outlook calendar the
+page shows; change or delete it in Outlook.
+
 Kids see the family calendar too, with their own school things (no cars, no Outlook, no bills).
 
 An admin can also keep a shared calendar in Outlook filled with birthdays and car due dates

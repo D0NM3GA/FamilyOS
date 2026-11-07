@@ -1,5 +1,5 @@
 import { atMidnight, addDays } from "@/lib/tasks/schedule";
-import { graphFetchJson, GraphAuthError } from "./client";
+import { getGraphToken, graphFetchJson, graphRequest, GraphAuthError } from "./client";
 
 export type CalendarEvent = {
   id: string;
@@ -171,4 +171,39 @@ export async function getThisWeekEvents(ownerKey: string, calendarId: string | n
   const today = atMidnight(new Date());
   const startOfWeek = addDays(today, -today.getDay());
   return getCalendarEvents(ownerKey, { start: startOfWeek, end: addDays(startOfWeek, 7) }, { max: 25, calendarId });
+}
+
+/**
+ * Phase 64b: adds one event to the calendar this person's Home and Calendar read (their pick in
+ * Settings, else the family calendar by name, else their own), with their own token: only for the
+ * session's owner, who granted calendar write access. Never throws; Graph's answers become fixed
+ * text.
+ */
+export async function addEventToHomeCalendar(ownerKey: string, chosenId: string | null, payload: object): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const where = await resolveCalendarBasePath(ownerKey, chosenId);
+    if (!where.ok) return where;
+    const token = await getGraphToken();
+    const res = await graphRequest(token, "POST", `${where.basePath}/events`, payload);
+    if (res.status === 201 || res.status === 200) return { ok: true };
+    if (res.status === 401) return { ok: false, error: "Your Microsoft sign-in needs refreshing: sign out and back in, then try again." };
+    if (res.status === 403) return { ok: false, error: "Outlook hasn't let the app add events yet. Grant it under Calendar → Outlook sync, then try again." };
+    if (res.status === 404) {
+      // A renamed or recreated family calendar: forget the remembered id, as reads do.
+      for (const [k, e] of calendarIds) if (e.basePath === where.basePath) calendarIds.delete(k);
+      return {
+        ok: false,
+        error: chosenId
+          ? "That calendar isn't in your Outlook any more. Pick another in Settings → Calendar on Home."
+          : "The family calendar wasn't found in your Outlook. Pick the one to show in Settings → Calendar on Home.",
+      };
+    }
+    if (res.status === 429 || res.status >= 500) return { ok: false, error: "Outlook is busy right now. Try again in a minute." };
+    return { ok: false, error: "Outlook didn't take that event." };
+  } catch (err) {
+    if (err instanceof GraphAuthError) return { ok: false, error: err.message };
+    // Looking the family calendar up by name can be refused too (a missing permission).
+    if (err instanceof Error && / 403 /.test(err.message)) return { ok: false, error: "Outlook hasn't let the app add events yet. Grant it under Calendar → Outlook sync, then try again." };
+    return { ok: false, error: "Couldn't reach Outlook right now." };
+  }
 }
