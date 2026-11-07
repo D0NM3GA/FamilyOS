@@ -282,3 +282,12 @@ describe("whose rows, and which month", () => {
     expect(importantDateItems(dates, new Date(2026, 10, 29), 42).length).toBe(1);
   });
 });
+
+describe("bills (Phase 63b)", () => {
+  it("a name on its day, linking to Money, no amount", async () => {
+    const { billItems } = await import("./agenda");
+    expect(billItems([{ day: "2026-11-10", name: "Water" }])).toEqual([
+      { key: "bill:2026-11-10:Water", kind: "bill", emoji: "💸", title: "Water", who: null, day: "2026-11-10", minutes: null, status: "open", note: "bill due", href: "/finances", external: false },
+    ]);
+  });
+});

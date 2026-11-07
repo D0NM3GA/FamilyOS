@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { appOn } from "@/lib/app-switches";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireJar } from "@/lib/finance/access";
@@ -73,6 +74,12 @@ export default async function JarPage({
     prisma.moneyJarMember.findMany({ where: { jarId: jar.id }, select: { personId: true, person: { select: { firstName: true } } } }),
     leftOutAccountIds(jar.id),
   ]);
+  // Phase 63b: a "Gas & car" charge can go into Cars as a fill-up or a service (no link back; it
+  // saves typing). Cars is grown-ups', as Money is; read here directly (Money can't import Cars).
+  const cars = (await appOn(jar.householdId, "cars"))
+    ? await prisma.vehicle.findMany({ where: { householdId: jar.householdId, active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } })
+    : [];
+  const carCategoryIds = new Set(categories.filter((c) => c.key === "car" || c.absorbedKeys.includes("car")).map((c) => c.id));
   const shownAccount = accounts.find((a) => a.id === asked.account) ?? null;
   const shownCategory = asked.category === "none" ? "none" : (categories.find((c) => c.id === asked.category) ?? null);
   const filters = {
@@ -313,6 +320,26 @@ export default async function JarPage({
                     {t.description !== name && <p className="text-xs break-words text-muted-foreground">The bank says: {t.description}</p>}
                     {t.memo && <p className="text-xs break-words text-muted-foreground">Memo: {t.memo}</p>}
                   </div>
+
+                  {cars.length > 0 && t.amountCents < 0 && t.categoryId != null && carCategoryIds.has(t.categoryId) && (
+                    <section className="flex flex-col gap-2">
+                      <h3 className={sectionTitle}>Log it in Cars</h3>
+                      <ul className="flex flex-wrap gap-2 text-sm">
+                        {cars.flatMap((car) => [
+                          <li key={`${car.id}-fuel`}>
+                            <Link href={`/vehicles/${car.id}?fuel=${-t.amountCents}&on=${t.postedOn.toISOString().slice(0, 10)}#fill-ups`} className={btn}>
+                              ⛽ Fill-up for the {car.name}
+                            </Link>
+                          </li>,
+                          <li key={`${car.id}-service`}>
+                            <Link href={`/vehicles/${car.id}?service=${-t.amountCents}&on=${t.postedOn.toISOString().slice(0, 10)}`} className={btn}>
+                              🔧 Service on the {car.name}
+                            </Link>
+                          </li>,
+                        ])}
+                      </ul>
+                    </section>
+                  )}
 
                   <section className="flex flex-col gap-2">
                     <h3 className={sectionTitle}>Category</h3>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SchoolFee } from "./school-fees";
 import { prisma, type Tx } from "@/lib/prisma";
 import { parseMoneyInput } from "@/lib/money";
 import { merchantKeyOf } from "./categories";
@@ -101,6 +102,8 @@ export type AheadItem = {
   cancelling: boolean;
   /** Added by hand (✍️): the ManualBill's id. */
   manualId: string | null;
+  /** Phase 63b: an open school fee (🎒), counted while the jar counts them: the SchoolTask's id. */
+  schoolTaskId: string | null;
 };
 
 /**
@@ -115,6 +118,7 @@ export function billsAhead(
   today: string,
   days = 30,
   paid: PaidCheck = () => false,
+  school: SchoolFee[] = [],
 ): { items: AheadItem[]; totalCents: number } {
   const replaced = standsFor(manual, found);
   const items: AheadItem[] = comingUp(
@@ -122,13 +126,20 @@ export function billsAhead(
     statusOf,
     today,
     days,
-  ).items.map((r) => ({ key: r.key, label: r.label, nextOn: r.nextOn!, typicalCents: r.typicalCents, steady: r.steady, cardMemo: r.cardMemo, cancelling: r.cancelling, manualId: null }));
+  ).items.map((r) => ({ key: r.key, label: r.label, nextOn: r.nextOn!, typicalCents: r.typicalCents, steady: r.steady, cardMemo: r.cardMemo, cancelling: r.cancelling, manualId: null, schoolTaskId: null }));
   for (const b of manual) {
     const own = ownKeys(b, found);
     const next = nextDueOn(b, today, (due) => paid(own, due, b.amountCents, true, `manual:${b.id}`));
     if (next && daysBetween(today, next) <= days) {
-      items.push({ key: `manual:${b.id}`, label: b.name, nextOn: next, typicalCents: b.amountCents, steady: true, cardMemo: null, cancelling: false, manualId: b.id });
+      items.push({ key: `manual:${b.id}`, label: b.name, nextOn: next, typicalCents: b.amountCents, steady: true, cardMemo: null, cancelling: false, manualId: b.id, schoolTaskId: null });
     }
+  }
+  // Phase 63b: open school fees, on their own due day even when late (they stay until done in
+  // School, or paid by a check of about their size).
+  for (const f of school) {
+    if (daysBetween(today, f.due) > days) continue;
+    if (f.due <= today && paid([], f.due, f.amountCents, true, `school:${f.taskId}`)) continue;
+    items.push({ key: `school:${f.taskId}`, label: f.name, nextOn: f.due, typicalCents: f.amountCents, steady: true, cardMemo: null, cancelling: false, manualId: null, schoolTaskId: f.taskId });
   }
   items.sort((a, b) => a.nextOn.localeCompare(b.nextOn) || a.label.localeCompare(b.label));
   return { items, totalCents: items.reduce((n, i) => n + i.typicalCents, 0) };
@@ -205,3 +216,12 @@ export async function readManualBills(db: Db, jarId: string): Promise<(ManualBil
   });
   return rows.map((r) => ({ ...r, nextDue: r.nextDue.toISOString().slice(0, 10), createdBy: r.createdBy?.firstName ?? null }));
 }
+
+/**
+ * Phase 63b: school fees as one-off hand-added bills for Safe to spend, due today when they're
+ * late (a fee that's late is still to pay), so the forecast counts each once.
+ */
+export function schoolFeesAsBills(school: SchoolFee[], today: string): ManualBillInput[] {
+  return school.map((f) => ({ id: `school:${f.taskId}`, name: f.name, amountCents: f.amountCents, cadence: "ONCE" as const, nextDue: f.due < today ? today : f.due, matchKey: "" }));
+}
+

@@ -227,3 +227,25 @@ describe("bill alerts for bills added by hand", () => {
     expect(manualBillAlert(jar, bill(), null, TODAY)).toBeNull();
   });
 });
+
+describe("school fees (Phase 63b)", () => {
+  it("count on their due day, even late, and once a check of about their size has gone out they don't", async () => {
+    const { schoolFeesAsBills } = await import("./manual-bills");
+    const fees = [
+      { taskId: "t1", name: "Ivy's field trip", amountCents: 2500, due: "2026-10-12" },
+      { taskId: "t2", name: "Max's book fair", amountCents: 1500, due: "2026-09-20" },
+    ];
+    const ahead = billsAhead([], [], new Map(), TODAY, 30, () => false, fees);
+    expect(ahead.items.map((i) => [i.key, i.nextOn, i.schoolTaskId])).toEqual([
+      ["school:t2", "2026-09-20", "t2"],
+      ["school:t1", "2026-10-12", "t1"],
+    ]);
+    const paid = paidCheck(out("check 77", ["2026-10-01"], 1500), new Set(), TODAY);
+    expect(billsAhead([], [], new Map(), TODAY, 30, paid, fees).items.map((i) => i.key)).toEqual(["school:t1"]);
+    // For Safe to spend, a late one is due today.
+    expect(schoolFeesAsBills(fees, TODAY).map((b) => [b.id, b.nextDue, b.cadence])).toEqual([
+      ["school:t1", "2026-10-12", "ONCE"],
+      ["school:t2", TODAY, "ONCE"],
+    ]);
+  });
+});

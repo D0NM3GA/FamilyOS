@@ -44,6 +44,7 @@ export function MaintenanceItemCard({
   logDone,
   undoLast,
   todayInputValue,
+  prefill,
 }: {
   item: MaintenanceItem;
   viewerIsAdult: boolean;
@@ -51,6 +52,8 @@ export function MaintenanceItemCard({
   undoLast: () => Promise<void>;
   /** "YYYY-MM-DD" for today, precomputed server-side for the date input's default. */
   todayInputValue: string;
+  /** Phase 63b: a Money charge sent to Cars: the service form opens with its cost and day. */
+  prefill?: { cost: string; date: string };
 }) {
   const [formOpen, setFormOpen] = useState(false);
   // Bumped every time the form re-opens and used as the form's key, so each open gets a
@@ -141,6 +144,7 @@ export function MaintenanceItemCard({
           key={formInstance}
           logDone={logDone}
           todayInputValue={todayInputValue}
+          prefill={prefill}
           currentMileageLabel={item.currentMileageLabel}
           usesSupplies={item.supplies.length > 0}
           onCancel={() => setFormOpen(false)}
@@ -162,6 +166,7 @@ export function MaintenanceItemCard({
 function LogServiceForm({
   logDone,
   todayInputValue,
+  prefill,
   currentMileageLabel,
   usesSupplies,
   onCancel,
@@ -169,6 +174,7 @@ function LogServiceForm({
 }: {
   logDone: LogDoneAction;
   todayInputValue: string;
+  prefill?: { cost: string; date: string };
   currentMileageLabel: string;
   usesSupplies: boolean;
   onCancel: () => void;
@@ -177,7 +183,7 @@ function LogServiceForm({
   const [state, formAction, pending] = useActionState(logDone, {});
   // Phase 12.5 (owner's call): a service done today takes its supplies from stock; one typed
   // in from an old receipt usually didn't use today's oil. Follows the date, overridable.
-  const [takeSupplies, setTakeSupplies] = useState(true);
+  const [takeSupplies, setTakeSupplies] = useState(!prefill || prefill.date === todayInputValue);
   const wasPending = useRef(false);
   const id = useId();
 
@@ -204,7 +210,7 @@ function LogServiceForm({
           id={`${id}-date`}
           type="date"
           name="doneAt"
-          defaultValue={todayInputValue}
+          defaultValue={prefill?.date ?? todayInputValue}
           max={todayInputValue}
           onChange={(e) => setTakeSupplies(e.target.value === todayInputValue)}
           className={`mt-1 ${field}`}
@@ -232,6 +238,7 @@ function LogServiceForm({
           name="cost"
           inputMode="decimal"
           placeholder="$0.00"
+          defaultValue={prefill?.cost}
           className={`mt-1 w-24 ${field}`}
         />
       </div>

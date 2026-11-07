@@ -328,6 +328,28 @@ const TRIP_LINKS_EXCEPTION = {
   },
 };
 
+// Phase 63b: bills on the calendar (owner's call, 2026-11-07): names on their due days, for the
+// jars the viewer is a member of. The calendar page may read lib/finance/calendar-bills.ts, which
+// applies the money gate itself (moneyViewer, members only, surprises hidden, no amounts), and
+// nothing else from Money. Replaces the aggregator guard for that one page.
+const CALENDAR_BILLS_EXCEPTION = {
+  files: ["app/(app)/calendar/page.tsx"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            regex: "^@/(lib/finance(?!/calendar-bills$)|app/\\(app\\)/finances)",
+            message: "Only @/lib/finance/calendar-bills may be read from the calendar; money stays members-only.",
+          },
+          { group: SENTRY_IMPORT_PATTERNS, message: "Import Sentry helpers from @/lib/observability, not @sentry/* directly." },
+        ],
+      },
+    ],
+  },
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -335,6 +357,7 @@ const eslintConfig = defineConfig([
   ...domainBoundaryRules,
   FINANCE_AGGREGATOR_GUARD,
   TRIP_LINKS_EXCEPTION,
+  CALENDAR_BILLS_EXCEPTION,
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

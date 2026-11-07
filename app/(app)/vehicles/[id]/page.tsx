@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { parseChargePrefill } from "@/lib/vehicles/charge-prefill";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getVehicleDetail } from "@/lib/vehicles/queries";
@@ -26,7 +27,13 @@ type ServiceLog = Detail["serviceLogs"][number];
  * One vehicle's hub: maintenance, NHTSA recalls, fill-ups + MPG, full service history,
  * and cost of ownership. Grown-ups only, like all of Cars (lib/app-guard.ts).
  */
-export default async function VehicleDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function VehicleDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ fuel?: string | string[]; service?: string | string[]; on?: string | string[] }>;
+}) {
   const profile = await requireAppOn("cars");
   const { id } = await params;
 
@@ -39,6 +46,8 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
 
   const today = new Date();
   const todayInputValue = toISODate(today);
+  // Phase 63b: a Money charge sent here ("Log it in Cars") fills in its cost and day.
+  const prefill = parseChargePrefill(await searchParams, todayInputValue);
   // Phase 62b: the car's usual miles a day, which reminders use to say when mileage-based work is due.
   const perDay = milesPerDay(
     [
@@ -137,6 +146,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
                 logDone={logMaintenanceDone.bind(null, item.id)}
                 undoLast={undoLastService.bind(null, item.id)}
                 todayInputValue={todayInputValue}
+                prefill={prefill?.kind === "service" ? prefill : undefined}
               />
             ))}
           </ul>
@@ -149,7 +159,13 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         </Suspense>
       </Section>
 
-      <Section title="Fill-ups">
+      {prefill?.kind === "service" && canLog && (
+        <p role="status" className="mt-3 rounded-xl bg-sun/30 px-3 py-2 text-sm font-semibold">
+          From Money: a ${prefill.cost} charge on {prefill.date}. Tap <strong>Log service</strong> on the item it was for; the cost and day are filled in.
+        </p>
+      )}
+
+      <Section title="Fill-ups" id="fill-ups">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           {canLog ? (
             <FuelLogForm
@@ -157,6 +173,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
               todayInputValue={todayInputValue}
               currentMileage={vehicle.currentMileage}
               showCost
+              prefill={prefill?.kind === "fuel" ? prefill : undefined}
             />
           ) : (
             <p className="text-sm text-muted-foreground">Inactive vehicle — reactivate it from Manage to log.</p>

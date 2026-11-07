@@ -1685,3 +1685,28 @@ Fable's review of 63a: an answer over 10,000 is refused, not dropped (the client
 server throws); the answers wait for any unsynced ticks; rows are claimed in id order, so two
 phones can't deadlock; a supply no longer active isn't restocked.
 
+### 63b — School fees per jar, bills on the calendar, car charges into Cars
+
+**School fees:** `MoneyJar.countSchoolFees` (off by default; any member switches it on the Bills
+page, and it rides in the money backups) makes open FEE school tasks with an amount and a due day
+(`lib/finance/school-fees.ts`, read straight from Prisma since Money can't import School) count in
+that jar's Coming up (🎒, on their own day even late, gone once done in School or a check of about
+their size is paid) and Safe to spend (`schoolFeesAsBills`, a late one due today). Never in the bill
+alerts: School's own reminders cover them. Due days come from local midnight, as School stores
+them. **Bills on the calendar:** `lib/finance/calendar-bills.ts` `billDays(from, until)` asks
+`moneyViewer` itself and gives `{ day, name }` for the viewer's own jars: regular found bills
+(monthly and slower, not hidden, not stood for by a hand-added one) stepped by their cadence, and
+hand-added bills' due days, from the same rows the Bills page reads (`recurringRows`, new in
+`lib/finance/bill-rows.ts`, with surprises hidden). The calendar page asks only for a grown-up on
+their own sign-in with Money on and adds them as a `bill` kind (💸, after dates, not a to-do or a
+person's), linking to `/finances`. eslint lets that one page import that one module
+(`CALENDAR_BILLS_EXCEPTION`). Not in the Outlook write-back. **Car charges:** a money-out charge
+under Gas & car (or a category that absorbed it) offers ⛽ Fill-up and 🔧 Service per active car,
+linking to `/vehicles/<id>?fuel|service=<cents>&on=<day>`; the car page validates it
+(`parseChargePrefill`) and opens the fuel form, or fills each item's service form, with the cost
+and day. Nothing links back.
+Fable's review of 63b: found bills step by whole months on the calendar, as `findRecurring` dates
+them (they drifted by stepping 30 days); a late school fee a check already paid leaves Safe to spend
+as well as Coming up; jars load in parallel; the stepping is a pure `billDaysOf` with its own tests;
+a fee in Coming up links to School.
+

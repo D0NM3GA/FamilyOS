@@ -10,6 +10,7 @@ import { scheduleFeedRefresh } from "@/lib/school/feeds/schedule";
 import { getCalendarEvents, type CalendarEventsResult } from "@/lib/graph/calendar";
 import {
   MONTH_GRID_DAYS,
+  billItems,
   dayKey,
   groupIntoDays,
   itemPerson,
@@ -26,6 +27,7 @@ import {
   type AgendaItem,
 } from "@/lib/calendar/agenda";
 import { getAgendaWeek } from "@/lib/calendar/queries";
+import { billDays } from "@/lib/finance/calendar-bills";
 import { getDisabledApps } from "@/lib/app-switches";
 import { PageHeader } from "@/components/page-header";
 import { btn, chip, chipRow, iconBtn, sectionTitle } from "@/components/styles";
@@ -74,6 +76,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const onMicrosoft = sessionOwner && profile.authUserId !== null && (await signInKind(profile)) === "microsoft";
   const outlook = onMicrosoft && profile.authUserId ? getCalendarEvents(profile.authUserId, { start, end: addDays(start, days) }, { calendarId: profile.homeCalendarId }) : null;
   const agenda = await getAgendaWeek(profile, { start, days, eventsOnly: isMonth, timeZone: zone, now, disabledApps });
+  // Phase 63b: bills by name on their due days, for a grown-up on their own sign-in with Money on;
+  // billDays checks the money gate itself (members only, no amounts, surprises hidden).
+  const bills = isAdult(profile) && sessionOwner && !disabledApps.includes("money") ? await billDays(dayKey(start), dayKey(addDays(start, days - 1))) : [];
+  const items = [...agenda.items, ...billItems(bills)];
 
   const notes: React.ReactNode[] = [];
   if (agenda.tasksPlannedThrough) {
@@ -141,11 +147,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       </nav>
 
       {outlook ? (
-        <Suspense fallback={<Shown items={agenda.items} {...view_} notes={[...notes, "Checking Outlook…"]} />}>
-          <WithOutlook load={outlook} items={agenda.items} {...view_} />
+        <Suspense fallback={<Shown items={items} {...view_} notes={[...notes, "Checking Outlook…"]} />}>
+          <WithOutlook load={outlook} items={items} {...view_} />
         </Suspense>
       ) : (
-        <Shown items={agenda.items} {...view_} />
+        <Shown items={items} {...view_} />
       )}
     </div>
   );
