@@ -1413,3 +1413,9 @@ move keeps the first; Move back clears it): `planInstances` treats it as taken, 
 off today would be made again; it moves with the zone (`DAY_COLUMNS`, a plain shift, and the
 zone move's counts now add up per table); backups carry it. Turning a chore off still deletes its
 pending days, a moved one included.
+Fable's review of 59.2b: a refused move (the day taken meanwhile, the chore changed) says so on
+the card and refreshes the board; the page also checks the day a moved chore would go back to.
+Move back is offered only while that day is inside the overdue window, so it can't drop a chore into
+"older, never marked" (a call made in the build, open to change). Known: a round-robin chore moved
+past the next one's day can give the next turn to the same person once, since "most recent" is by
+due day; it corrects itself the turn after.

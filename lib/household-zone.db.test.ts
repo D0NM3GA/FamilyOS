@@ -62,7 +62,17 @@ describe.skipIf(!RUN)("moving stored days between zones (database)", () => {
     // Midnight in London on the same dates (GMT in March, BST in July).
     expect((await prisma.taskDefinition.findUniqueOrThrow({ where: { id: chore.id } })).startDate).toEqual(at("2026-03-08T00:00:00Z"));
     expect(await dues(chore.id)).toEqual([{ due: "2026-03-08T00:00:00.000Z", status: "PENDING" }]);
-    expect((await prisma.taskInstance.findFirstOrThrow({ where: { definitionId: chore.id } })).movedFrom).toEqual(at("2026-03-07T00:00:00Z"));
+    const movedChore = await prisma.taskInstance.findFirstOrThrow({ where: { definitionId: chore.id } });
+    expect(movedChore.movedFrom).toEqual(at("2026-03-07T00:00:00Z"));
+    // Moving back after the zone move lands on the day as London keeps it.
+    const { moveChore } = await import("./tasks/move");
+    applyProcessZone("Europe/London");
+    try {
+      expect(await moveChore({ householdId: h, instanceId: movedChore.id, to: "back", byId: null as unknown as string, now: at("2026-03-08T12:00:00Z") })).toBe(true);
+    } finally {
+      applyProcessZone("America/New_York");
+    }
+    expect(await prisma.taskInstance.findUniqueOrThrow({ where: { id: movedChore.id } })).toMatchObject({ dueDate: at("2026-03-07T00:00:00Z"), movedFrom: null });
     expect(await dues(med.id)).toEqual([{ due: "2026-07-01T07:00:00.000Z", status: "PENDING" }]);
   });
 

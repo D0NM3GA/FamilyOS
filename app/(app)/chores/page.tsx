@@ -81,7 +81,8 @@ export default async function ChoresPage({
   const pillFor = (i: (typeof allInstances)[number], skippable: boolean) =>
     big ? undefined : choreItem(toCardInstance(i), profile, { skippable: skippable && viewerIsAdult, now: today });
   // Phase 59.2b: grown-ups move a chore to tomorrow (or an overdue one to today) where that day is free.
-  const taken = viewerIsAdult && !big ? await takenDays([...new Set(allInstances.map((i) => i.definitionId))], today) : new Set<string>();
+  const backDays = allInstances.flatMap((i) => (i.movedFrom ? [i.movedFrom] : []));
+  const taken = viewerIsAdult && !big ? await takenDays([...new Set(allInstances.map((i) => i.definitionId))], today, backDays) : new Set<string>();
   const movesFor = (i: (typeof allInstances)[number]) =>
     viewerIsAdult && !big ? moveChoices({ ...i, frequencyType: i.definition.frequencyType }, taken, today) : undefined;
   const move = viewerIsAdult && !big ? moveInstance : undefined;

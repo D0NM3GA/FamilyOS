@@ -32,4 +32,11 @@ describe("moveChoices (Phase 59.2b)", () => {
     expect(moveChoices(chore({ dueDate: day(8), movedFrom: day(7) }), none, now).back).toBe(true);
     expect(moveChoices(chore({ dueDate: day(8), movedFrom: day(7) }), new Set([`d1|${day(7).getTime()}`]), now).back).toBe(false);
   });
+  test("not back to a day that's fallen out of the overdue window", () => {
+    expect(moveChoices(chore({ dueDate: day(8), movedFrom: day(1) }), none, now).back).toBe(true);
+    expect(moveChoices(chore({ dueDate: day(8), movedFrom: new Date(2026, 9, 30) }), none, now).back).toBe(false);
+  });
+  test("back even for a chore that became daily after it moved", () => {
+    expect(moveChoices(chore({ dueDate: day(8), movedFrom: day(7), frequencyType: "DAILY" }), none, now).back).toBe(true);
+  });
 });

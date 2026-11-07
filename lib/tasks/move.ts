@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { withStoredDays } from "@/lib/household-zone";
 import { recordEvent, eventDate } from "@/lib/work-items/events";
 import { addDays, atMidnight } from "./schedule";
+import { overdueSince } from "./skip";
 
 /**
  * Phase 59.2b: a grown-up moves one chore to tomorrow, or an overdue one to today (the owner's
@@ -15,7 +16,12 @@ export type MoveChoices = { tomorrow: boolean; today: boolean; back: boolean };
 
 type Movable = { id: string; definitionId: string; dueDate: Date; status: string; movedFrom: Date | null; frequencyType: string };
 
-/** Where a chore may go from here, given the days its chore already has an instance on. Pure. */
+/**
+ * Where a chore may go from here, given the days its chore already has an instance on. Pure.
+ * Move back needs only a pending chore, not a movable one: a chore changed to daily after a move
+ * can still go home, which fills the gap. It's offered only while its first day is still on the
+ * board (inside the overdue window), or Move back would drop it into "older, never marked".
+ */
 export function moveChoices(i: Movable, takenDays: Set<string>, now: Date = new Date()): MoveChoices {
   const today = atMidnight(now);
   const tomorrow = addDays(today, 1);
@@ -25,16 +31,24 @@ export function moveChoices(i: Movable, takenDays: Set<string>, now: Date = new 
   return {
     tomorrow: movable && i.dueDate < tomorrow && free(tomorrow),
     today: movable && i.dueDate < today && free(today),
-    back: pending && i.movedFrom != null && i.movedFrom.getTime() !== i.dueDate.getTime() && free(i.movedFrom),
+    back:
+      pending &&
+      i.movedFrom != null &&
+      i.movedFrom.getTime() !== i.dueDate.getTime() &&
+      i.movedFrom >= overdueSince(now) &&
+      free(i.movedFrom),
   };
 }
 
-/** The days today and tomorrow that each of these chores already has, as "definitionId|time". */
-export async function takenDays(definitionIds: string[], now: Date = new Date()): Promise<Set<string>> {
+/**
+ * The days these chores already have an instance on, as "definitionId|time": today, tomorrow, and
+ * any day a moved one would go back to (`alsoDays`).
+ */
+export async function takenDays(definitionIds: string[], now: Date = new Date(), alsoDays: Date[] = []): Promise<Set<string>> {
   if (definitionIds.length === 0) return new Set();
   const today = atMidnight(now);
   const rows = await prisma.taskInstance.findMany({
-    where: { definitionId: { in: definitionIds }, dueDate: { in: [today, addDays(today, 1)] } },
+    where: { definitionId: { in: definitionIds }, dueDate: { in: [today, addDays(today, 1), ...alsoDays] } },
     select: { definitionId: true, dueDate: true },
   });
   return new Set(rows.map((r) => `${r.definitionId}|${r.dueDate.getTime()}`));

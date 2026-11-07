@@ -174,7 +174,7 @@ export function TaskInstanceCard({
   pill?: WorkItem<Instance["status"]>;
   /** Phase 59.2b: where a grown-up may move this chore (lib/tasks/move.ts), worked out on the server. */
   moves?: { tomorrow: boolean; today: boolean; back: boolean };
-  onMove?: (instanceId: string, to: "today" | "tomorrow" | "back") => Promise<void>;
+  onMove?: (instanceId: string, to: "today" | "tomorrow" | "back") => Promise<{ moved: boolean }>;
 }) {
   const reward = useRewardWords();
   const big = size === "big";
@@ -188,6 +188,7 @@ export function TaskInstanceCard({
   // below, once the server round-trip confirms a milestone was actually crossed.
   const [milestoneHit, setMilestoneHit] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
+  const [moveRefused, setMoveRefused] = useState(false);
   const reportMilestone = useReportMilestone();
 
   // Derived, not separate state: exiting is exactly "this board drops completed instances
@@ -301,9 +302,11 @@ export function TaskInstanceCard({
 
   function handleMove(to: "today" | "tomorrow" | "back") {
     setFailed(false);
+    setMoveRefused(false);
     startTransition(async () => {
       try {
-        await onMove!(instance.id, to);
+        const { moved } = await onMove!(instance.id, to);
+        if (!moved) setMoveRefused(true);
       } catch (err) {
         console.error("[task-card] move failed", err);
         setFailed(true);
@@ -391,6 +394,11 @@ export function TaskInstanceCard({
         {failed && (
           <p role="alert" className="basis-full text-xs font-bold text-destructive">
             Couldn&apos;t save that. Check your connection and try again.
+          </p>
+        )}
+        {moveRefused && (
+          <p role="alert" className="basis-full text-xs font-bold text-destructive">
+            That day&apos;s taken now, or the chore changed. The board is up to date.
           </p>
         )}
 

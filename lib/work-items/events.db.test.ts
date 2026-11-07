@@ -274,13 +274,24 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     const bed = (await at(daily.id, today))!;
 
     await as(ids.kid);
-    await expect(moveInstance(plants.id, "tomorrow")).rejects.toThrow();
+    await expect(moveInstance(plants.id, "tomorrow")).rejects.toThrow("Only adults");
+    expect((await prisma.taskInstance.findUniqueOrThrow({ where: { id: plants.id } })).dueDate).toEqual(today);
 
     await as(ids.mom);
-    await moveInstance(bed.id, "tomorrow"); // daily: tomorrow's already there
+    expect(await moveInstance(bed.id, "tomorrow")).toEqual({ moved: false }); // daily: tomorrow's already there
     expect((await prisma.taskInstance.findUniqueOrThrow({ where: { id: bed.id } })).dueDate).toEqual(today);
 
-    await moveInstance(plants.id, "tomorrow");
+    // A weekly chore whose tomorrow is taken (made by hand here) is refused by the server's own check.
+    const fern = await prisma.taskDefinition.create({
+      data: { householdId: ids.h, title: "Mist the fern", frequencyType: "WEEKLY", interval: 1, startDate: today, assignmentStrategy: "FIXED" },
+    });
+    const fernToday = await prisma.taskInstance.create({ data: { definitionId: fern.id, dueDate: today } });
+    await prisma.taskInstance.create({ data: { definitionId: fern.id, dueDate: addDays(today, 1) } });
+    expect(await moveInstance(fernToday.id, "tomorrow")).toEqual({ moved: false });
+    expect((await prisma.taskInstance.findUniqueOrThrow({ where: { id: fernToday.id } })).dueDate).toEqual(today);
+    expect(await history(fernToday.id)).toEqual([]);
+
+    expect(await moveInstance(plants.id, "tomorrow")).toEqual({ moved: true });
     const moved = await prisma.taskInstance.findUniqueOrThrow({ where: { id: plants.id } });
     expect([moved.dueDate, moved.movedFrom]).toEqual([addDays(today, 1), today]);
     await ensureInstancesGenerated(ids.h, addDays(today, 3), "CHORE");
@@ -292,5 +303,14 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     const back = await prisma.taskInstance.findUniqueOrThrow({ where: { id: plants.id } });
     expect([back.dueDate, back.movedFrom]).toEqual([today, null]);
     expect((await history(plants.id)).map((e) => e.action)).toEqual(["MOVE", "MOVE"]);
+
+    // Moved, then the chore turned off and on: the moved one goes, and today comes back.
+    const { setDefinitionActive } = await import("@/app/(app)/chores/actions");
+    await moveInstance(plants.id, "tomorrow");
+    await setDefinitionActive(weekly.id, false);
+    expect(await prisma.taskInstance.count({ where: { id: plants.id } })).toBe(0);
+    await setDefinitionActive(weekly.id, true);
+    await ensureInstancesGenerated(ids.h, addDays(today, 3), "CHORE");
+    expect(await at(weekly.id, today)).not.toBeNull();
   });
 });
