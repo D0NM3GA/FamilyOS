@@ -1098,7 +1098,11 @@ test("a kid's profile: the grown-up apps send her Home, and wrong PINs lock her 
   test.setTimeout(120_000);
   await page.goto("/settings/household");
   const row = page.locator("tr", { hasText: "Ivy" });
-  await row.getByRole("button", { name: "Set PIN" }).click();
+  // A tap before the page has hydrated does nothing: tap again until the field opens.
+  await expect(async () => {
+    await row.getByRole("button", { name: "Set PIN" }).click();
+    await expect(row.getByLabel("New PIN")).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
   await row.getByLabel("New PIN").fill("1357");
   await row.getByRole("button", { name: "Save" }).click();
   await expect(row.getByText("PIN saved.")).toBeVisible();
@@ -1115,8 +1119,16 @@ test("a kid's profile: the grown-up apps send her Home, and wrong PINs lock her 
     await expect(page.getByRole("button", { name: "Go" })).toBeDisabled();
   };
 
+  // The same for the picker's tiles: tap until the PIN pad opens.
+  const openTile = async (name: RegExp) => {
+    await expect(async () => {
+      await page.getByRole("button", { name }).click();
+      await expect(page.locator("#pin-input")).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+  };
+
   await page.goto("/profiles");
-  await page.getByRole("button", { name: /\bIvy$/ }).click();
+  await openTile(/\bIvy$/);
   await enterPin("1357");
   await expect(page).toHaveURL(/\/$/);
 
@@ -1133,12 +1145,12 @@ test("a kid's profile: the grown-up apps send her Home, and wrong PINs lock her 
   // Back to Dad: his own tile asks for his PIN after someone else's turn. (A tile's name starts with
   // its avatar's initial: "I Ivy".)
   await page.goto("/profiles");
-  await page.getByRole("button", { name: /\bDad \(you\)/ }).click();
+  await openTile(/\bDad \(you\)/);
   await enterPin("246813");
   await expect(page).toHaveURL(/\/$/);
 
   await page.goto("/profiles");
-  await page.getByRole("button", { name: /\bIvy$/ }).click();
+  await openTile(/\bIvy$/);
   for (let i = 1; i <= 4; i++) {
     await wrongPin("0000");
     await expect(page.locator("#pin-error")).toHaveText("Incorrect PIN.");
