@@ -48,6 +48,8 @@ function jobs(): Job[] {
       },
     },
     { name: "entra", run: async () => (await import("@/lib/entra-check")).runScheduledEntraCheck() },
+    // Phase 62: doses, meds running low, school due, birthdays (lib/reminders).
+    { name: "reminders", run: async () => (await import("@/lib/reminders/run")).runReminders() },
     {
       name: "cleanup",
       run: async () => {

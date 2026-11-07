@@ -6,7 +6,7 @@ import { describeError } from "@/lib/observability/log";
  * System card on Data. One upsert per job per tick (every 30 minutes): nothing to the database.
  */
 
-export type JobName = "zone" | "money" | "purges" | "entra" | "cleanup";
+export type JobName = "zone" | "money" | "purges" | "entra" | "cleanup" | "reminders";
 
 /** The jobs in the order they run, with how the System card names them. */
 export const JOBS: { name: JobName; label: string }[] = [
@@ -15,6 +15,7 @@ export const JOBS: { name: JobName; label: string }[] = [
   { name: "purges", label: "Expired sign-in links and invites" },
   { name: "entra", label: "Microsoft access check" },
   { name: "cleanup", label: "Tidying old sessions and notifications" },
+  { name: "reminders", label: "Reminders" },
 ];
 
 /** The host's nightly backup writes this row itself (scripts/backup-prod.sh). */
