@@ -171,11 +171,16 @@ export async function setAssignmentStatus(assignmentId: string, status: "TODO" |
   if (!canSetAssignmentStatus(viewer, { studentId: existing.profile.personId, status: existing.status }, status)) {
     throw new Error("Ask a grown-up to change that one");
   }
+  // No change, no write: ticking off done work again mustn't move when it was finished.
+  if (existing.status === status) return;
   await prisma.$transaction(async (tx) => {
-    await tx.schoolAssignment.update({ where: { id: assignmentId }, data: { status, doneAt: status === "DONE" ? new Date() : null } });
-    if (existing.status !== status) {
-      await recordEvent(tx, { householdId: viewer.householdId, itemType: "ASSIGNMENT", itemId: assignmentId, actorId: viewer.id, action: "STATUS", fromValue: existing.status, toValue: status });
-    }
+    // Pinned to the status that was checked, so a change racing this one can't be misrecorded.
+    const { count } = await tx.schoolAssignment.updateMany({
+      where: { id: assignmentId, status: existing.status },
+      data: { status, doneAt: status === "DONE" ? new Date() : null },
+    });
+    if (count === 0) return;
+    await recordEvent(tx, { householdId: viewer.householdId, itemType: "ASSIGNMENT", itemId: assignmentId, actorId: viewer.id, action: "STATUS", fromValue: existing.status, toValue: status });
   });
   revalidateSchool();
 }
@@ -187,15 +192,22 @@ export async function updateAssignment(assignmentId: string, _prev: SchoolFormSt
   if (!existing) return { error: "Assignment not found." };
   const parsed = parseAssignmentForm(fd);
   if (!parsed.ok) return { error: parsed.error };
-  const before = await prisma.schoolAssignment.findUniqueOrThrow({ where: { id: assignmentId } });
-  await prisma.$transaction(async (tx) => {
-    await tx.schoolAssignment.update({
-      where: { id: assignmentId },
+  const saved = await prisma.$transaction(async (tx) => {
+    const before = await tx.schoolAssignment.findUnique({ where: { id: assignmentId } });
+    if (!before) return "gone" as const;
+    // Only over what was read, so the history's "from" is true: an edit that landed in between
+    // asks for a reload instead of being overwritten.
+    const { count } = await tx.schoolAssignment.updateMany({
+      where: { id: assignmentId, updatedAt: before.updatedAt },
       // Editing the grade later mustn't move when it was finished.
-      data: { ...parsed.fields, doneAt: parsed.fields.status === "DONE" ? (existing.doneAt ?? new Date()) : null },
+      data: { ...parsed.fields, doneAt: parsed.fields.status === "DONE" ? (before.doneAt ?? new Date()) : null },
     });
+    if (count === 0) return "changed" as const;
     await recordEvents(tx, assignmentChanges(before, parsed.fields).map((c) => ({ ...c, householdId: viewer.householdId, itemId: assignmentId, actorId: viewer.id })));
+    return "saved" as const;
   });
+  if (saved === "gone") return { error: "Assignment not found." };
+  if (saved === "changed") return { error: "Someone changed this one just now. Reload the page and try again." };
   revalidateSchool();
   return { notice: "Saved." };
 }

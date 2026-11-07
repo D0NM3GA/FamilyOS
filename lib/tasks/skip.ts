@@ -2,9 +2,10 @@ import { prisma } from "@/lib/prisma";
 import type { TaskDomain } from "@/app/generated/prisma/enums";
 import type { Prisma } from "@/app/generated/prisma/client";
 
+import { addDays, atMidnight } from "./schedule";
+
 /** The client to use: the app's, or a transaction's (Phase 59.1c: Chores records history with it). */
 type Db = Pick<Prisma.TransactionClient, "taskInstance">;
-import { addDays, atMidnight } from "./schedule";
 
 /**
  * How far back "Overdue" reaches. A missed dose from three weeks ago isn't something to do

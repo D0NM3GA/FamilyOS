@@ -27,7 +27,9 @@ export const EVENT_VALUE_MAX = 200;
 
 export function eventValue(v: string | null | undefined): string | null {
   if (v == null || v === "") return null;
-  return v.length > EVENT_VALUE_MAX ? `${v.slice(0, EVENT_VALUE_MAX - 1)}…` : v;
+  // By character, not UTF-16 unit, so an emoji at the cut isn't split in half.
+  const chars = Array.from(v);
+  return chars.length > EVENT_VALUE_MAX ? `${chars.slice(0, EVENT_VALUE_MAX - 1).join("")}…` : v;
 }
 
 type Tx = Pick<Prisma.TransactionClient, "workItemEvent">;

@@ -19,8 +19,11 @@ function filesUnder(dir: string): string[] {
   });
 }
 
+// A model's delete, a nested one through a relation (an edit form's `assignments: { deleteMany }`),
+// or raw SQL. A person's delete cascades to a school profile, but only contacts can be deleted and
+// a contact with a school profile is refused (isDeletableContact, lib/people.ts), so it isn't here.
 const DELETES =
-  /\b(taskInstance|schoolAssignment|schoolTask|schoolProfile|taskDefinition)\.(delete|deleteMany)\(|DELETE FROM "?(task_instance|school_task|school_assignment|school_profile|task_definition)\b/g;
+  /\b(taskInstance|schoolAssignment|schoolTask|schoolProfile|taskDefinition)\.(delete|deleteMany)\(|DELETE FROM "?(task_instance|school_task|school_assignment|school_profile|task_definition)\b|\b(assignments|instances|schoolTasks)\s*:\s*\{\s*(deleteMany|delete)\b/g;
 const CLEANS = /deleteEventsFor\(|workItemEvent\.deleteMany\(|DELETE FROM "?work_item_event\b/;
 
 /** A delete may skip the cleanup for these reasons ("file" or "file:what it deletes"). */
@@ -29,15 +32,16 @@ const NO_EVENTS: Record<string, string> = {
 };
 
 function deletesWithoutCleanup(): string[] {
-  const files = ["app", "lib", "prisma"].flatMap((d) => filesUnder(path.join(ROOT, d)));
+  const files = ["app", "lib", "prisma", "scripts", "e2e"].filter((d) => fs.existsSync(path.join(ROOT, d))).flatMap((d) => filesUnder(path.join(ROOT, d)));
   return files.flatMap((file) => {
     const rel = path.relative(ROOT, file).split(path.sep).join("/");
     const text = fs.readFileSync(file, "utf8");
     return [...text.matchAll(DELETES)].flatMap((m) => {
-      const what = m[1] ?? m[3];
+      const what = m[1] ?? m[3] ?? m[4];
       if (NO_EVENTS[`${rel}:${what}`] || NO_EVENTS[rel]) return [];
       // The cleanup sits in the same few lines: before (a wipe that clears the household's
-      // history first) or after (the same transaction, right below).
+      // history first) or after (the same transaction, right below). A failure here can mean the
+      // cleanup has drifted too far away: move it next to the delete.
       const line = text.slice(0, m.index).split("\n").length;
       const near = text.split("\n").slice(Math.max(0, line - 16), line + 12).join("\n");
       return CLEANS.test(near) ? [] : [`${rel}:${line} ${what}`];

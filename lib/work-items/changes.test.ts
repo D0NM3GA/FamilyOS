@@ -42,6 +42,9 @@ describe("event values", () => {
     expect(eventValue("x".repeat(500))).toHaveLength(EVENT_VALUE_MAX);
     expect(eventValue("")).toBeNull();
     expect(eventValue("Ch 3")).toBe("Ch 3");
+    const cut = eventValue(`${"x".repeat(198)}🎒🎒🎒`)!;
+    expect(Array.from(cut)).toHaveLength(EVENT_VALUE_MAX);
+    expect(cut.endsWith("🎒…")).toBe(true);
   });
   it("writes a due date as the family's own day", () => {
     expect(eventDate(new Date(2026, 0, 5))).toBe("2026-01-05");

@@ -1377,3 +1377,8 @@ cleanup nearby (Meds' doses are listed: they have no history). Reassigning now p
 it read, so a give-to racing another records the right "from". The backup is v9: events follow
 their items through restore's new ids (school tasks and assignments gained id maps for it); one
 whose item isn't in the file is dropped, and an actor who isn't becomes nobody.
+Fable's review of 59.1c: an assignment's status change is pinned to the status it checked, and
+ticking off done work again writes nothing (so `doneAt` keeps when it was finished, as forms
+already did). The full edit only saves over the row it read (`updatedAt`); an edit that landed in
+between gets "Someone changed this one just now", so the history's "from" is always true. The
+restore preview lists the history it removes and restores.

@@ -104,6 +104,43 @@ describe.skipIf(!RUN)("work item history (database)", { timeout: 60_000 }, () =>
     expect(await history(a.id)).toEqual([]);
   });
 
+  test("done work ticked off again changes nothing, and an unchanged edit records nothing", async () => {
+    const { setAssignmentStatus, updateAssignment } = await import("@/app/(app)/school/actions");
+    const a = await prisma.schoolAssignment.create({ data: { profileId: ids.profile, className: "Science", title: "Leaf log" } });
+    await as(ids.kid);
+    await setAssignmentStatus(a.id, "DONE");
+    const { doneAt } = await prisma.schoolAssignment.findUniqueOrThrow({ where: { id: a.id } });
+    await setAssignmentStatus(a.id, "DONE");
+    expect((await prisma.schoolAssignment.findUniqueOrThrow({ where: { id: a.id } })).doneAt).toEqual(doneAt);
+    expect(await history(a.id)).toHaveLength(1);
+
+    await as(ids.mom);
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ className: "Science", title: "Leaf log", kind: "HOMEWORK", status: "DONE" })) f.set(k, v);
+    expect(await updateAssignment(a.id, {}, f)).toEqual({ notice: "Saved." });
+    expect(await history(a.id)).toHaveLength(1);
+  });
+
+  test("an event written in a transaction that fails is never kept", async () => {
+    const { recordEvent } = await import("./events");
+    const itemId = `rollback-${t}`;
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await recordEvent(tx, { householdId: ids.h, itemType: "CHORE", itemId, actorId: ids.mom, action: "STATUS", fromValue: "PENDING", toValue: "DONE" });
+        throw new Error("the change failed");
+      }),
+    ).rejects.toThrow("the change failed");
+    expect(await history(itemId)).toEqual([]);
+  });
+
+  test("a kid grabbing an Anyone chore is the one the history names", async () => {
+    const { completeInstance } = await import("@/app/(app)/chores/actions");
+    const i = await chore(addDays(today, 1), null);
+    await as(ids.max);
+    await completeInstance(i.id);
+    expect(await history(i.id)).toEqual([{ action: "STATUS", fromValue: "PENDING", toValue: "DONE", field: null, actorId: ids.max }]);
+  });
+
   test("a form's done and reopen are recorded once each, and removing it removes them", async () => {
     const { setTaskDone, deleteTask } = await import("@/app/(app)/school/actions");
     const task = await prisma.schoolTask.create({ data: { householdId: ids.h, title: "Field trip slip" } });

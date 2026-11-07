@@ -121,14 +121,13 @@ export async function setDefinitionActive(definitionId: string, active: boolean)
   // Reactivating rolls forward from today like a new chore.
   if (updated.count > 0 && !active) {
     // Their history goes with them (Phase 59.1c: WorkItemEvent has no foreign key to clean up for it).
+    // The delete keeps its criteria, so a day rolled forward in between goes too; one made
+    // in between has no history yet, so the ids found first are all the cleanup needs.
+    const waiting = { definitionId, status: "PENDING" as const, dueDate: { gte: atMidnight(new Date()) } };
     await prisma.$transaction(async (tx) => {
-      const going = await tx.taskInstance.findMany({
-        where: { definitionId, status: "PENDING", dueDate: { gte: atMidnight(new Date()) } },
-        select: { id: true },
-      });
-      const ids = going.map((i) => i.id);
-      await tx.taskInstance.deleteMany({ where: { id: { in: ids } } });
-      await deleteEventsFor(tx, "CHORE", ids);
+      const going = await tx.taskInstance.findMany({ where: waiting, select: { id: true } });
+      await tx.taskInstance.deleteMany({ where: waiting });
+      await deleteEventsFor(tx, "CHORE", going.map((i) => i.id));
     });
   }
 
@@ -272,12 +271,13 @@ export async function reassignInstance(instanceId: string, newAssigneeId: string
   });
   if (!target) return;
 
+  if (instance.assignedToId === target.id) return;
   await prisma.$transaction(async (tx) => {
     const { count } = await tx.taskInstance.updateMany({
       where: { id: instanceId, status: "PENDING", assignedToId: instance.assignedToId },
       data: { assignedToId: target.id },
     });
-    if (count === 0 || instance.assignedToId === target.id) return;
+    if (count === 0) return;
     await recordEvent(tx, {
       householdId: profile.householdId,
       itemType: "CHORE",

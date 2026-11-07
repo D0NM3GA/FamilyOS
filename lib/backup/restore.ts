@@ -84,7 +84,7 @@ function moneyContext(backup: Backup, people: PeoplePlan, linked: LinkedPerson[]
 
 async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promise<Record<string, number>> {
   const person = { householdId };
-  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories, petDiscoveries] = await Promise.all([
+  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories, petDiscoveries, history] = await Promise.all([
     db.person.count({ where: { householdId, authUserId: null } }),
     db.taskInstance.count({ where: { definition: { householdId } } }),
     db.taskDefinition.count({ where: { householdId } }),
@@ -105,6 +105,7 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     db.pet.count({ where: { householdId } }),
     db.petMemorial.count({ where: { householdId } }),
     db.petDiscovery.count({ where: { householdId } }),
+    db.workItemEvent.count({ where: { householdId } }),
   ]);
   return {
     "people (without their own sign-in)": people,
@@ -127,6 +128,7 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     pets,
     "pet memories": petMemories,
     "pet collection book entries": petDiscoveries,
+    "history of chores & schoolwork": history,
   };
 }
 
@@ -154,6 +156,7 @@ function insertCounts(b: Backup): Record<string, number> {
     pets: readablePets(b).length,
     "pet memories": b.petMemorials.length,
     "pet collection book entries": b.petDiscoveries.length,
+    "history of chores & schoolwork": b.workItemEvents.length,
   };
 }
 

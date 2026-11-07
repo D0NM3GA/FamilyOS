@@ -173,6 +173,7 @@ function tables(b: Backup): Record<string, { id: string }[]> {
     petItems: b.petItems,
     petMemorials: b.petMemorials,
     petGifts: b.petGifts,
+    workItemEvents: b.workItemEvents,
   };
 }
 
