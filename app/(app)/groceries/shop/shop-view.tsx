@@ -1,5 +1,6 @@
 "use client";
 
+import { AddBox } from "../add-box";
 import { useLook } from "@/components/look";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -68,7 +69,7 @@ function Row({ row, onTap }: { row: ShopRow; onTap: () => void }) {
             {row.name}
           </span>
           <span className="block text-sm text-muted-foreground">
-            {[row.size, row.forName ? `for ${row.forName}` : null].filter(Boolean).join(" · ")}
+            {[row.size, row.forName ? `for ${row.forName}` : null, row.note ? `📝 ${row.note}` : null].filter(Boolean).join(" · ")}
           </span>
         </span>
         <span className="shrink-0 rounded-xl border-2 border-ink/15 px-2.5 py-1 text-sm font-bold dark:border-white/15">{row.amount}</span>
@@ -184,6 +185,9 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
         </p>
       )}
       {screenOn && <p className="text-sm font-bold text-muted-foreground">☀️ Screen stays on while you shop</p>}
+
+      {/* Phase 64c: forgot something? Add it here, without leaving the store view. */}
+      <AddBox />
 
       {stores.length > 1 && (
         <nav aria-label="Which store" className={chipRow}>
