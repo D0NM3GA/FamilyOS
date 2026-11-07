@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import { Camera, Plus } from "lucide-react";
 import { btn, btnPrimary, field } from "@/components/styles";
 import { addItem, addItemByBarcode, searchProductsAutocomplete, type BarcodeAddResult } from "./actions";
@@ -47,6 +47,9 @@ export function AddBox() {
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const latest = useRef("");
+  // Phase 64c: the box is also in the Shop view, where signal comes and goes. Adding needs it
+  // (ticks still queue offline); without it the box says so instead of failing quietly.
+  const online = useOnline();
 
   useEffect(() => {
     const term = query.trim();
@@ -63,7 +66,7 @@ export function AddBox() {
     }
     latest.current = term;
     const timer = setTimeout(async () => {
-      const results = await searchProductsAutocomplete(term);
+      const results = await searchProductsAutocomplete(term).catch(() => []);
       if (latest.current !== term) return; // a slower, older search came back last
       setSuggestions(results);
       setActive(-1);
@@ -110,9 +113,14 @@ export function AddBox() {
     if (!picked && !text) return;
     reset();
     startTransition(async () => {
-      if (picked) await addItem({ productId: picked.id });
-      else if (LOOKS_LIKE_BARCODE.test(text)) handleBarcode(await addItemByBarcode(text), text);
-      else await addItem({ name: text });
+      try {
+        if (picked) await addItem({ productId: picked.id });
+        else if (LOOKS_LIKE_BARCODE.test(text)) handleBarcode(await addItemByBarcode(text), text);
+        else await addItem({ name: text });
+      } catch (err) {
+        setQuery(text);
+        setMessage(failure(err));
+      }
     });
     inputRef.current?.focus();
   }
@@ -120,7 +128,13 @@ export function AddBox() {
   function pick(s: Suggestion) {
     if (pending) return;
     reset();
-    startTransition(() => addItem({ productId: s.id }));
+    startTransition(async () => {
+      try {
+        await addItem({ productId: s.id });
+      } catch (err) {
+        setMessage(failure(err));
+      }
+    });
     inputRef.current?.focus();
   }
 
@@ -128,7 +142,13 @@ export function AddBox() {
     if (pending || !needsNameFor || !name.trim()) return;
     const code = needsNameFor;
     const given = name;
-    startTransition(async () => handleBarcode(await addItemByBarcode(code, given), code));
+    startTransition(async () => {
+      try {
+        handleBarcode(await addItemByBarcode(code, given), code);
+      } catch (err) {
+        setMessage(failure(err));
+      }
+    });
   }
 
   const onScannedUnknown = useCallback((code: string) => {
@@ -191,6 +211,13 @@ export function AddBox() {
 
   return (
     <div className="relative">
+      {!online && (
+        <p role="status" className="mb-1 text-sm font-semibold text-muted-foreground">
+          No signal: adding to the list waits until you&apos;re back online. Ticks still work.
+        </p>
+      )}
+      {/* Kept on screen, just disabled, while offline: what was typed (and focus) stays. */}
+      <fieldset disabled={!online} className="contents">
       <div className="ui-card flex items-center gap-2 rounded-2xl border-2 border-ink bg-card p-1.5 pl-3 shadow-[3px_3px_0_rgb(31_41_51/0.15)] focus-within:ring-2 focus-within:ring-ring dark:border-white/20">
         <input
           ref={inputRef}
@@ -272,9 +299,32 @@ export function AddBox() {
           ))}
         </ul>
       )}
+      </fieldset>
       <p aria-live="polite" className="mt-1 min-h-5 text-sm text-muted-foreground">
         {message}
       </p>
     </div>
   );
 }
+
+/** Whether the browser thinks it has a connection (true before it knows, as on the server). */
+function useOnline(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      window.addEventListener("online", onChange);
+      window.addEventListener("offline", onChange);
+      return () => {
+        window.removeEventListener("online", onChange);
+        window.removeEventListener("offline", onChange);
+      };
+    },
+    () => navigator.onLine,
+    () => true,
+  );
+}
+
+/** A failed add in words: no signal (a network error) or something else (reload, as the Shop view says). */
+function failure(err: unknown): string {
+  return err instanceof TypeError ? "Couldn't add that yet. Check your signal and try again." : "Couldn't add that yet. Reload and try again.";
+}
+

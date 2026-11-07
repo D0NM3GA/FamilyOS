@@ -168,7 +168,7 @@ function fullBackup(): Backup {
     { id: "p1", name: "Eggs", barcode: "123", brand: null, imageUrl: null, sizeAmount: 12, sizeUnit: "count", container: "carton", defaultStoreId: "s1", groupId: "g1", createdAt: T },
   ];
   b.shoppingListItems = [
-    { id: "li1", productId: "p1", quantity: 1, done: false, kidPick: true, addedById: "mom", requestedById: "kid", medicationId: null, vehicleSupplyId: null, createdAt: T },
+    { id: "li1", productId: "p1", quantity: 1, done: false, kidPick: true, addedById: "mom", requestedById: "kid", medicationId: null, vehicleSupplyId: null, note: "the big tub", createdAt: T },
   ];
   b.purchases = [{ id: "pu1", purchasedAt: T, purchasedById: "mom" }];
   b.purchaseItems = [{ id: "pi1", purchaseId: "pu1", productId: "p1", description: "Eggs", quantity: 1, requestedById: "kid", kidPick: true }];
@@ -514,7 +514,7 @@ describe("remapBackup", () => {
     expect(rows.purchaseItems[0]).toMatchObject({ purchaseId: rows.purchases[0].id, productId: rows.products[0].id });
     expect(rows.itemPrices[0]).toMatchObject({ householdId: "H", productId: rows.products[0].id, storeId: rows.stores[0].id, totalCents: 499 });
     expect(rows.receiptAliases[0]).toMatchObject({ householdId: "H", productId: rows.products[0].id, textKey: "lg eggs 12ct" });
-    expect(rows.shoppingListItems[0]).toMatchObject({ listId: "L", productId: rows.products[0].id, requestedById: kid });
+    expect(rows.shoppingListItems[0]).toMatchObject({ listId: "L", productId: rows.products[0].id, requestedById: kid, note: "the big tub" });
     expect(rows.pets[0]).toMatchObject({ householdId: "H", personId: kid, name: "Pip", seed: "seed-abc", state: { species: "blob", stage: "egg" } });
     expect(rows.pets[0].bornAt).toBeInstanceOf(Date);
     expect(rows.petItems[0]).toMatchObject({ householdId: "H", personId: kid, itemId: "ball", place: "out" });

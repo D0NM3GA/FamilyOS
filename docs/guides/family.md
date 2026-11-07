@@ -325,8 +325,13 @@ One shared list for the whole family.
 **Kids** get picture tiles: **Tap what you want!** and it goes on the list. A grown-up can answer
 **Not this time**, and you'll get a kind note in your bell.
 
+**A note for the shopper:** open an item on the list and type a note ("the big tub", "for Ivy's
+lunch"); it shows on the list and in the Shop view, to everyone who sees the list, and goes with the
+item when the trip is done.
+
 **At the store: 🛒 Shop.** Big rows, sorted by store and the way you walk the aisles. Tap an item to
-put it **In the cart**. The screen stays on while you shop, and ticks work even with no signal:
+put it **In the cart**. Forgot something? The box at the top adds it right there (it needs signal;
+ticks don't). The screen stays on while you shop, and ticks work even with no signal:
 they catch up when you're back online. When you're done, **Finish trip**: anything you didn't get
 stays on the list for next time. If the cart has a medicine or a car supply the app put on the list
 when it ran low, a grown-up's **Finish trip** in the Shop view first asks **Picked up …: how many?**

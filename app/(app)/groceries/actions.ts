@@ -559,3 +559,20 @@ export async function vetoItem(itemId: string) {
   await assertAppOn(profile.householdId, "groceries");
   if (await vetoKidPick(profile.householdId, itemId)) revalidateGroceries();
 }
+
+const noteSchema = z.string().trim().max(200);
+
+/**
+ * Phase 64c: a list item's note for whoever shops. Anyone who can use the list sets it, as they
+ * can who it's for; an empty one clears it.
+ */
+export async function setItemNote(itemId: string, formData: FormData) {
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
+  await assertOwnedItem(itemId, profile.householdId);
+  const parsed = noteSchema.safeParse(String(formData.get("note") ?? ""));
+  if (!parsed.success) return;
+  await prisma.shoppingListItem.update({ where: { id: itemId }, data: { note: parsed.data || null } });
+  revalidateGroceries();
+}
+
