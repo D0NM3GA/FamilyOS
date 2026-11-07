@@ -2112,6 +2112,152 @@ Splitting `finances/actions.ts`; column encryption for med notes; anything from 
 
 61a jobs and System (with 61e), 61b backups, 61c database login, 61d guards and the kid e2e.
 
+## Phase 62 — scope (reminders, 2026-11-07)
+
+The third phase from the review of 2026-11-07. Today the app only speaks up about orders, money,
+backups and sign-ins (`NotificationKind`); a missed dose, a car due for service, a form due
+tomorrow or a birthday next week waits until someone opens the right page. This phase adds
+reminders on the background tick, through the alerts the app already has (the bell, phone
+push, Teams, email). Checked against the code 2026-11-07.
+
+### The owner's answers (2026-11-07)
+
+- **Reminders go to whoever the item belongs to.** A dose: the person it's for, and the
+  grown-ups. A car, a form or a fee: the grown-up handling it (a form's owner; cars have no
+  owner, so the grown-ups). Birthdays and anniversaries: the grown-ups (not the person whose day
+  it is). Each grown-up can switch each kind off in Settings → My notifications.
+- **Quiet hours are each person's own setting.** Nothing is pushed in them, except a missed dose.
+- **A morning summary, opt-in**, by email or Teams, at 7am household time; off by default.
+
+### The rules every part keeps
+
+- **Kids get the bell only**, as for store orders today (`notifyPerson` without
+  `deliverNotifications`); My notifications already tells them notifications are for grown-ups.
+- **Once per thing per person.** A `ReminderSent` row (`personId`, `key`, `sentAt`,
+  `@@unique([personId, key])`) is claimed in the same transaction as the bell row, like
+  `FinAlertSent` (`claimAndRecord`, `lib/finance/alerts.ts`); a P2002 means already sent. Keys
+  carry the occurrence (`dose:<instanceId>`, `school:<taskId>:<due day>`, `date:<dateId>:<day>`,
+  `car:<itemId>:<lastDoneAt|lastDoneMileage>`, `med:<medId>:<low since>`), so the next one
+  reminds again. Rows older than 400 days are cleared on the tick, like money's.
+- **Quiet hours defer, never drop.** A reminder in someone's quiet hours isn't claimed; the next
+  tick after they end sends it, if it still applies (windows below are wide enough to survive a
+  night).
+- **Only switched-on apps** (`householdWithAppOn`): Meds, Cars, School; dates belong to People,
+  which is always on. Never amounts, never anything from a money jar.
+- **Wording names the item and when, nothing more** ("Ivy's 8:00 dose of Amoxicillin wasn't
+  marked", "Oil change on the van is due in about 5 days"), linking to its page or panel.
+- **One job, `reminders`**, in `lib/background.ts`'s list and the System card (`lib/heartbeat.ts`),
+  with each kind computed in its own try/catch so one bad kind doesn't stop the rest.
+
+### 62a — The engine, preferences, and the first four kinds
+
+- **Schema:** `NotificationKind` gains `REMINDER_DOSE`, `REMINDER_MED_LOW`, `REMINDER_SCHOOL`,
+  `REMINDER_DATE`, `REMINDER_CAR`, `REMINDER_RECALL`. `ReminderSent` as above. `ReminderPrefs`
+  (`personId` id): `off String[]` (kinds switched off), `quietStart Int?` and `quietEnd Int?`
+  (minutes after midnight, household time; both or neither; may wrap midnight),
+  `digestEmail Boolean`, `digestTeams Boolean`, `digestLastOn String?` (62c). Not in the app's
+  backup file (preferences and send history, like `AlertPrefs`), and listed as left out in
+  `lib/backup/coverage.test.ts`.
+- **`lib/reminders/`**: pure planners per kind (rows in, `{ kind, key, recipients, title, href,
+  urgent }` out) and `run.ts`, which loads, plans, filters by prefs and quiet hours, claims and
+  delivers (`deliverNotifications(..., { channels: "prefs" })` for grown-ups).
+- **Missed dose:** a PENDING MED instance whose time passed more than 90 minutes ago and within
+  the last 24 hours. To the person it's for (bell if a kid) and every grown-up with Meds. Urgent:
+  ignores quiet hours.
+- **Med running low:** days of supply = on hand ÷ (dose amount × doses a day), doses a day from
+  `timesOfDay` and the frequency (daily every N days, days of week, weekly; monthly and once
+  don't count). Low at 7 days or fewer, or at `refillThresholdQuantity` when that's higher. To
+  the grown-ups. Key carries the day it went low; when stock rises above, the row is cleared so
+  the next time it runs low reminds again.
+- **School form, fee or to-do due:** an OPEN `SchoolTask` due today or tomorrow. To its owner
+  when they're a grown-up, else every grown-up. Key carries the due day.
+- **Birthday or anniversary:** an `ImportantDate` (BIRTHDAY or ANNIVERSARY) whose next
+  occurrence is within 7 days. To every grown-up except the person it's about. Key carries the
+  occurrence day.
+- **My notifications** (grown-ups): a **Reminders** section listing the six kinds with a switch
+  each (on by default), and **Quiet hours** (from, to, or off). Server actions with
+  `SubmitButton` and zod; only one's own row.
+
+### 62b — Cars and recalls
+
+- **Maintenance due within 7 days:** by date (`daysRemaining` 0–7) or by miles, estimated:
+  miles a day from the last 90 days of fill-ups and service logs (first and last odometer
+  readings; at least two readings 14 days apart, else no estimate), and `milesRemaining ÷ miles a
+  day ≤ 7`. Overdue items remind once too. To every grown-up with Cars.
+- **A recall newly found:** the job asks NHTSA (`checkRecalls`, already day-cached) for each car
+  with a VIN or model, once a day, and keeps `VehicleRecallSeen` (`vehicleId`, `campaignNumber`,
+  `firstSeenAt`, unique pair). The first run for a car only records what's there (no flood); a
+  campaign seen later reminds, unless already acknowledged (`VehicleRecallAck`). To every
+  grown-up with Cars.
+- The vehicle page shows the estimate ("about 31 miles a day") where it uses one.
+
+### 62c — The morning summary and days left on Meds
+
+- **Summary:** for each grown-up with `digestEmail` or `digestTeams`, the first tick at or after
+  7:00 household time (and outside their quiet hours) sends one message if `digestLastOn` isn't
+  today: today's chores and doses (theirs, and the household's count), school due today and
+  tomorrow, cars due this week, dates this week. No money. Email through the alert mailbox
+  (`sendEmail` gains an optional multi-line body), Teams through the family app as a card with
+  lines. Nothing to say: nothing sent. `digestLastOn` set when sent.
+- **My notifications:** **Morning summary** with the two switches, each shown only where that
+  channel works (a mailbox; the published family app and a Microsoft sign-in).
+- **Meds:** each medication with a count shows "about N days left" on /meds and Manage, from the
+  same days-of-supply helper.
+
+### Settled after Fable's scope review (2026-11-07)
+
+These replace what's above where they differ.
+
+- **Owner's answers, second round:** reminders get **their own Teams and email switches** in My
+  notifications for any grown-up (`ReminderPrefs.teamsEnabled`, `emailEnabled`; today's
+  `AlertPrefs` switches are admins' store alerts); push and the bell always. A missed dose
+  **names the medicine everywhere**, outside the app too. Dates remind for **everyone in People**,
+  the same list as Home's Upcoming dates.
+- **Doses exist before anyone looks:** the job runs `ensureInstancesGenerated(householdId,
+  tomorrow, "MED")` for each household with Meds on before planning (instances are otherwise made
+  only when a page opens).
+- **Dose key:** `dose:<definitionId>:<dueDate ISO>`, since an edit or a restore re-makes this
+  morning's instance with a new id. Inactive medications are skipped. Only timed rows (a time in
+  `timesOfDay`) count; the person it's for is the instance's `assignedToId` (none: grown-ups only).
+- **Med low key:** `med:<medId>`; the tick deletes that row when the med is no longer low, so the
+  next time it runs low reminds again. No dose amount: only the quantity threshold counts. Days
+  of supply: DAILY times/interval, INTERVAL_DAYS times/interval, DAYS_OF_WEEK times × days/7,
+  WEEKLY times/(7 × interval); MONTHLY and ONCE give no estimate. The refill item on the
+  shopping list stays as it is.
+- **Grown-ups** (`lib/reminders/people.ts`): household members with role ADULT or ADMIN, Entra
+  access not ended; the bell even without a sign-in of their own, outbound as `deliverNotifications`
+  allows.
+- **Delivery:** bell rows, then `deliverNotifications` with a new channel mode `"reminders"` that
+  reads `ReminderPrefs` for Teams and email (push always), and a card per kind (`💊 Meds` /
+  `Open Meds`, `🎒 School`, `📅 People`, `🚐 Cars`), which the email's link text follows too.
+- **Recalls (62b):** NHTSA's day cache doesn't apply outside a request, so `Vehicle.recallsCheckedAt`
+  limits it to once a day per car; a car needs year, make and model (not a VIN) to be checked. A
+  failed check in the job can blank the Cars page's recalls for ten minutes (the module's shared
+  negative cache): accepted.
+- **First run:** small for doses (a day), school (two days) and dates (a week). Overdue car items
+  all remind once on the first run: accepted (62b says so in its guide line). A `ReminderSent` row
+  is cleared after 400 days, so an item overdue that long with no log reminds once more.
+- **Not in the backup file**, noted in `lib/backup/schema.ts`'s header like `AlertPrefs`.
+- **My notifications lists only what can be changed:** a kind whose app is off isn't listed, and
+  the car kinds arrive with 62b.
+
+### Tests
+
+Unit: each planner (windows, recipients, kids, keys), days of supply per frequency, quiet hours
+(wrapping midnight, urgent through), miles-a-day estimate, digest content and the 7am rule.
+DB: claim once per person and key, quiet hours defer then send, low-stock clearing, recall
+baseline then new. Guides: family.md (reminders, quiet hours, summary, days left), admin.md (the
+System card's new job, the mailbox and Teams for summaries).
+
+### Not in this phase
+
+Per-person reminder times, snoozing, reminders by SMS, money in the summary, anything from
+63–65.
+
+### Pull requests
+
+62a engine and four kinds, 62b cars and recalls, 62c summary and days left.
+
 ## Open items
 
 ### Waiting on a decision

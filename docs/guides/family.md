@@ -452,7 +452,17 @@ allow them in the phone's settings and reload the page.
 messages from the family's Teams app, named like the app, under **Chat** in Teams. It only sends;
 there's nothing to reply to.
 
-Kids get notes in the bell (orders, "Not this time"), not on their phone.
+**Reminders** (Settings → My notifications → **Reminders**): the app reminds grown-ups when a
+dose wasn't marked (about an hour and a half after its time), a medicine is running low (a week
+left, or its refill count), a school form, fee or to-do is due today or tomorrow, and a birthday
+or anniversary is coming up this week (not your own). Each goes once, in the bell and on your
+phones; tick **In Teams** or **By email** to get them there too, where the family has those set up.
+Untick any kind you don't want. **Quiet hours** (say 9:00 pm to 7:00 am) hold reminders until
+they're over, except a missed dose, which comes straight away. A running-low medicine still goes
+on the shopping list as before.
+
+Kids get notes in the bell (orders, "Not this time", and a reminder when their own dose wasn't
+marked), not on their phone.
 
 ## Your own settings
 
