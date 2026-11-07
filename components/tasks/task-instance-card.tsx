@@ -14,6 +14,7 @@ import { rewardCount } from "@/lib/reward-words";
 import { StatusPill } from "@/components/status-pill";
 import type { WorkItem } from "@/lib/work-items/types";
 import { canDoChore, canSkipChore, canUndoChore } from "@/lib/tasks/permissions";
+import { SelectBox, useSelection } from "@/components/selection";
 
 // Not imported from lib/people.ts's fullName: that module's top-level `import { prisma }`
 // pulls the whole Postgres/pg dependency chain (Node built-ins like `tls`) into this
@@ -116,6 +117,7 @@ export function TaskInstanceCard({
   pill,
   moves,
   onMove,
+  selectable = false,
 }: {
   instance: Instance;
   viewerId: string;
@@ -175,6 +177,8 @@ export function TaskInstanceCard({
   /** Phase 59.2b: where a grown-up may move this chore (lib/tasks/move.ts), worked out on the server. */
   moves?: { tomorrow: boolean; today: boolean; back: boolean };
   onMove?: (instanceId: string, to: "today" | "tomorrow" | "back") => Promise<{ moved: boolean }>;
+  /** Phase 59.3: shows a tick box while the board is selecting (components/selection.tsx). */
+  selectable?: boolean;
 }) {
   const reward = useRewardWords();
   const big = size === "big";
@@ -204,6 +208,9 @@ export function TaskInstanceCard({
   const canSkip = Boolean(onSkip) && canSkipChore(who) && optimisticStatus === "PENDING";
   // With a pill, Skip lives in the pill and the ⋯ keeps only Give to, so nothing is offered twice.
   const skipInMenu = canSkip && !pill;
+  // While the board is selecting, the card's own buttons step aside so a stray tap can't finish it.
+  const selection = useSelection();
+  const picking = selectable && Boolean(selection?.active);
   const canMove = Boolean(onMove && moves && optimisticStatus === "PENDING" && (moves.tomorrow || moves.today || moves.back));
   const canUnskip = Boolean(onUnskip) && canSkipChore(who) && optimisticStatus === "SKIPPED";
 
@@ -332,6 +339,7 @@ export function TaskInstanceCard({
           exiting ? "scale-95 opacity-0" : "scale-100 opacity-100"
         } ${celebrating ? "animate-[pop_500ms_ease-out]" : ""}`}
       >
+        {selectable && optimisticStatus === "PENDING" && <SelectBox id={instance.id} label={instance.definition.title} />}
         <span
           className={`flex shrink-0 items-center justify-center rounded-full font-semibold text-white transition-colors duration-300 ${
             big ? "size-11 text-base" : "size-8 text-xs"
@@ -402,7 +410,7 @@ export function TaskInstanceCard({
           </p>
         )}
 
-        {(pillLook || canReassign || skipInMenu || canMove || canComplete || canUndo || canUnskip) && (
+        {!picking && (pillLook || canReassign || skipInMenu || canMove || canComplete || canUndo || canUnskip) && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {pill && pillLook && (
               // One change at a time: "Undo" waits until the server has the completion it undoes.

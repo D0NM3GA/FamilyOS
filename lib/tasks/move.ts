@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/app/generated/prisma/client";
 import { withStoredDays } from "@/lib/household-zone";
 import { recordEvent, eventDate } from "@/lib/work-items/events";
 import { addDays, atMidnight } from "./schedule";
@@ -69,26 +70,34 @@ export async function moveChore(opts: { householdId: string; instanceId: string;
   }
 }
 
-function moveUnderLock(opts: { householdId: string; instanceId: string; to: MoveTarget | "back"; byId: string; now?: Date }): Promise<boolean> {
-  return withStoredDays(async (tx) => {
-    const i = await tx.taskInstance.findFirst({
-      where: { id: opts.instanceId, status: "PENDING", definition: { householdId: opts.householdId, domain: "CHORE" } },
-      include: { definition: { select: { frequencyType: true } } },
-    });
-    if (!i) return false;
-    const target = opts.to === "back" ? i.movedFrom : opts.to === "today" ? atMidnight(opts.now ?? new Date()) : addDays(atMidnight(opts.now ?? new Date()), 1);
-    if (!target) return false;
-    const clash = await tx.taskInstance.findFirst({ where: { definitionId: i.definitionId, dueDate: target, NOT: { id: i.id } }, select: { id: true } });
-    const taken = new Set(clash ? [`${i.definitionId}|${target.getTime()}`] : []);
-    const choices = moveChoices({ ...i, frequencyType: i.definition.frequencyType }, taken, opts.now);
-    if (!choices[opts.to]) return false;
-    const { count } = await tx.taskInstance.updateMany({
-      where: { id: i.id, status: "PENDING", dueDate: i.dueDate },
-      // Back home clears the mark; a second move keeps the first day.
-      data: { dueDate: target, movedFrom: opts.to === "back" ? null : (i.movedFrom ?? i.dueDate) },
-    });
-    if (count === 0) return false;
-    await recordEvent(tx, { householdId: opts.householdId, itemType: "CHORE", itemId: i.id, actorId: opts.byId, action: "MOVE", fromValue: eventDate(i.dueDate), toValue: eventDate(target) });
-    return true;
+type MoveOpts = { householdId: string; instanceId: string; to: MoveTarget | "back"; byId: string; now?: Date };
+
+function moveUnderLock(opts: MoveOpts): Promise<boolean> {
+  return withStoredDays((tx) => moveChoreIn(tx, opts));
+}
+
+/**
+ * One move inside a transaction that already holds the stored-days lock (Phase 59.3: a bulk
+ * Move to tomorrow runs several in one). Checks everything again and does nothing on a refusal.
+ */
+export async function moveChoreIn(tx: Prisma.TransactionClient, opts: MoveOpts): Promise<boolean> {
+  const i = await tx.taskInstance.findFirst({
+    where: { id: opts.instanceId, status: "PENDING", definition: { householdId: opts.householdId, domain: "CHORE" } },
+    include: { definition: { select: { frequencyType: true } } },
   });
+  if (!i) return false;
+  const target = opts.to === "back" ? i.movedFrom : opts.to === "today" ? atMidnight(opts.now ?? new Date()) : addDays(atMidnight(opts.now ?? new Date()), 1);
+  if (!target) return false;
+  const clash = await tx.taskInstance.findFirst({ where: { definitionId: i.definitionId, dueDate: target, NOT: { id: i.id } }, select: { id: true } });
+  const taken = new Set(clash ? [`${i.definitionId}|${target.getTime()}`] : []);
+  const choices = moveChoices({ ...i, frequencyType: i.definition.frequencyType }, taken, opts.now);
+  if (!choices[opts.to]) return false;
+  const { count } = await tx.taskInstance.updateMany({
+    where: { id: i.id, status: "PENDING", dueDate: i.dueDate },
+    // Back home clears the mark; a second move keeps the first day.
+    data: { dueDate: target, movedFrom: opts.to === "back" ? null : (i.movedFrom ?? i.dueDate) },
+  });
+  if (count === 0) return false;
+  await recordEvent(tx, { householdId: opts.householdId, itemType: "CHORE", itemId: i.id, actorId: opts.byId, action: "MOVE", fromValue: eventDate(i.dueDate), toValue: eventDate(target) });
+  return true;
 }

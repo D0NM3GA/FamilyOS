@@ -19,7 +19,10 @@ import { PageHeader } from "@/components/page-header";
 import { PageMore } from "@/components/more-menu";
 import { UpcomingFold } from "@/components/tasks/upcoming-fold";
 import { btn, btnPrimary, sectionTitle } from "@/components/styles";
-import { completeInstance, uncompleteInstance, reassignInstance, skipInstance, unskipInstance, markOlderMissed, moveInstance } from "./actions";
+import { completeInstance, uncompleteInstance, reassignInstance, skipInstance, unskipInstance, markOlderMissed, moveInstance, bulkChores } from "./actions";
+import { SelectionProvider, SelectToggle } from "@/components/selection";
+import { ChoresBulkBar, ChorePresets } from "./bulk";
+import { presetIds } from "@/lib/tasks/presets";
 import { BunsonMoment } from "@/components/bunson-moment";
 import { MOMENT_LINES } from "@/lib/bunson-moments";
 import { resolveViewMode } from "@/lib/view-prefs";
@@ -86,162 +89,184 @@ export default async function ChoresPage({
   const movesFor = (i: (typeof allInstances)[number]) =>
     viewerIsAdult && !big ? moveChoices({ ...i, frequencyType: i.definition.frequencyType }, taken, today) : undefined;
   const move = viewerIsAdult && !big ? moveInstance : undefined;
+  // Phase 59.3: grown-ups pick several and act once, and get two presets for the filtered person.
+  const selecting = viewerIsAdult && !big;
+  const filtered = personFilter ? members.find((m) => m.id === personFilter) : undefined;
+  const { sickDayIds, handOffIds } = personFilter ? presetIds({ dueToday, upcoming }, personFilter, today) : { sickDayIds: [], handOffIds: [] };
 
   return (
-    <div className="p-4 sm:p-6">
-      <PageHeader title="🧹 Chores">
-        {viewerIsAdult && (
-          <Link href="/chores/new" className={btnPrimary}>
-            + New chore
-          </Link>
-        )}
-        {storeOn && (
-          <Link href="/points" className={btn}>
-            ⭐ Rewards
-          </Link>
-        )}
-        {viewerIsAdult && (
-          <Link href="/chores/manage" className={btn}>
-            Manage
-          </Link>
-        )}
-        <PageMore
-          items={[
-            { label: "Print", href: "/print/chores" },
-            ...(viewerIsAdult ? [{ label: "Export", href: "/data#chores" }] : []),
-          ]}
-        />
-      </PageHeader>
-
-      {/* Phase 45.1: an admin sets home right here, from this device or a ZIP code. */}
-      {viewerIsAdult && hasWeatherSensitiveChore && household.latitude == null && (
-        <div className="mt-4 space-y-2 rounded-xl bg-amber-50 px-3 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30">
-          {isAdmin(profile) ? (
-            <>
-              <p>Outdoor chores can warn about rain once the app knows roughly where home is.</p>
-              <HomeLocation nearZip={null} />
-            </>
-          ) : (
-            <p>Outdoor chores can warn about rain once an admin sets where home is, in Settings → Household.</p>
+    // A new person on the filter is a new selection (the key resets it).
+    <SelectionProvider key={personFilter ?? "everyone"}>
+      <div className="p-4 sm:p-6">
+        <PageHeader title="🧹 Chores">
+          {selecting && <SelectToggle />}
+          {viewerIsAdult && (
+            <Link href="/chores/new" className={btnPrimary}>
+              + New chore
+            </Link>
           )}
-        </div>
-      )}
-
-      <PersonFilterRow
-        members={members}
-        tally={tally}
-        path="/chores"
-        everyoneHref={big ? "/chores?all=1" : "/chores"}
-        selected={personFilter}
-      />
-
-      <MilestoneToastBoard>
-        <div className="mt-6 space-y-6">
-          {nothingLeft && <BunsonMoment kind="cheer" text={MOMENT_LINES.choresDone} />}
-          {overdue.length > 0 && (
-            <Section title="Overdue" tone="text-destructive">
-              {overdue.map((i, idx) => (
-                <TaskInstanceCard
-                  key={i.id}
-                  instance={toCardInstance(i)}
-                  viewerId={profile.id}
-                  viewerIsAdult={viewerIsAdult}
-                  claimable
-                  onComplete={completeInstance}
-                  onUndo={uncompleteInstance}
-                  onReassign={viewerIsAdult ? reassignInstance : undefined}
-                  onSkip={viewerIsAdult ? skipInstance : undefined}
-                  onUnskip={viewerIsAdult ? unskipInstance : undefined}
-                  skipLabel="Missed"
-                  reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
-                  weatherNote={weatherNoteFor(i)}
-                  pill={pillFor(i, true)}
-                  moves={movesFor(i)}
-                  onMove={move}
-                  disappearsOnComplete
-                  index={idx}
-                  {...cardLook}
-                />
-              ))}
-            </Section>
+          {storeOn && (
+            <Link href="/points" className={btn}>
+              ⭐ Rewards
+            </Link>
           )}
-
-          {viewerIsAdult && olderMissed > 0 && (
-            <form action={markOlderMissed.bind(null, personFilter ?? null)} className="flex flex-wrap items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
-              <span className="mr-auto">
-                {olderMissed} older {olderMissed === 1 ? "chore" : "chores"} from before last week {olderMissed === 1 ? "was" : "were"} never marked.
-              </span>
-              <SubmitButton className={btn}>
-                Mark {olderMissed === 1 ? "it" : "them"} missed
-              </SubmitButton>
-            </form>
+          {viewerIsAdult && (
+            <Link href="/chores/manage" className={btn}>
+              Manage
+            </Link>
           )}
+          <PageMore
+            items={[
+              { label: "Print", href: "/print/chores" },
+              ...(viewerIsAdult ? [{ label: "Export", href: "/data#chores" }] : []),
+            ]}
+          />
+        </PageHeader>
 
-          <Section title="Today">
-            {dueToday.length === 0 ? (
-              <li>
-                <EmptyNote>Nothing due today.<LookQuiet /></EmptyNote>
-              </li>
+        {/* Phase 45.1: an admin sets home right here, from this device or a ZIP code. */}
+        {viewerIsAdult && hasWeatherSensitiveChore && household.latitude == null && (
+          <div className="mt-4 space-y-2 rounded-xl bg-amber-50 px-3 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30">
+            {isAdmin(profile) ? (
+              <>
+                <p>Outdoor chores can warn about rain once the app knows roughly where home is.</p>
+                <HomeLocation nearZip={null} />
+              </>
             ) : (
-              dueToday.map((i, idx) => (
-                <TaskInstanceCard
-                  key={i.id}
-                  instance={toCardInstance(i)}
-                  viewerId={profile.id}
-                  viewerIsAdult={viewerIsAdult}
-                  claimable
-                  onComplete={completeInstance}
-                  onUndo={uncompleteInstance}
-                  onReassign={viewerIsAdult ? reassignInstance : undefined}
-                  onSkip={viewerIsAdult ? skipInstance : undefined}
-                  onUnskip={viewerIsAdult ? unskipInstance : undefined}
-                  reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
-                  weatherNote={weatherNoteFor(i)}
-                  pill={pillFor(i, true)}
-                  moves={movesFor(i)}
-                  onMove={move}
-                  showDate={false}
-                  index={idx}
-                  {...cardLook}
-                />
-              ))
+              <p>Outdoor chores can warn about rain once an admin sets where home is, in Settings → Household.</p>
             )}
-          </Section>
+          </div>
+        )}
 
-          {upcoming.length === 0 ? (
-            <Section title="Upcoming">
-              <li>
-                <EmptyNote>Nothing else in the next {horizonDays} days.</EmptyNote>
-              </li>
+        <PersonFilterRow
+          members={members}
+          tally={tally}
+          path="/chores"
+          everyoneHref={big ? "/chores?all=1" : "/chores"}
+          selected={personFilter}
+        />
+
+        {selecting && filtered && (
+          <ChorePresets
+            bulk={bulkChores}
+            person={filtered.firstName}
+            sickDayIds={sickDayIds}
+            handOffIds={handOffIds}
+            others={reassignCandidates.filter((m) => m.id !== filtered.id)}
+          />
+        )}
+
+        <MilestoneToastBoard>
+          <div className="mt-6 space-y-6">
+            {nothingLeft && <BunsonMoment kind="cheer" text={MOMENT_LINES.choresDone} />}
+            {overdue.length > 0 && (
+              <Section title="Overdue" tone="text-destructive">
+                {overdue.map((i, idx) => (
+                  <TaskInstanceCard
+                    key={i.id}
+                    instance={toCardInstance(i)}
+                    viewerId={profile.id}
+                    viewerIsAdult={viewerIsAdult}
+                    claimable
+                    onComplete={completeInstance}
+                    onUndo={uncompleteInstance}
+                    onReassign={viewerIsAdult ? reassignInstance : undefined}
+                    onSkip={viewerIsAdult ? skipInstance : undefined}
+                    onUnskip={viewerIsAdult ? unskipInstance : undefined}
+                    skipLabel="Missed"
+                    reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
+                    weatherNote={weatherNoteFor(i)}
+                    pill={pillFor(i, true)}
+                    moves={movesFor(i)}
+                    onMove={move}
+                    selectable={selecting}
+                    disappearsOnComplete
+                    index={idx}
+                    {...cardLook}
+                  />
+                ))}
+              </Section>
+            )}
+
+            {viewerIsAdult && olderMissed > 0 && (
+              <form action={markOlderMissed.bind(null, personFilter ?? null)} className="flex flex-wrap items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+                <span className="mr-auto">
+                  {olderMissed} older {olderMissed === 1 ? "chore" : "chores"} from before last week {olderMissed === 1 ? "was" : "were"} never marked.
+                </span>
+                <SubmitButton className={btn}>
+                  Mark {olderMissed === 1 ? "it" : "them"} missed
+                </SubmitButton>
+              </form>
+            )}
+
+            <Section title="Today">
+              {dueToday.length === 0 ? (
+                <li>
+                  <EmptyNote>Nothing due today.<LookQuiet /></EmptyNote>
+                </li>
+              ) : (
+                dueToday.map((i, idx) => (
+                  <TaskInstanceCard
+                    key={i.id}
+                    instance={toCardInstance(i)}
+                    viewerId={profile.id}
+                    viewerIsAdult={viewerIsAdult}
+                    claimable
+                    onComplete={completeInstance}
+                    onUndo={uncompleteInstance}
+                    onReassign={viewerIsAdult ? reassignInstance : undefined}
+                    onSkip={viewerIsAdult ? skipInstance : undefined}
+                    onUnskip={viewerIsAdult ? unskipInstance : undefined}
+                    reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
+                    weatherNote={weatherNoteFor(i)}
+                    pill={pillFor(i, true)}
+                    moves={movesFor(i)}
+                    onMove={move}
+                    selectable={selecting}
+                    showDate={false}
+                    index={idx}
+                    {...cardLook}
+                  />
+                ))
+              )}
             </Section>
-          ) : (
-            <UpcomingFold days={horizonDays} count={upcoming.length} open={bigCards}>
-              {upcoming.map((i, idx) => (
-                <TaskInstanceCard
-                  key={i.id}
-                  instance={toCardInstance(i)}
-                  viewerId={profile.id}
-                  viewerIsAdult={viewerIsAdult}
-                  claimable
-                  onComplete={completeInstance}
-                  onUndo={uncompleteInstance}
-                  onReassign={viewerIsAdult ? reassignInstance : undefined}
-                  reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
-                  weatherNote={weatherNoteFor(i)}
-                  pill={pillFor(i, false)}
-                  moves={movesFor(i)}
-                  onMove={move}
-                  disappearsOnComplete
-                  quietDone
-                  index={idx}
-                  {...cardLook}
-                />
-              ))}
-            </UpcomingFold>
-          )}
-        </div>
-      </MilestoneToastBoard>
-    </div>
+
+            {upcoming.length === 0 ? (
+              <Section title="Upcoming">
+                <li>
+                  <EmptyNote>Nothing else in the next {horizonDays} days.</EmptyNote>
+                </li>
+              </Section>
+            ) : (
+              <UpcomingFold days={horizonDays} count={upcoming.length} open={bigCards}>
+                {upcoming.map((i, idx) => (
+                  <TaskInstanceCard
+                    key={i.id}
+                    instance={toCardInstance(i)}
+                    viewerId={profile.id}
+                    viewerIsAdult={viewerIsAdult}
+                    claimable
+                    onComplete={completeInstance}
+                    onUndo={uncompleteInstance}
+                    onReassign={viewerIsAdult ? reassignInstance : undefined}
+                    reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
+                    weatherNote={weatherNoteFor(i)}
+                    pill={pillFor(i, false)}
+                    moves={movesFor(i)}
+                    onMove={move}
+                    selectable={selecting}
+                    disappearsOnComplete
+                    quietDone
+                    index={idx}
+                    {...cardLook}
+                  />
+                ))}
+              </UpcomingFold>
+            )}
+          </div>
+          {selecting && <ChoresBulkBar bulk={bulkChores} people={reassignCandidates} />}
+        </MilestoneToastBoard>
+      </div>
+    </SelectionProvider>
   );
 }
 

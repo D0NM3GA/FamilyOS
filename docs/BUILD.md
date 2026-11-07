@@ -1419,3 +1419,24 @@ Move back is offered only while that day is inside the overdue window, so it can
 "older, never marked" (a call made in the build, open to change). Known: a round-robin chore moved
 past the next one's day can give the next turn to the same person once, since "most recent" is by
 due day; it corrects itself the turn after.
+
+### 59.3 — Pick several, act once
+
+The chore and school actions' rules moved into cores that take a transaction and say why they
+refused instead of throwing (`lib/tasks/chore-cores.ts`, `lib/school/cores.ts`, and `moveChoreIn` in
+`lib/tasks/move.ts`); the single actions and the bulk ones (`bulkChores`, `bulkSchool`) both call
+them, so a tap and a bulk change can't differ. Bulk input is checked in `lib/work-items/bulk.ts`
+(1 to 30 ids, no repeats, a known action); everything runs in one transaction (Chores' under the
+stored-days lock, for Move to tomorrow), and the result counts what was done and why the rest was
+skipped. On a bulk Done each completion's milestone is counted inside the transaction, and the
+highest is celebrated once. `components/selection.tsx` holds the page's selection (a provider keyed
+by the person or student, so it resets), the Select toggle, the rows' tick boxes and the sticky bar.
+The presets are the bulk action with a list the page works out: Sick day (asks first) and Hand off.
+Grown-ups only, never in Big buttons.
+Fable's review of 59.3: a kid on a sibling's homework hears "not found" again, as before the cores;
+a form from elsewhere counts as gone, not "already that way"; a hand-off of a chore that's already
+theirs is counted as skipped. A rule's refusal is counted, but a database error fails the whole
+batch and nothing is kept; bulk transactions get 15 seconds (`BULK_TIMEOUT_MS`). The presets' lists
+are `lib/tasks/presets.ts`, tested. While selecting, each row's and card's own buttons step aside, so
+a stray tap can't finish something mid-selection. `bulk.ts` no longer imports zod (the check is
+`bulk-schema.ts`), so the client bar doesn't ship it.

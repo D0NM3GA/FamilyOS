@@ -16,6 +16,7 @@ import { btn, card, chip, chipRow, fieldLabel, iconBtn, sectionTitle } from "@/c
 import {
   addAssignment,
   addTask,
+  bulkSchool,
   approveKidChange,
   claimTask,
   deleteAssignment,
@@ -30,6 +31,8 @@ import {
 } from "./actions";
 import { AssignmentForm, TaskForm } from "./forms";
 import { AssignmentRow, KidChange, SchoolTaskRow } from "./rows";
+import { SelectionProvider, SelectToggle } from "@/components/selection";
+import { FormsBulkBar, HomeworkBulkBar } from "./bulk";
 import { assignmentItem } from "@/lib/work-items/assignment";
 import { schoolTaskItem } from "@/lib/work-items/school-task";
 import { canEditAssignmentDetails, canRemoveAssignment } from "@/lib/school/permissions";
@@ -207,212 +210,226 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
         </section>
 
         {adult && (
-          <section className={`min-w-0 ${card}`}>
-            <h2 className={cardTitle}>Forms & to-dos</h2>
-            {tasks.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">Nothing to sign or pay. 🎉</p>
-            ) : (
-              <ul className="mt-2 divide-y divide-border">
-                {tasks.map((t) => {
-                  const late = t.dueDate != null && t.dueDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                  return (
-                    <SchoolTaskRow
-                      key={t.id}
-                      item={schoolTaskItem({ id: t.id, title: t.title, dueDate: t.dueDate, status: t.status, owner: t.owner }, viewer, today)}
-                      details={{ kind: KIND_LABEL[t.kind], amount: t.amountCents != null ? formatMoney(t.amountCents) : null }}
-                      meta={[
-                        t.dueDate ? `${late ? "Was due" : "Due"} ${formatFullDate(t.dueDate)}` : "No due date",
-                        t.kid ? t.kid.firstName : "everyone",
-                        t.owner ? `${t.owner.firstName} has it` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                      late={late}
-                      removeQuestion={`Remove "${t.title}"? This can't be undone.`}
-                      onStatus={setTaskStatus}
-                      onRemove={deleteTask}
-                      edit={{
-                        action: updateTask.bind(null, t.id),
-                        defaults: {
-                          title: t.title,
-                          kind: t.kind,
-                          dueDate: t.dueDate ? toISODate(t.dueDate) : "",
-                          amount: t.amountCents != null ? (t.amountCents / 100).toFixed(2) : "",
-                          kidPersonId: t.kidPersonId ?? "",
-                          ownerPersonId: t.ownerPersonId ?? "",
-                          notes: t.notes ?? "",
-                        },
-                        kids: kidsList,
-                        adults: members.filter((m) => m.role !== "KID").map((m) => ({ id: m.id, name: m.firstName })),
-                      }}
-                      onClaim={t.ownerPersonId === viewer.id ? undefined : claimTask}
-                    />
-                  );
-                })}
-              </ul>
-            )}
-            {recentlyDone.length > 0 && (
-              <details className="mt-3 text-sm">
-                <summary className="cursor-pointer py-3 font-bold text-muted-foreground sm:py-1">
-                  Done recently ({recentlyDone.length})
-                </summary>
-                <ul className="mt-1 space-y-1">
-                  {recentlyDone.map((t) => (
-                    <li key={t.id} className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 text-muted-foreground line-through">{t.title}</span>
-                      <form action={setTaskDone.bind(null, t.id, false)}>
-                        <SubmitButton aria-label={`Undo ${t.title}`} className={btn}>
-                          Undo
-                        </SubmitButton>
-                      </form>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-            <div className="mt-3">
-              <TaskForm
-                action={addTask}
-                defaultKidId={person.id}
-                kids={students.map((s) => ({ id: s.id, name: s.firstName }))}
-                adults={members.filter((m) => m.role !== "KID").map((m) => ({ id: m.id, name: m.firstName }))}
-              />
-            </div>
-          </section>
-        )}
-
-        <section className={`min-w-0 ${card} lg:col-span-2`}>
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <h2 className={cardTitle}>Homework & tests</h2>
-            {toCheck > 0 && (
-              <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                {toCheck === 1 ? "1 change to check" : `${toCheck} changes to check`}
-              </p>
-            )}
-            {testsThisWeek > 0 && (
-              <p className="text-sm font-bold text-sky-800 dark:text-sky-300">
-                {toSitLabel} this week
-              </p>
-            )}
-          </div>
-          {!school ? (
-            <p className="mt-2 text-sm text-muted-foreground">Set up the school details first.</p>
-          ) : (
-            <>
-              {open.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">All caught up. ✨</p>
+          // Phase 59.3: its own selection, new for each student.
+          <SelectionProvider key={`forms-${selectedId}`}>
+            <section className={`min-w-0 ${card}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className={cardTitle}>Forms & to-dos</h2>
+                {tasks.length > 1 && <SelectToggle />}
+              </div>
+              {tasks.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">Nothing to sign or pay. 🎉</p>
               ) : (
                 <ul className="mt-2 divide-y divide-border">
-                  {open.map((a) => {
-                    const overdue = isOverdue(a, today);
-                    const student = { id: person.id, firstName: person.firstName };
+                  {tasks.map((t) => {
+                    const late = t.dueDate != null && t.dueDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
                     return (
-                      <AssignmentRow
-                        key={a.id}
-                        kind={a.kind}
-                        item={assignmentItem({ ...a, student }, viewer, today)}
-                        className={a.className}
-                        dueText={a.dueDate ? `${overdue ? "Was due" : "Due"} ${formatFullDate(a.dueDate)}` : "No due date"}
-                        overdue={overdue}
-                        editHref={adult ? `/school/${person.id}/assignments/${a.id}` : undefined}
-                        canRemove={canRemoveAssignment(viewer, { studentId: person.id, status: a.status, score: a.score })}
-                        removeQuestion={`Remove "${a.title}"${a.score != null ? " and its grade" : ""}? This can't be undone.`}
-                        onStatus={setAssignmentStatus}
-                        onRemove={deleteAssignment}
-                        details={
-                          canEditAssignmentDetails(viewer, { studentId: person.id, status: a.status, score: a.score })
-                            ? {
-                                action: setAssignmentDetails.bind(null, a.id),
-                                defaults: { title: a.title, className: a.className, kind: a.kind, dueDate: a.dueDate ? toISODate(a.dueDate) : "" },
-                              }
-                            : undefined
-                        }
-                        grade={
-                          adult
-                            ? { action: gradeAssignment.bind(null, a.id), defaults: { score: a.score?.toString() ?? "", maxScore: a.maxScore?.toString() ?? "" } }
-                            : undefined
-                        }
-                        kidChange={
-                          adult && a.kidChangedAt
-                            ? {
-                                who: person.firstName,
-                                onApprove: approveKidChange.bind(null, a.id, a.kidChangedAt.toISOString()),
-                                onPutBack: putBackKidChange.bind(null, a.id, a.kidChangedAt.toISOString()),
-                              }
-                            : undefined
-                        }
+                      <SchoolTaskRow
+                        key={t.id}
+                        item={schoolTaskItem({ id: t.id, title: t.title, dueDate: t.dueDate, status: t.status, owner: t.owner }, viewer, today)}
+                        details={{ kind: KIND_LABEL[t.kind], amount: t.amountCents != null ? formatMoney(t.amountCents) : null }}
+                        meta={[
+                          t.dueDate ? `${late ? "Was due" : "Due"} ${formatFullDate(t.dueDate)}` : "No due date",
+                          t.kid ? t.kid.firstName : "everyone",
+                          t.owner ? `${t.owner.firstName} has it` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                        late={late}
+                        removeQuestion={`Remove "${t.title}"? This can't be undone.`}
+                        onStatus={setTaskStatus}
+                        onRemove={deleteTask}
+                        edit={{
+                          action: updateTask.bind(null, t.id),
+                          defaults: {
+                            title: t.title,
+                            kind: t.kind,
+                            dueDate: t.dueDate ? toISODate(t.dueDate) : "",
+                            amount: t.amountCents != null ? (t.amountCents / 100).toFixed(2) : "",
+                            kidPersonId: t.kidPersonId ?? "",
+                            ownerPersonId: t.ownerPersonId ?? "",
+                            notes: t.notes ?? "",
+                          },
+                          kids: kidsList,
+                          adults: members.filter((m) => m.role !== "KID").map((m) => ({ id: m.id, name: m.firstName })),
+                        }}
+                        onClaim={t.ownerPersonId === viewer.id ? undefined : claimTask}
+                        selectable
                       />
                     );
                   })}
                 </ul>
               )}
-              {/* Done recently opens when it holds a kid's change to check, so the heading's count can be found. */}
-              {doneRecently.length > 0 && (
-                <details className="mt-3 text-sm" open={adult && doneRecently.some((a) => a.kidChangedAt != null)}>
-                  <summary className="cursor-pointer py-3 font-bold text-muted-foreground sm:py-1">Done recently ({doneRecently.length})</summary>
+              {recentlyDone.length > 0 && (
+                <details className="mt-3 text-sm">
+                  <summary className="cursor-pointer py-3 font-bold text-muted-foreground sm:py-1">
+                    Done recently ({recentlyDone.length})
+                  </summary>
                   <ul className="mt-1 space-y-1">
-                    {doneRecently.map((a) => (
-                      <li key={a.id} className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="min-w-0 text-muted-foreground line-through">
-                          <span className="text-xs font-bold">{a.className}</span> {a.title}
-                        </span>
-                        <form action={setAssignmentStatus.bind(null, a.id, "TODO")}>
-                          <SubmitButton aria-label={`Undo ${a.title}`} className={btn}>
+                    {recentlyDone.map((t) => (
+                      <li key={t.id} className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 text-muted-foreground line-through">{t.title}</span>
+                        <form action={setTaskDone.bind(null, t.id, false)}>
+                          <SubmitButton aria-label={`Undo ${t.title}`} className={btn}>
                             Undo
                           </SubmitButton>
                         </form>
-                        {adult && a.kidChangedAt && (
-                          <KidChange
-                            who={person.firstName}
-                            title={a.title}
-                            onApprove={approveKidChange.bind(null, a.id, a.kidChangedAt.toISOString())}
-                            onPutBack={putBackKidChange.bind(null, a.id, a.kidChangedAt.toISOString())}
-                          />
-                        )}
                       </li>
                     ))}
                   </ul>
                 </details>
               )}
               <div className="mt-3">
-                <AssignmentForm action={addAssignment.bind(null, person.id)} canGrade={adult} />
+                <TaskForm
+                  action={addTask}
+                  defaultKidId={person.id}
+                  kids={students.map((s) => ({ id: s.id, name: s.firstName }))}
+                  adults={members.filter((m) => m.role !== "KID").map((m) => ({ id: m.id, name: m.firstName }))}
+                />
               </div>
+              <FormsBulkBar bulk={bulkSchool} />
+            </section>
+          </SelectionProvider>
+        )}
 
-              {(averages.length > 0 || graded.length > 0) && (
-                <div className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
-                  <div>
-                    <h3 className={sectionTitle}>Averages</h3>
-                    <ul className="mt-1 space-y-1 text-sm">
-                      {averages.map((c) => (
-                        <li key={c.className} className="flex justify-between gap-2">
-                          <span className="text-foreground">{c.className}</span>
-                          <span className="tabular-nums text-muted-foreground">
-                            {c.percent}% <span className="text-xs">({c.graded} graded)</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className={sectionTitle}>Recent grades</h3>
-                    <ul className="mt-1 space-y-1 text-sm">
-                      {graded.slice(0, 8).map((a) => (
-                        <li key={a.id} className="flex justify-between gap-2">
-                          <span className="truncate text-foreground">
-                            <span className="text-xs text-muted-foreground">{a.className}</span> {a.title}
-                          </span>
-                          <span className="shrink-0 tabular-nums text-muted-foreground">
-                            {a.score}/{a.maxScore}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+        <SelectionProvider key={`homework-${selectedId}`}>
+          <section className={`min-w-0 ${card} lg:col-span-2`}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <h2 className={cardTitle}>Homework & tests</h2>
+              {/* Phase 59.3: grown-ups pick several. */}
+              {adult && open.length > 1 && <SelectToggle />}
+              {toCheck > 0 && (
+                <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                  {toCheck === 1 ? "1 change to check" : `${toCheck} changes to check`}
+                </p>
               )}
-            </>
-          )}
-        </section>
+              {testsThisWeek > 0 && (
+                <p className="text-sm font-bold text-sky-800 dark:text-sky-300">
+                  {toSitLabel} this week
+                </p>
+              )}
+            </div>
+            {!school ? (
+              <p className="mt-2 text-sm text-muted-foreground">Set up the school details first.</p>
+            ) : (
+              <>
+                {open.length === 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">All caught up. ✨</p>
+                ) : (
+                  <ul className="mt-2 divide-y divide-border">
+                    {open.map((a) => {
+                      const overdue = isOverdue(a, today);
+                      const student = { id: person.id, firstName: person.firstName };
+                      return (
+                        <AssignmentRow
+                          key={a.id}
+                          kind={a.kind}
+                          item={assignmentItem({ ...a, student }, viewer, today)}
+                          className={a.className}
+                          dueText={a.dueDate ? `${overdue ? "Was due" : "Due"} ${formatFullDate(a.dueDate)}` : "No due date"}
+                          overdue={overdue}
+                          editHref={adult ? `/school/${person.id}/assignments/${a.id}` : undefined}
+                          canRemove={canRemoveAssignment(viewer, { studentId: person.id, status: a.status, score: a.score })}
+                          removeQuestion={`Remove "${a.title}"${a.score != null ? " and its grade" : ""}? This can't be undone.`}
+                          onStatus={setAssignmentStatus}
+                          onRemove={deleteAssignment}
+                          details={
+                            canEditAssignmentDetails(viewer, { studentId: person.id, status: a.status, score: a.score })
+                              ? {
+                                  action: setAssignmentDetails.bind(null, a.id),
+                                  defaults: { title: a.title, className: a.className, kind: a.kind, dueDate: a.dueDate ? toISODate(a.dueDate) : "" },
+                                }
+                              : undefined
+                          }
+                          grade={
+                            adult
+                              ? { action: gradeAssignment.bind(null, a.id), defaults: { score: a.score?.toString() ?? "", maxScore: a.maxScore?.toString() ?? "" } }
+                              : undefined
+                          }
+                          selectable={adult}
+                          kidChange={
+                            adult && a.kidChangedAt
+                              ? {
+                                  who: person.firstName,
+                                  onApprove: approveKidChange.bind(null, a.id, a.kidChangedAt.toISOString()),
+                                  onPutBack: putBackKidChange.bind(null, a.id, a.kidChangedAt.toISOString()),
+                                }
+                              : undefined
+                          }
+                        />
+                      );
+                    })}
+                  </ul>
+                )}
+                {adult && <HomeworkBulkBar bulk={bulkSchool} />}
+                {/* Done recently opens when it holds a kid's change to check, so the heading's count can be found. */}
+                {doneRecently.length > 0 && (
+                  <details className="mt-3 text-sm" open={adult && doneRecently.some((a) => a.kidChangedAt != null)}>
+                    <summary className="cursor-pointer py-3 font-bold text-muted-foreground sm:py-1">Done recently ({doneRecently.length})</summary>
+                    <ul className="mt-1 space-y-1">
+                      {doneRecently.map((a) => (
+                        <li key={a.id} className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="min-w-0 text-muted-foreground line-through">
+                            <span className="text-xs font-bold">{a.className}</span> {a.title}
+                          </span>
+                          <form action={setAssignmentStatus.bind(null, a.id, "TODO")}>
+                            <SubmitButton aria-label={`Undo ${a.title}`} className={btn}>
+                              Undo
+                            </SubmitButton>
+                          </form>
+                          {adult && a.kidChangedAt && (
+                            <KidChange
+                              who={person.firstName}
+                              title={a.title}
+                              onApprove={approveKidChange.bind(null, a.id, a.kidChangedAt.toISOString())}
+                              onPutBack={putBackKidChange.bind(null, a.id, a.kidChangedAt.toISOString())}
+                            />
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                <div className="mt-3">
+                  <AssignmentForm action={addAssignment.bind(null, person.id)} canGrade={adult} />
+                </div>
+
+                {(averages.length > 0 || graded.length > 0) && (
+                  <div className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                    <div>
+                      <h3 className={sectionTitle}>Averages</h3>
+                      <ul className="mt-1 space-y-1 text-sm">
+                        {averages.map((c) => (
+                          <li key={c.className} className="flex justify-between gap-2">
+                            <span className="text-foreground">{c.className}</span>
+                            <span className="tabular-nums text-muted-foreground">
+                              {c.percent}% <span className="text-xs">({c.graded} graded)</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className={sectionTitle}>Recent grades</h3>
+                      <ul className="mt-1 space-y-1 text-sm">
+                        {graded.slice(0, 8).map((a) => (
+                          <li key={a.id} className="flex justify-between gap-2">
+                            <span className="truncate text-foreground">
+                              <span className="text-xs text-muted-foreground">{a.className}</span> {a.title}
+                            </span>
+                            <span className="shrink-0 tabular-nums text-muted-foreground">
+                              {a.score}/{a.maxScore}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        </SelectionProvider>
 
         <section className={`min-w-0 ${card} lg:col-span-2`}>
           <div className="flex flex-wrap items-center justify-between gap-2">

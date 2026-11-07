@@ -6,7 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult, requireAdult } from "@/lib/authz";
 import { ASSIGNMENT_KINDS, parseAssignmentDetails, parseAssignmentForm, parseGrade, parseProfileForm, parseTaskForm, type AssignmentKindValue } from "@/lib/school/form";
-import { canEditAssignmentDetails, canRemoveAssignment, canSeeStudent, canSetAssignmentStatus } from "@/lib/school/permissions";
+import { canEditAssignmentDetails, canRemoveAssignment, canSeeStudent } from "@/lib/school/permissions";
+import { setAssignmentStatusIn, setTaskDoneIn } from "@/lib/school/cores";
+import { BULK_TIMEOUT_MS, summarize, type BulkResult } from "@/lib/work-items/bulk";
+import { bulkSchema } from "@/lib/work-items/bulk-schema";
 import { deleteEventsFor, recordEvent, recordEvents } from "@/lib/work-items/events";
 import { assignmentChanges, putBackValues, taskChanges } from "@/lib/work-items/changes";
 import { parseLocalDate } from "@/lib/format";
@@ -112,16 +115,7 @@ export async function addTask(_prev: SchoolFormState, fd: FormData): Promise<Sch
 
 export async function setTaskDone(taskId: string, done: boolean) {
   const profile = await requireAdult();
-  const to = done ? "DONE" : "OPEN";
-  await prisma.$transaction(async (tx) => {
-    // Only a real change: ticking off one that's already done leaves no history.
-    const { count } = await tx.schoolTask.updateMany({
-      where: { id: taskId, householdId: profile.householdId, status: done ? "OPEN" : "DONE" },
-      data: { status: to, doneAt: done ? new Date() : null },
-    });
-    if (count === 0) return;
-    await recordEvent(tx, { householdId: profile.householdId, itemType: "SCHOOL_TASK", itemId: taskId, actorId: profile.id, action: "STATUS", fromValue: done ? "OPEN" : "DONE", toValue: to });
-  });
+  await prisma.$transaction((tx) => setTaskDoneIn(tx, profile, taskId, done));
   revalidateSchool();
 }
 
@@ -167,23 +161,9 @@ async function findAssignment(viewer: { householdId: string; id: string; role: "
 export async function setAssignmentStatus(assignmentId: string, status: "TODO" | "DONE" | "MISSING") {
   const viewer = await requireActiveProfile();
   if (!["TODO", "DONE", "MISSING"].includes(status)) throw new Error("Unknown status");
-  const existing = await findAssignment(viewer, assignmentId);
-  if (!existing) throw new Error("Assignment not found");
-  // A teacher's "missing" is set and cleared by a grown-up, not by the student (lib/school/permissions.ts).
-  if (!canSetAssignmentStatus(viewer, { studentId: existing.profile.personId, status: existing.status }, status)) {
-    throw new Error("Ask a grown-up to change that one");
-  }
-  // No change, no write: ticking off done work again mustn't move when it was finished.
-  if (existing.status === status) return;
-  await prisma.$transaction(async (tx) => {
-    // Pinned to the status that was checked, so a change racing this one can't be misrecorded.
-    const { count } = await tx.schoolAssignment.updateMany({
-      where: { id: assignmentId, status: existing.status },
-      data: { status, doneAt: status === "DONE" ? new Date() : null },
-    });
-    if (count === 0) return;
-    await recordEvent(tx, { householdId: viewer.householdId, itemType: "ASSIGNMENT", itemId: assignmentId, actorId: viewer.id, action: "STATUS", fromValue: existing.status, toValue: status });
-  });
+  const result = await prisma.$transaction((tx) => setAssignmentStatusIn(tx, viewer, assignmentId, status));
+  if (!result.ok && result.reason === "not found") throw new Error("Assignment not found");
+  if (!result.ok && result.reason === "not allowed") throw new Error("Ask a grown-up to change that one");
   revalidateSchool();
 }
 
@@ -428,4 +408,26 @@ export async function claimTask(taskId: string) {
     await recordEvent(tx, { householdId: profile.householdId, itemType: "SCHOOL_TASK", itemId: taskId, actorId: profile.id, action: "ASSIGN", fromValue: before.owner?.firstName ?? null, toValue: profile.firstName });
   });
   revalidateSchool();
+}
+
+// ---- Phase 59.3: pick several, act once -----------------------------------------------------
+
+const schoolBulk = bulkSchema(["TODO", "DONE", "MISSING", "FORM_DONE"] as const);
+
+/**
+ * Grown-ups: one status for up to 30 assignments (or forms done), in one transaction, each through
+ * the same core as a single tap. One a rule refuses is skipped and counted.
+ */
+export async function bulkSchool(input: unknown): Promise<BulkResult | { error: string }> {
+  const viewer = await requireAdult();
+  const parsed = schoolBulk.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "That didn't look right." };
+  const { ids, action } = parsed.data;
+  const results = await prisma.$transaction(async (tx) => {
+    const out: Parameters<typeof summarize>[0] = [];
+    for (const id of ids) out.push(action === "FORM_DONE" ? await setTaskDoneIn(tx, viewer, id, true) : await setAssignmentStatusIn(tx, viewer, id, action));
+    return out;
+  }, { timeout: BULK_TIMEOUT_MS });
+  revalidateSchool();
+  return summarize(results);
 }
