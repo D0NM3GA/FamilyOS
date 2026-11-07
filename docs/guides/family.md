@@ -135,10 +135,12 @@ grown-ups.
 
 ## Home
 
-Your day at a glance. **Today** comes first: chores and meds to tick off right there, with what's
+Your day at a glance. **Happening today** sits at the top when something's on: birthdays, school
+events, schoolwork and car work due, and your own Outlook events, in the day's order, each in its
+person's colour. Then **Today**: chores and meds to tick off right there, with what's
 finished folded under **✓ done** (Undo is in there). Then **This week's calendar**, **School this
-week**, **Upcoming dates** (birthdays and anniversaries), **Vehicle maintenance**, and **Recent
-activity**.
+week**, **Upcoming dates** (birthdays and anniversaries, with how far off each is and the age a
+birthday turns; the calendar has the rest), **Vehicle maintenance**, and **Recent activity**.
 
 **Haven't talked in a while** lists people you haven't been in touch with lately, with a quick
 📞 or 💬 to log it ("Just called", "Just texted"). Teachers, school offices and a med's doctor or
@@ -148,8 +150,8 @@ pharmacy aren't on it; for anyone else you don't want reminders about (the plumb
 Signed in with Microsoft? Your own Outlook calendar shows on your own profile. Pick which
 calendar in Settings → Calendar on Home.
 
-In **Big buttons** view, Home is just **My chores**, **My meds today**, **School this week** and a
-peek at the store.
+In **Big buttons** view, Home is just **My chores**, **My meds today**, **Today and this week** (school
+events today and the family's birthdays this week), **School this week** and a peek at the store.
 
 <!-- screenshot: Home, Full app and Big buttons -->
 

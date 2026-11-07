@@ -1723,3 +1723,23 @@ midnights of their date, timed ones in the household's zone), and it links to Sc
 is off; homework opens in the side panel too; the tests cover a pharmacy, a stopped medicine, a
 stopped feed, events past 60 days and a list item.
 
+## Phase 64 — Daily friction
+
+### 64a — Home and the calendar
+
+Home gains **Happening today** above the cards: the agenda's events for today
+(`getAgendaWeek` with `days: 1, eventsOnly`, Home's own turned-off apps, so a kid's scoping holds)
+plus today's Outlook events from the Calendar card's own fetch, now one promise shared by both,
+each inside its own Suspense (the strip's fallback is the app's own items). `todayStrip` orders
+all-day first, then by time, and caps at eight; today's Outlook items come from that week's fetch
+(25 at most), so a very full week can miss some. Upcoming dates says how far off each is
+(`dateWhen`) and the age a birthday turns (`turnsAge`), shows six with a link to the calendar, and
+Feb 29 is Feb 28 in other years (`nextOccurrence`, as the agenda does). Big buttons Home gains
+**Happening today**: school events today (`getUpcomingSchoolEvents` with `days: 0`, their own and the
+family's) and household members' birthdays this week. The Outlook auto-sync also starts from the
+Calendar page and Big buttons Home, behind the same gate Home uses (the owner on their own
+Microsoft sign-in).
+Fable's review of 64a: the agenda, members and auto-sync now load alongside everything else (no
+extra waits on Home, Big buttons Home or the Calendar); the strip carries each person's colour;
+skipped items are muted like done ones; "See all" opens the month.
+
