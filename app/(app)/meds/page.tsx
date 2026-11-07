@@ -1,4 +1,5 @@
 import { LookQuiet } from "@/components/look-voice";
+import { medicationDaysLeft } from "@/lib/reminders/stock";
 import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
@@ -41,6 +42,9 @@ export default async function MedsPage({
     getPointsTally(profile.householdId, { domain: "MED" }),
     getHouseholdMembers(profile.householdId),
   ]);
+  // Phase 62c: grown-ups see about how long each medicine's stock lasts (Manage shows the count).
+  const daysLeft = viewerIsAdult ? await medicationDaysLeft(profile.householdId) : new Map<string, string | null>();
+  const subtitleOf = (d: { id: string; notes: string | null }) => [d.notes, daysLeft.get(d.id)].filter(Boolean).join(" · ") || undefined;
 
   return (
     <div className="p-4 sm:p-6">
@@ -98,7 +102,7 @@ export default async function MedsPage({
                 onSkip={viewerIsAdult ? skipInstance : undefined}
                 onUnskip={viewerIsAdult ? unskipInstance : undefined}
                 skipLabel="Missed"
-                subtitle={i.definition.notes ?? undefined}
+                subtitle={subtitleOf(i.definition)}
                 timeLabel={formatTimeOfDay(i.dueDate)}
                 disappearsOnComplete
                 index={idx}
@@ -135,7 +139,7 @@ export default async function MedsPage({
                 onUndo={uncompleteInstance}
                 onSkip={viewerIsAdult ? skipInstance : undefined}
                 onUnskip={viewerIsAdult ? unskipInstance : undefined}
-                subtitle={i.definition.notes ?? undefined}
+                subtitle={subtitleOf(i.definition)}
                 showDate={false}
                 timeLabel={formatTimeOfDay(i.dueDate)}
                 index={idx}
@@ -161,7 +165,7 @@ export default async function MedsPage({
                 viewerIsAdult={viewerIsAdult}
                 onComplete={completeInstance}
                 onUndo={uncompleteInstance}
-                subtitle={i.definition.notes ?? undefined}
+                subtitle={subtitleOf(i.definition)}
                 timeLabel={formatTimeOfDay(i.dueDate)}
                 disappearsOnComplete
                 quietDone

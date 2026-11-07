@@ -3,6 +3,8 @@ import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { isLowStock } from "@/lib/meds/quantity";
+import { daysLeftLabel } from "@/lib/reminders/supply";
+
 import { AvatarStack } from "@/components/avatar-stack";
 import { PageHeader } from "@/components/page-header";
 import { btn, btnPrimary, card, field } from "@/components/styles";
@@ -10,6 +12,10 @@ import { describeRecurrence, formatHHmm } from "@/lib/tasks/format";
 import { setDefinitionActive, addStock } from "../actions";
 import { requireAppOn } from "@/lib/app-guard";
 import { SubmitButton } from "@/components/submit";
+
+/** Phase 62c: about how long the stock lasts on this schedule (lib/reminders/supply.ts). */
+const daysLeft = (def: { frequencyType: string; interval: number | null; daysOfWeek: number[]; timesOfDay: string[]; medication: { quantityOnHand: number | null; doseAmount: number | null } | null }) =>
+  def.medication ? daysLeftLabel({ ...def.medication, frequencyType: def.frequencyType, interval: def.interval ?? 1, daysOfWeek: def.daysOfWeek, timesOfDay: def.timesOfDay }) : null;
 
 export default async function ManageMedsPage() {
   await requireAppOn("meds");
@@ -82,6 +88,10 @@ export default async function ManageMedsPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className="text-muted-foreground">
                         {def.medication.quantityOnHand} on hand
+                        {(() => {
+                          const left = daysLeft(def);
+                          return left ? ` · ${left}` : null;
+                        })()}
                       </span>
                       {isLowStock(def.medication.quantityOnHand, def.medication.refillThresholdQuantity) && (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
