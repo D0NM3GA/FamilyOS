@@ -50,17 +50,29 @@ describe.skipIf(!RUN)("moving stored days between zones (database)", () => {
     const h = await family();
     // Midnight, New York, on the day its clocks go forward (EST until 2 AM).
     const chore = await definition(h, at("2026-03-08T05:00:00Z"));
-    await prisma.taskInstance.create({ data: { definitionId: chore.id, dueDate: at("2026-03-08T05:00:00Z") } });
+    // Phase 59.2b: moved here from the day before, which moves with it.
+    await prisma.taskInstance.create({ data: { definitionId: chore.id, dueDate: at("2026-03-08T05:00:00Z"), movedFrom: at("2026-03-07T05:00:00Z") } });
     // 8 AM in New York in July (EDT).
     const med = await definition(h, at("2026-07-01T04:00:00Z"), ["08:00"]);
     await prisma.taskInstance.create({ data: { definitionId: med.id, dueDate: at("2026-07-01T12:00:00Z") } });
 
     const counts = await move(h, "America/New_York", "Europe/London");
 
-    expect(counts).toMatchObject({ task_definition: 2, task_instance: 2 });
+    expect(counts).toMatchObject({ task_definition: 2, task_instance: 3 });
     // Midnight in London on the same dates (GMT in March, BST in July).
     expect((await prisma.taskDefinition.findUniqueOrThrow({ where: { id: chore.id } })).startDate).toEqual(at("2026-03-08T00:00:00Z"));
     expect(await dues(chore.id)).toEqual([{ due: "2026-03-08T00:00:00.000Z", status: "PENDING" }]);
+    const movedChore = await prisma.taskInstance.findFirstOrThrow({ where: { definitionId: chore.id } });
+    expect(movedChore.movedFrom).toEqual(at("2026-03-07T00:00:00Z"));
+    // Moving back after the zone move lands on the day as London keeps it.
+    const { moveChore } = await import("./tasks/move");
+    applyProcessZone("Europe/London");
+    try {
+      expect(await moveChore({ householdId: h, instanceId: movedChore.id, to: "back", byId: null as unknown as string, now: at("2026-03-08T12:00:00Z") })).toBe(true);
+    } finally {
+      applyProcessZone("America/New_York");
+    }
+    expect(await prisma.taskInstance.findUniqueOrThrow({ where: { id: movedChore.id } })).toMatchObject({ dueDate: at("2026-03-07T00:00:00Z"), movedFrom: null });
     expect(await dues(med.id)).toEqual([{ due: "2026-07-01T07:00:00.000Z", status: "PENDING" }]);
   });
 

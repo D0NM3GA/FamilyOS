@@ -56,9 +56,9 @@ function fixture(): Backup {
         timesOfDay: ["08:00", "20:00"], weatherSensitive: false, points: 0, assignmentStrategy: "FIXED", assigneeIds: ["Kid"], active: true, createdAt: T2 },
     ],
     taskInstances: [
-      { id: "ti1", definitionId: "def1", dueDate: T, assignedToId: "Kid", status: "DONE", completedAt: T, completedById: "Kid", quantityConsumed: null, createdAt: T },
-      { id: "ti2", definitionId: "def1", dueDate: T2, assignedToId: "Kid2", status: "PENDING", completedAt: null, completedById: null, quantityConsumed: null, createdAt: T2 },
-      { id: "ti3", definitionId: "def2", dueDate: T, assignedToId: "Kid", status: "DONE", completedAt: T, completedById: "Mom", quantityConsumed: 1.5, createdAt: T },
+      { id: "ti1", definitionId: "def1", dueDate: T, assignedToId: "Kid", status: "DONE", completedAt: T, completedById: "Kid", quantityConsumed: null, movedFrom: null, createdAt: T },
+      { id: "ti2", definitionId: "def1", dueDate: T2, assignedToId: "Kid2", status: "PENDING", completedAt: null, completedById: null, quantityConsumed: null, movedFrom: T, createdAt: T2 },
+      { id: "ti3", definitionId: "def2", dueDate: T, assignedToId: "Kid", status: "DONE", completedAt: T, completedById: "Mom", quantityConsumed: 1.5, movedFrom: null, createdAt: T },
     ],
     pointsLedger: [
       { id: "pl1", personId: "Kid", delta: 5, reason: null, instanceId: "ti1", orderId: null, createdAt: T },

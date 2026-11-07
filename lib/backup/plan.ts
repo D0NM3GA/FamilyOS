@@ -549,6 +549,7 @@ export function remapBackup(
       completedById: opt(people, r.completedById),
       dueDate: date(r.dueDate),
       completedAt: dateOrNull(r.completedAt),
+      movedFrom: dateOrNull(r.movedFrom),
       createdAt: date(r.createdAt),
     })),
     pointsLedger: b.pointsLedger.map((r) => ({

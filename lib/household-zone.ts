@@ -69,6 +69,12 @@ export const DAY_COLUMNS = [
     column: "dueDate",
     where: `"definitionId" IN (SELECT id FROM task_definition WHERE "householdId" = $1)`,
   },
+  // Phase 59.2b: a moved chore's original day, a plain shift (it's not unique, so nothing to dedupe).
+  {
+    table: "task_instance",
+    column: "movedFrom",
+    where: `"definitionId" IN (SELECT id FROM task_definition WHERE "householdId" = $1)`,
+  },
   {
     table: "vehicle_maintenance_item",
     column: "lastDoneAt",
@@ -127,16 +133,17 @@ export async function moveStoredDays(
   if (from === to) return counts;
   for (const col of DAY_COLUMNS) {
     const { table, column, where } = col;
-    const extra = table === "task_instance" ? `, "definitionId", status::text AS status, "createdAt"` : "";
+    const dueDays = table === "task_instance" && column === "dueDate";
+    const extra = dueDays ? `, "definitionId", status::text AS status, "createdAt"` : "";
     const found = await tx.$queryRawUnsafe<Row[]>(
       `SELECT id, "${column}" AS at${extra} FROM ${table} WHERE "${column}" IS NOT NULL AND ${where}`,
       householdId,
     );
     const days = "midnightOnly" in col ? found.filter((r) => isMidnight(r.at, from)) : found;
     const moved = days.map((r) => ({ ...r, at: sameClockIn(r.at, from, to) })).filter((r, i) => r.at.getTime() !== days[i].at.getTime());
-    if (table !== "task_instance") {
+    if (!dueDays) {
       await writeAll(tx, table, column, moved);
-      counts[table] = moved.length;
+      counts[table] = (counts[table] ?? 0) + moved.length;
       continue;
     }
     // Same definition, same new time: keep the done one (then skipped, then the oldest).
@@ -159,7 +166,7 @@ export async function moveStoredDays(
     const going = moved.filter((r) => kept.has(r.id));
     await writeAll(tx, table, column, going, ` + ${PARKED}`);
     await writeAll(tx, table, column, going);
-    counts[table] = going.length;
+    counts[table] = (counts[table] ?? 0) + going.length;
   }
   return counts;
 }

@@ -1401,3 +1401,21 @@ asks first, never clears a due date from an unreadable value, and closing an inl
 focus back to what opened it. The owner's calls, made in the build and open to change: grading To do
 work marks it done, and Done recently opens when it holds a change to check. The words a kid or
 grown-up can tap get a dotted line and a pencil, so the edit isn't found only by hovering.
+
+### 59.2b — Moving a chore
+
+`lib/tasks/move.ts`: Move to tomorrow (due today or overdue), Move to today (overdue), Move back,
+grown-ups only, never a daily chore, and only onto a day that chore has no instance on (one a day,
+`@@unique([definitionId, dueDate])`). `moveChoices` decides what the ⋯ offers from the days the
+board's chores already have today and tomorrow; `moveChore` checks it all again under the
+stored-days lock and records a MOVE. `TaskInstance.movedFrom` keeps the original day (a second
+move keeps the first; Move back clears it): `planInstances` treats it as taken, or a chore moved
+off today would be made again; it moves with the zone (`DAY_COLUMNS`, a plain shift, and the
+zone move's counts now add up per table); backups carry it. Turning a chore off still deletes its
+pending days, a moved one included.
+Fable's review of 59.2b: a refused move (the day taken meanwhile, the chore changed) says so on
+the card and refreshes the board; the page also checks the day a moved chore would go back to.
+Move back is offered only while that day is inside the overdue window, so it can't drop a chore into
+"older, never marked" (a call made in the build, open to change). Known: a round-robin chore moved
+past the next one's day can give the next turn to the same person once, since "most recent" is by
+due day; it corrects itself the turn after.

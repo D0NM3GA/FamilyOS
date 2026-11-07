@@ -5,6 +5,8 @@ export type AssignmentStrategyValue = "FIXED" | "ROUND_ROBIN" | "LEAST_ASSIGNED"
 export type PriorInstance = {
   assignedToId: string | null;
   dueDate: Date;
+  /** Phase 59.2b: the day it was moved off, which stays taken. */
+  movedFrom?: Date | null;
 };
 
 /**

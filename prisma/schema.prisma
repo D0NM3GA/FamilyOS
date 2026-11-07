@@ -476,6 +476,10 @@ model TaskInstance {
   definition   TaskDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
 
   dueDate      DateTime
+  /// Phase 59.2b: the day a grown-up moved this one off ("Move to tomorrow"), kept so the day isn't
+  /// generated again (lib/tasks/instances.ts treats it as taken) and so it can move back. A second
+  /// move keeps the first day. Moved with the zone like dueDate (lib/household-zone.ts).
+  movedFrom    DateTime?
   assignedToId String?
   assignedTo   Person?  @relation("AssignedInstances", fields: [assignedToId], references: [id], onDelete: SetNull)
 

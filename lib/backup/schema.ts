@@ -172,6 +172,8 @@ const taskInstance = z.object({
   completedAt: nullableIso,
   completedById: nullableId,
   quantityConsumed: z.number().nullable(),
+  // Phase 59.2b: the day a moved chore came from.
+  movedFrom: nullableIso.default(null),
   createdAt: iso,
 });
 

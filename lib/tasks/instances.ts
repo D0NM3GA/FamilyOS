@@ -72,7 +72,8 @@ export function planInstances(
   const dueDates = expandTimesOfDay(dayOccurrences, def.timesOfDay);
   if (dueDates.length === 0) return [];
 
-  const existingTimes = new Set(existing.map((i) => i.dueDate.getTime()));
+  // A day a chore was moved off (Phase 59.2b) stays taken, or it would come straight back.
+  const existingTimes = new Set(existing.flatMap((i) => (i.movedFrom ? [i.dueDate.getTime(), i.movedFrom.getTime()] : [i.dueDate.getTime()])));
   const history = existing.slice();
   const planned: PlannedInstance[] = [];
 
@@ -136,19 +137,19 @@ const HISTORY_WINDOW = 60;
  * include isn't pushed into SQL, so it loaded every instance ever and trimmed in memory.
  */
 async function recentInstances(db: Db, definitionIds: string[]): Promise<Map<string, PriorInstance[]>> {
-  const rows = await db.$queryRaw<{ definitionId: string; dueDate: Date; assignedToId: string | null }[]>`
-    SELECT d.id AS "definitionId", i."dueDate", i."assignedToId"
+  const rows = await db.$queryRaw<{ definitionId: string; dueDate: Date; assignedToId: string | null; movedFrom: Date | null }[]>`
+    SELECT d.id AS "definitionId", i."dueDate", i."assignedToId", i."movedFrom"
     FROM unnest(${definitionIds}::text[]) AS d(id)
     CROSS JOIN LATERAL (
-      SELECT "dueDate", "assignedToId" FROM task_instance
+      SELECT "dueDate", "assignedToId", "movedFrom" FROM task_instance
       WHERE "definitionId" = d.id
       ORDER BY "dueDate" DESC
       LIMIT ${HISTORY_WINDOW}
     ) AS i`;
   const byDefinition = new Map<string, PriorInstance[]>();
-  for (const { definitionId, dueDate, assignedToId } of rows) {
+  for (const { definitionId, dueDate, assignedToId, movedFrom } of rows) {
     const list = byDefinition.get(definitionId) ?? [];
-    list.push({ dueDate, assignedToId });
+    list.push({ dueDate, assignedToId, movedFrom });
     byDefinition.set(definitionId, list);
   }
   return byDefinition;

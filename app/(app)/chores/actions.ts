@@ -11,6 +11,7 @@ import { canDoChore, canUndoChore } from "@/lib/tasks/permissions";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { markOlderMissedIds, skipInstance as skipTask, unskipInstance as unskipTask } from "@/lib/tasks/skip";
 import { deleteEventsFor, recordEvent, recordEvents } from "@/lib/work-items/events";
+import { moveChore, type MoveTarget } from "@/lib/tasks/move";
 
 export type TaskFormState = { error?: string };
 
@@ -336,6 +337,20 @@ export async function markOlderMissed(personId: string | null) {
     return ids.length;
   });
   if (marked) revalidateBoard();
+}
+
+/**
+ * Phase 59.2b: a grown-up's Move to tomorrow / Move to today / Move back (lib/tasks/move.ts). Says
+ * whether it moved: a day taken in the meantime, or a chore changed underneath, is refused, and the
+ * board refreshes either way so a stale option goes.
+ */
+export async function moveInstance(instanceId: string, to: MoveTarget | "back"): Promise<{ moved: boolean }> {
+  const profile = await requireAdult();
+  if (to !== "today" && to !== "tomorrow" && to !== "back") return { moved: false };
+  const moved = await moveChore({ householdId: profile.householdId, instanceId, to, byId: profile.id });
+  revalidateBoard();
+  if (moved) revalidatePath("/calendar");
+  return { moved };
 }
 
 function revalidateBoard() {

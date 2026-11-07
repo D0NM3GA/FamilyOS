@@ -12,13 +12,14 @@ import { weatherFlagFor } from "@/lib/chores/weather-flag";
 import { TaskInstanceCard } from "@/components/tasks/task-instance-card";
 import { toCardInstance } from "@/lib/tasks/card";
 import { choreItem } from "@/lib/work-items/chore";
+import { moveChoices, takenDays } from "@/lib/tasks/move";
 import { MilestoneToastBoard } from "@/components/tasks/milestone-toast";
 import { PersonFilterRow } from "@/components/tasks/person-filter-row";
 import { PageHeader } from "@/components/page-header";
 import { PageMore } from "@/components/more-menu";
 import { UpcomingFold } from "@/components/tasks/upcoming-fold";
 import { btn, btnPrimary, sectionTitle } from "@/components/styles";
-import { completeInstance, uncompleteInstance, reassignInstance, skipInstance, unskipInstance, markOlderMissed } from "./actions";
+import { completeInstance, uncompleteInstance, reassignInstance, skipInstance, unskipInstance, markOlderMissed, moveInstance } from "./actions";
 import { BunsonMoment } from "@/components/bunson-moment";
 import { MOMENT_LINES } from "@/lib/bunson-moments";
 import { resolveViewMode } from "@/lib/view-prefs";
@@ -79,6 +80,12 @@ export default async function ChoresPage({
   // The board's own today, so a pill and its section can't disagree across midnight.
   const pillFor = (i: (typeof allInstances)[number], skippable: boolean) =>
     big ? undefined : choreItem(toCardInstance(i), profile, { skippable: skippable && viewerIsAdult, now: today });
+  // Phase 59.2b: grown-ups move a chore to tomorrow (or an overdue one to today) where that day is free.
+  const backDays = allInstances.flatMap((i) => (i.movedFrom ? [i.movedFrom] : []));
+  const taken = viewerIsAdult && !big ? await takenDays([...new Set(allInstances.map((i) => i.definitionId))], today, backDays) : new Set<string>();
+  const movesFor = (i: (typeof allInstances)[number]) =>
+    viewerIsAdult && !big ? moveChoices({ ...i, frequencyType: i.definition.frequencyType }, taken, today) : undefined;
+  const move = viewerIsAdult && !big ? moveInstance : undefined;
 
   return (
     <div className="p-4 sm:p-6">
@@ -149,6 +156,8 @@ export default async function ChoresPage({
                   reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
                   weatherNote={weatherNoteFor(i)}
                   pill={pillFor(i, true)}
+                  moves={movesFor(i)}
+                  onMove={move}
                   disappearsOnComplete
                   index={idx}
                   {...cardLook}
@@ -189,6 +198,8 @@ export default async function ChoresPage({
                   reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
                   weatherNote={weatherNoteFor(i)}
                   pill={pillFor(i, true)}
+                  moves={movesFor(i)}
+                  onMove={move}
                   showDate={false}
                   index={idx}
                   {...cardLook}
@@ -218,6 +229,8 @@ export default async function ChoresPage({
                   reassignCandidates={viewerIsAdult ? reassignCandidates : undefined}
                   weatherNote={weatherNoteFor(i)}
                   pill={pillFor(i, false)}
+                  moves={movesFor(i)}
+                  onMove={move}
                   disappearsOnComplete
                   quietDone
                   index={idx}
