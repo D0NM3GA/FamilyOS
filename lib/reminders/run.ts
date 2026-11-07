@@ -13,6 +13,7 @@ import { daysUntilMiles, milesPerDay, MILEAGE_WINDOW_DAYS, type Reading } from "
 import { checkRecalls } from "@/lib/vehicles/nhtsa";
 import { inQuietHours } from "./quiet";
 import { grownUpsOf } from "./people";
+import { sendDigests } from "./digest";
 
 /**
  * Phase 62: the reminders job on the background tick (lib/background.ts). For each household:
@@ -89,6 +90,13 @@ export async function remindHousehold(householdId: string, now: Date): Promise<n
       })
     ).map((s) => `${s.personId}|${s.key}`),
   );
+
+  // Phase 62c: the morning summaries, from the same plans (its own errors stay its own).
+  try {
+    await sendDigests(householdId, grownUps.map((g) => g.id), plans, now);
+  } catch (err) {
+    captureError(err, "reminders.digest_failed");
+  }
 
   let sent = 0;
   const outbound = new Map<ReminderKind, string[]>();
