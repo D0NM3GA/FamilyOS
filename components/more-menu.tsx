@@ -83,7 +83,9 @@ export function MoreMenu({
         onToggle={onToggle}
         // Tabbing out closes it, or it floats over the next row. No target is a tap, which the browser handles.
         onBlur={(event) => {
-          if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.hidePopover();
+          // Not when focus goes to its own button: that tap toggles it closed itself, and closing it
+          // here first made the same tap open it again.
+          if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== trigger.current) event.currentTarget.hidePopover();
         }}
         onClick={(event) => {
           if ((event.target as Element).closest("a, button")) panel.current?.hidePopover();

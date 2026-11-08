@@ -13,6 +13,7 @@ import { getBoardInstances, getPointsTally } from "@/lib/tasks/queries";
 import { PageMore } from "@/components/more-menu";
 import { UpcomingFold } from "@/components/tasks/upcoming-fold";
 import { TaskInstanceCard } from "@/components/tasks/task-instance-card";
+import { MilestoneToastBoard } from "@/components/tasks/milestone-toast";
 import { toCardInstance } from "@/lib/tasks/card";
 import { BunsonMoment } from "@/components/bunson-moment";
 import { MOMENT_LINES } from "@/lib/bunson-moments";
@@ -58,6 +59,8 @@ export default async function MedsPage({
   const subtitleOf = (d: { id: string; notes: string | null; endDate?: Date | null; frequencyType?: string }) => [d.notes, lastDay(d), daysLeft.get(d.id)].filter(Boolean).join(" · ") || undefined;
 
   return (
+    // The board's Undo bar, for a dose taken from Overdue or Upcoming (the card leaves the list).
+    <MilestoneToastBoard>
     <div className="p-4 sm:p-6">
       <RefreshOnReturn />
       <PageHeader title="💊 Meds">
@@ -199,6 +202,7 @@ export default async function MedsPage({
         )}
       </div>
     </div>
+    </MilestoneToastBoard>
   );
 }
 
