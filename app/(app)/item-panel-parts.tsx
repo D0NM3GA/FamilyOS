@@ -23,8 +23,8 @@ export function PanelShell({ title, closeHref, children }: { title: string; clos
   useEffect(() => heading.current?.focus(), [title]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // A menu open in the panel closes first; the next Escape closes the panel.
-      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector(":popover-open")) router.replace(closeHref, { scroll: false });
+      // A menu open in the panel, or the look sheet over it, closes first; the next Escape closes the panel.
+      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector(":popover-open, [data-look-sheet]")) router.replace(closeHref, { scroll: false });
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -69,7 +69,7 @@ export function ItemStatus<S extends string>({ item, refParam, locked = false }:
     });
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <StatusPill look={look} options={pending || locked ? [] : item.options[status]} title={item.title} onPick={pick} />
+      <StatusPill look={look} options={locked ? [] : item.options[status]} busy={pending} title={item.title} onPick={pick} />
       {failed && (
         <span role="alert" className="text-xs font-bold text-destructive">
           Couldn&apos;t save that. Refresh and try again.

@@ -46,6 +46,7 @@ export function ChorePresets({
   const [message, setMessage] = useState<string | null>(null);
   // After a preset, focus goes to what it said (the question it came from is gone).
   const said = useRef<HTMLParagraphElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
   if (sickDayIds.length === 0 && handOffIds.length === 0) return null;
   const go = (verb: string, run: () => ReturnType<Bulk>) =>
     start(async () => {
@@ -63,7 +64,7 @@ export function ChorePresets({
   const n = sickDayIds.length;
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
-      <MoreMenu label={`Quick changes for ${person}`} face={<span className="px-1 text-sm font-bold">For {person}…</span>} triggerClassName={btn}>
+      <MoreMenu label={`Quick changes for ${person}`} face={<span className="px-1 text-sm font-bold">For {person}…</span>} triggerClassName={btn} triggerRef={menuButton}>
         {n > 0 && (
           <button type="button" className={menuItem} onClick={() => setAsking(true)}>
             Sick day (skip today&apos;s {n})
@@ -79,7 +80,10 @@ export function ChorePresets({
       {asking && (
         <ConfirmAction
           initiallyAsking
-          onCancel={() => setAsking(false)}
+          onCancel={() => {
+            setAsking(false);
+            menuButton.current?.focus();
+          }}
           question={`Skip ${person}'s ${n} ${n === 1 ? "chore" : "chores"} today? Nobody gets stickers for them.`}
           yes="Skip them"
           pending={pending}
