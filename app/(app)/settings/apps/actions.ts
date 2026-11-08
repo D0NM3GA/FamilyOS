@@ -30,7 +30,8 @@ export type CareHoursState = { saved?: boolean; alwaysAsleep?: boolean; leftOut?
 export async function setPetCareHours(_prev: CareHoursState, formData: FormData): Promise<CareHoursState> {
   const admin = await requireAdmin();
   const careHours = careHoursFromForm((name) => formData.get(name));
-  await prisma.household.update({ where: { id: admin.householdId }, data: { petCareHours: careHours } });
+  // Phase 70d: and whether a no-school day keeps weekend hours.
+  await prisma.household.update({ where: { id: admin.householdId }, data: { petCareHours: careHours, petNoSchoolDays: formData.get("noSchoolDays") === "on" } });
   revalidatePath("/settings/apps");
   revalidatePath("/pet");
   // Stretches someone filled in that didn't make it (ending before they start, say).

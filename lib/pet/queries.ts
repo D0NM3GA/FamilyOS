@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/app/generated/prisma/client";
 import { getHouseholdRow } from "@/lib/household-settings";
 import { processZone } from "@/lib/household-zone";
-import { epochMinute, isCareMinute, MINUTE_MS, type CareHours } from "./care-hours";
+import { epochMinute, isCareMinute, MINUTE_MS, type CareHours, type WeekendDays } from "./care-hours";
+import { noSchoolDays } from "./no-school";
 import { play, type CareResult } from "./care";
 import { effectOf, PAYOUT_MINUTES, type GameId } from "./games/catalog";
 import { giftHint, isTreat, openTreat, pickGift, TREAT_NAMES, withinDailyCap } from "./gifts";
@@ -48,16 +49,39 @@ export type PetItemRecord = { id: string; itemId: string; place: Place } & Spot;
 
 export type Goodbye = { name: string; species: string; stage: string; form: number; cause: string; ageMinutes: number };
 
-type CareSettings = { careHours: CareHours; timeZone: string };
+type CareSettings = { careHours: CareHours; timeZone: string; weekendDays?: WeekendDays };
+
+/** How far back a pet's catch-up can reach for no-school days (longer gaps are rare and fine). */
+const NO_SCHOOL_LOOKBACK_DAYS = 45;
+
+/**
+ * Phase 70d: days with no school in the calendars for the family or for this person, when the
+ * household keeps weekend hours then (on by default). Reads the cached feed events directly.
+ */
+async function noSchoolWeekendDays(householdId: string, personId: string | null, now: Date): Promise<WeekendDays | undefined> {
+  const events = await prisma.schoolFeedEvent.findMany({
+    where: {
+      allDay: true,
+      endsAt: { gt: new Date(now.getTime() - NO_SCHOOL_LOOKBACK_DAYS * 86_400_000) },
+      startsAt: { lt: new Date(now.getTime() + 2 * 86_400_000) },
+      feed: { householdId, active: true, OR: [{ kidPersonId: null }, ...(personId ? [{ kidPersonId: personId }] : [])] },
+    },
+    select: { title: true, startsAt: true, endsAt: true, allDay: true },
+    take: 500,
+  });
+  const days = noSchoolDays(events);
+  return days.size ? days : undefined;
+}
 
 /**
  * The household's care hours and time zone, from the row the layout already read this request
  * (React `cache`). Read before a transaction starts, never inside one: a read through the shared
  * client mid-transaction would need a second pool connection while the first is held.
  */
-export async function getCareHours(householdId: string): Promise<CareSettings> {
+export async function getCareHours(householdId: string, personId: string | null = null, now = new Date()): Promise<CareSettings> {
   const row = await getHouseholdRow(householdId);
-  return { careHours: readCareHours(row?.petCareHours), timeZone: row?.timezone ?? processZone() };
+  const weekendDays = row?.petNoSchoolDays === false ? undefined : await noSchoolWeekendDays(householdId, personId, now);
+  return { careHours: readCareHours(row?.petCareHours), timeZone: row?.timezone ?? processZone(), weekendDays };
 }
 
 function toJson(state: PetState): Prisma.InputJsonValue {
@@ -245,7 +269,7 @@ async function catchUp(tx: Tx, profile: Profile, settings: CareSettings, now: Da
       seed: row.seed,
       state,
       personality,
-      awake: state.stage === "egg" || isCareMinute(minute, context.careHours, context.timeZone),
+      awake: state.stage === "egg" || isCareMinute(minute, context.careHours, context.timeZone, context.weekendDays),
       minute,
       shown: { stage: row.shownStage, form: row.shownForm, tricks: row.shownTricks },
     },
@@ -286,7 +310,7 @@ export type MyPet = {
 
 /** This person's pet as it is right now, their items, and a goodbye if it just went. */
 export async function getMyPet(profile: Profile, now = new Date()): Promise<MyPet> {
-  const settings = await getCareHours(profile.householdId);
+  const settings = await getCareHours(profile.householdId, profile.id);
   const result = await prisma.$transaction((tx) => catchUp(tx, profile, settings, now, true));
   const [items, presents] = await Promise.all([
     getMyItems(profile.id),
@@ -388,7 +412,7 @@ export async function changeMyPet(
   apply: (state: PetState, minute: number, personality: Personality) => CareResult,
   now = new Date(),
 ): Promise<ChangeResult> {
-  const settings = await getCareHours(profile.householdId);
+  const settings = await getCareHours(profile.householdId, profile.id);
   return prisma.$transaction((tx) => changeInTx(tx, profile, settings, apply, now));
 }
 
@@ -403,7 +427,7 @@ export async function finishMyGame(
   score: number,
   now = new Date(),
 ): Promise<ChangeResult | { ok: false; reason: "played-recently" }> {
-  const settings = await getCareHours(profile.householdId);
+  const settings = await getCareHours(profile.householdId, profile.id);
   return undoUnless(async (tx) => {
     // Claim this hour's payout first: the insert or the conditional update takes the row's lock,
     // so a second round finishing at the same moment waits, then finds it claimed.
@@ -450,7 +474,7 @@ export type OpenedPresent = { ok: true; hint: string; gift: string } | { ok: fal
 
 /** Unwraps one of this person's presents: a treat goes to the pet, a keepsake to the toy box. */
 export async function openMyPresent(profile: Profile, presentId: string, now = new Date()): Promise<OpenedPresent> {
-  const settings = await getCareHours(profile.householdId);
+  const settings = await getCareHours(profile.householdId, profile.id);
   return undoUnless(async (tx) => {
     const present = await tx.petGift.findFirst({ where: { id: presentId, personId: profile.id, openedAt: null, itemId: { not: null } } });
     if (!present?.itemId) return { ok: false, reason: "no-present" } as const;

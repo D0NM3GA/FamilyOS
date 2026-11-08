@@ -49,7 +49,7 @@ function Window({ day, index, value }: { day: "weekday" | "weekend"; index: numb
  * Phase 47: when the pets are awake. Their clock only runs in these hours, so time at school
  * or asleep can't make one hungry or sick. Up to two stretches a day, weekdays and weekends.
  */
-export function PetCareHours({ careHours }: { careHours: CareHours }) {
+export function PetCareHours({ careHours, noSchoolDays }: { careHours: CareHours; noSchoolDays: boolean }) {
   const [state, save] = useActionState<CareHoursState, FormData>(setPetCareHours, {});
   return (
     <form action={save} className="mt-8 space-y-4">
@@ -66,6 +66,11 @@ export function PetCareHours({ careHours }: { careHours: CareHours }) {
           <Window day={day} index={1} value={careHours[day][1]} />
         </fieldset>
       ))}
+      {/* Phase 70d: a day off school counts as a weekend. */}
+      <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-foreground sm:min-h-9">
+        <input type="checkbox" name="noSchoolDays" defaultChecked={noSchoolDays} className="size-5 shrink-0" />
+        Weekend hours on days with no school (from the school calendars)
+      </label>
       <div className="flex items-center gap-3">
         <SubmitButton className={btnPrimary}>Save care hours</SubmitButton>
         {state.saved && (

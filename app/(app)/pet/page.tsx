@@ -50,10 +50,10 @@ function toScreen(pet: PetRecord): ScreenPet {
 export default async function PetPage() {
   const profile = await requireAppOn("pet");
   const now = new Date();
-  const [mine, household, { careHours, timeZone }] = await Promise.all([
+  const [mine, household, { careHours, timeZone, weekendDays }] = await Promise.all([
     getMyPet(profile, now),
     getHouseholdSettings(profile.householdId),
-    getCareHours(profile.householdId),
+    getCareHours(profile.householdId, profile.id, now),
   ]);
 
   if (!mine.pet) {
@@ -84,7 +84,7 @@ export default async function PetPage() {
         sky={skyAt(hour)}
         weather={weatherFrom(today?.shortForecast)}
         season={seasonOf(month)}
-        careHours={careHoursToday(careHours, timeZone, now.getTime())}
+        careHours={careHoursToday(careHours, timeZone, now.getTime(), weekendDays)}
       />
     </div>
   );

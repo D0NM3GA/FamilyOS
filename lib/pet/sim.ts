@@ -1,4 +1,4 @@
-import { careMinutes, epochMinute, type CareHours } from "./care-hours";
+import { careMinutes, epochMinute, type CareHours, type WeekendDays } from "./care-hours";
 import { rngFor, type Rng } from "./random";
 import {
   ADULT_LIFESPAN_MINUTES,
@@ -39,7 +39,7 @@ export type PetEventKind =
 /** Growth events say what it grew into, so a catch-up through two stages knows both forms. */
 export type PetEvent = { minute: number; kind: PetEventKind; stage?: Stage; form?: number };
 
-export type AdvanceContext = { seed: string; careHours: CareHours; timeZone: string };
+export type AdvanceContext = { seed: string; careHours: CareHours; timeZone: string; weekendDays?: WeekendDays };
 
 /** Care-minutes to answer a call before it counts as a mistake. */
 export const CALL_WINDOW_MINUTES = 15;
@@ -249,7 +249,7 @@ export function advance(
     next = hatchAt(next, fromMinute, events);
   }
 
-  for (const minute of careMinutes(fromMinute, toMinute, context.careHours, context.timeZone)) {
+  for (const minute of careMinutes(fromMinute, toMinute, context.careHours, context.timeZone, context.weekendDays)) {
     next = tick(next, minute, context.seed, events);
     if (!isAlive(next)) break;
   }
