@@ -270,7 +270,17 @@ function throughNote(endsAt: Date): string {
   return `through ${formatMonthDay(last.getUTCMonth() + 1, last.getUTCDate())}`;
 }
 
-/** Outside calendar events (school feeds, Outlook): all-day ones on every day they cover, timed ones on their start. */
+/** "until Sun 2:00 PM": when a timed event that runs over several days ends, in the household's zone. */
+function untilNote(endsAt: Date, timeZone: string): string {
+  return `until ${new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", hour: "numeric", minute: "2-digit" }).format(endsAt)}`;
+}
+
+/**
+ * Outside calendar events (school feeds, Outlook) on every day they cover. Phase 66a: a timed one
+ * that runs past midnight (a weekend trip, camp) shows on each day too, at its start time on the
+ * first and all day after, each with when it ends; before, it showed on its first day only, and
+ * not at all in a week it began before. One that ends at midnight stays on its one day.
+ */
 function eventItems(
   e: { key: string; title: string; startsAt: Date; endsAt: Date; allDay: boolean; place: string | null },
   start: Date,
@@ -285,8 +295,14 @@ function eventItems(
       key: `${e.key}:${day}`,
     }));
   }
-  const { day, minutes } = zonedDayAndMinutes(e.startsAt, timeZone);
-  return [{ day, minutes, note: e.place, key: e.key }];
+  const first = zonedDayAndMinutes(e.startsAt, timeZone);
+  const lastDay = e.endsAt > e.startsAt ? zonedDayAndMinutes(new Date(e.endsAt.getTime() - 1), timeZone).day : first.day;
+  if (lastDay <= first.day) return [{ day: first.day, minutes: first.minutes, note: e.place, key: e.key }];
+  const note = [untilNote(e.endsAt, timeZone), e.place].filter(Boolean).join(" · ");
+  return weekDays(start, days)
+    .map(dayKey)
+    .filter((day) => day >= first.day && day <= lastDay)
+    .map((day) => ({ day, minutes: day === first.day ? first.minutes : null, note, key: `${e.key}:${day}` }));
 }
 
 export function schoolEventItems(rows: readonly SchoolEventRow[], start: Date, timeZone: string, days = 7): AgendaItem[] {

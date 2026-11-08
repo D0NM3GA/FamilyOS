@@ -244,6 +244,29 @@ describe("outside calendars", () => {
     ]);
   });
 
+  it("a timed event over several days shows on each, and one ending at midnight stays on its day (Phase 66a)", () => {
+    const items = outlookItems(
+      [
+        // Friday 5 pm to Sunday 2 pm in New York (EDT, UTC-4); Sunday is in the next week.
+        { id: "trip", subject: "Lake trip", start: new Date(Date.UTC(2026, 9, 9, 21)), end: new Date(Date.UTC(2026, 9, 11, 18)), isAllDay: false, location: "Lake", webLink: null },
+        // 10 pm to midnight: one day.
+        { id: "late", subject: "Late show", start: new Date(Date.UTC(2026, 9, 7, 2)), end: new Date(Date.UTC(2026, 9, 7, 4)), isAllDay: false, location: null, webLink: null },
+        // Began the week before (Saturday Oct 3, 9 am) and ends Monday 9 am.
+        { id: "camp", subject: "Camp", start: new Date(Date.UTC(2026, 9, 3, 13)), end: new Date(Date.UTC(2026, 9, 5, 13)), isAllDay: false, location: null, webLink: null },
+      ],
+      SUN,
+      ZONE,
+    );
+    expect(items.map((i) => [i.title, i.day, i.minutes, i.note])).toEqual([
+      ["Lake trip", "2026-10-09", 17 * 60, "until Sun 2:00 PM · Lake"],
+      ["Lake trip", "2026-10-10", null, "until Sun 2:00 PM · Lake"],
+      ["Late show", "2026-10-06", 22 * 60, null],
+      ["Camp", "2026-10-04", null, "until Mon 9:00 AM"],
+      ["Camp", "2026-10-05", null, "until Mon 9:00 AM"],
+    ]);
+    expect(new Set(items.map((i) => i.key)).size).toBe(items.length);
+  });
+
   it("day keys are local dates", () => {
     expect(dayKey(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
   });
