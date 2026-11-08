@@ -318,13 +318,18 @@ tap. Waiting invites can be cancelled; every invite is in **Recent changes**.
 On Settings → Sign-in, for each grown-up who signs in with a passkey (or OIDC):
 
 - **Make admin** or **Remove admin**.
-- **Reset passkeys** when they've lost a phone: their passkeys and sign-ins everywhere stop, and
-  you get a link, good for one hour, to hand them in person.
+- **Sign out everywhere** for a lost or stolen phone: every device they're signed in on has to
+  sign in again; their passkeys stay, so they get back in as usual. (They can also do it
+  themselves in Settings → Where I'm signed in, Microsoft people too.)
+- **Reset passkeys** when a passkey itself may be in the wrong hands: their passkeys and
+  sign-ins everywhere stop, and you get a link, good for one hour, to hand them in person.
 - **Take it away**: they become a PIN profile again (never an admin), and need a PIN from Settings
   → Household. Not for someone in a money jar.
 
 The app always keeps at least one admin who can sign in. Each change is logged, the person is
-always told, and other admins are told unless they switch that off in My notifications.
+always told, and other admins are told unless they switch that off in My notifications. The log
+on Settings → Sign-in also shows PINs set or cleared, people taken off the household, and devices
+signed out.
 Microsoft people are added, removed and given roles in Entra, not here: **Change roles in Entra**
 on Settings → Sign-in goes straight to the right page, and changes show here at the next check.
 
@@ -338,6 +343,8 @@ on Settings → Sign-in goes straight to the right page, and changes show here a
 - **Lock my tile:** each grown-up with their own sign-in can put a PIN on their own tile, so kids
   on a shared tablet can't open it.
 - Five wrong PINs in a row lock that tile for 15 minutes, doubling each time after (up to a day).
+  Each lock is in the sign-in log, and every admin gets a notice saying whose tile and on whose
+  sign-in it happened.
 
 ### People restored onto a new server
 
