@@ -826,11 +826,11 @@ model Medication {
   quantityOnHand          Float?
   /// How much one taken dose consumes, in the same unit as quantityOnHand.
   doseAmount              Float?
-  /// Requests a "Refill <title>" shopping-list item (see lib/shopping-list.ts) once
-  /// quantityOnHand drops to or below this after a completed dose. A level trigger, not an
-  /// edge trigger — it deliberately re-fires on the next dose after the list item is
-  /// bought and cleared, until quantityOnHand is raised back above it (via addStock or the
-  /// edit form) — see app/(app)/meds/actions.ts's completeInstance for the full rationale.
+  /// Low at or below this count. Phase 66a: a dose requests a "Refill <title>" shopping-list
+  /// item (see lib/shopping-list.ts) when the medicine is low by isMedLow (this count, a week
+  /// of supply, or 5 as-needed doses), the same rule as the running-low reminder. A level
+  /// trigger, not an edge trigger — it re-fires on the next dose after the list item is bought
+  /// and cleared, until the stock isn't low — see app/(app)/meds/actions.ts's completeInstance.
   refillThresholdQuantity Float?
   /// Phase 65a, as-needed medicines only: the fewest hours between doses, and the most doses in
   /// any 24 hours (lib/meds/as-needed.ts). Either may be unset.

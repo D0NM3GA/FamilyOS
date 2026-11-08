@@ -75,7 +75,9 @@ export default async function PersonRecordPage({
   const disabled = await getDisabledApps(profile.householdId);
   const on = (app: string) => isAppOn(disabled, app);
   const choresHere = person.isHouseholdMember && on("chores");
-  const medsHere = person.isHouseholdMember && on("meds");
+  // Phase 66a: someone's medicines are theirs and the grown-ups', so a kid looking at a sibling
+  // or a parent gets no Meds summary.
+  const medsHere = person.isHouseholdMember && on("meds") && (viewerIsAdult || profile.id === person.id);
 
   // A short horizon — this card is a summary, not a second board (the full boards at
   // /chores and /meds already exist for that, and this page's own links point there).

@@ -33,8 +33,11 @@ export default async function MedsPage({
   const profile = await requireActiveProfile();
   // The Rewards button only while the Store is on (Settings → Apps).
   const storeOn = await appOn(profile.householdId, "store");
-  const { person: personFilter } = await searchParams;
   const viewerIsAdult = isAdult(profile);
+  // Phase 66a: a kid sees only their own medicines, whatever the link says (the family guide's
+  // rule, and the one dose history keeps). Doses for nobody in particular stay with the
+  // grown-ups too: a kid can't take them (assertOwnRecord).
+  const personFilter = viewerIsAdult ? (await searchParams).person : profile.id;
 
   const horizon = addDays(new Date(), 14);
   await ensureInstancesGenerated(profile.householdId, horizon, "MED");
@@ -78,13 +81,15 @@ export default async function MedsPage({
         )}
       </PageHeader>
 
-      <PersonFilterRow
-        members={members}
-        tally={tally}
-        path="/meds"
-        everyoneHref="/meds"
-        selected={personFilter}
-      />
+      {viewerIsAdult && (
+        <PersonFilterRow
+          members={members}
+          tally={tally}
+          path="/meds"
+          everyoneHref="/meds"
+          selected={personFilter}
+        />
+      )}
 
       <div className="mt-6 space-y-6">
         {/* Only once every dose today is taken — never beside an overdue or pending dose. */}

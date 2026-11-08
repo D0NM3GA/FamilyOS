@@ -2,8 +2,8 @@ import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
-import { isLowStock } from "@/lib/meds/quantity";
-import { daysLeftLabel } from "@/lib/reminders/supply";
+import { daysLeftLabel, isMedLow } from "@/lib/reminders/supply";
+import { roundStock } from "@/lib/meds/stock";
 
 import { AvatarStack } from "@/components/avatar-stack";
 import { PageHeader } from "@/components/page-header";
@@ -13,9 +13,27 @@ import { setDefinitionActive, addStock } from "../actions";
 import { requireAppOn } from "@/lib/app-guard";
 import { SubmitButton } from "@/components/submit";
 
+type ManagedDef = {
+  frequencyType: string;
+  interval: number | null;
+  daysOfWeek: number[];
+  timesOfDay: string[];
+  medication: { quantityOnHand: number | null; doseAmount: number | null; refillThresholdQuantity: number | null } | null;
+};
+const supplyOf = (def: ManagedDef) =>
+  def.medication ? { ...def.medication, frequencyType: def.frequencyType, interval: def.interval ?? 1, daysOfWeek: def.daysOfWeek, timesOfDay: def.timesOfDay } : null;
+
 /** Phase 62c: about how long the stock lasts on this schedule (lib/reminders/supply.ts). */
-const daysLeft = (def: { frequencyType: string; interval: number | null; daysOfWeek: number[]; timesOfDay: string[]; medication: { quantityOnHand: number | null; doseAmount: number | null } | null }) =>
-  def.medication ? daysLeftLabel({ ...def.medication, frequencyType: def.frequencyType, interval: def.interval ?? 1, daysOfWeek: def.daysOfWeek, timesOfDay: def.timesOfDay }) : null;
+const daysLeft = (def: ManagedDef) => {
+  const supply = supplyOf(def);
+  return supply ? daysLeftLabel(supply) : null;
+};
+
+/** Phase 66a: Low on the same rule as the reminder and the refill item. */
+const isLow = (def: ManagedDef) => {
+  const supply = supplyOf(def);
+  return supply ? isMedLow(supply).low : false;
+};
 
 export default async function ManageMedsPage() {
   await requireAppOn("meds");
@@ -87,13 +105,13 @@ export default async function ManageMedsPage() {
                   {def.medication?.quantityOnHand != null && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className="text-muted-foreground">
-                        {def.medication.quantityOnHand} on hand
+                        {roundStock(def.medication.quantityOnHand)} on hand
                         {(() => {
                           const left = daysLeft(def);
                           return left ? ` · ${left}` : null;
                         })()}
                       </span>
-                      {isLowStock(def.medication.quantityOnHand, def.medication.refillThresholdQuantity) && (
+                      {isLow(def) && (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
                           Low
                         </span>

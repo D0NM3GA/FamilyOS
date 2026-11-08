@@ -14,8 +14,10 @@ import { MOMENT_LINES } from "@/lib/bunson-moments";
  * — just a way out. See docs/BUILD.md's Phase 5 and Phase 6 notes for the workarounds this
  * absence forced (redirect() instead of throw, useActionState error state instead of a
  * thrown Error) — those still apply; this boundary is a safety net, not a replacement.
+ * Phase 66a: Try again is retry(), which fetches the page again; reset() only redrew the same
+ * broken result, so a server hiccup looked stuck.
  */
-export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function AppError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   useEffect(() => {
     // An error with a digest came from the server, where instrumentation.ts's onRequestError
     // already reported it; capturing it again here would double-count it (with a sanitized
@@ -34,7 +36,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
         <div className="mt-4 flex justify-center gap-2">
           <button
             type="button"
-            onClick={() => reset()}
+            onClick={() => retry()}
             className="ui-btn ui-btn-primary rounded-md bg-brand px-4 py-2 text-sm font-medium text-on-brand transition hover:scale-105 hover:-translate-y-0.5 hover:bg-brand-hover active:scale-95"
           >
             Try again

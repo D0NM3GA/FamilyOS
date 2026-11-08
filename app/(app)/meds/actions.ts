@@ -7,9 +7,11 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAdult, assertOwnRecord } from "@/lib/authz";
 import { atMidnight } from "@/lib/tasks/schedule";
-import { doseConsumption, isLowStock } from "@/lib/meds/quantity";
+import { doseConsumption } from "@/lib/meds/quantity";
+import { addToStock, takeStock } from "@/lib/meds/stock";
+import { isMedLow } from "@/lib/reminders/supply";
 import { canTakeYet } from "@/lib/meds/dose-window";
-import { AS_NEEDED_LOW_DOSES, dosesLeft, nextAllowed, notYetWords, whenWords } from "@/lib/meds/as-needed";
+import { nextAllowed, notYetWords, whenWords } from "@/lib/meds/as-needed";
 import { searchRxTerms } from "@/lib/meds/rxterms";
 import { medFormSchema } from "@/lib/meds/form";
 import { requestItemByName } from "@/lib/shopping-list";
@@ -238,11 +240,8 @@ export async function addStock(definitionId: string, formData: FormData) {
   // Guards against quantityOnHand being null (tracking not configured, or cleared since the
   // page loaded) — {increment} against a null column is a silent no-op in Postgres, which
   // would otherwise look identical to success.
-  const { count } = await prisma.medication.updateMany({
-    where: { id: definition.medication.id, quantityOnHand: { not: null } },
-    data: { quantityOnHand: { increment: amount } },
-  });
-  if (count === 0) return;
+  // Rounded in SQL (lib/meds/stock.ts), and a no-op on an uncounted medicine.
+  if (!(await addToStock(prisma, definition.medication.id, amount))) return;
 
   revalidatePath("/meds/manage");
 }
@@ -277,14 +276,17 @@ export async function completeInstance(instanceId: string) {
   const pointsRecipient = instance.assignedToId ?? profile.id;
   const now = new Date();
   const medication = instance.definition.medication;
-  const consumed = doseConsumption(medication?.quantityOnHand ?? null, medication?.doseAmount ?? null);
 
   const result = await prisma.$transaction(async (tx) => {
     const { count } = await tx.taskInstance.updateMany({
       where: { id: instanceId, status: "PENDING" },
-      data: { status: "DONE", completedAt: now, completedById: profile.id, quantityConsumed: consumed },
+      data: { status: "DONE", completedAt: now, completedById: profile.id },
     });
     if (count === 0) return { completed: false, needsRefill: false };
+    // Phase 66a: the count and dose amount as they are now, like takeAsNeeded, not as the page
+    // was loaded (a count set or a dose amount changed in between would be missed).
+    const fresh = medication ? await tx.medication.findUnique({ where: { id: medication.id } }) : null;
+    const consumed = doseConsumption(fresh?.quantityOnHand ?? null, fresh?.doseAmount ?? null);
 
     await tx.pointsLedger.create({
       data: {
@@ -296,16 +298,18 @@ export async function completeInstance(instanceId: string) {
     });
 
     let needsRefill = false;
-    if (consumed != null && medication) {
+    if (consumed != null && fresh) {
       // needsRefill is judged against the row THIS decrement produced, not the
       // pre-transaction snapshot — a concurrent second dose or addStock landing between
       // the initial read and this write would otherwise make the trigger fire (or not)
       // based on a value that's already stale by the time it matters.
-      const updated = await tx.medication.update({
-        where: { id: medication.id },
-        data: { quantityOnHand: { decrement: consumed } },
-      });
-      needsRefill = isLowStock(updated.quantityOnHand, medication.refillThresholdQuantity);
+      // Phase 66a: clamped at zero and rounded; the dose records what was really taken, so Undo
+      // gives back exactly that, and low is the reminder's rule (lib/reminders/supply.ts).
+      const stock = await takeStock(tx, fresh.id, consumed);
+      if (stock) {
+        await tx.taskInstance.update({ where: { id: instanceId }, data: { quantityConsumed: stock.taken } });
+        needsRefill = lowAfter(instance.definition, fresh, stock.after);
+      }
     }
 
     return { completed: true, needsRefill };
@@ -313,9 +317,9 @@ export async function completeInstance(instanceId: string) {
 
   // Post-commit, best-effort — a refill reminder is a convenience; the dose completion
   // itself must never fail because the shopping list did. A level trigger: this fires
-  // again on the NEXT dose after the refill item is bought and cleared, until
-  // quantityOnHand is raised back above the threshold (via addStock or the edit form) —
-  // deliberate, not a bug, so a stale low count doesn't silently stop nagging.
+  // again on the NEXT dose after the refill item is bought and cleared, until the stock is
+  // no longer low (isMedLow: raised via addStock, the edit form or a trip) — deliberate, not
+  // a bug, so a stale low count doesn't silently stop nagging.
   if (result.completed && result.needsRefill) {
     await requestRefill({ householdId: profile.householdId, title: instance.definition.title, byId: profile.id, forId: instance.assignedToId, medicationId: medication?.id ?? null });
   }
@@ -342,12 +346,24 @@ async function requestRefill(o: { householdId: string; title: string; byId: stri
   }
 }
 
-const asNeededLow = (onHand: number | null, doseAmount: number | null) => {
-  const left = dosesLeft(onHand, doseAmount);
-  return left != null && left <= AS_NEEDED_LOW_DOSES;
-};
-
 export type DoseState = { error?: string; ok?: string };
+
+/** Low after a dose, on the running-low reminder's rule (Phase 66a), judged on the row just written. */
+function lowAfter(
+  definition: { frequencyType: string; interval: number | null; daysOfWeek: number[]; timesOfDay: string[] },
+  medication: { doseAmount: number | null; refillThresholdQuantity: number | null },
+  quantityOnHand: number,
+): boolean {
+  return isMedLow({
+    quantityOnHand,
+    doseAmount: medication.doseAmount,
+    refillThresholdQuantity: medication.refillThresholdQuantity,
+    frequencyType: definition.frequencyType,
+    interval: definition.interval ?? 1,
+    daysOfWeek: definition.daysOfWeek,
+    timesOfDay: definition.timesOfDay,
+  }).low;
+}
 
 /**
  * Phase 65a: takes a dose of an as-needed medicine now. Who may: as for a scheduled dose (the
@@ -385,13 +401,16 @@ export async function takeAsNeeded(definitionId: string): Promise<DoseState> {
     const fresh = medication ? await tx.medication.findUnique({ where: { id: medication.id } }) : null;
     const consumed = doseConsumption(fresh?.quantityOnHand ?? null, fresh?.doseAmount ?? null);
     const dose = await tx.taskInstance.create({
-      data: { definitionId: definition.id, dueDate: now, assignedToId: forId, status: "DONE", completedAt: now, completedById: profile.id, quantityConsumed: consumed },
+      data: { definitionId: definition.id, dueDate: now, assignedToId: forId, status: "DONE", completedAt: now, completedById: profile.id },
     });
     await tx.pointsLedger.create({ data: { personId: forId ?? profile.id, delta: definition.points, reason: definition.title, instanceId: dose.id } });
     let needsRefill = false;
     if (consumed != null && medication) {
-      const updated = await tx.medication.update({ where: { id: medication.id }, data: { quantityOnHand: { decrement: consumed } } });
-      needsRefill = isLowStock(updated.quantityOnHand, medication.refillThresholdQuantity) || asNeededLow(updated.quantityOnHand, medication.doseAmount);
+      const stock = await takeStock(tx, medication.id, consumed);
+      if (stock) {
+        await tx.taskInstance.update({ where: { id: dose.id }, data: { quantityConsumed: stock.taken } });
+        needsRefill = lowAfter(definition, fresh ?? medication, stock.after);
+      }
     }
     return { needsRefill, at: now };
   });
@@ -417,9 +436,7 @@ export async function undoAsNeeded(instanceId: string) {
   await prisma.$transaction(async (tx) => {
     await tx.pointsLedger.deleteMany({ where: { instanceId: instance.id } });
     const { count } = await tx.taskInstance.deleteMany({ where: { id: instance.id, status: "DONE" } });
-    if (count && instance.quantityConsumed != null && medication) {
-      await tx.medication.update({ where: { id: medication.id }, data: { quantityOnHand: { increment: instance.quantityConsumed } } });
-    }
+    if (count && instance.quantityConsumed != null && medication) await addToStock(tx, medication.id, instance.quantityConsumed);
   });
   revalidateBoard();
 }
@@ -457,12 +474,7 @@ export async function uncompleteInstance(instanceId: string) {
 
     await tx.pointsLedger.deleteMany({ where: { instanceId: instance.id } });
 
-    if (restoreAmount != null && medication) {
-      await tx.medication.update({
-        where: { id: medication.id },
-        data: { quantityOnHand: { increment: restoreAmount } },
-      });
-    }
+    if (restoreAmount != null && medication) await addToStock(tx, medication.id, restoreAmount);
   });
 
   revalidatePath("/meds");

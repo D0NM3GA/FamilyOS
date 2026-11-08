@@ -58,6 +58,10 @@ money jar's **New since you last looked** to file new charges at once.
 (a minimum gap and a daily maximum) and a printable dose history, car paperwork that renews and
 reminds, one-off repairs in a car's costs, "probably running low" on grown-ups' Home weighted by
 how many were bought, and a light weekly meal plan that puts what's missing on the list.
+**The second fix-it batch (66)**, the first phase from the review of 2026-11-08: kids see only
+their own medicines everywhere, medicine stock stops at zero and asks for a refill on the
+reminder's rule, a chore's new schedule applies at once, trips over several days show on each day,
+and **Try again** really fetches the page again.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they

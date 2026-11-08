@@ -77,11 +77,12 @@ export type TaskRow = {
 /**
  * Chore and med instances due in [from, until). The write-back wants only what's still to
  * do from active chores (`pendingOnly`, `activeOnly`); the agenda shows what the boards
- * show, done ones included.
+ * show, done ones included. Phase 66a: `dosesFor` keeps only that person's doses (a kid's
+ * calendar), chores untouched.
  */
 export async function loadTaskInstances(
   householdId: string,
-  opts: { domains: readonly TaskDomainRow[]; from: Date; until: Date; pendingOnly?: boolean; activeOnly?: boolean },
+  opts: { domains: readonly TaskDomainRow[]; from: Date; until: Date; pendingOnly?: boolean; activeOnly?: boolean; dosesFor?: string },
 ): Promise<TaskRow[]> {
   if (opts.domains.length === 0 || !(opts.until > opts.from)) return [];
   const tasks = await prisma.taskInstance.findMany({
@@ -90,6 +91,7 @@ export async function loadTaskInstances(
       dueDate: { gte: opts.from, lt: opts.until },
       // Phase 65a: an as-needed dose isn't a calendar item.
       definition: { householdId, ...(opts.activeOnly ? { active: true } : {}), domain: { in: [...opts.domains] }, frequencyType: { not: "AS_NEEDED" } },
+      ...(opts.dosesFor ? { OR: [{ definition: { domain: { not: "MED" as const } } }, { assignedToId: opts.dosesFor }] } : {}),
     },
     select: {
       id: true,

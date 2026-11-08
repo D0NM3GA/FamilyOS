@@ -1,4 +1,4 @@
-import { dosesLeft } from "@/lib/meds/as-needed";
+import { AS_NEEDED_LOW_DOSES, dosesLeft } from "@/lib/meds/as-needed";
 
 /**
  * Phase 62: about how many days a medication's stock lasts, from its schedule. Pure, so Meds'
@@ -53,3 +53,21 @@ export function daysLeftLabel(m: SupplyInput): string | null {
   return n < 1 ? "less than a day left" : `about ${n} ${n === 1 ? "day" : "days"} left`;
 }
 
+
+/** Running low at this many days of supply or fewer. */
+export const LOW_DAYS = 7;
+
+/**
+ * Low: a week of supply or less, at the refill count when that's sooner, or (as needed) a few
+ * doses left. Phase 66a: the one rule for both the running-low reminder and the refill item that
+ * taking a dose puts on the list, which used only the refill count before.
+ */
+export function isMedLow(m: SupplyInput & { refillThresholdQuantity: number | null }): { low: boolean; days: number | null; doses: number | null } {
+  if (m.quantityOnHand == null) return { low: false, days: null, doses: null };
+  const days = daysOfSupply(m);
+  const byDays = days != null && days <= LOW_DAYS;
+  const byCount = m.refillThresholdQuantity != null && m.quantityOnHand <= m.refillThresholdQuantity;
+  const doses = m.frequencyType === "AS_NEEDED" ? dosesLeft(m.quantityOnHand, m.doseAmount) : null;
+  const byDoses = doses != null && doses <= AS_NEEDED_LOW_DOSES;
+  return { low: byDays || byCount || byDoses, days, doses };
+}

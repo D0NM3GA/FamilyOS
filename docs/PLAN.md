@@ -2627,6 +2627,119 @@ categories; running low on kids' Home.
 65a meds, 65b cars, 65c running low, 65d meal plan.
 
 
+## Phase 66 — scope (the second fix-it batch, 2026-11-08)
+
+The first phase from the review of 2026-11-08: bugs and small gaps, no new screens. Checked against
+the code 2026-11-08. The owner said go on the review's grouping ("Yes, start 66").
+
+### 66a — Meds, chores and the calendar
+
+- **Kids see only their own medicines.** `app/(app)/meds/page.tsx` passes `?person=` straight to
+  `getBoardInstances` and `getAsNeeded`, so a kid sees every medicine and its notes. For a kid the
+  person is forced to their own id (the same as Home: `personId: profile.id`, no unassigned doses,
+  which a kid can't take anyway, `assertOwnRecord`), and the person filter row isn't shown. A
+  person's page (`app/(app)/people/[id]/page.tsx`) loads its meds board only for a grown-up or the
+  person themselves. A guard test checks both pages' kid branches.
+- **Medicine stock floors at zero and rounds.** A pure-SQL `lib/meds/stock.ts`, like
+  `lib/vehicles/supply-stock.ts`: `takeStock(tx, medicationId, amount)` locks the row, sets
+  `ROUND(GREATEST(0, q - amount), 3)` and returns `{ taken, after }`; `giveBackStock` and
+  `addStock` round too. Taking a scheduled dose and an as-needed dose record `taken` (not the
+  asked-for amount) as `quantityConsumed`, so Undo gives back what was really taken. Manage shows
+  the count rounded for reading.
+- **One "running low" for Meds and Reminders.** `isMedLow` moves from `lib/reminders/plan.ts` to
+  `lib/reminders/supply.ts`, next to `daysOfSupply` (unzoned, and Meds already imports it). Taking a dose asks for a
+  refill when `isMedLow` says low (a week of supply or less, at the refill count, or 5 as-needed
+  doses), so the list item and the reminder agree. `isLowStock` goes.
+- **Editing a chore applies now.** `updateTaskDefinition` (chores) deletes the definition's
+  PENDING instances due today or later that weren't moved by hand (`movedFrom` null), in the same
+  transaction as the update, but only when the schedule, times, people or rotation changed (a
+  title or points edit keeps hand reassignments). The planner then makes the new ones on the next
+  load; `/calendar` and `/` are revalidated. The Outlook copy follows on its next sync.
+- **Timed events across several days show on each day.** `eventItems` (`lib/calendar/agenda.ts`)
+  spreads a timed event from its start day to the day of its last minute in the household zone:
+  the first day at its start time, later days as all-day rows, all with "until Sun 2:00 pm". An
+  event ending at midnight stays one day. The loaders already pick up events that began before the
+  window.
+- **"Try again" really tries again.** `app/(app)/error.tsx` and `app/global-error.tsx` use Next
+  16's `retry()` instead of `reset()` (docs: file-conventions/error.md).
+
+### 66b — Two phones on the list, and failures in words
+
+- **−/+ send a step.** `setQuantity(itemId, quantity)` becomes `stepQuantity(itemId, step)` with
+  step ±1, applied in SQL (`quantity + step`, at most 999); reaching zero takes the row off. The
+  one-left − keeps its Undo button.
+- **A row someone else already changed is a quiet no-op.** `toggleItem`, `stepQuantity` and
+  `setRequestedBy` use `updateMany`/`deleteMany` scoped to the household instead of throwing
+  "Item not found" onto the error page.
+- **No double rows.** No partial unique index (Prisma 7 can't describe one, and a hand-made one
+  would read as drift on every `migrate dev`). Instead every path that adds a row locks the active
+  list's row first (`SELECT id FROM shopping_list WHERE id = … FOR UPDATE`) and then checks:
+  `addProductToList`, `requestItemByName`, `addWeekToList` and un-ticking a done row (which folds
+  into an unchecked twin of the same item, adding its amount, instead of making two).
+- **Failures in words, not the error page.** "Sync from Microsoft" on your own person page and
+  Home's "Called" / "Texted" buttons become small client forms (`useActionState` with
+  `SubmitButton`) whose actions return `{ error }` instead of throwing, so a Microsoft timeout
+  says so in place. Guard-style throws for tampered ids stay as they are.
+
+### 66c — Money
+
+- **A pick on a pending charge carries to the posted one.** When a sync marks a pending row
+  SUPERSEDED (`lib/finance/sync.ts`), a category a person picked (`categorySource` PERSON) and a
+  grocery trip link move to its posted row, found the way surprise marks are (same account and
+  feed, 0–10 days later, amount within 25%, same merchant; `lib/finance/gifts.ts`). The matcher is
+  shared (`lib/finance/pending-match.ts`) rather than copied. Only at that moment, once: a posted
+  row that arrives a sync later isn't matched (the feed drops a pending row when its posted row
+  comes, so this is the common case), and nothing has to remember what was handed on.
+- **Feed amounts with more than two decimals round to cents.** `feedAmountToCents` in
+  `lib/finance/simplefin.ts` rounds "-12.3450" half away from zero in string arithmetic; typed
+  amounts (`decimalToCents`, `parseMoneyInput`) still refuse a third decimal.
+- **Pending charges are dated in the household's zone.** A pending row's day comes from
+  `transacted_at` as a household-zone day, not a UTC one (an evening charge was dated tomorrow).
+  Posted rows keep the bank's `posted` day as now (banks send it as a UTC date).
+
+### Settled after Fable's scope review (2026-11-08)
+
+- **Writers of medicine stock:** `lib/meds/stock.ts` covers the Meds-side writers (+ stock, taking a
+  scheduled or as-needed dose, both undos). `restockFromTrip` already rounds in SQL and stays in the
+  list kernel, which lint keeps out of `lib/meds`; the edit form's typed count is untouched. Manage's
+  Low badge is the third `isLowStock` caller and moves to `isMedLow` with the rest.
+- **Write order on a dose:** the PENDING guard stays first (it's the double-tap protection), then
+  `takeStock`, then `quantityConsumed` is written with what was taken.
+- **Chore edit:** `movedFrom` keeps days moved by hand; days reassigned by hand go with the rest
+  when the schedule or people change (a title or points edit keeps them). Points, pet gifts and
+  dose reminders aren't tied to waiting instances; the Outlook copy is diff-based and drops the
+  deleted days on its next run.
+- **Timed spread:** each day's row key is `key:day`, days outside the window are dropped (Home
+  asks for one day), and the note is "until Sun 2:00 pm · place".
+- **List locks:** `putRowBack` (Undo) and the Shop view's `applyChecks` un-tick join the locked
+  paths; `requestItemByName` moves into a transaction to hold the lock. One list per household
+  (`householdId @unique`, upserted), so the lock is one row. A step from 2 by two phones can reach
+  zero with no Undo; that's accepted.
+- **Pending carry:** the posted row takes the pick only when it has no person's pick of its own;
+  `purchaseLinkedBy` comes with the trip; FinTransaction's `purchaseId` doc comment is corrected.
+- **Pending day:** `parseAccounts` takes the household zone, so the stored and parsed day agree on
+  every sync (otherwise each sync would rewrite the row). The no-`transacted_at` fallback uses the
+  same zone.
+
+### Tests
+
+Unit: `eventItems` spans (multi-day, midnight end, began last week), `feedAmountToCents`, the
+pending-day zone, `isMedLow` in its new home. DB: med stock floor, rounding and undo; chore edit
+dropping and keeping instances; kid meds scope; `stepQuantity` and the missing-row no-op;
+concurrent adds making one row; untick folding; the pending→posted carry. Guard: kid branches on
+Meds and People.
+
+### Not in this phase
+
+Everything else from the 2026-11-08 review: the security and ops net (67), reminders ahead of time
+(68), everyday friction (69), new capabilities (70). Rounding statement-import amounts with extra
+decimals (imports report the row instead).
+
+### Pull requests
+
+66a meds, chores and calendar; 66b list and failures; 66c money.
+
+
 ## Open items
 
 ### Waiting on a decision
