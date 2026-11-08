@@ -73,6 +73,37 @@ describe.skipIf(!RUN)("chore checks and swaps (database)", { timeout: 60_000 }, 
     expect(await ledger(b.id)).toBe(1);
   });
 
+  test("a waiting chore: bulk and a grown-up's skip refuse it; the check survives the flag going off; meds never wait", async () => {
+    const { completeChore, checkChore, skipChore, uncompleteChore } = await import("@/lib/tasks/chore-cores");
+    const { waitingForCheck } = await import("./checks");
+    const a = await instance(ids.checked, ids.ivy, 11);
+    await prisma.$transaction((tx) => completeChore(tx, kid(ids.ivy), a.id));
+    expect((await prisma.$transaction((tx) => skipChore(tx, grownUp(), a.id))).ok).toBe(false);
+    expect((await prisma.$transaction((tx) => completeChore(tx, grownUp(), a.id))).ok).toBe(false);
+    await prisma.taskDefinition.update({ where: { id: ids.checked }, data: { needsCheck: false } });
+    expect((await waitingForCheck(ids.h)).map((r) => r.id)).toContain(a.id);
+    expect((await prisma.$transaction((tx) => checkChore(tx, grownUp(), a.id, true))).ok).toBe(true);
+    await prisma.taskDefinition.update({ where: { id: ids.checked }, data: { needsCheck: true } });
+    // A grown-up's undo after the OK takes the stickers back.
+    expect((await prisma.$transaction((tx) => uncompleteChore(tx, grownUp(), a.id))).ok).toBe(true);
+    expect(await ledger(a.id)).toBe(0);
+    const med = await prisma.taskDefinition.create({ data: { householdId: ids.h, domain: "MED", title: "Vitamin", frequencyType: "DAILY", startDate: today } });
+    await prisma.taskInstance.create({ data: { definitionId: med.id, dueDate: today, status: "DONE", awaitingCheck: true } });
+    expect((await waitingForCheck(ids.h)).every((r) => r.definition.title !== "Vitamin")).toBe(true);
+  });
+
+  test("swapped-from shows only while the chore is still where the swap put it", async () => {
+    const { askSwap, answerSwap, swappedFrom } = await import("./swaps");
+    const { reassignChore } = await import("@/lib/tasks/chore-cores");
+    const a = await instance(ids.plain, ids.ivy, 12);
+    await askSwap(swapper(ids.ivy), { instanceId: a.id, toId: ids.max, giveBackId: null }, today);
+    const s = await prisma.choreSwap.findFirstOrThrow({ where: { instanceId: a.id } });
+    await answerSwap(swapper(ids.max), s.id, true, today);
+    expect((await swappedFrom(ids.h, [a.id])).get(a.id)).toBe("Ivy");
+    await prisma.$transaction((tx) => reassignChore(tx, grownUp(), a.id, { id: ids.ivy, firstName: "Ivy" }));
+    expect((await swappedFrom(ids.h, [a.id])).has(a.id)).toBe(false);
+  });
+
   test("a swap: asked, accepted, both chores move; a second accept changes nothing", async () => {
     const { askSwap, answerSwap } = await import("./swaps");
     const mine = await instance(ids.plain, ids.ivy, 3);

@@ -20,5 +20,7 @@ describe("a swap still as asked", () => {
     expect(swapStillGood(s, pending("ivy", 11), pending("max", 12), today)).toBe(true);
     expect(swapStillGood(s, pending("ivy", 11), pending("ivy", 12), today)).toBe(false);
     expect(swapStillGood({ ...s, giveBackId: null, giveBackDueDate: null }, pending("ivy", 11), null, today)).toBe(true);
+    // A give-back whose day has passed.
+    expect(swapStillGood({ ...s, giveBackDueDate: day(9) }, pending("ivy", 11), pending("max", 9), today)).toBe(false);
   });
 });

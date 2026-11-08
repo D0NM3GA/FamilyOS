@@ -130,7 +130,7 @@ export function TaskInstanceCard({
    * still returns plain `void`, which satisfies this widened type unchanged — a domain
    * that never returns a milestone just never triggers the extra celebration below.
    */
-  onComplete: (instanceId: string) => Promise<void | { milestone?: number | null }>;
+  onComplete: (instanceId: string) => Promise<void | { milestone?: number | null; waiting?: boolean }>;
   onUndo: (instanceId: string) => Promise<void>;
   /** Adult-only "cheap swap" — reassign a still-PENDING instance to someone else. Omitted
    * entirely by Meds' board; only rendered here when both this AND reassignCandidates are
@@ -197,6 +197,9 @@ export function TaskInstanceCard({
   // below, once the server round-trip confirms a milestone was actually crossed.
   const [milestoneHit, setMilestoneHit] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
+  // Phase 70c: this tick waits for a grown-up's check, so it isn't celebrated as paid.
+  const [waitingNow, setWaitingNow] = useState(false);
+  const waiting = optimisticStatus === "DONE" && (waitingNow || instance.awaitingCheck === true);
   const [moveRefused, setMoveRefused] = useState(false);
   const reportMilestone = useReportMilestone();
 
@@ -245,6 +248,10 @@ export function TaskInstanceCard({
         setFailed(true);
         return;
       }
+      if (result && typeof result === "object" && result.waiting) {
+        setWaitingNow(true);
+        return;
+      }
       // After the save, unlike the burst: the look says "done" only when it is.
       celebrateLook();
       const milestone = result && typeof result === "object" ? result.milestone : null;
@@ -266,6 +273,7 @@ export function TaskInstanceCard({
 
   function handleUndo() {
     setFailed(false);
+    setWaitingNow(false);
     startTransition(async () => {
       setOptimisticStatus("PENDING");
       try {
@@ -398,13 +406,17 @@ export function TaskInstanceCard({
             {!big && optimisticStatus === "DONE" && instance.completedBy
               ? ` · done by ${instance.completedBy.firstName}`
               : ""}
-            {optimisticStatus === "DONE" && instance.awaitingCheck ? " · waiting for a grown-up's check" : ""}
             {!big && optimisticStatus === "SKIPPED" ? ` · skipped${instance.completedBy ? ` by ${instance.completedBy.firstName}` : ""}` : ""}
           </p>
           {/* Phase 49.5: a dose time away from home, home first and then where you are. */}
           {timeLabel && <AwayTime at={instance.dueDate} line className={`text-muted-foreground ${big ? "text-sm" : "text-xs"}`} />}
         </div>
 
+        {waiting && (
+          <p role="status" className={`basis-full font-bold text-amber-700 dark:text-amber-300 ${big ? "text-sm" : "text-xs"}`}>
+            Waiting for a grown-up's check
+          </p>
+        )}
         {failed && (
           <p role="alert" className="basis-full text-xs font-bold text-destructive">
             Couldn&apos;t save that. Check your connection and try again.

@@ -11,7 +11,7 @@ import { atMidnight } from "@/lib/tasks/schedule";
 import { markOlderMissedIds } from "@/lib/tasks/skip";
 import { scheduleChanged } from "@/lib/tasks/edit";
 import { checkChore, completeChore, reassignChore, skipChore, uncompleteChore, unskipChore } from "@/lib/tasks/chore-cores";
-import { answerSwap, askSwap, cancelSwap } from "@/lib/chores/swaps";
+import { answerSwap, askSwap, cancelSwap, SWAP_LAPSED } from "@/lib/chores/swaps";
 import { deleteEventsFor, recordEvents } from "@/lib/work-items/events";
 import { moveChore, moveChoreIn, type MoveTarget } from "@/lib/tasks/move";
 import { withStoredDays } from "@/lib/household-zone";
@@ -190,7 +190,7 @@ export async function setDefinitionActive(definitionId: string, active: boolean)
  * snapshot read here, a reassignment that lands mid-transaction also no-ops rather than
  * crediting whoever the instance belonged to a moment ago.
  */
-export async function completeInstance(instanceId: string): Promise<{ milestone?: number | null }> {
+export async function completeInstance(instanceId: string): Promise<{ milestone?: number | null; waiting?: boolean }> {
   const profile = await requireActiveProfile();
   await assertAppOn(profile.householdId, "chores");
   const viewer = { id: profile.id, householdId: profile.householdId, adult: isAdult(profile) };
@@ -201,7 +201,7 @@ export async function completeInstance(instanceId: string): Promise<{ milestone?
   revalidatePath("/points");
   revalidatePath("/");
 
-  return result.ok ? { milestone: result.milestone } : {};
+  return result.ok ? { milestone: result.milestone, waiting: result.waiting } : {};
 }
 
 export async function uncompleteInstance(instanceId: string) {
@@ -378,7 +378,7 @@ export async function answerChoreSwap(swapId: string, accept: boolean): Promise<
   await assertAppOn(profile.householdId, "chores");
   const done = await answerSwap(profile, swapId, accept, atMidnight(new Date()));
   revalidateBoard();
-  if (!done.ok) redirect("/chores?swap=lapsed");
+  if (!done.ok) redirect(`/chores?swap=${done.error === SWAP_LAPSED ? "lapsed" : "gone"}`);
 }
 
 /** Phase 70c: the kid who asked takes it back. */

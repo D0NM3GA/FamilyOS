@@ -37,8 +37,8 @@ import { appOn } from "@/lib/app-switches";
 import { SubmitButton } from "@/components/submit";
 import { HomeLocation } from "@/components/home-location";
 import { waitingForCheck } from "@/lib/chores/checks";
-import { openSwaps, swappedFrom } from "@/lib/chores/swaps";
-import { KidSwaps, WaitingForCheck } from "./checks-and-swaps";
+import { openSwaps, openSwapsForGrownUps, swappedFrom } from "@/lib/chores/swaps";
+import { GrownUpSwaps, KidSwaps, WaitingForCheck } from "./checks-and-swaps";
 
 export default async function ChoresPage({
   searchParams,
@@ -79,12 +79,13 @@ export default async function ChoresPage({
 
   const allInstances = [...overdue, ...dueToday, ...upcoming];
   // Phase 70c: grown-ups' checks waiting, a kid's swaps, and which chores a swap moved.
-  const [waiting, swaps, fromSwap] = await Promise.all([
+  const [waiting, swaps, fromSwap, askedSwaps] = await Promise.all([
     viewerIsAdult ? waitingForCheck(profile.householdId) : Promise.resolve([]),
     profile.role === "KID" ? openSwaps(profile, atMidnight(new Date())) : Promise.resolve(null),
     viewerIsAdult ? swappedFrom(profile.householdId, allInstances.map((i) => i.id)) : Promise.resolve(new Map<string, string>()),
+    viewerIsAdult ? openSwapsForGrownUps(profile.householdId, atMidnight(new Date())) : Promise.resolve([]),
   ]);
-  const swapNotice = params.swap === "asked" || params.swap === "lapsed" ? params.swap : null;
+  const swapNotice = params.swap === "asked" || params.swap === "lapsed" || params.swap === "gone" ? params.swap : null;
   const swapNote = (id: string) => (fromSwap.has(id) ? `swapped from ${fromSwap.get(id)}` : null);
   const hasWeatherSensitiveChore = allInstances.some((i) => i.definition.weatherSensitive);
   const forecast: ForecastPeriod[] | null = hasWeatherSensitiveChore
@@ -371,6 +372,7 @@ export default async function ChoresPage({
         )}
 
         <WaitingForCheck rows={waiting} zone={household.timezone ?? undefined} />
+        <GrownUpSwaps swaps={askedSwaps} zone={household.timezone ?? undefined} />
         {swaps && <KidSwaps incoming={swaps.incoming} outgoing={swaps.outgoing} notice={swapNotice} zone={household.timezone ?? undefined} />}
 
         <MilestoneToastBoard>

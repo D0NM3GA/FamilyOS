@@ -14,7 +14,8 @@ export type SwapViewer = { id: string; householdId: string; role: "ADULT" | "KID
 export type SwapResult = { ok: true } | { ok: false; error: string };
 
 const kidsOnly = "Swaps are for kids: grown-ups can give a chore to someone from its menu.";
-const LAPSED = "That swap can't happen now: a chore was done, moved or given to someone else.";
+export const SWAP_LAPSED = "That swap can't happen now: a chore was done, moved or given to someone else.";
+const LAPSED = SWAP_LAPSED;
 
 type InstanceState = { status: string; assignedToId: string | null; dueDate: Date } | null;
 
@@ -162,18 +163,58 @@ export async function openSwaps(viewer: SwapViewer, today: Date): Promise<{ inco
   return { incoming: good.filter((r) => r.toId === viewer.id).map(view), outgoing: good.filter((r) => r.fromId === viewer.id).map(view) };
 }
 
+/** For grown-ups: the kids' open requests, read only (they can still give any chore to anyone). */
+export async function openSwapsForGrownUps(householdId: string, today: Date): Promise<SwapView[]> {
+  const rows = await prisma.choreSwap.findMany({
+    where: { householdId, status: "PENDING" },
+    include: {
+      instance: { select: { status: true, assignedToId: true, dueDate: true, definition: { select: { title: true } } } },
+      giveBack: { select: { status: true, assignedToId: true, dueDate: true, definition: { select: { title: true } } } },
+      from: { select: { id: true, firstName: true, lastName: true } },
+      to: { select: { id: true, firstName: true, lastName: true } },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+  });
+  const names = shortNames(rows.flatMap((r) => [r.from, r.to]));
+  return rows
+    .filter((r) => swapStillGood(r, r.instance, r.giveBack, today))
+    .map((r) => ({
+      id: r.id,
+      from: names.get(r.fromId) ?? r.from.firstName,
+      to: names.get(r.toId) ?? r.to.firstName,
+      chore: r.instance.definition.title,
+      day: r.dueDate,
+      giveBack: r.giveBack && r.giveBackDueDate ? { chore: r.giveBack.definition.title, day: r.giveBackDueDate } : null,
+    }));
+}
+
 /** For grown-ups: which of these chores a kid took over by a swap, and from whom. */
 export async function swappedFrom(householdId: string, instanceIds: string[]): Promise<Map<string, string>> {
   if (instanceIds.length === 0) return new Map();
   const rows = await prisma.choreSwap.findMany({
     where: { householdId, status: "ACCEPTED", OR: [{ instanceId: { in: instanceIds } }, { giveBackId: { in: instanceIds } }] },
-    select: { instanceId: true, giveBackId: true, from: { select: { firstName: true } }, to: { select: { firstName: true } } },
+    select: {
+      instanceId: true,
+      giveBackId: true,
+      fromId: true,
+      toId: true,
+      instance: { select: { assignedToId: true } },
+      giveBack: { select: { assignedToId: true } },
+      from: { select: { firstName: true } },
+      to: { select: { firstName: true } },
+    },
     orderBy: { decidedAt: "asc" },
   });
   const out = new Map<string, string>();
   for (const r of rows) {
-    out.set(r.instanceId, r.from.firstName);
-    if (r.giveBackId) out.set(r.giveBackId, r.to.firstName);
+    // Only while it's still where the swap put it: a grown-up giving it back ends the note.
+    if (r.instance.assignedToId === r.toId) out.set(r.instanceId, r.from.firstName);
+    else out.delete(r.instanceId);
+    if (r.giveBackId && r.giveBack) {
+      if (r.giveBack.assignedToId === r.fromId) out.set(r.giveBackId, r.to.firstName);
+      else out.delete(r.giveBackId);
+    }
   }
   return out;
 }

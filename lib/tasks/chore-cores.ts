@@ -37,7 +37,7 @@ export async function completeChore(tx: Tx, viewer: ChoreViewer, instanceId: str
       data: { status: "DONE", completedAt: null, completedById: viewer.id, awaitingCheck: true },
     });
     if (count === 0) return { ok: false, reason: "changed" };
-    await recordEvent(tx, { householdId: viewer.householdId, itemType: "CHORE", itemId: instanceId, actorId: viewer.id, action: "STATUS", fromValue: "PENDING", toValue: "DONE" });
+    await recordEvent(tx, { householdId: viewer.householdId, itemType: "CHORE", itemId: instanceId, actorId: viewer.id, action: "STATUS", fromValue: "PENDING", toValue: "WAITING" });
     return { ok: true, waiting: true };
   }
   return pay(tx, viewer, instanceId, instance.assignedToId ?? viewer.id, instance.definition.points, instance.definition.title, {
@@ -71,19 +71,18 @@ async function pay(
 /**
  * Phase 70c: a grown-up's check on a chore a kid ticked. **OK** pays its stickers now (to whoever it
  * was for, else whoever did it); **Not yet** puts it back to do, with nothing to take back. Never by
- * the kid who did it (a kid isn't a grown-up anyway).
+ * a kid.
  */
 export async function checkChore(tx: Tx, viewer: ChoreViewer, instanceId: string, ok: boolean): Promise<CoreResult & { milestone?: number | null }> {
   if (!viewer.adult) return { ok: false, reason: "not allowed" };
   const instance = await find(tx, viewer, instanceId);
   if (!instance) return { ok: false, reason: "not found" };
   if (instance.status !== "DONE" || !instance.awaitingCheck) return { ok: false, reason: "changed" };
-  if (instance.completedById === viewer.id) return { ok: false, reason: "not allowed" };
   const waiting = { id: instanceId, status: "DONE" as const, awaitingCheck: true, completedById: instance.completedById };
   if (!ok) {
     const { count } = await tx.taskInstance.updateMany({ where: waiting, data: { status: "PENDING", awaitingCheck: false, completedById: null, completedAt: null } });
     if (count === 0) return { ok: false, reason: "changed" };
-    await recordEvent(tx, { householdId: viewer.householdId, itemType: "CHORE", itemId: instanceId, actorId: viewer.id, action: "STATUS", fromValue: "DONE", toValue: "PENDING" });
+    await recordEvent(tx, { householdId: viewer.householdId, itemType: "CHORE", itemId: instanceId, actorId: viewer.id, action: "STATUS", fromValue: "WAITING", toValue: "PENDING" });
     return { ok: true };
   }
   return pay(
@@ -94,7 +93,7 @@ export async function checkChore(tx: Tx, viewer: ChoreViewer, instanceId: string
     instance.definition.points,
     instance.definition.title,
     { where: waiting, data: { awaitingCheck: false, completedAt: new Date() } },
-    { fromValue: "WAITING", toValue: "DONE" },
+    { fromValue: "WAITING", toValue: "CHECKED" },
   );
 }
 

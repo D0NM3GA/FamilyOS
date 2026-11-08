@@ -19,6 +19,10 @@ describe("parseItemRef", () => {
 describe("describeEvent", () => {
   it("says what happened, in the family's words", () => {
     expect(describeEvent(e("CHORE", "STATUS", null, "PENDING", "DONE"))).toBe("marked it done");
+    // Phase 70c: a tick waiting for a check, and the check either way.
+    expect(describeEvent(e("CHORE", "STATUS", null, "PENDING", "WAITING"))).toBe("marked it done, for a grown-up to check");
+    expect(describeEvent(e("CHORE", "STATUS", null, "WAITING", "CHECKED"))).toBe("checked it: OK");
+    expect(describeEvent(e("CHORE", "STATUS", null, "WAITING", "PENDING"))).toBe("checked it: not yet");
     expect(describeEvent(e("ASSIGNMENT", "STATUS", null, "TODO", "DONE"))).toBe("marked it turned in");
     expect(describeEvent(e("CHORE", "ASSIGN", null, null, "Max"))).toBe("gave it to Max (was anyone's)");
     expect(describeEvent(e("CHORE", "ASSIGN", null, "Ivy", "Max"))).toBe("gave it to Max (was Ivy)");
