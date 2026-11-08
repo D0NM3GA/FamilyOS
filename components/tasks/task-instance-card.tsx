@@ -414,7 +414,7 @@ export function TaskInstanceCard({
 
         {waiting && (
           <p role="status" className={`basis-full font-bold text-amber-700 dark:text-amber-300 ${big ? "text-sm" : "text-xs"}`}>
-            Waiting for a grown-up's check
+            Waiting for a grown-up&apos;s check
           </p>
         )}
         {failed && (
