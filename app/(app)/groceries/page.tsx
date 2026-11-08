@@ -86,6 +86,9 @@ export default async function GroceriesPage({
         <Link href="/groceries/trips" className={`${stickerBtn} hover:bg-muted dark:border-white/20`}>
           🧾 Past trips
         </Link>
+        <Link href="/groceries/meals" className={`${stickerBtn} hover:bg-muted dark:border-white/20`}>
+          🍽️ Meals
+        </Link>
         <PageMore
           items={[
             { label: "Print", href: "/print/groceries" },
