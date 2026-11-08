@@ -414,3 +414,20 @@ export function todayStrip(items: readonly AgendaItem[], max = TODAY_STRIP_MAX):
   const sorted = [...items].sort(compareAgendaItems);
   return { shown: sorted.slice(0, max), more: Math.max(0, sorted.length - max) };
 }
+
+/** Phase 69c: planned dinners, one all-day row per day, opening the meal plan. */
+export function mealItems(rows: readonly { day: Date; label: string }[]): AgendaItem[] {
+  return rows.map((r) => ({
+    key: `meal:${dayKey(r.day)}`,
+    kind: "meal" as const,
+    emoji: "🍽️",
+    title: `Dinner: ${r.label}`,
+    who: null,
+    day: dayKey(r.day),
+    minutes: null,
+    status: "open" as const,
+    note: null,
+    href: "/groceries/meals",
+    external: false,
+  }));
+}

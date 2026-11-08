@@ -2232,6 +2232,9 @@ model CategoryRule {
   key        String
   categoryId String
   category   FinCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  /// Phase 69c: "every branch": the rule also files keys that start with this one at a word
+  /// ("joes pizza" files "joes pizza riverton"). An exact rule wins over it.
+  matchPrefix Boolean    @default(false)
   createdAt  DateTime    @default(now())
 
   @@unique([jarId, key])
@@ -2440,6 +2443,9 @@ model ManualBill {
   /// The first due day; later ones follow by cadence (the 31st stays the month's last day).
   nextDue     DateTime    @db.Date
   matchKey    String      @default("")
+  /// Phase 69c: the due day someone marked paid by hand (a school portal, Zelle, another jar), so
+  /// it isn't late and leaves Safe to spend.
+  paidDueOn   DateTime?   @db.Date
   createdById String?
   createdBy   Person?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime    @default(now())

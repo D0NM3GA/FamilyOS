@@ -65,7 +65,7 @@ const section: MoneySection = {
       members: [{ personId: "p1", signInEmail: "p1@x.example", createdAt: "2026-10-01T00:00:00.000Z", alertBills: true, alertSync: true, alertOverBudget: false, alertLowBalance: true }],
       accounts: [],
       categories: [],
-      rules: [{ id: "r1", key: "lego store", categoryId: "c1", createdAt: "2026-10-01T00:00:00.000Z" }],
+      rules: [{ id: "r1", key: "lego store", categoryId: "c1", matchPrefix: false, createdAt: "2026-10-01T00:00:00.000Z" }],
       recurring: [],
       transactions: [],
       privacyCharges: [],

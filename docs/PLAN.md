@@ -3028,7 +3028,7 @@ Checked against the code 2026-11-08.
 
 - **"Always" rules for every branch.** Saving "always file this store as …" offers the store's
   name without its town ("Joe's Pizza" for "joes pizza riverton"): a rule can match a key's start
-  at a word boundary (`MerchantRule.matchPrefix`), shown with how many charges it covers.
+  at a word boundary (`CategoryRule.matchPrefix`).
 - **A hand-added bill can be marked paid.** **Paid** on a bill in Coming up records that due day
   as paid (school portal, Zelle, another jar), so it stops counting as late and leaves Safe to spend.
 - **Search finds meals and money.** Meals (by name and ingredient) open the meal plan. Money, for

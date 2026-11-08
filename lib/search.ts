@@ -33,7 +33,7 @@ export async function searchHousehold(
   if (!term) return [];
   const on = (app: string) => isAppOn(opts.disabledApps, app);
 
-  const [people, chores, meds, products, vehicles, maintenanceItems, schoolWork, rewards, dates, notes, schoolTasks] = await Promise.all([
+  const [people, chores, meds, products, vehicles, maintenanceItems, schoolWork, rewards, dates, notes, schoolTasks, meals] = await Promise.all([
     listPeople(householdId, { query: term }),
     on("chores")
       ? prisma.taskDefinition.findMany({
@@ -133,6 +133,15 @@ export async function searchHousehold(
           orderBy: { createdAt: "desc" },
         })
       : [],
+    // Phase 69c: a saved meal by its name or an ingredient.
+    on("groceries")
+      ? prisma.meal.findMany({
+          where: { householdId, OR: [{ name: { contains: term, mode: "insensitive" } }, { ingredients: { some: { product: { name: { contains: term, mode: "insensitive" } } } } }] },
+          select: { id: true, name: true },
+          take: RESULTS_PER_GROUP,
+          orderBy: { name: "asc" },
+        })
+      : [],
   ]);
 
   const groups: SearchGroup[] = [];
@@ -181,6 +190,13 @@ export async function searchHousehold(
         sublabel: p.brand ?? undefined,
         href: `/groceries/pantry?item=${p.id}`,
       })),
+    });
+  }
+
+  if (meals.length > 0) {
+    groups.push({
+      title: "Meals",
+      items: meals.map((m) => ({ id: m.id, label: m.name, href: "/groceries/meals" })),
     });
   }
 

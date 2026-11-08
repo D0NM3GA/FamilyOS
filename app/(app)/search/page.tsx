@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
 import { searchHousehold } from "@/lib/search";
+import { searchMoney } from "@/lib/finance/search";
 import { getDisabledApps } from "@/lib/app-switches";
 import { appsOffFor } from "@/lib/apps";
 import { PageHeader } from "@/components/page-header";
@@ -19,13 +20,18 @@ export default async function SearchPage({
   const rawQuery = Array.isArray(q) ? q[0] : q;
   const query = rawQuery?.trim() ?? "";
 
-  const groups = query
-    ? await searchHousehold(profile.householdId, query, {
-        viewerIsAdult: isAdult(profile),
-        viewerId: profile.id,
-        disabledApps: appsOffFor(isAdult(profile), await getDisabledApps(profile.householdId)),
-      })
-    : [];
+  // Phase 69c: money only for a jar member on their own sign-in (lib/finance/search.ts checks).
+  const [household, money] = query
+    ? await Promise.all([
+        searchHousehold(profile.householdId, query, {
+          viewerIsAdult: isAdult(profile),
+          viewerId: profile.id,
+          disabledApps: appsOffFor(isAdult(profile), await getDisabledApps(profile.householdId)),
+        }),
+        searchMoney(profile, query),
+      ])
+    : [[], []];
+  const groups = [...household, ...money];
 
   return (
     <div className="p-4 sm:p-6">
@@ -51,8 +57,8 @@ export default async function SearchPage({
       )}
 
       <div className="mt-6 space-y-6">
-        {groups.map((group) => (
-          <div key={group.title}>
+        {groups.map((group, i) => (
+          <div key={`${i}:${group.title}`}>
             <h2 className={sectionTitle}>{group.title}</h2>
             <ul className="mt-2 space-y-1">
               {group.items.map((item) => (

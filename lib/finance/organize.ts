@@ -1,4 +1,5 @@
 import { prisma, type Tx } from "@/lib/prisma";
+import { ruleResolver } from "./rules";
 import { STARTING_CATEGORIES, findCategoryByKey, guessCategory, merchantKeyOf } from "./categories";
 import { localDay, matchTrips } from "./grocery-link";
 import { spreadGiftMarks } from "./gifts";
@@ -65,18 +66,19 @@ export async function categorizeJar(db: Db, jarId: string): Promise<number> {
   return withCategoryLock(db, jarId, async (tx) => {
     const [categories, rules, rows] = await Promise.all([
       tx.finCategory.findMany({ where: { jarId }, select: { id: true, key: true, absorbedKeys: true } }),
-      tx.categoryRule.findMany({ where: { jarId }, select: { key: true, categoryId: true } }),
+      tx.categoryRule.findMany({ where: { jarId }, select: { key: true, categoryId: true, matchPrefix: true } }),
       tx.finTransaction.findMany({
         where: { jarId, state: "ACTIVE", OR: [{ categorySource: null }, { categorySource: { in: ["AUTO", "RULE"] } }] },
         select: { id: true, merchantKey: true, amountCents: true, categoryId: true, categorySource: true },
       }),
     ]);
-    const ruleFor = new Map(rules.map((r) => [r.key, r.categoryId]));
+    // Phase 69c: exact rules first, then "every branch" ones.
+    const ruleFor = ruleResolver(rules);
     const refundFrom = await refundCategories(tx, jarId, rows, ruleFor);
 
     const writes = new Map<string, string[]>(); // "<categoryId|null>:<source|null>" → ids
     for (const r of rows) {
-      const ruled = r.merchantKey ? ruleFor.get(r.merchantKey) : undefined;
+      const ruled = r.merchantKey ? ruleFor(r.merchantKey) : undefined;
       const guessed = ruled ? undefined : guessCategory(r.merchantKey, r.amountCents);
       const categoryId = ruled ?? (guessed ? (findCategoryByKey(categories, guessed)?.id ?? null) : (refundFrom.get(r.merchantKey) ?? null));
       const source = ruled ? "RULE" : categoryId ? "AUTO" : null;
@@ -111,9 +113,9 @@ async function refundCategories(
   tx: Tx,
   jarId: string,
   rows: { merchantKey: string; amountCents: number }[],
-  ruleFor: Map<string, string>,
+  ruleFor: (key: string) => string | undefined,
 ): Promise<Map<string, string>> {
-  const keys = [...new Set(rows.filter((r) => r.amountCents > 0 && !isKeyless(r.merchantKey) && !ruleFor.has(r.merchantKey) && !guessCategory(r.merchantKey, r.amountCents)).map((r) => r.merchantKey))];
+  const keys = [...new Set(rows.filter((r) => r.amountCents > 0 && !isKeyless(r.merchantKey) && ruleFor(r.merchantKey) === undefined && !guessCategory(r.merchantKey, r.amountCents)).map((r) => r.merchantKey))];
   if (keys.length === 0) return new Map();
   const charges = await tx.finTransaction.findMany({
     where: { jarId, state: "ACTIVE", amountCents: { lt: 0 }, categoryId: { not: null }, merchantKey: { in: keys } },

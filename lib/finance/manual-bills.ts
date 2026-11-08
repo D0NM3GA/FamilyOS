@@ -43,11 +43,13 @@ export type ManualBillInput = {
   /** The first due day (a civil day); later ones follow by cadence. */
   nextDue: string;
   matchKey: string;
+  /** Phase 69c: the due day someone marked paid by hand (a civil day); it and earlier ones are paid. */
+  paidDueOn?: string | null;
 };
 
 const STEP_MONTHS: Record<BillCadence, number> = { MONTHLY: 1, QUARTERLY: 3, YEARLY: 12, ONCE: 0 };
 const DAY = 86_400_000;
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
+export const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
 const monthIndex = (d: string) => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - 1;
 
 /** How far ahead a bill's next due day is looked for: a yearly one is at most a year off. */
@@ -73,8 +75,10 @@ export function dueDays(bill: Pick<ManualBillInput, "cadence" | "nextDue">, from
  * The next due day still to pay: the first from a few days ago on, skipping one on or before
  * today that `paid` says was paid already. Null for a one-off bill that's been and gone.
  */
-export function nextDueOn(bill: Pick<ManualBillInput, "cadence" | "nextDue">, today: string, paid: (due: string) => boolean = () => false): string | null {
+export function nextDueOn(bill: Pick<ManualBillInput, "cadence" | "nextDue" | "paidDueOn">, today: string, paid: (due: string) => boolean = () => false): string | null {
   for (const d of dueDays(bill, addDays(today, -LATE_DAYS), addDays(today, HORIZON_DAYS))) {
+    // Phase 69c: marked paid by hand (early too: paid ahead through a school portal).
+    if (bill.paidDueOn && d <= bill.paidDueOn) continue;
     if (d <= today && paid(d)) continue;
     return d;
   }
@@ -212,9 +216,9 @@ export async function readManualBills(db: Db, jarId: string): Promise<(ManualBil
   const rows = await db.manualBill.findMany({
     where: { jarId },
     orderBy: [{ nextDue: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, amountCents: true, cadence: true, nextDue: true, matchKey: true, createdBy: { select: { firstName: true } } },
+    select: { id: true, name: true, amountCents: true, cadence: true, nextDue: true, matchKey: true, paidDueOn: true, createdBy: { select: { firstName: true } } },
   });
-  return rows.map((r) => ({ ...r, nextDue: r.nextDue.toISOString().slice(0, 10), createdBy: r.createdBy?.firstName ?? null }));
+  return rows.map((r) => ({ ...r, nextDue: r.nextDue.toISOString().slice(0, 10), paidDueOn: r.paidDueOn ? r.paidDueOn.toISOString().slice(0, 10) : null, createdBy: r.createdBy?.firstName ?? null }));
 }
 
 /**

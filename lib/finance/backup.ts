@@ -44,7 +44,8 @@ const id = z.string().min(1).max(64);
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export const moneySectionSchema = z.object({
-  version: z.literal(3),
+  // Phase 69c: v4 adds a rule's "every branch" and a bill's paid day; v3 restores with neither.
+  version: z.union([z.literal(3), z.literal(4)]),
   /** peopleDigest() of the household's people when this was sealed (same transaction). */
   peopleDigest: z.string().length(64),
   jars: z.array(
@@ -105,7 +106,7 @@ export const moneySectionSchema = z.object({
           createdAt: iso,
         }),
       ),
-      rules: z.array(z.object({ id, key: text, categoryId: id, createdAt: iso })),
+      rules: z.array(z.object({ id, key: text, categoryId: id, matchPrefix: z.boolean().default(false), createdAt: iso })),
       recurring: z.array(z.object({ id, key: text, status: z.enum(RecurringStatus), reviewedAt: iso })),
       transactions: z.array(
         z.object({
@@ -146,6 +147,7 @@ export const moneySectionSchema = z.object({
             cadence: z.enum(BillCadence),
             nextDue: day,
             matchKey: text,
+            paidDueOn: day.nullable().default(null),
             createdAt: iso,
           }),
         )
@@ -223,7 +225,7 @@ export async function readHouseholdMoney(tx: Tx | typeof prisma, householdId: st
         },
       },
       categories: { select: { id: true, key: true, name: true, emoji: true, kind: true, sortOrder: true, budgetCents: true, rollover: true, rolloverFrom: true, goalCents: true, goalMonth: true, absorbedKeys: true, createdAt: true } },
-      rules: { select: { id: true, key: true, categoryId: true, createdAt: true } },
+      rules: { select: { id: true, key: true, categoryId: true, matchPrefix: true, createdAt: true } },
       recurring: { select: { id: true, key: true, status: true, reviewedAt: true } },
       transactions: {
         select: {
@@ -254,14 +256,14 @@ export async function readHouseholdMoney(tx: Tx | typeof prisma, householdId: st
         },
       },
       privacy: { select: { id: true, token: true, cardToken: true, cardMemo: true, cardLast4: true, merchant: true, amountCents: true, status: true, occurredAt: true, matchedTxnId: true } },
-      manualBills: { select: { id: true, name: true, amountCents: true, cadence: true, nextDue: true, matchKey: true, createdAt: true } },
+      manualBills: { select: { id: true, name: true, amountCents: true, cadence: true, nextDue: true, matchKey: true, paidDueOn: true, createdAt: true } },
       holdings: { select: { id: true, name: true, kind: true, createdAt: true, values: { select: { valuedOn: true, valueCents: true, createdAt: true } } } },
     },
   });
   const days = await tx.finBalanceDay.findMany({ where: { account: { jar: { householdId } } }, select: { accountId: true, day: true, balanceCents: true } });
   const jarOfAccount = new Map(jars.flatMap((j) => j.accounts.map((a) => [a.id, j.id] as const)));
   return {
-    version: 3,
+    version: 4,
     peopleDigest: peopleDigest(people),
     jars: jars.map((j) => ({
       id: j.id,
@@ -283,7 +285,7 @@ export async function readHouseholdMoney(tx: Tx | typeof prisma, householdId: st
         createdAt: isoOf(t.createdAt),
       })),
       privacyCharges: j.privacy.map((p) => ({ ...p, occurredAt: isoOf(p.occurredAt) })),
-      manualBills: j.manualBills.map((b) => ({ ...b, nextDue: dayOf(b.nextDue), createdAt: isoOf(b.createdAt) })),
+      manualBills: j.manualBills.map((b) => ({ ...b, nextDue: dayOf(b.nextDue), paidDueOn: b.paidDueOn ? dayOf(b.paidDueOn) : null, createdAt: isoOf(b.createdAt) })),
       balanceDays: days.filter((d) => jarOfAccount.get(d.accountId) === j.id).map((d) => ({ ...d, day: dayOf(d.day) })),
       holdings: j.holdings.map((h) => ({ id: h.id, name: h.name, kind: h.kind, createdAt: isoOf(h.createdAt) })),
       holdingValues: j.holdings.flatMap((h) => h.values.map((v) => ({ holdingId: h.id, valuedOn: dayOf(v.valuedOn), valueCents: v.valueCents, createdAt: isoOf(v.createdAt) }))),
@@ -562,7 +564,7 @@ export function planMoneyRestore(section: MoneySection, ctx: MoneyRestoreContext
       pending.push({ jarId, people: jarPeople, t: { ...t, accountId: accounts.get(t.accountId)!, categoryId: t.categoryId ? (categories.get(t.categoryId) ?? null) : null } });
     }
     for (const b of jar.manualBills) {
-      rows.manualBills.push({ ...b, id: newId(), jarId, nextDue: new Date(`${b.nextDue}T00:00:00Z`), createdAt: new Date(b.createdAt) });
+      rows.manualBills.push({ ...b, id: newId(), jarId, nextDue: new Date(`${b.nextDue}T00:00:00Z`), paidDueOn: b.paidDueOn ? new Date(`${b.paidDueOn}T00:00:00Z`) : null, createdAt: new Date(b.createdAt) });
     }
     for (const d of jar.balanceDays) rows.balanceDays.push({ accountId: accounts.get(d.accountId), day: new Date(`${d.day}T00:00:00Z`), balanceCents: d.balanceCents });
     const holdingIds = new Map(jar.holdings.map((h) => [h.id, newId()]));

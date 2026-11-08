@@ -1,5 +1,6 @@
 "use server";
 
+import { branchKey, ruleFiling } from "@/lib/finance/rules";
 import { fileableIds, filingFor, NEW_SINCE_MAX } from "@/lib/finance/new-since";
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
@@ -26,7 +27,8 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { captureError } from "@/lib/observability";
 import { decimalToCents } from "@/lib/money";
-import { MAX_MANUAL_BILLS, anchorForEdit, parseManualBillForm } from "@/lib/finance/manual-bills";
+import { MAX_MANUAL_BILLS, addDays, anchorForEdit, dueDays, parseManualBillForm } from "@/lib/finance/manual-bills";
+import { LATE_DAYS } from "@/lib/finance/recurring";
 import * as holdings from "@/lib/finance/holdings";
 
 /**
@@ -267,7 +269,7 @@ export async function answerIssue(jarId: string, issueId: string, answer: "SAME"
 // ---- Phase 26: categories, budget, bills, grocery trips ---------------------------------
 
 const idSchema = z.string().min(1).max(64);
-const setCategorySchema = z.object({ txnId: idSchema, categoryId: z.union([z.literal(""), idSchema]), scope: z.enum(["one", "always"]) });
+const setCategorySchema = z.object({ txnId: idSchema, categoryId: z.union([z.literal(""), idSchema]), scope: z.enum(["one", "always", "branches"]) });
 
 /**
  * Sets one row's category. "always" also teaches the merchant (CategoryRule) and re-runs the
@@ -275,7 +277,7 @@ const setCategorySchema = z.object({ txnId: idSchema, categoryId: z.union([z.lit
  * hasn't set by hand. "one" touches only this row. Called from the row's panel, which shows
  * the answer (an error keeps the panel open).
  */
-export async function setCategory(jarId: string, rawTxnId: string, rawCategoryId: string, rawScope: "one" | "always"): Promise<FormState> {
+export async function setCategory(jarId: string, rawTxnId: string, rawCategoryId: string, rawScope: "one" | "always" | "branches"): Promise<FormState> {
   const { jar, viewer } = await requireJar(jarId);
   const input = setCategorySchema.safeParse({ txnId: rawTxnId, categoryId: rawCategoryId, scope: rawScope });
   if (!input.success) return { error: "That didn't look right. Reload and try again." };
@@ -288,25 +290,30 @@ export async function setCategory(jarId: string, rawTxnId: string, rawCategoryId
   if (categoryId && !category) return { error: "That category isn't in this jar anymore. Reload and pick again." };
   // "No category" is a person's answer too (PERSON with no category), so the tidy pass leaves it.
   await prisma.finTransaction.update({ where: { id: txn.id }, data: { categoryId: category?.id ?? null, categorySource: "PERSON" } });
-  if (scope === "always" && category && txn.merchantKey && txn.merchantKey !== "-") {
+  // Phase 69c: "every branch" teaches the key without its last word (the town), matching any key
+  // that starts with it; an exact rule for one branch still wins.
+  const ruleKey = scope === "branches" ? branchKey(txn.merchantKey) : scope === "always" ? txn.merchantKey : null;
+  if (ruleKey && category && ruleKey !== "-") {
+    const matchPrefix = scope === "branches";
     await prisma.categoryRule.upsert({
-      where: { jarId_key: { jarId: jar.id, key: txn.merchantKey } },
-      create: { jarId: jar.id, key: txn.merchantKey, categoryId: category.id },
-      update: { categoryId: category.id },
+      where: { jarId_key: { jarId: jar.id, key: ruleKey } },
+      create: { jarId: jar.id, key: ruleKey, categoryId: category.id, matchPrefix },
+      update: { categoryId: category.id, matchPrefix },
     });
     await organizeJar(jar.id);
   }
-  const always = scope === "always" && Boolean(category) && Boolean(txn.merchantKey) && txn.merchantKey !== "-";
+  const always = Boolean(ruleKey) && Boolean(category) && ruleKey !== "-";
   await logJarEvent(prisma, {
     jarId: jar.id,
     actorId: viewer.id,
     kind: "CATEGORY_SET",
     txnId: txn.id,
-    data: { category: category?.name.slice(0, 60) ?? null, always, key: txn.merchantKey.slice(0, 160), label: merchantLabel(txn.merchantKey) },
+    data: { category: category?.name.slice(0, 60) ?? null, always, branches: always && scope === "branches", key: (ruleKey ?? txn.merchantKey).slice(0, 160), label: merchantLabel(ruleKey ?? txn.merchantKey) },
   });
   revalidatePath(jarPath(jar.id), "layout");
   const name = category?.name ?? "no category";
-  return { ok: always ? `Every ${merchantLabel(txn.merchantKey)} charge is ${name} now.` : `Saved: ${name}.` };
+  if (!always) return { ok: `Saved: ${name}.` };
+  return { ok: scope === "branches" ? `Every ${merchantLabel(ruleKey)} charge, at any branch, is ${name} now.` : `Every ${merchantLabel(ruleKey)} charge is ${name} now.` };
 }
 
 /** Stops an "always for <merchant>" rule; rows it set go back to being guessed. */
@@ -314,11 +321,16 @@ export async function forgetRule(jarId: string, key: string): Promise<FormState>
   const { jar, viewer } = await requireJar(jarId);
   const k = z.string().min(1).max(120).safeParse(key);
   if (!k.success) return { error: "That didn't look right. Reload and try again." };
-  const { count } = await prisma.categoryRule.deleteMany({ where: { jarId: jar.id, key: k.data } });
-  if (count) await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "RULE_FORGOTTEN", data: { key: k.data, label: merchantLabel(k.data) } });
+  // Phase 69c: only the rule filing this charge (this branch's, else the every-branch one), so
+  // stopping one branch's own rule leaves the rule for the rest.
+  const rules = await prisma.categoryRule.findMany({ where: { jarId: jar.id }, select: { id: true, key: true, matchPrefix: true } });
+  const rule = ruleFiling(rules, k.data);
+  const { count } = rule ? await prisma.categoryRule.deleteMany({ where: { jarId: jar.id, id: rule.id } }) : { count: 0 };
+  const forgotten = rule?.key ?? k.data;
+  if (count) await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "RULE_FORGOTTEN", data: { key: forgotten, label: merchantLabel(forgotten) } });
   await organizeJar(jar.id);
   revalidatePath(jarPath(jar.id), "layout");
-  return { ok: `${merchantLabel(k.data)} is guessed again.` };
+  return { ok: `${merchantLabel(forgotten)} is guessed again.` };
 }
 
 const budgetSchema = z
@@ -447,7 +459,15 @@ export async function updateManualBill(jarId: string, billId: string, _prev: For
   const nextDue = anchorForEdit({ cadence: stored.cadence, nextDue: storedDay }, b);
   const { count } = await prisma.manualBill.updateMany({
     where: { id: id.data, jarId: jar.id },
-    data: { name: b.name, amountCents: b.amountCents, cadence: b.cadence, nextDue: civilDate(nextDue), matchKey: b.matchKey },
+    // Phase 69c: a new due day or cadence starts over, so an old "paid" can't skip a new due day.
+    data: {
+      name: b.name,
+      amountCents: b.amountCents,
+      cadence: b.cadence,
+      nextDue: civilDate(nextDue),
+      matchKey: b.matchKey,
+      ...(nextDue !== storedDay || b.cadence !== stored.cadence ? { paidDueOn: null } : {}),
+    },
   });
   if (!count) return { error: "That bill isn't here anymore." };
   await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "BILL_CHANGED", data: { name: b.name } });
@@ -465,6 +485,43 @@ export async function removeManualBill(jarId: string, billId: string): Promise<F
   await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "BILL_REMOVED", data: { name: bill.name.slice(0, 60) } });
   revalidatePath(jarPath(jar.id), "layout");
   return { ok: "Removed." };
+}
+
+/**
+ * Phase 69c: "Paid" on a hand-added bill in Coming up: that due day (and any before) is paid, paid
+ * some way the bank feed doesn't show (a school portal, Zelle, another jar), so it isn't late and
+ * leaves Safe to spend. Only a day the bill is actually due, within the window Coming up shows.
+ */
+export async function markManualBillPaid(jarId: string, billId: string, due: string): Promise<FormState> {
+  const { jar, viewer } = await requireJar(jarId);
+  const id = idSchema.safeParse(billId);
+  const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).safeParse(due);
+  if (!id.success || !day.success) return { error: "That bill isn't here anymore." };
+  const stored = await prisma.manualBill.findFirst({ where: { id: id.data, jarId: jar.id }, select: { id: true, name: true, cadence: true, nextDue: true } });
+  if (!stored) return { error: "That bill isn't here anymore." };
+  const today = todayCivil();
+  const bill = { ...stored, nextDue: stored.nextDue.toISOString().slice(0, 10) };
+  // One of its due days, from the late window to Coming up's 30 days.
+  if (!dueDays(bill, addDays(today, -LATE_DAYS), addDays(today, 30)).includes(day.data)) {
+    return { error: "That bill's due day has changed. Reload to see the latest." };
+  }
+  await prisma.manualBill.updateMany({ where: { id: bill.id, jarId: jar.id }, data: { paidDueOn: civilDate(day.data) } });
+  await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "BILL_CHANGED", data: { name: bill.name.slice(0, 60) } });
+  revalidatePath(jarPath(jar.id), "layout");
+  return { ok: `✓ ${bill.name} is paid for ${day.data}.` };
+}
+
+/** Phase 69c: Undo for "Paid": the bill counts again. */
+export async function unmarkManualBillPaid(jarId: string, billId: string): Promise<FormState> {
+  const { jar, viewer } = await requireJar(jarId);
+  const id = idSchema.safeParse(billId);
+  if (!id.success) return { error: "That bill isn't here anymore." };
+  const bill = await prisma.manualBill.findFirst({ where: { id: id.data, jarId: jar.id }, select: { id: true, name: true } });
+  if (!bill) return { error: "That bill isn't here anymore." };
+  await prisma.manualBill.updateMany({ where: { id: bill.id, jarId: jar.id }, data: { paidDueOn: null } });
+  await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "BILL_CHANGED", data: { name: bill.name.slice(0, 60) } });
+  revalidatePath(jarPath(jar.id), "layout");
+  return { ok: `${bill.name} counts again.` };
 }
 
 // ---- Net worth: things owned or owed, valued by hand (lib/finance/holdings.ts) -----------------
