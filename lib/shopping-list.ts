@@ -100,7 +100,7 @@ export async function requestItemByName(opts: {
       // Already asked for (by hand, say): it gains the source if it had none. Two medicines sharing
       // a name share the Pantry item, so the first source stays.
       if (!existing.medicationId && !existing.vehicleSupplyId && (source.medicationId || source.vehicleSupplyId)) {
-        await tx.shoppingListItem.update({ where: { id: existing.id }, data: source });
+        await tx.shoppingListItem.updateMany({ where: { id: existing.id }, data: source });
       }
       return { created: false };
     }

@@ -28,11 +28,13 @@ export async function addProductToList(
       where: { listId, productId, done: false },
     });
     if (existing) {
-      await tx.shoppingListItem.update({
-        where: { id: existing.id },
+      // updateMany: a row found under the lock can still be finished meanwhile (a trip doesn't take
+      // it); then it's made fresh below.
+      const { count } = await tx.shoppingListItem.updateMany({
+        where: { id: existing.id, done: false },
         data: { quantity: { increment: 1 } },
       });
-      return;
+      if (count) return;
     }
     await tx.shoppingListItem.create({
       data: {
@@ -54,21 +56,28 @@ export async function addProductToList(
 export async function untickRow(tx: Tx, householdId: string, itemId: string): Promise<boolean> {
   const row = await tx.shoppingListItem.findFirst({
     where: { id: itemId, list: { householdId } },
-    select: { id: true, listId: true, productId: true, quantity: true, done: true, medicationId: true, vehicleSupplyId: true },
+    select: { id: true, listId: true, productId: true, quantity: true, done: true, requestedById: true, note: true, medicationId: true, vehicleSupplyId: true },
   });
   if (!row) return false;
   if (!row.done) return true;
   const twin = await tx.shoppingListItem.findFirst({
     where: { listId: row.listId, productId: row.productId, done: false, id: { not: row.id } },
-    select: { id: true, medicationId: true, vehicleSupplyId: true },
+    select: { id: true, requestedById: true, note: true, medicationId: true, vehicleSupplyId: true },
   });
+  // By id with updateMany/deleteMany: finishing a trip or taking a row off doesn't take the list's
+  // lock, so a row found a moment ago can be gone, and that's "gone", not an error page.
   if (!twin) {
-    await tx.shoppingListItem.update({ where: { id: row.id }, data: { done: false } });
-    return true;
+    return (await tx.shoppingListItem.updateMany({ where: { id: row.id, done: true }, data: { done: false } })).count > 0;
   }
   const source = !twin.medicationId && !twin.vehicleSupplyId && (row.medicationId || row.vehicleSupplyId) ? { medicationId: row.medicationId, vehicleSupplyId: row.vehicleSupplyId } : {};
-  await tx.shoppingListItem.update({ where: { id: twin.id }, data: { quantity: { increment: row.quantity }, ...source } });
-  await tx.shoppingListItem.delete({ where: { id: row.id } });
+  const { count } = await tx.shoppingListItem.updateMany({
+    where: { id: twin.id, done: false },
+    data: { quantity: { increment: row.quantity }, requestedById: twin.requestedById ?? row.requestedById, note: twin.note ?? row.note, ...source },
+  });
+  if (count === 0) {
+    return (await tx.shoppingListItem.updateMany({ where: { id: row.id, done: true }, data: { done: false } })).count > 0;
+  }
+  await tx.shoppingListItem.deleteMany({ where: { id: row.id } });
   return true;
 }
 

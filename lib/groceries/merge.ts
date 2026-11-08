@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { lockList } from "@/lib/shopping-list";
 
 export type MergeResult = { ok: true; name: string } | { ok: false; reason: "same" | "notFound" };
 
@@ -24,6 +25,10 @@ export async function mergeProducts(householdId: string, keepId: string, mergeId
       tx.product.findFirst({ where: { id: mergeId, householdId } }),
     ]);
     if (!keep || !merge) return { ok: false, reason: "notFound" } as const;
+    // Phase 66b: under the list's lock, like every add, so an add of the kept item landing now
+    // can't leave two open rows of it.
+    const list = await tx.shoppingList.findUnique({ where: { householdId }, select: { id: true } });
+    if (list) await lockList(tx, list.id);
 
     const [keepOpen, mergeOpen] = await Promise.all([
       tx.shoppingListItem.findFirst({ where: { productId: keep.id, done: false }, orderBy: { createdAt: "asc" } }),
