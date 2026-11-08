@@ -2046,9 +2046,9 @@ model FinTransaction {
   /// null = uncategorized. PERSON is never overwritten by the automatic pass.
   categorySource FinCategorySource?
   /// Phase 26: the grocery trip this charge paid for. A restore re-creates trips with new ids,
-  /// so links are cleared then; automatic ones come back on the next sync or import. A
-  /// pending row that posts under a new id does NOT bring its category or link along (only
-  /// a gift mark is carried, below).
+  /// so links are cleared then; automatic ones come back on the next sync or import. Phase 66c:
+  /// a pending row that posts under a new id hands a person's category and this link to its
+  /// posted row (lib/finance/pending-match.ts carryPendingPicks), and a gift mark (below).
   purchaseId       String?
   purchase         Purchase?      @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
   purchaseLinkedBy FinLinkSource?
