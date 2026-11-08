@@ -242,12 +242,16 @@ export async function stepQuantity(itemId: string, step: 1 | -1) {
   await assertAppOn(profile.householdId, "groceries");
   if (step !== 1 && step !== -1) return;
 
-  await prisma.$executeRaw`
-    UPDATE shopping_list_item i
-    SET quantity = LEAST(999, ROUND((i.quantity + ${step})::numeric, 2)::float8)
-    FROM shopping_list l
-    WHERE i.id = ${itemId} AND l.id = i."listId" AND l."householdId" = ${profile.householdId}`;
-  await prisma.shoppingListItem.deleteMany({ where: { id: itemId, list: { householdId: profile.householdId }, quantity: { lte: 0 } } });
+  // One transaction: the step, then the row goes if that left nothing, so no zero row is left.
+  // (Postgres can't reliably update and delete one row in a single statement.)
+  await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE shopping_list_item i
+      SET quantity = LEAST(999, ROUND((i.quantity + ${step})::numeric, 2)::float8)
+      FROM shopping_list l
+      WHERE i.id = ${itemId} AND l.id = i."listId" AND l."householdId" = ${profile.householdId}`,
+    prisma.shoppingListItem.deleteMany({ where: { id: itemId, list: { householdId: profile.householdId }, quantity: { lte: 0 } } }),
+  ]);
   revalidateGroceries();
 }
 

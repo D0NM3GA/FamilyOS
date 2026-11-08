@@ -152,7 +152,8 @@ export default async function HomePage() {
     upcomingImportantDates(profile.householdId, 30),
     staleContacts(profile.householdId, { excludeId: profile.id, limit: 5 }),
     on("chores") ? getBoardInstances(profile.householdId, { horizonDays: 0, domain: "CHORE" }) : emptyBoard(today),
-    on("meds") ? getBoardInstances(profile.householdId, { horizonDays: 0, domain: "MED" }) : emptyBoard(today),
+    // Phase 66a: a kid's Today card has only their own doses, as on Meds and Big Home.
+    on("meds") ? getBoardInstances(profile.householdId, { horizonDays: 0, domain: "MED", personId: isAdult(profile) ? undefined : profile.id }) : emptyBoard(today),
     on("cars") ? getVehiclesWithStatus(profile.householdId) : [],
     getHouseholdActivity(profile.householdId, 8, { viewerIsAdult: isAdult(profile), disabledApps: disabled }),
     on("school") ? getSchoolDueSoon(profile, 7) : [],

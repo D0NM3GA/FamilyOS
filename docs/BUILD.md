@@ -1877,3 +1877,54 @@ its name ahead of a day's note, and a day shows both ("Tacos · early") on Home 
 deleted mid-save says so instead of failing; `?week=` refuses days that don't exist; the restore
 preview counts planned dinners.
 
+## Phase 66 — The second fix-it batch
+
+The first phase from the review of 2026-11-08 (scope in docs/PLAN.md).
+
+### 66a — Meds, chores and the calendar
+
+**Kids and medicines:** a kid's Meds page is always their own (`personFilter` is `profile.id`, no
+person row), a person's Meds summary shows only to grown-ups and the person, Home's Today card
+passes the kid's id, the calendar's `loadTaskInstances` takes `dosesFor` (chores untouched), and
+search finds only a kid's own medicines. `lib/meds/kid-scope-guard.test.ts` reads all five.
+**Stock:** `lib/meds/stock.ts` (`takeStock`, `addToStock`) does the arithmetic in SQL like the
+Garage: locked row, clamped at zero, rounded to three places, the amount taken worked out from the
+locked value. A dose keeps its PENDING guard first, then takes stock, then records what it took as
+`quantityConsumed`, so Undo gives that back; a scheduled dose reads the count and dose amount in
+the transaction. `restockFromTrip` already rounded and stays in the list kernel (lint keeps it out
+of `lib/meds`). **Low:** `isMedLow` moved to `lib/reminders/supply.ts`; taking a dose asks for a
+refill on it (a week of supply, the refill count, or 5 as-needed doses), and Manage's Low badge
+uses it; `isLowStock` is gone. **Chore edit:** `scheduleChanged` (`lib/tasks/edit.ts`) compares
+schedule, times, rotation and people; when they change, waiting days from today on, not moved by
+hand, go in the edit's transaction and the planner makes new ones (hand reassignments go with
+them; a title or points edit keeps everything). **Calendar:** `eventItems` spreads a timed event to
+the day of its last minute in the household's zone: its start time on the first day, all day
+after, "until Sun 2:00 PM · place", keys `key:day`, days outside the window dropped; one ending at
+midnight stays one day. **Errors:** both boundaries use Next 16's `retry()`.
+Fable's review of 66a: Home's Today card, the calendar and search still showed a kid every dose
+(fixed, and in the guard); a scheduled dose read its stock from the page's snapshot (now inside the
+transaction); tests now check the chore edit really saved, cover as-needed stock and its undo, a
+dose that leaves plenty, and a kid's calendar doses; the refill comments say isMedLow. Left as is:
+an event from 11:50 pm to 12:10 am shows on both days.
+
+### 66b — Two phones on the list, and failures in words
+
+**Steps:** the list's −/+ call `stepQuantity(itemId, ±1)`, applied in SQL to the amount as it is
+(capped at 999), with the zero-delete in the same transaction; `setQuantity` is gone. **Gone rows:**
+`toggleItem`, `setRequestedBy` and `setItemNote` use household-scoped `updateMany`, so a row
+another phone took off does nothing; `assertOwnedItem` is gone. **One row per item:** `lockList`
+(`lib/shopping-list.ts`) takes `SELECT … FOR UPDATE` on the household's one list row; every path
+that adds a row or un-ticks one takes it first and then looks: `addProductToList`,
+`requestItemByName` (now in a transaction, its Pantry item found first since that one recovers
+from a unique-key race), `putRowBack`, `addWeekToList`, Pantry merge, and `untickRow`, which
+folds a ticked row into an unchecked twin added meanwhile (amount added; note, who it's for and a
+medicine or car source kept when the twin has none). Toggling and the Shop view's `applyChecks`
+(now given the list id) both un-tick through it. Paths that only remove or tick rows (finishing a
+trip, taking a row off) don't need the lock, so writes after a lookup go by id with
+`updateMany`/`deleteMany`. **Sync from Microsoft** returns `{ error }` and
+`SyncFromMicrosoftButton` (`useActionState`) shows it in place. Home's Called/Texted stay plain
+forms: no typed input, so nothing to say.
+Fable's review of 66b: no lock cycle (every locking path takes the list first); un-tick and add no
+longer crash when a lock-free removal beats them; the step and its zero-delete share a transaction
+(Postgres can't update and delete one row in a single statement); Pantry merge takes the lock; the
+fold keeps the note and who it's for.

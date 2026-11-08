@@ -96,10 +96,13 @@ describe.skipIf(!RUN)("kid picks and shop check-offs (database)", () => {
 
   test("un-ticking a row folds it into the same item added again meanwhile (Phase 66b)", async () => {
     const bread = await prisma.product.create({ data: { householdId: ids.h, name: "Bread", nameKey: "bread" } });
-    const ticked = await prisma.shoppingListItem.create({ data: { listId: ids.list, productId: bread.id, quantity: 2, done: true } });
+    const ticked = await prisma.shoppingListItem.create({ data: { listId: ids.list, productId: bread.id, quantity: 2, done: true, note: "the seeded one", requestedById: ids.kid } });
     const fresh = await prisma.shoppingListItem.create({ data: { listId: ids.list, productId: bread.id, quantity: 1 } });
     expect(await applyChecks(ids.h, ids.list, [{ itemId: ticked.id, done: false }])).toBe(1);
     const rows = await prisma.shoppingListItem.findMany({ where: { listId: ids.list, productId: bread.id } });
-    expect(rows.map((r) => [r.id, r.quantity, r.done])).toEqual([[fresh.id, 3, false]]);
+    // Its note and who it was for come along, since the fresh row had neither.
+    expect(rows.map((r) => [r.id, r.quantity, r.done, r.note, r.requestedById])).toEqual([[fresh.id, 3, false, "the seeded one", ids.kid]]);
+    // Un-ticking a row that's gone (another phone finished the trip) is quietly nothing.
+    expect(await applyChecks(ids.h, ids.list, [{ itemId: ticked.id, done: false }])).toBe(0);
   });
 });
