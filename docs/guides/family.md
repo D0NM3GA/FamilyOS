@@ -156,7 +156,8 @@ pharmacy aren't on it; for anyone else you don't want reminders about (the plumb
 **Outlook:** once an admin has set up Outlook calendars, everyone sees them here and on the
 calendar, kids too: grown-ups see every copied calendar (each person's name in front of their own
 events), kids the family calendar and their own. Something marked Private in Outlook shows only as
-"Busy" (to you, "Private"). The copy is at most 15 minutes behind Outlook. Until it's set up, the
+"Busy" (to you, "Private"). The copy is refreshed once it's 15 minutes old, when someone opens
+Home or Calendar or in the half-hourly background run. Until it's set up, the
 grown-up signed in with Microsoft sees their own Outlook on their own profile; pick which calendar
 in Settings → Calendar on Home.
 

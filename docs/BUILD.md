@@ -2167,3 +2167,53 @@ search (raw bank text can carry the amount); a search link never asks for a futu
 says "at any branch". Dropped: counting how many charges an every-branch rule covers (the answer
 names the store; the rule's effect is visible in Activity). Left as is: a hand-added bill marked
 paid still shows on the calendar's due day, as found bills do.
+
+## Phase 70 — New capabilities
+
+The last phase from the review of 2026-11-08. Scope and Fable's scope review: docs/PLAN.md
+"Phase 70".
+
+### 70a — Outlook calendars for everyone
+
+**The copy:** `OutlookCalendar` (kind PERSON or FAMILY, the calendar's person, the mailbox, an
+optional Graph calendar id, lease, last success, fixed-text last error, a 429 wait) and
+`OutlookEvent` (immutable Graph id, iCalUId, title, place, start, end, all day, private), migration
+`20261204120000_outlook_copy` with a partial unique index for one FAMILY per household. The reader,
+`lib/graph/app-calendar.ts`, uses the app-only token (`getAppGraphToken`) that Exchange RBAC for
+Applications scopes to a mail-enabled security group (`Application Calendars.Read`, README
+"Outlook calendars"): calendarView a week back to 60 days ahead, `Prefer: IdType="ImmutableId"`,
+`sensitivity` (private and confidential keep no title or place), the write-back's extended property
+(now `lib/graph/source-property.ts`) so the app's own events are dropped, Graph's pages followed to
+1,000 events. `lib/outlook-copy/` holds the copy (not under `lib/calendar`, so Settings may use it
+under the domain rules): `copy.ts` claims stale calendars (15 minutes) under a lease, replaces the
+events on a success and keeps the last copy on a failure; `dropEndedCalendars` removes someone's own
+copy when the Entra check ends their access or they leave the household, and switches off a family
+calendar in their mailbox. The `outlook` background job runs after `entra`; Home, Big Home and
+Calendar also refresh on a visit (`scheduleOutlookRefresh`, `after()`).
+**Who sees what** (`view.ts`, the owner's call): grown-ups every copied calendar, kids the family's
+and their own (in the query and again in `canSeeCalendar`); a private event shows "Busy", or
+"Private" to its calendar's person (the family calendar's is its mailbox's person), checked against
+the active profile, never the session. One meeting in several copied calendars (same iCalUId, start
+and all-day) shows once: the family's if it's there, else with the names joined ("Dad & Mom"),
+whose `whoId` is then null, so the person filter shows it to everyone (70f's `whoIds` can narrow
+it). **Copy or live:** once a household copies any calendar (`hasOutlookCopy`, people still here),
+Home's week card and Today strip, Big Home's today list and the Calendar page read only the copy,
+for every viewer; the live per-session read stays for households without one. Settings → Calendar on
+Home says so, and its choice still picks where **+ Add event** writes. Outlook items on the agenda
+now carry `who`/`whoId`, and "outlook" counts as a person kind for colors and the filter.
+**Settings → Outlook calendars** (admins; a tile under Connect): the family calendar (whose mailbox,
+then which calendar, listed with the app token) and **Copy their calendar** per person. The mailbox
+is worked out on the server from a person id, never typed: a Microsoft sign-in's account id (the
+Entra object id, newest account first), else the email on their People page (the page links there
+to add one; no address box, a deviation from the scope's "typed" address that keeps addresses out of
+forms and URLs). **Check access and copy now** copies every calendar except one Outlook asked to wait
+on. The copy is integration state, out of backups.
+Fable's review of 70a: an admin's copy now takes the calendar's lease itself (or says it's already
+being copied), and every copy releases only the lease it wrote; a last page that runs past 1,000
+events counts as truncated, and so does a view that hits its read limit; "very large; only part
+shown" no longer reads as a failure on the page or the Settings tile; wording says a calendar is
+refreshed once it's 15 minutes old (on a visit or the half-hourly run), not "every 15 minutes";
+Big Home's list goes through the agenda's day rules with names; `hasOutlookCopy` agrees with the
+view about people whose access ended; per-row states are statuses, not alerts; Check access skips a
+calendar Outlook asked to wait on. Left as is: a folded meeting from two people's own calendars
+shows in every person's filter until 70f.

@@ -712,7 +712,7 @@ birthdays and dates, homework and school calendars, car maintenance, and Outlook
 they see only their own school things, no cars, and of Outlook only the family calendar and their own.
 
 Outlook comes in one of two ways. Once an admin sets up **Outlook calendars** (below), the app
-copies them every 15 minutes and everyone reads the copy. Until then, the grown-up signed in with
+copies them and everyone reads the copy. Until then, the grown-up signed in with
 Microsoft sees their own Outlook live, on their own profile only.
 
 ### Outlook calendars (Phase 70a, once by an admin)
@@ -720,7 +720,9 @@ Microsoft sees their own Outlook live, on their own profile only.
 Settings → **Outlook calendars** copies each person's own Outlook calendar and one family calendar
 into the app, so kids and a shared tablet see them without anyone's Microsoft sign-in. Grown-ups
 see every copied calendar; kids see the family calendar and their own; an event marked Private in
-Outlook shows as "Busy" (the app never stores its title). The app only reads.
+Outlook shows as "Busy" (the app never stores its title). The app only reads. A calendar is
+copied again once it's 15 minutes old, when someone opens Home or Calendar or in the half-hourly
+background run.
 
 It reads with the same app-only token as alert email, limited by Exchange **RBAC for
 Applications** to a group of the family's mailboxes. Don't add the Graph `Calendars.Read`

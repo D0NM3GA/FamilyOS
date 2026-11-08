@@ -208,8 +208,8 @@ Skip this whole section if the family signs in with passkeys only. Everything he
    calendars** for everyone (below).
 
 **Outlook calendars** (Settings → Outlook calendars, admins): the app copies each person's own
-Outlook calendar and one family calendar every 15 minutes, so kids and a shared tablet see them
-without anyone's Microsoft sign-in. It reads with its own token, which Exchange limits to a
+Outlook calendar and one family calendar, so kids and a shared tablet see them
+without anyone's Microsoft sign-in, refreshing each once it's 15 minutes old. It reads with its own token, which Exchange limits to a
 mail-enabled security group of the family's mailboxes; the PowerShell is in README "Outlook
 calendars". Then on the page: pick whose mailbox holds the family calendar and which calendar it
 is, and **Copy their calendar** for each person (grown-ups on Microsoft are read by their sign-in,
