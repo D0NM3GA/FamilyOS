@@ -9,7 +9,7 @@ import { todayCivil } from "@/lib/finance/budget";
 import { centsToInput, formatMoney } from "@/lib/money";
 import { forecast } from "@/lib/finance/forecast";
 import { BILL_CADENCES, billsAhead, CADENCE_LABEL, nextDueOn, ownKeys, readManualBills, schoolFeesAsBills, type ManualBillInput } from "@/lib/finance/manual-bills";
-import { addManualBill, markRecurring, removeManualBill, setCountSchoolFees, updateManualBill } from "../../actions";
+import { addManualBill, markManualBillPaid, markRecurring, removeManualBill, setCountSchoolFees, updateManualBill } from "../../actions";
 import { ActionForm, ConfirmSubmit, Submit } from "../../forms";
 import { JarHeader } from "../jar-header";
 import { SafeToSpend } from "../safe-to-spend";
@@ -192,6 +192,12 @@ export default async function BillsPage({ params, searchParams }: { params: Prom
                     {f.steady ? "" : "about "}
                     {formatMoney(f.typicalCents)}
                   </span>
+                  {/* Phase 69c: paid some way the bank feed doesn't show (a school portal, Zelle). */}
+                  {f.manualId && (
+                    <ActionForm action={markManualBillPaid.bind(null, jar.id, f.manualId, f.nextOn)} className="flex items-center gap-2">
+                      <Submit className={btn}>Paid</Submit>
+                    </ActionForm>
+                  )}
                 </li>
               ))}
             </ul>

@@ -5,8 +5,12 @@ import { btn, btnDanger, btnPrimary } from "@/components/styles";
 import { Picker } from "@/components/picker";
 import { forgetRule, setCategory, type FormState } from "../actions";
 import { useSheet } from "./txn-sheet";
+import { branchKey } from "@/lib/finance/rules";
 
 type Category = { id: string; name: string; emoji: string | null };
+
+/** "Joes Pizza" from "joes pizza riverton", as the action's answer names it. */
+const branchLabel = (merchant: string) => (branchKey(merchant) ?? "").replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 
 /**
  * Phase 26: a charge's category, inside its row's sheet. Picking asks "just this one" or
@@ -84,6 +88,12 @@ export function CategoryPicker({
         {picked && merchant && (
           <button type="button" disabled={pending} onClick={() => run(() => setCategory(jarId, txnId, picked, "always"))} className={btnPrimary}>
             Always for {merchantLabel}
+          </button>
+        )}
+        {/* Phase 69c: the same store in another town, too. */}
+        {picked && merchant && branchKey(merchant) && (
+          <button type="button" disabled={pending} onClick={() => run(() => setCategory(jarId, txnId, picked, "branches"))} className={btn}>
+            Always for every {branchLabel(merchant)}
           </button>
         )}
       </div>
