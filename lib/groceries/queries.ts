@@ -198,12 +198,12 @@ const PANTRY_LOOKBACK_MS = 365 * 24 * 60 * 60 * 1000;
  */
 export async function getPantrySuggestions(
   householdId: string,
-  opts: { excludeKeys?: Set<string>; limit?: number } = {},
+  opts: { excludeKeys?: Set<string>; limit?: number; aheadDays?: number } = {},
 ) {
   const since = new Date(Date.now() - PANTRY_LOOKBACK_MS);
   const rows = await prisma.purchaseItem.findMany({
     where: { purchase: { householdId, purchasedAt: { gte: since } } },
-    select: { productId: true, description: true, purchase: { select: { purchasedAt: true } } },
+    select: { productId: true, description: true, quantity: true, purchase: { select: { purchasedAt: true } } },
     orderBy: { purchase: { purchasedAt: "desc" } },
   });
 
@@ -212,9 +212,22 @@ export async function getPantrySuggestions(
     label: r.description,
     productId: r.productId,
     purchasedAt: r.purchase.purchasedAt,
+    quantity: r.quantity,
   }));
 
   return computePantrySuggestions(history, new Date(), opts);
+}
+
+/** Phase 65c: Home's "Probably running low" for grown-ups: out now or within 3 days, nothing already on the list. */
+export const RUNNING_LOW_AHEAD_DAYS = 3;
+export async function getRunningLow(householdId: string, limit = 6) {
+  // As on Groceries, anything on the list at all (ticked too) is left out.
+  // Old history rows (their Pantry item deleted) are keyed by description, so the name counts too.
+  const onList = await prisma.shoppingListItem.findMany({ where: { list: { householdId } }, select: { productId: true, product: { select: { name: true } } } });
+  const keys = new Set(onList.flatMap((i) => [i.productId, i.product.name.toLowerCase()]));
+  const found = await getPantrySuggestions(householdId, { excludeKeys: keys, aheadDays: RUNNING_LOW_AHEAD_DAYS, limit: 50 });
+  // Soonest first, by the unrounded days left.
+  return found.sort((a, b) => a.lastsDays - a.daysSinceLast - (b.lastsDays - b.daysSinceLast)).slice(0, limit);
 }
 
 /** "Usually" for each of these products, learned from the last year's trips. */

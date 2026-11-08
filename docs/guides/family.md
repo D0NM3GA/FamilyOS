@@ -331,7 +331,10 @@ One shared list for the whole family.
 - Tap an item for its details: **How it comes** ("2 lb bag"), **Where we buy it**, its
   section, and what it **Usually** is. Grown-ups see **Last paid**.
 - Took something off by mistake? **Undo**.
-- **Probably need soon** suggests things you buy regularly.
+- **Probably need soon** suggests things you buy regularly, counting how many you got: two packs
+  last about twice as long as one. Grown-ups also see **Probably running low** on Home, when there's something: what's
+  probably out or will be within three days, soonest first, each with **+ Add** to put it on the
+  list.
 
 **Kids** get picture tiles: **Tap what you want!** and it goes on the list. A grown-up can answer
 **Not this time**, and you'll get a kind note in your bell.

@@ -56,7 +56,8 @@ export default async function GroceriesPage({
   // Both chip rows leave out anything already on the list, and "probably need soon" wins
   // over a duplicate "recently bought" chip, so tapping a chip makes it disappear rather
   // than hop from one row to the other. Keys: productId, else (old history) the description.
-  const currentListKeys = new Set(items.map((i) => i.productId));
+  // Old history rows whose Pantry item was deleted are keyed by their description: the name too.
+  const currentListKeys = new Set(items.flatMap((i) => [i.productId, i.product.name.toLowerCase()]));
   const [pantrySuggestions, recentlyBoughtAll, kidTiles] = await Promise.all([
     getPantrySuggestions(profile.householdId, { excludeKeys: currentListKeys }),
     getRecentlyBought(profile.householdId),
@@ -132,7 +133,7 @@ export default async function GroceriesPage({
             {pantrySuggestions.map((s) => (
               <form key={s.key} action={addItem.bind(null, s.productId ? { productId: s.productId } : { name: s.label })}>
                 <SubmitButton
-                  title={`Usually bought every ~${Math.round(s.medianIntervalDays)} days — last bought ${s.daysSinceLast} days ago`}
+                  title={`Should last about ${Math.round(s.lastsDays)} days — last bought ${s.daysSinceLast} days ago`}
                   className={`${chip} border-sun bg-sun/20 text-foreground`}
                 >
                   + {s.label}

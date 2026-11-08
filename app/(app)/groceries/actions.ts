@@ -29,6 +29,8 @@ function revalidateGroceries() {
   revalidatePath("/groceries/pantry");
   revalidatePath("/groceries/shop");
   revalidatePath("/groceries/trips");
+  // Phase 65c: Home's "Probably running low" leaves out what's on the list.
+  revalidatePath("/");
 }
 
 export async function searchProductsAutocomplete(query: string) {
