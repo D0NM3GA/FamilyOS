@@ -73,9 +73,23 @@ describe.skipIf(!RUN)("the Outlook copy (database)", { timeout: 60_000 }, () => 
     await prisma.household.update({ where: { id: ids.h }, data: { disabledApps: [] } });
 
     const won = await claimStaleCalendars(ids.h, now);
-    expect(won.sort()).toEqual([ids.family, ids.dadCal, ids.ivyCal].sort());
+    expect(won.map((c) => c.id).sort()).toEqual([ids.family, ids.dadCal, ids.ivyCal].sort());
     // A second visit at the same moment wins nothing.
     expect(await claimStaleCalendars(ids.h, now)).toEqual([]);
+    await prisma.outlookCalendar.updateMany({ where: { householdId: ids.h }, data: { leaseUntil: null } });
+  });
+
+  test("a copy run elsewhere holds the lease: an admin's copy waits, and never frees the other's lease", async () => {
+    const { claimStaleCalendars, refreshOutlookCalendar, ALREADY_COPYING } = await import("./copy");
+    await prisma.outlookCalendar.update({ where: { id: ids.ivyCal }, data: { lastFetchedAt: null, leaseUntil: null, retryAfterUntil: null } });
+    const [claim] = (await claimStaleCalendars(ids.h, now)).filter((c) => c.id === ids.ivyCal);
+    expect(claim).toBeDefined();
+    // The admin's Check access, while the job holds it.
+    expect(await refreshOutlookCalendar(ids.ivyCal, { reader: reader({ ok: true, events: [], truncated: false }) })).toEqual({ ok: false, error: ALREADY_COPYING });
+    expect((await prisma.outlookCalendar.findUniqueOrThrow({ where: { id: ids.ivyCal } })).leaseUntil?.getTime()).toBe(claim.lease.getTime());
+    // The job's own run releases it.
+    expect((await refreshOutlookCalendar(ids.ivyCal, { lease: claim.lease, reader: reader({ ok: true, events: [ev("soccer")], truncated: false }) })).ok).toBe(true);
+    expect((await prisma.outlookCalendar.findUniqueOrThrow({ where: { id: ids.ivyCal } })).leaseUntil).toBeNull();
     await prisma.outlookCalendar.updateMany({ where: { householdId: ids.h }, data: { leaseUntil: null } });
   });
 

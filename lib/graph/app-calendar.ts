@@ -160,7 +160,7 @@ export async function readCalendarView(
     if (err instanceof AppTokenError) return { ok: false, error: COPY_ERRORS.setup };
     return { ok: false, error: COPY_ERRORS.failed };
   }
-  return { ok: true, events: parseCopiedEvents(raw.slice(0, MAX_COPIED_EVENTS)), truncated: next !== null };
+  return { ok: true, events: parseCopiedEvents(raw.slice(0, MAX_COPIED_EVENTS)), truncated: next !== null || raw.length > MAX_COPIED_EVENTS };
 }
 
 export type MailboxCalendar = { id: string; name: string; isDefault: boolean };

@@ -3,8 +3,8 @@ import { householdWithAppOn } from "@/lib/app-switches";
 import { COPY_ERRORS, readCalendarView, type ReadResult } from "@/lib/graph/app-calendar";
 
 /**
- * Phase 70a: keeping the copy of the family's Outlook calendars fresh. The background job and a
- * visit to Home or Calendar refresh any calendar over 15 minutes old, each under a lease so two
+ * Phase 70a: keeping the copy of the family's Outlook calendars fresh. The half-hourly background
+ * job and a visit to Home or Calendar refresh any calendar over 15 minutes old, each under a lease so two
  * can't copy one calendar at once. The copy covers a week back to two months ahead and is
  * replaced on every success; a failed read keeps the last copy.
  */
@@ -22,15 +22,28 @@ export const ACCESS_ENDED = "Off: the person whose mailbox this is no longer has
 type Reader = (mailbox: string, graphCalendarId: string | null, range: { start: Date; end: Date }) => Promise<ReadResult>;
 
 /** Who may still have a calendar copied: in the household, and not cut off by the Entra check. */
-const stillHere = { isHouseholdMember: true, entraAccessEndedAt: null } as const;
+export const stillHere = { isHouseholdMember: true, entraAccessEndedAt: null } as const;
+
+export const ALREADY_COPYING = "It's being copied right now. Try again in a minute.";
+
+const freeAt = (now: Date) => ({ OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }] });
+
+/** Takes one calendar's lease if it's free. Returns the lease written (to release only that one), or null. */
+async function takeLease(id: string, now: Date): Promise<Date | null> {
+  const until = new Date(now.getTime() + LEASE_MS);
+  const { count } = await prisma.outlookCalendar.updateMany({ where: { id, ...freeAt(now) }, data: { leaseUntil: until } });
+  return count === 1 ? until : null;
+}
+
+export type Claim = { id: string; lease: Date };
 
 /**
  * Claims every stale calendar (of one household, or of all), atomically per calendar. None while
  * the family has Calendar turned off. Returns the ids won.
  */
-export async function claimStaleCalendars(householdId: string | null, now = new Date()): Promise<string[]> {
+export async function claimStaleCalendars(householdId: string | null, now = new Date()): Promise<Claim[]> {
   const staleBefore = new Date(now.getTime() - STALE_MS);
-  const free = { OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }] };
+  const free = freeAt(now);
   const candidates = await prisma.outlookCalendar.findMany({
     where: {
       ...(householdId ? { householdId } : {}),
@@ -45,10 +58,10 @@ export async function claimStaleCalendars(householdId: string | null, now = new 
     },
     select: { id: true },
   });
-  const won: string[] = [];
+  const won: Claim[] = [];
   for (const { id } of candidates) {
-    const { count } = await prisma.outlookCalendar.updateMany({ where: { id, ...free }, data: { leaseUntil: new Date(now.getTime() + LEASE_MS) } });
-    if (count === 1) won.push(id);
+    const lease = await takeLease(id, now);
+    if (lease) won.push({ id, lease });
   }
   return won;
 }
@@ -56,15 +69,17 @@ export async function claimStaleCalendars(householdId: string | null, now = new 
 export type CopyResult = { ok: true; events: number } | { ok: false; error: string };
 
 /**
- * Reads and stores one calendar. Expects the caller to hold the lease (or to be an admin's Check
- * access), and always releases it. Never throws for Outlook's answers: they become fixed-text
- * `lastError`.
+ * Reads and stores one calendar, under its lease: the one a claim handed over, else one taken here
+ * (an admin's Check access), so two copies of one calendar never run at once. Releases only its own
+ * lease. Never throws for Outlook's answers: they become fixed-text `lastError`.
  */
-export async function refreshOutlookCalendar(id: string, deps: { reader?: Reader; now?: Date } = {}): Promise<CopyResult> {
+export async function refreshOutlookCalendar(id: string, deps: { reader?: Reader; now?: Date; lease?: Date } = {}): Promise<CopyResult> {
   const now = deps.now ?? new Date();
   const reader = deps.reader ?? readCalendarView;
   const cal = await prisma.outlookCalendar.findUnique({ where: { id }, select: { mailbox: true, graphCalendarId: true } });
   if (!cal) return { ok: false, error: "Calendar not found." };
+  const lease = deps.lease ?? (await takeLease(id, now));
+  if (!lease) return { ok: false, error: ALREADY_COPYING };
 
   try {
     const range = { start: new Date(now.getTime() - PAST_DAYS * 86_400_000), end: new Date(now.getTime() + FUTURE_DAYS * 86_400_000) };
@@ -96,7 +111,7 @@ export async function refreshOutlookCalendar(id: string, deps: { reader?: Reader
     await prisma.outlookCalendar.update({ where: { id }, data: { lastFetchedAt: now, lastError: COPY_ERRORS.failed } }).catch(() => {});
     throw err;
   } finally {
-    await prisma.outlookCalendar.updateMany({ where: { id, leaseUntil: { not: null } }, data: { leaseUntil: null } }).catch(() => {});
+    await prisma.outlookCalendar.updateMany({ where: { id, leaseUntil: lease }, data: { leaseUntil: null } }).catch(() => {});
   }
 }
 
@@ -123,8 +138,8 @@ export async function runOutlookCopy(now = new Date()): Promise<string> {
   const claimed = await claimStaleCalendars(null, now);
   let ok = 0;
   let failed = 0;
-  for (const id of claimed) {
-    const r = await refreshOutlookCalendar(id).catch(() => ({ ok: false as const, error: COPY_ERRORS.failed }));
+  for (const { id, lease } of claimed) {
+    const r = await refreshOutlookCalendar(id, { lease }).catch(() => ({ ok: false as const, error: COPY_ERRORS.failed }));
     if (r.ok) ok++;
     else failed++;
   }

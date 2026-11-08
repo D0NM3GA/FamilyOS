@@ -18,7 +18,10 @@ import { captureError } from "@/lib/observability";
 const PAGE = "/settings/outlook-calendars";
 const idOf = (formData: FormData, key: string) => String(formData.get(key) ?? "").slice(0, 200);
 
-/** Copies one calendar now; a failure is already on its row as fixed text. */
+/**
+ * Copies one calendar now, under its own lease; a failure is already on its row as fixed text. One
+ * already being copied by the background run is left to it.
+ */
 async function copyNow(id: string) {
   try {
     await refreshOutlookCalendar(id);
@@ -95,10 +98,12 @@ export async function stopFamilyCalendar(): Promise<void> {
   done("stopped");
 }
 
-/** Copies every calendar now (Check access), whatever its age. */
+/** Copies every calendar now (Check access), whatever its age, except one Outlook asked to wait on. */
 export async function copyAllNow(): Promise<void> {
   const admin = await requireAdmin();
-  const calendars = await prisma.outlookCalendar.findMany({ where: { householdId: admin.householdId, active: true }, select: { id: true } });
-  for (const c of calendars) await copyNow(c.id);
-  done("checked");
+  const now = new Date();
+  const calendars = await prisma.outlookCalendar.findMany({ where: { householdId: admin.householdId, active: true }, select: { id: true, retryAfterUntil: true } });
+  const waiting = calendars.filter((c) => c.retryAfterUntil && c.retryAfterUntil > now);
+  for (const c of calendars) if (!waiting.includes(c)) await copyNow(c.id);
+  done(waiting.length ? "checkedSomeWaiting" : "checked");
 }

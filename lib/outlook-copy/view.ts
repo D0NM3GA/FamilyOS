@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { shortNames } from "@/lib/people";
 import { isAdult, type RoleBearing } from "@/lib/roles";
 import type { CalendarEvent, CalendarEventsResult } from "@/lib/graph/calendar";
+import { stillHere } from "./copy";
 
 /**
  * Phase 70a: who sees which copied Outlook events (the owner's call): grown-ups see every copied
@@ -83,9 +84,12 @@ export function shapeCopiedEvents(rows: readonly CopiedRow[], viewer: Viewer, na
 
 /** Whether the household copies any Outlook calendar: then Home and Calendar read only the copy. */
 export const hasOutlookCopy = cache(async (householdId: string): Promise<boolean> => {
-  const n = await prisma.outlookCalendar.count({ where: { householdId, active: true } });
+  const n = await prisma.outlookCalendar.count({ where: { householdId, active: true, person: stillHere } });
   return n > 0;
 });
+
+/** The most copied events one view reads (a month of every calendar, with room). */
+const VIEW_LIMIT = 1500;
 
 type Profile = RoleBearing & { id: string; householdId: string };
 
@@ -96,7 +100,7 @@ export async function getCopiedEvents(profile: Profile, range: { start: Date; en
     where: {
       householdId: profile.householdId,
       active: true,
-      person: { isHouseholdMember: true, entraAccessEndedAt: null },
+      person: stillHere,
       ...(viewer.adult ? {} : { OR: [{ kind: "FAMILY" as const }, { personId: viewer.id }] }),
     },
     select: { id: true, kind: true, personId: true, person: { select: { id: true, firstName: true, lastName: true } } },
@@ -106,7 +110,7 @@ export async function getCopiedEvents(profile: Profile, range: { start: Date; en
   const rows = await prisma.outlookEvent.findMany({
     where: { outlookCalendarId: { in: calendars.map((c) => c.id) }, startsAt: { lt: range.end }, endsAt: { gt: range.start } },
     orderBy: { startsAt: "asc" },
-    take: 1000,
+    take: VIEW_LIMIT,
   });
   const names = shortNames(calendars.map((c) => c.person));
   const shaped = shapeCopiedEvents(
@@ -118,5 +122,5 @@ export async function getCopiedEvents(profile: Profile, range: { start: Date; en
     names,
   );
   const max = opts.max ?? shaped.length;
-  return { ok: true, events: shaped.slice(0, max), truncated: shaped.length > max };
+  return { ok: true, events: shaped.slice(0, max), truncated: shaped.length > max || rows.length === VIEW_LIMIT };
 }

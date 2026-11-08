@@ -24,7 +24,7 @@ export function pickMailbox(microsoftAccountId: string | null | undefined, email
 export async function householdMailboxes(householdId: string): Promise<Map<string, MailboxSource | null>> {
   const people = await prisma.person.findMany({
     where: { householdId, isHouseholdMember: true, entraAccessEndedAt: null },
-    select: { id: true, email: true, authUser: { select: { accounts: { where: { providerId: "microsoft" }, select: { accountId: true }, take: 1 } } } },
+    select: { id: true, email: true, authUser: { select: { accounts: { where: { providerId: "microsoft" }, orderBy: { updatedAt: "desc" }, select: { accountId: true }, take: 1 } } } },
   });
   return new Map(people.map((p) => [p.id, pickMailbox(p.authUser?.accounts[0]?.accountId, p.email)]));
 }

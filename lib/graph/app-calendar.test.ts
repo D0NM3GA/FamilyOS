@@ -79,6 +79,24 @@ describe("readCalendarView", () => {
     expect(await readCalendarView("x", null, range, { fetchFn: boom, token })).toEqual({ ok: false, error: COPY_ERRORS.failed });
   });
 
+  test("a last page that goes past the cap is truncated too", async () => {
+    let n = 0;
+    const fetchFn = (async () => {
+      n++;
+      const value = Array.from({ length: n < 5 ? 200 : 150 }, (_, i) => ev(`${n}-${i}`));
+      return json(n < 5 ? { value, "@odata.nextLink": "https://graph.microsoft.com/v1.0/next" } : { value });
+    }) as unknown as typeof fetch;
+    // 4 pages of 200 then one of 150 would be 950: under the cap, nothing lost.
+    const r = await readCalendarView("x", null, range, { fetchFn, token });
+    expect(r.ok && r.events.length).toBe(950);
+    expect(r.ok && r.truncated).toBe(false);
+    // One page that ends past the cap with no next page:
+    const big = (async () => json({ value: Array.from({ length: 1100 }, (_, i) => ev(`b-${i}`)) })) as unknown as typeof fetch;
+    const b = await readCalendarView("x", null, range, { fetchFn: big, token });
+    expect(b.ok && b.events.length).toBe(MAX_COPIED_EVENTS);
+    expect(b.ok && b.truncated).toBe(true);
+  });
+
   test("stops at the cap and says it's truncated", async () => {
     let n = 0;
     const fetchFn = (async () => {

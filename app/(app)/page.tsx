@@ -63,15 +63,17 @@ function emptyBoard(today: Date): Board {
  * Phase 19.5 "Big buttons" Home. Fetches only what BigHome shows — none of the full
  * dashboard's Graph calendar, sync, vehicles or activity work.
  */
-/** Today's copied Outlook events, as Big Home's lines ("4:30 PM Soccer"). Empty without a copy or on a failure. */
+/**
+ * Today's copied Outlook events, as Big Home's lines ("4:30 PM Ivy: Soccer"), through the agenda's own
+ * day rules (the household's day, several-day events), like the Today strip. Empty without a copy.
+ */
 async function bigCalendarToday(profile: Awaited<ReturnType<typeof requireActiveProfile>>, today: Date, zone: string): Promise<{ key: string; title: string }[]> {
   if (!(await hasOutlookCopy(profile.householdId))) return [];
-  const result = await getCopiedEvents(profile, { start: today, end: addDays(today, 1) }, { max: 8 }).catch(() => null);
+  const result = await getCopiedEvents(profile, { start: addDays(today, -1), end: addDays(today, 2) }).catch(() => null);
   if (!result?.ok) return [];
-  return result.events.map((e) => ({
-    key: e.id,
-    title: e.isAllDay ? e.subject : `${e.start.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: zone })} ${e.subject}`,
-  }));
+  return outlookItems(result.events, today, zone, 1)
+    .slice(0, 8)
+    .map((item) => ({ key: item.key, title: [item.minutes === null ? null : timeLabel(item.minutes), item.who ? `${item.who}: ${item.title}` : item.title].filter(Boolean).join(" ") }));
 }
 
 async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof requireActiveProfile>>; on: AppOn }) {

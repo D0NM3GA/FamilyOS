@@ -14,6 +14,7 @@ import { alertMailbox } from "@/lib/alerts/email";
 import { cleanDisabledApps } from "@/lib/apps";
 import { formatRelative } from "@/lib/format";
 import { buildHub } from "@/lib/settings-hub";
+import { COPY_ERRORS } from "@/lib/graph/app-calendar";
 import { btn } from "@/components/styles";
 import { SettingsHub } from "./hub";
 import { SetupCard } from "./setup-card";
@@ -89,7 +90,7 @@ export default async function SettingsPage() {
     alertsEmail: Boolean(await alertMailbox(profile.householdId)) && alertChannels.some((p) => p.emailEnabled),
     outlookOn: adult && calendarOn && microsoftEnabled(),
     outlookSync: outlookSync ? { error: Boolean(outlookSync.lastError) } : null,
-    outlookCopies: outlookCopies ? { count: outlookCopies.length, error: outlookCopies.some((c) => Boolean(c.lastError)) } : null,
+    outlookCopies: outlookCopies ? { count: outlookCopies.length, error: outlookCopies.some((c) => Boolean(c.lastError) && c.lastError !== COPY_ERRORS.truncated) } : null,
     lastBackup: lastBackup ? { at: lastBackup.createdAt, label: formatRelative(lastBackup.createdAt) } : null,
     now: new Date(),
   });

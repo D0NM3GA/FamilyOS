@@ -11,9 +11,9 @@ export async function scheduleOutlookRefresh(householdId: string): Promise<void>
   const claimed = await claimStaleCalendars(householdId);
   if (claimed.length === 0) return;
   after(async () => {
-    for (const id of claimed) {
+    for (const { id, lease } of claimed) {
       try {
-        await refreshOutlookCalendar(id);
+        await refreshOutlookCalendar(id, { lease });
       } catch {
         // Only the fact and the id: an error could carry a mailbox.
         captureError(new Error(`outlook copy failed (calendar ${id})`));

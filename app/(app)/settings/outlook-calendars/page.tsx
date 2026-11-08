@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { microsoftEnabled } from "@/lib/auth";
 import { formatRelative } from "@/lib/format";
 import { getHouseholdMembers, shortNames } from "@/lib/people";
-import { listMailboxCalendars } from "@/lib/graph/app-calendar";
+import { COPY_ERRORS, listMailboxCalendars } from "@/lib/graph/app-calendar";
 import { householdMailboxes } from "@/lib/outlook-copy/mailbox";
 import { ConfirmSubmit, SubmitButton } from "@/components/submit";
 import { backLink, btn, btnPrimary } from "@/components/styles";
@@ -18,6 +18,7 @@ const DONE: Record<string, string> = {
   family: "Saved. The family calendar is copied from now on.",
   stopped: "Stopped. Its events are gone from the app.",
   checked: "Copied again. Each calendar below says how it went.",
+  checkedSomeWaiting: "Copied again, except where Outlook asked the app to wait. Each calendar below says how it went.",
 };
 const ERRORS: Record<string, string> = {
   noMailbox: "There's no mailbox for them yet: add their email on their People page.",
@@ -27,10 +28,17 @@ const ERRORS: Record<string, string> = {
 
 type Row = { id: string; kind: "PERSON" | "FAMILY"; personId: string; calendarName: string | null; lastSuccessAt: Date | null; lastError: string | null; active: boolean };
 
+/** Each row's state is a status, not an alert: a page with several failing rows shouldn't shout them all at once. */
 function Status({ row }: { row: Row }) {
-  if (row.lastError) return <p role="alert" className="text-sm text-destructive">{row.lastError}</p>;
-  if (row.lastSuccessAt) return <p className="text-sm text-muted-foreground">Copied {formatRelative(row.lastSuccessAt)}.</p>;
-  return <p className="text-sm text-muted-foreground">Not copied yet.</p>;
+  const partial = row.lastError === COPY_ERRORS.truncated;
+  if (row.lastError && !partial) return <p role="status" className="text-sm text-destructive">{row.lastError}</p>;
+  if (row.lastSuccessAt)
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        Copied {formatRelative(row.lastSuccessAt)}.{partial && ` ${COPY_ERRORS.truncated}`}
+      </p>
+    );
+  return <p role="status" className="text-sm text-muted-foreground">Not copied yet.</p>;
 }
 
 /**
@@ -76,7 +84,8 @@ export default async function OutlookCalendarsPage({ searchParams }: { searchPar
         </Link>
         <h1 className="text-xl font-semibold text-foreground">Outlook calendars</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          The app copies these every 15 minutes, so everyone sees them without signing in to Microsoft. Grown-ups see every
+          The app copies these again once they&apos;re 15 minutes old (on a visit to Home or Calendar, or its half-hourly
+          background run), so everyone sees them without signing in to Microsoft. Grown-ups see every
           calendar here; kids see the family calendar and their own. Anything marked Private in Outlook shows only as
           &ldquo;Busy&rdquo;. The app only reads: nothing here changes anyone&apos;s Outlook.
         </p>

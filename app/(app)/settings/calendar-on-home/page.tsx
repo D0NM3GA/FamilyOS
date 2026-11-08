@@ -45,7 +45,7 @@ export default async function CalendarOnHomePage({ searchParams }: { searchParam
       {copied && (
         <p role="status" className="rounded-lg bg-card p-4 text-sm text-muted-foreground shadow-sm ring-1 ring-border">
           The family&apos;s Outlook calendars are copied into the app now (Settings → Outlook calendars), so Home and Calendar show
-          those for everyone and this choice doesn&apos;t change them.
+          those for everyone. This choice still picks where + Add event puts new events.
         </p>
       )}
       {!mine ? (
