@@ -178,6 +178,10 @@ The family's address book: everyone in the house, plus grandparents, friends, te
 - **Connected to** (grown-ups) shows what a contact is to the family: the medicines a doctor
   prescribes or a pharmacy fills, and whose school contact a teacher is.
 - Grown-ups can mark a note "grown-ups only" so kids don't see it.
+- **🎁 Gift ideas** (grown-ups): jot down an idea on someone's page ("Paint set"), mark it **Given**
+  when it's done (it stays, crossed off, so nobody buys it twice) or **Remove** it. The person never
+  sees ideas for themselves, not even in a backup they take. Their birthday reminder says how many
+  ideas are saved, and the ideas are on their page.
 - With Microsoft, a contact's page can show **Recent emails** and **Sync from Microsoft** fills in
   their photo, name and phone.
 - Household members show what's open at a glance: **2 overdue**, **1 missing**, **Test Thu**
@@ -291,6 +295,9 @@ take some back from a kid's sticker history. Grown-ups can see everyone's wallet
 Everyone can look after a little digital pet. Pick an egg (a Blob, a Birdie or a Critter), give
 it a name, then tap the egg a few times to crack it open. (Left alone, it hatches by itself in a
 few minutes.)
+
+The pet sleeps outside its care hours, and on a day with no school (a "No School" or "Thanksgiving
+Break" day on the school calendars) it keeps its weekend hours.
 
 - **Look after it** with the big buttons: **Feed** (a meal, or a snack, but not too many),
   **Clean** up after it, **Medicine** when it's poorly, and **Say no** when it's making a fuss

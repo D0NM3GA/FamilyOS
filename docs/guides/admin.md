@@ -398,7 +398,9 @@ reach about 3 months back, so Money off for longer leaves a gap (a statement fil
 on weekdays and on weekends (by default 7–8am and 3–8pm on weekdays, 8am–8pm at weekends). A
 pet's clock only runs in these hours, so school and bedtime can't make one hungry or sick.
 Changing them applies from the next time each pet is opened. Turn the whole Pet app off in the
-list above; pets just sleep until it's back.
+list above; pets just sleep until it's back. **Weekend hours on days with no school** (on by
+default) uses the weekend hours on a weekday the school calendars mark as a day off ("No School",
+"Teacher Work Day", "Winter Break"), from the family's calendars and the pet's own kid's.
 
 The pet is separate from stickers and the store: it never reads or changes a balance.
 
