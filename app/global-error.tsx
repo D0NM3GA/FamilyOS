@@ -9,7 +9,7 @@ import { captureError } from "@/lib/observability";
  * global CSS — plain inline styles only. Always reports: when this renders, even the
  * layout that would normally show a friendlier boundary has failed.
  */
-export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   useEffect(() => {
     captureError(error);
   }, [error]);
@@ -20,7 +20,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         <div style={{ textAlign: "center", padding: 24 }}>
           <h1 style={{ fontSize: 18, margin: 0 }}>Something went wrong</h1>
           <p style={{ color: "#57534e", fontSize: 14 }}>The app hit an error it couldn&apos;t recover from.</p>
-          <button type="button" onClick={() => reset()} style={{ padding: "8px 16px", fontSize: 14 }}>
+          <button type="button" onClick={() => retry()} style={{ padding: "8px 16px", fontSize: 14 }}>
             Try again
           </button>
         </div>
