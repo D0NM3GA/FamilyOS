@@ -66,7 +66,7 @@ const noSchoolWeekendDays = cache(async (householdId: string, personId: string |
       allDay: true,
       endsAt: { gt: new Date(now.getTime() - NO_SCHOOL_LOOKBACK_DAYS * 86_400_000) },
       startsAt: { lt: new Date(now.getTime() + 2 * 86_400_000) },
-      feed: { householdId, active: true, OR: [{ kidPersonId: null }, ...(personId ? [{ kidPersonId: personId }] : [])] },
+      feed: { householdId, active: true, OR: [{ forFamily: true }, ...(personId ? [{ kids: { some: { personId } } }] : [])] },
     },
     select: { title: true, startsAt: true, endsAt: true, allDay: true },
     take: 500,

@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { FEED_WHO, feedKids, feedScope } from "@/lib/school/feeds/scope";
+import { foldFeedEvents } from "@/lib/school/feeds/fold";
 import { isAdult } from "@/lib/authz";
 import { getVehiclesWithStatus } from "@/lib/vehicles/queries";
 import { wallClockToInstant } from "@/lib/school/feeds/parse";
@@ -192,7 +194,10 @@ export type SchoolEventRow = {
   endsAt: Date;
   allDay: boolean;
   who: string | null;
+  /** The one kid it's for, when it's for exactly one (its link and colour). */
   studentId: string | null;
+  /** Phase 70f: every kid it's for (none: the family's). */
+  whoIds: string[];
 };
 
 const ymdParts = (d: Date) => [d.getFullYear(), d.getMonth() + 1, d.getDate()] as const;
@@ -213,7 +218,7 @@ export async function loadSchoolEvents(viewer: Viewer, firstDay: Date, untilDay:
       feed: {
         householdId: viewer.householdId,
         active: true,
-        ...(studentId ? { OR: [{ kidPersonId: null }, { kidPersonId: studentId }] } : {}),
+        ...feedScope(studentId),
       },
       OR: [
         { allDay: true, endsAt: { gt: new Date(Date.UTC(fy, fm - 1, fd)) }, startsAt: { lt: new Date(Date.UTC(uy, um - 1, ud)) } },
@@ -232,20 +237,28 @@ export async function loadSchoolEvents(viewer: Viewer, firstDay: Date, untilDay:
       startsAt: true,
       endsAt: true,
       allDay: true,
-      feed: { select: { kidPersonId: true, kid: { select: { firstName: true } } } },
+      feed: { select: FEED_WHO },
     },
     orderBy: { startsAt: "asc" },
     take: 200,
   });
-  return events.map((e) => ({
+  // Phase 70f: the same event from two feeds shows once, with every kid it's for.
+  const folded = foldFeedEvents(
+    events.map((e) => {
+      const kids = feedKids(e.feed);
+      return { ...e, family: e.feed.forFamily, whoIds: kids.ids, whoNames: kids.names };
+    }),
+  );
+  return folded.map((e) => ({
     key: `${e.feedId}:${e.occurrenceKey}`,
     title: e.title,
     location: e.location,
     startsAt: e.startsAt,
     endsAt: e.endsAt,
     allDay: e.allDay,
-    who: e.feed.kid?.firstName ?? null,
-    studentId: e.feed.kidPersonId,
+    who: e.whoNames.length ? e.whoNames.join(" & ") : null,
+    studentId: e.whoIds.length === 1 ? e.whoIds[0] : null,
+    whoIds: e.whoIds,
   }));
 }
 

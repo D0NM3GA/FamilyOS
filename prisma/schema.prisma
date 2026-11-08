@@ -281,7 +281,7 @@ model Person {
   schoolTasksFor   SchoolTask[]    @relation("SchoolTaskKid")
   schoolTasksOwned SchoolTask[]    @relation("SchoolTaskOwner")
   workItemEvents   WorkItemEvent[] @relation("WorkItemEventActor")
-  schoolFeedsFor   SchoolFeed[]    @relation("SchoolFeedKid")
+  schoolFeedsFor   SchoolFeedKid[]
 
   moneyJars          MoneyJarMember[]
   jarConnectionsMade JarConnection[]
@@ -1609,11 +1609,10 @@ model SchoolFeed {
   householdId    String
   household      Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   name           String
-  /// Null = for the whole family.
-  kidPersonId    String?
-  /// Cascade, not SetNull: a feed for one child must not widen to the whole family when
-  /// that person is deleted.
-  kid            Person?   @relation("SchoolFeedKid", fields: [kidPersonId], references: [id], onDelete: Cascade)
+  /// Phase 70f: for the whole family. Otherwise it's for the kids in `kids`; explicit, so a feed
+  /// whose last kid is deleted shows to grown-ups only ("Nobody's yet") and never widens.
+  forFamily      Boolean   @default(false)
+  kids           SchoolFeedKid[]
   keyVersion     Int       @default(1)
   encryptedValue Bytes
   iv             Bytes
@@ -1638,6 +1637,18 @@ model SchoolFeed {
 
   @@unique([householdId, urlHash])
   @@map("school_feed")
+}
+
+/// Phase 70f: one kid a school feed is for (a feed can be for several).
+model SchoolFeedKid {
+  feedId   String
+  feed     SchoolFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  personId String
+  person   Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([feedId, personId])
+  @@index([personId])
+  @@map("school_feed_kid")
 }
 
 /// Cache of a feed's occurrences in a window around today, replaced on every refresh.

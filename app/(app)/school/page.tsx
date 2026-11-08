@@ -392,7 +392,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {formatEventWhen(e, zone)}
-                    {!e.allDay && <AwayTime at={e.startsAt} />} · {e.feed.kid?.firstName ?? e.feed.name}
+                    {!e.allDay && <AwayTime at={e.startsAt} />} · {e.who}
                   </span>
                 </li>
               ))}

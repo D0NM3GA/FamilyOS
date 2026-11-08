@@ -27,6 +27,8 @@ export type AgendaItem = {
   who: string | null;
   /** Phase 60: the family member it belongs to (chores, doses, schoolwork, a kid's school feed), for the filter and colours. */
   whoId?: string | null;
+  /** Phase 70f: everyone it's for, when that's more than one (a feed for two kids): the filter shows it to each. */
+  whoIds?: string[];
   /** Local "YYYY-MM-DD". */
   day: string;
   /** Minutes after midnight; null for an all-day item. */
@@ -317,6 +319,7 @@ export function schoolEventItems(rows: readonly SchoolEventRow[], start: Date, t
         title: r.title,
         who: r.who,
         whoId: r.studentId,
+        whoIds: r.whoIds,
         status: "open" as const,
         href: schoolHref(r.studentId),
         external: false,
@@ -375,7 +378,12 @@ export function itemPerson(item: AgendaItem, members: ReadonlySet<string>): stri
 
 /** One person's rows, plus what's nobody's in particular (a birthday, a school event). */
 export function itemsForPerson(items: readonly AgendaItem[], who: string, members: ReadonlySet<string>): AgendaItem[] {
-  return items.filter((item) => (itemPerson(item, members) ?? who) === who);
+  return items.filter((item) => {
+    // Phase 70f: an item for several people is each one's.
+    const several = (item.whoIds ?? []).filter((id) => members.has(id));
+    if (several.length > 1) return several.includes(who);
+    return (itemPerson(item, members) ?? who) === who;
+  });
 }
 
 /** The first of the month a `?month=YYYY-MM` link asks for; anything else, or too far away, is this month. */

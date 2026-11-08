@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { FEED_WHO, feedKids, feedScope } from "@/lib/school/feeds/scope";
 import { itemParam } from "@/lib/work-items/history";
 import { listPeople, fullName } from "@/lib/people";
 import { searchProductsLocal } from "@/lib/groceries/queries";
@@ -288,10 +289,11 @@ export async function searchHousehold(
             feed: {
               householdId,
               active: true,
-              ...(viewerIsAdult ? {} : { OR: [{ kidPersonId: null }, ...(opts.viewerId ? [{ kidPersonId: opts.viewerId }] : [])] }),
+              // Phase 70f: a kid sees the family's feeds and the ones they're on.
+              ...(viewerIsAdult ? {} : opts.viewerId ? feedScope(opts.viewerId) : { forFamily: true }),
             },
           },
-          select: { feedId: true, occurrenceKey: true, title: true, startsAt: true, endsAt: true, allDay: true, feed: { select: { kidPersonId: true, kid: { select: { firstName: true } } } } },
+          select: { feedId: true, occurrenceKey: true, title: true, startsAt: true, endsAt: true, allDay: true, feed: { select: FEED_WHO } },
           orderBy: { startsAt: "asc" },
           take: RESULTS_PER_GROUP,
         })
@@ -315,9 +317,9 @@ export async function searchHousehold(
         return {
           id: `${e.feedId}:${e.occurrenceKey}`,
           label: e.title,
-          sublabel: [formatEventWhen(e, Intl.DateTimeFormat().resolvedOptions().timeZone), e.feed.kid?.firstName].filter(Boolean).join(" · "),
+          sublabel: [formatEventWhen(e, Intl.DateTimeFormat().resolvedOptions().timeZone), feedKids(e.feed).names.join(" & ")].filter(Boolean).join(" · "),
           // To the week on the calendar, or to School when Calendar is off.
-          href: on("calendar") ? `/calendar?week=${day}` : e.feed.kidPersonId ? `/school?kid=${encodeURIComponent(e.feed.kidPersonId)}` : "/school",
+          href: on("calendar") ? `/calendar?week=${day}` : schoolLink(feedKids(e.feed).ids),
         };
       }),
     });
@@ -343,3 +345,6 @@ export async function searchHousehold(
 
   return groups;
 }
+
+/** Phase 70f: a feed for one kid opens their School; anything else, School. */
+const schoolLink = (kids: string[]) => (kids.length === 1 ? `/school?kid=${encodeURIComponent(kids[0])}` : "/school");

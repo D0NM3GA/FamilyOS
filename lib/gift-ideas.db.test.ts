@@ -65,7 +65,7 @@ describe.skipIf(!RUN)("gift ideas and no-school days (database)", { timeout: 60_
     const now = new Date(Date.UTC(2026, 10, 11, 12));
     const feed = (name: string, kidPersonId: string | null) =>
       prisma.schoolFeed.create({
-        data: { householdId: ids.h, name, kidPersonId, encryptedValue: Buffer.from("x"), iv: Buffer.from("x"), authTag: Buffer.from("x"), urlHash: `${name}-${t}`, host: "school.example.com" },
+        data: { householdId: ids.h, name, forFamily: !kidPersonId, ...(kidPersonId ? { kids: { create: [{ personId: kidPersonId }] } } : {}), encryptedValue: Buffer.from("x"), iv: Buffer.from("x"), authTag: Buffer.from("x"), urlHash: `${name}-${t}`, host: "school.example.com" },
       });
     const [family, ivys, maxs] = await Promise.all([feed("District", null), feed("Ivy school", ids.ivy), feed("Max school", ids.max)]);
     const allDay = (feedId: string, title: string, d: string) => ({ feedId, occurrenceKey: `${title}-${d}`, uid: title, title, startsAt: new Date(`${d}T00:00:00Z`), endsAt: new Date(new Date(`${d}T00:00:00Z`).getTime() + 86_400_000), allDay: true });

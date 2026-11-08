@@ -211,10 +211,10 @@ describe("outside calendars", () => {
     const items = schoolEventItems(
       [
         // Fall break, Oct 9 to 12 (all-day dates are UTC midnights, end exclusive).
-        { key: "f:1", title: "Fall break", location: null, startsAt: new Date(Date.UTC(2026, 9, 9)), endsAt: new Date(Date.UTC(2026, 9, 13)), allDay: true, who: null, studentId: null },
+        { key: "f:1", title: "Fall break", location: null, startsAt: new Date(Date.UTC(2026, 9, 9)), endsAt: new Date(Date.UTC(2026, 9, 13)), allDay: true, who: null, studentId: null, whoIds: [] },
         // An all-day event whose end equals its start still lasts its day.
-        { key: "f:2", title: "Picture day", location: "Gym", startsAt: new Date(Date.UTC(2026, 9, 5)), endsAt: new Date(Date.UTC(2026, 9, 5)), allDay: true, who: "Kid", studentId: "k1" },
-        { key: "f:3", title: "Concert", location: null, startsAt: new Date(Date.UTC(2026, 9, 9, 0, 30)), endsAt: new Date(Date.UTC(2026, 9, 9, 2)), allDay: false, who: null, studentId: null },
+        { key: "f:2", title: "Picture day", location: "Gym", startsAt: new Date(Date.UTC(2026, 9, 5)), endsAt: new Date(Date.UTC(2026, 9, 5)), allDay: true, who: "Kid", studentId: "k1", whoIds: ["k1"] },
+        { key: "f:3", title: "Concert", location: null, startsAt: new Date(Date.UTC(2026, 9, 9, 0, 30)), endsAt: new Date(Date.UTC(2026, 9, 9, 2)), allDay: false, who: null, studentId: null, whoIds: [] },
       ],
       SUN,
       ZONE,
@@ -340,5 +340,16 @@ describe("Outlook items with a driver (Phase 70b)", () => {
     expect(item.note).toBe("Driving: Dad · Field 3");
     expect(item.href).toBe("/calendar/drive?c=c&g=g");
     expect(item.external).toBe(false);
+  });
+});
+
+describe("an item for several people (Phase 70f)", () => {
+  test("shows in each one's filter, not someone else's", async () => {
+    const { itemsForPerson } = await import("./agenda");
+    const members = new Set(["ivy", "max", "dad"]);
+    const item = { key: "f:1", kind: "schoolEvent" as const, emoji: "🏫", title: "No School", who: "Ivy & Max", whoId: null, whoIds: ["ivy", "max"], day: "2026-11-11", minutes: null, status: "open" as const, note: null, href: null, external: false };
+    expect(itemsForPerson([item], "ivy", members)).toHaveLength(1);
+    expect(itemsForPerson([item], "max", members)).toHaveLength(1);
+    expect(itemsForPerson([item], "dad", members)).toHaveLength(0);
   });
 });

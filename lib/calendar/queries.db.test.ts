@@ -41,7 +41,8 @@ describe.skipIf(!RUN)("agenda week (database)", () => {
         data: {
           householdId: h.id,
           name,
-          kidPersonId,
+          forFamily: !kidPersonId,
+          ...(kidPersonId ? { kids: { create: [{ personId: kidPersonId }] } } : {}),
           encryptedValue: new Uint8Array([1]),
           iv: new Uint8Array([1]),
           authTag: new Uint8Array([1]),
