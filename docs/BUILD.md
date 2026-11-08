@@ -2098,3 +2098,22 @@ saved refreshes that row's keys and count. The app badge clears when the bell go
 cover the route's answers, the given and fetched-key paths, and the saved-address case. Left as is:
 a renewal while the phone's sign-in or Access has lapsed isn't retried (the 410 path and turning
 alerts on again cover it, as admin.md says).
+
+## Phase 69 — Everyday friction
+
+The fourth phase from the review of 2026-11-08 (scope in docs/PLAN.md, with the owner's answers).
+
+### 69a — Fresh pages, a sturdier Home, and the app's frame
+
+**Refresh on return:** `components/refresh-on-return.tsx` (`shouldRefresh`, tested) calls
+`router.refresh()` when the page is shown again after a minute away or on a new day, and online;
+on Home (both views), Chores and Meds; an `everyMs` timer for the Shop view (69b). **Home's cards:**
+each card's own loads go through `safe(part, load, fallback)`: a failure is captured
+(`home.card_failed`), the card gets its empty value, and a status line names what couldn't load.
+Settings, members and the apps that are on still fail the page; Big buttons Home is unchanged.
+**Link hint:** `components/link-pending.tsx` (`useLinkStatus`) inside the links to a person, a
+money jar and a car: a thin bar runs along the top while the page is on its way (reduced motion:
+a still bar). **iPhone:** `viewportFit: "cover"`; `--bottom-bar-h` adds
+`env(safe-area-inset-bottom)` and the bar pads by it; the body keeps clear of a landscape notch;
+the dev shell matches. **Form errors:** every rendered action error has `role="alert"` (22 were
+plain), and `lib/form-error-guard.test.ts` covers `x.error && …` and `if (state.error) return <…>`.
