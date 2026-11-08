@@ -19,12 +19,32 @@
 # with /fail on the end when anything failed.
 # BACKUP_NAS_NOT_A_MOUNT=1 skips the "is it mounted" check (a test on a machine without
 # `mountpoint`, such as a Mac); never on the server.
+#
+# Phase 67c: besides the nightly copies (BACKUP_KEEP_DAYS), Sunday's is also kept in weekly/ for
+# BACKUP_KEEP_WEEKS weeks (8) and the 1st of the month's in monthly/ for BACKUP_KEEP_MONTHS months
+# (12), in each place, so corruption noticed after a fortnight still has a good copy.
+# BACKUP_RCLONE_PRUNE=0 stops it deleting anything off site, for a remote whose credentials can
+# only add files, with the provider's versioning or retention rules doing the tidying (README).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 umask 077
 
 dir="${BACKUP_DIR:-/var/backups/familyos}"
 keep="${BACKUP_KEEP_DAYS:-14}"
+keep_weekly_days="$(( ${BACKUP_KEEP_WEEKS:-8} * 7 ))"
+keep_monthly_days="$(( ${BACKUP_KEEP_MONTHS:-12} * 31 ))"
+# Which longer-kept folders tonight's copy also goes in (UTC, like the file names).
+# BACKUP_TIERS ("weekly monthly") stands in for the date, for scripts/container-test.sh.
+tiers=()
+if [ -n "${BACKUP_TIERS:-}" ]; then
+  for tier in $BACKUP_TIERS; do
+    case "$tier" in weekly | monthly) tiers+=("$tier") ;; *) echo "BACKUP_TIERS takes weekly and monthly" >&2; exit 1 ;; esac
+  done
+else
+  [ "$(date -u +%u)" = 7 ] && tiers+=(weekly)
+  [ "$(date -u +%d)" = 01 ] && tiers+=(monthly)
+fi
+tier_days() { [ "$1" = weekly ] && echo "$keep_weekly_days" || echo "$keep_monthly_days"; }
 recipients="${BACKUP_AGE_RECIPIENTS:-/etc/familyos/backup-recipients.txt}"
 compose=(docker compose ${COMPOSE_PROJECT:+-p "$COMPOSE_PROJECT"} -f docker-compose.prod.yml)
 log() { echo "$(date -u +%FT%TZ) $*"; }
@@ -102,8 +122,26 @@ step="counting rows"
 # (scripts/restore-drill.sh) compares a restored copy with. Table names and numbers only.
 "${compose[@]}" exec -T db psql -U familyos -d familyos -At -F ' ' -c "$(cat scripts/drill-tables.sql)" > "$counts"
 chmod 600 "$counts"
-expire() { find "$1" -maxdepth 1 \( -name 'familyos-*.dump' -o -name 'familyos-*.dump.age' -o -name 'familyos-*.counts' \) -mtime +"$keep" -delete; }
+expire() { find "$1" -maxdepth 1 \( -name 'familyos-*.dump' -o -name 'familyos-*.dump.age' -o -name 'familyos-*.counts' \) -mtime +"${2:-$keep}" -delete; }
+# Tonight's copy (and its counts) into the longer-kept folders of one place, then each folder's
+# own expiry. Folders that exist are expired every night, so a weekly copy goes on time.
+keep_tiers() {
+  local place="$1" tier
+  for tier in ${tiers[@]+"${tiers[@]}"}; do
+    mkdir -p "$place/$tier"
+    cp "$final" "$counts" "$place/$tier/"
+    cmp -s "$final" "$place/$tier/$(basename "$final")" || { echo "the $tier copy in $place doesn't match" >&2; exit 1; }
+  done
+  for tier in weekly monthly; do
+    [ -d "$place/$tier" ] && expire "$place/$tier" "$(tier_days "$tier")"
+  done
+  return 0
+}
 expire "$dir"
+chmod 700 "$dir"
+keep_tiers "$dir"
+[ ! -d "$dir/weekly" ] || chmod 700 "$dir/weekly"
+[ ! -d "$dir/monthly" ] || chmod 700 "$dir/monthly"
 size="$(du -h "$final" | cut -f1)"
 log "backed up $size (encrypted) to $final"
 copies=("this server")
@@ -119,6 +157,7 @@ if [ -n "${BACKUP_NAS_DIR:-}" ]; then
   cp "$final" "$counts" "$BACKUP_NAS_DIR/"
   cmp -s "$final" "$BACKUP_NAS_DIR/$(basename "$final")" || { echo "the NAS copy doesn't match" >&2; exit 1; }
   expire "$BACKUP_NAS_DIR"
+  keep_tiers "$BACKUP_NAS_DIR"
   log "copied to $BACKUP_NAS_DIR"
   copies+=("the NAS")
 fi
@@ -131,8 +170,18 @@ if [ -n "${BACKUP_RCLONE_REMOTE:-}" ]; then
   rclone copyto "$counts" "$remote/$(basename "$counts")"
   # Both files arrived whole (size and hash), or it's a failure.
   rclone check --one-way --include "familyos-$stamp.*" "$dir" "$remote"
-  # One day more than find's -mtime +keep, so both ends keep the same nights.
-  rclone delete --min-age "$((keep + 1))d" --include "familyos-*" "$remote"
+  for tier in ${tiers[@]+"${tiers[@]}"}; do
+    rclone copyto "$final" "$remote/$tier/$(basename "$final")"
+    rclone copyto "$counts" "$remote/$tier/$(basename "$counts")"
+    rclone check --one-way --include "familyos-$stamp.*" "$dir" "$remote/$tier"
+  done
+  if [ "${BACKUP_RCLONE_PRUNE:-1}" != 0 ]; then
+    # One day more than find's -mtime, so both ends keep the same nights. The nightly prune stays
+    # in the top folder (rclone filters match at any depth), and each longer-kept folder has its own.
+    rclone delete --max-depth 1 --min-age "$((keep + 1))d" --include "familyos-*" "$remote"
+    rclone delete --min-age "$((keep_weekly_days + 1))d" --include "familyos-*" "$remote/weekly" 2>/dev/null || true
+    rclone delete --min-age "$((keep_monthly_days + 1))d" --include "familyos-*" "$remote/monthly" 2>/dev/null || true
+  fi
   log "copied to $remote"
   copies+=("off site")
 fi
