@@ -1,4 +1,6 @@
 import { ChevronRight } from "lucide-react";
+import { captureError } from "@/lib/observability";
+import { RefreshOnReturn } from "@/components/refresh-on-return";
 import { personColor } from "@/lib/person-color";
 import { LookKicker } from "@/components/look-voice";
 import type { VoiceKicker } from "@/lib/looks";
@@ -94,7 +96,10 @@ async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof
     .map((d) => ({ key: d.id, text: `${d.person.firstName}'s birthday is ${dateWhen(d.next)}` }));
 
   return (
-    <BigHome
+    <>
+      {/* Phase 69a: fresh again when the app is reopened, or a new day starts. */}
+      <RefreshOnReturn />
+      <BigHome
       viewerId={profile.id}
       viewerIsAdult={isAdult(profile)}
       greeting={greetingLine(profile.firstName, currentHour(zone), on("chores") ? choreProgressFor(profile.id, chores) : null, words)}
@@ -115,7 +120,8 @@ async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof
       onUndoChore={undoChore}
       onCompleteMed={completeMed}
       onUndoMed={undoMed}
-    />
+      />
+    </>
   );
 }
 
@@ -142,35 +148,40 @@ export default async function HomePage() {
   ]);
 
   const homeZone = settings.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Phase 69a: one card's data failing doesn't take Home down. Each card's own loads fall back to
+  // empty, the failure is reported as before, and Home says which parts couldn't load. What every
+  // card needs (settings, members, the apps that are on) still fails the page.
+  const failed = new Set<string>();
+  const safe = <T,>(part: string, load: Promise<T> | T, fallback: T): Promise<T> =>
+    Promise.resolve(load).catch((err: unknown) => {
+      captureError(err, "home.card_failed", { part });
+      failed.add(part);
+      return fallback;
+    });
   // Phase 65a: as-needed medicines in the Today card: a grown-up sees everyone's, a kid their own.
-  const asNeededLoad = on("meds") ? getAsNeeded(profile.householdId, isAdult(profile) ? {} : { personId: profile.id }) : Promise.resolve([]);
+  const asNeededLoad = on("meds") ? safe("Meds", getAsNeeded(profile.householdId, isAdult(profile) ? {} : { personId: profile.id }), []) : Promise.resolve([]);
   // Phase 65c: grown-ups only (the owner's call), when Groceries is on.
-  const runningLowLoad = isAdult(profile) && on("groceries") ? getRunningLow(profile.householdId) : Promise.resolve([]);
+  const runningLowLoad = isAdult(profile) && on("groceries") ? safe("Groceries", getRunningLow(profile.householdId), []) : Promise.resolve([]);
   // Phase 65d: today's dinner joins the Today strip, for everyone, when Groceries is on.
-  const dinnerLoad = on("groceries") ? getTodaysDinner(profile.householdId) : Promise.resolve(null);
+  const dinnerLoad = on("groceries") ? safe("Groceries", getTodaysDinner(profile.householdId), null) : Promise.resolve(null);
   const [upcomingDates, stale, choreBoard, medBoard, vehicleBoards, activity, schoolDue, schoolFeed, openOrders, , todayAgenda, members] = await Promise.all([
-    upcomingImportantDates(profile.householdId, 30),
-    staleContacts(profile.householdId, { excludeId: profile.id, limit: 5 }),
-    on("chores") ? getBoardInstances(profile.householdId, { horizonDays: 0, domain: "CHORE" }) : emptyBoard(today),
+    safe("Dates", upcomingImportantDates(profile.householdId, 30), []),
+    safe("People", staleContacts(profile.householdId, { excludeId: profile.id, limit: 5 }), []),
+    on("chores") ? safe("Chores", getBoardInstances(profile.householdId, { horizonDays: 0, domain: "CHORE" }), emptyBoard(today)) : emptyBoard(today),
     // Phase 66a: a kid's Today card has only their own doses, as on Meds and Big Home.
-    on("meds") ? getBoardInstances(profile.householdId, { horizonDays: 0, domain: "MED", personId: isAdult(profile) ? undefined : profile.id }) : emptyBoard(today),
-    on("cars") ? getVehiclesWithStatus(profile.householdId) : [],
-    getHouseholdActivity(profile.householdId, 8, { viewerIsAdult: isAdult(profile), disabledApps: disabled }),
-    on("school") ? getSchoolDueSoon(profile, 7) : [],
-    getHouseholdSettings(profile.householdId).then((s) => {
-      const zone = s.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-      return on("school")
-        ? getUpcomingSchoolEvents(profile, { days: 7, timeZone: zone }).then((events) => ({ events, zone }))
-        : { events: [], zone };
-    }),
+    on("meds") ? safe("Meds", getBoardInstances(profile.householdId, { horizonDays: 0, domain: "MED", personId: isAdult(profile) ? undefined : profile.id }), emptyBoard(today)) : emptyBoard(today),
+    on("cars") ? safe("Cars", getVehiclesWithStatus(profile.householdId), []) : [],
+    safe("Activity", getHouseholdActivity(profile.householdId, 8, { viewerIsAdult: isAdult(profile), disabledApps: disabled }), []),
+    on("school") ? safe("School", getSchoolDueSoon(profile, 7), []) : [],
+    on("school") ? safe("School", getUpcomingSchoolEvents(profile, { days: 7, timeZone: homeZone }), []).then((events) => ({ events, zone: homeZone })) : { events: [], zone: homeZone },
     // Phase 20: grown-ups see the Sticker Store's open orders at the top of Home.
-    isAdult(profile) && on("store") ? getOpenOrders(profile.householdId) : Promise.resolve([]),
+    isAdult(profile) && on("store") ? safe("Store orders", getOpenOrders(profile.householdId), []) : Promise.resolve([]),
     // Phase 17: keeps the family's Outlook calendar current, after the page is sent. Only for
     // the calendar's owner on their own profile (it writes with their token).
     showCalendar && on("calendar") ? scheduleAutoSync(profile).catch(() => {}) : null,
     // Phase 64a: today at a glance, above the cards: dates, school, schoolwork and car work (the
     // agenda's events; chores and doses stay in Today, where they're done).
-    getAgendaWeek(profile, { start: today, days: 1, eventsOnly: true, timeZone: homeZone, disabledApps: disabled }),
+    safe("Today at a glance", getAgendaWeek(profile, { start: today, days: 1, eventsOnly: true, timeZone: homeZone, disabledApps: disabled }), { items: [] as AgendaItem[], tasksPlannedThrough: null }),
     getHouseholdMembers(profile.householdId),
   ]);
   const [asNeeded, runningLow, dinner] = await Promise.all([asNeededLoad, runningLowLoad, dinnerLoad]);
@@ -213,7 +224,14 @@ export default async function HomePage() {
 
   return (
     <div className="ui-home max-w-[90rem] p-4 sm:p-6">
+      {/* Phase 69a: fresh again when the app is reopened, or a new day starts. */}
+      <RefreshOnReturn />
       <h1 className="sr-only">Home</h1>
+      {failed.size > 0 && (
+        <p role="status" className="mb-3 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+          Some of Home couldn&apos;t load just now ({[...failed].join(", ")}). It&apos;ll try again when you come back.
+        </p>
+      )}
       <LookScene firstName={profile.firstName} date={new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: zone }).format(new Date())} />
       <div className="mb-4 empty:hidden">
         <AwayNote />
