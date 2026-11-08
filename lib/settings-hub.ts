@@ -21,7 +21,8 @@ export type HubIcon =
   | "apps"
   | "alerts"
   | "outlook"
-  | "data";
+  | "data"
+  | "devices";
 
 export type HubStatus = { text: string; tone: "ok" | "attention" | "neutral" };
 
@@ -96,6 +97,15 @@ export function buildHub(f: HubFacts): HubGroup[] {
     });
   }
   if (f.ownSignIn) {
+    // Phase 67a: every own sign-in has devices, Microsoft ones too.
+    you.push({
+      id: "devices",
+      href: "/settings/devices",
+      title: "Where I'm signed in",
+      description: "Every phone, tablet and computer signed in as you. Sign out a lost one from here.",
+      icon: "devices",
+      keywords: "sessions sign out lost phone stolen devices security",
+    });
     you.push({
       id: "lock",
       href: "/settings/lock-my-tile",
