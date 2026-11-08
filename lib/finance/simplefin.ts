@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { decimalToCents } from "@/lib/money";
+import { feedAmountToCents } from "@/lib/money";
 
 /**
  * Phase 25: SimpleFIN Bridge, the family's read-only bank feed (https://www.simplefin.org/protocol.html).
@@ -86,7 +86,7 @@ export async function claimSetupToken(token: string, fetchFn: typeof fetch = fet
 
 // Long strings are cut, not rejected: one bank's long description mustn't fail the whole sync.
 const str = (max: number) => z.string().transform((s) => s.slice(0, max));
-const money = z.union([z.string(), z.number()]).transform((v) => decimalToCents(v));
+const money = z.union([z.string(), z.number()]).transform((v) => feedAmountToCents(v));
 const epoch = z.union([z.number(), z.string()]).transform((v) => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -147,6 +147,12 @@ export type SfAccount = {
   transactions: SfTransaction[];
 };
 
+/** The civil day of an instant in a time zone. */
+function zonedDay(epochSeconds: number, timeZone: string): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(epochSeconds * 1000));
+}
+
 /** UTC civil day of an epoch-seconds timestamp. Bank dates are midnight UTC. */
 export function utcDay(epochSeconds: number): string {
   return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
@@ -165,8 +171,16 @@ export function errlistWords(code: string, msg: string): string {
   return (msg.trim() || "SimpleFIN reported a problem.").slice(0, 200);
 }
 
-/** Validates and normalizes a /accounts response. Rows with an unusable amount are dropped. */
-export function parseAccounts(json: unknown, now: Date = new Date()): { accounts: SfAccount[]; messages: string[] } {
+/**
+ * Validates and normalizes a /accounts response. Rows with an unusable amount are dropped.
+ * `timeZone` is the household's, which the server keeps (lib/household-zone.ts), so the default
+ * is the server's own.
+ */
+export function parseAccounts(
+  json: unknown,
+  now: Date = new Date(),
+  timeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): { accounts: SfAccount[]; messages: string[] } {
   const parsed = responseSchema.safeParse(json);
   if (!parsed.success) throw new SimpleFinError("SimpleFIN gave an unexpected answer.", "failed");
   let total = 0;
@@ -181,12 +195,14 @@ export function parseAccounts(json: unknown, now: Date = new Date()): { accounts
     transactions: a.transactions.flatMap((t) => {
       if (t.amount == null || total >= MAX_TXNS) return [];
       total++;
-      // A pending row's `posted` is 0: fall back to when it happened, else today.
-      const when = t.posted ?? t.transacted_at ?? Math.floor(now.getTime() / 1000);
+      // A posted row's day is the bank's (a UTC date). A pending row's `posted` is 0, so its day is
+      // when it happened, else now, and those are instants: Phase 66c reads them as the household's
+      // day, so an evening charge isn't dated tomorrow.
+      const when = t.posted ? utcDay(t.posted) : zonedDay(t.transacted_at ?? Math.floor(now.getTime() / 1000), timeZone);
       return [
         {
           id: t.id,
-          postedOn: utcDay(when),
+          postedOn: when,
           amountCents: t.amount,
           description: t.description || t.payee || "",
           payee: t.payee ?? null,
