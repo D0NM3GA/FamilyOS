@@ -22,5 +22,6 @@ export function toCardInstance(i: BoardInstance): Instance {
       ? { id: i.assignedTo.id, firstName: i.assignedTo.firstName, lastName: i.assignedTo.lastName }
       : null,
     completedBy: i.completedBy ? { id: i.completedBy.id, firstName: i.completedBy.firstName } : null,
+    awaitingCheck: i.awaitingCheck,
   };
 }

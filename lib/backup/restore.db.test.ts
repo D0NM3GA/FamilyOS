@@ -51,14 +51,14 @@ function fixture(): Backup {
     ],
     taskDefinitions: [
       { id: "def1", title: "Dishes", notes: null, domain: "CHORE", frequencyType: "DAILY", interval: null, daysOfWeek: [], startDate: T, endDate: null,
-        timesOfDay: [], weatherSensitive: true, points: 5, assignmentStrategy: "ROUND_ROBIN", assigneeIds: ["Kid", "Kid2", "Mom"], active: true, createdAt: T },
+        timesOfDay: [], weatherSensitive: true, needsCheck: false, points: 5, assignmentStrategy: "ROUND_ROBIN", assigneeIds: ["Kid", "Kid2", "Mom"], active: true, createdAt: T },
       { id: "def2", title: "Vitamin", notes: "with food", domain: "MED", frequencyType: "AS_NEEDED", interval: null, daysOfWeek: [1, 3], startDate: T, endDate: "2026-01-20T05:00:00.000Z",
-        timesOfDay: ["08:00", "20:00"], weatherSensitive: false, points: 0, assignmentStrategy: "FIXED", assigneeIds: ["Kid"], active: true, createdAt: T2 },
+        timesOfDay: ["08:00", "20:00"], weatherSensitive: false, needsCheck: false, points: 0, assignmentStrategy: "FIXED", assigneeIds: ["Kid"], active: true, createdAt: T2 },
     ],
     taskInstances: [
-      { id: "ti1", definitionId: "def1", dueDate: T, assignedToId: "Kid", status: "DONE", completedAt: T, completedById: "Kid", quantityConsumed: null, movedFrom: null, createdAt: T },
-      { id: "ti2", definitionId: "def1", dueDate: T2, assignedToId: "Kid2", status: "PENDING", completedAt: null, completedById: null, quantityConsumed: null, movedFrom: T, createdAt: T2 },
-      { id: "ti3", definitionId: "def2", dueDate: T, assignedToId: "Kid", status: "DONE", completedAt: T, completedById: "Mom", quantityConsumed: 1.5, movedFrom: null, createdAt: T },
+      { id: "ti1", definitionId: "def1", dueDate: T, assignedToId: "Kid", status: "DONE", completedAt: T, completedById: "Kid", quantityConsumed: null, movedFrom: null, awaitingCheck: false, createdAt: T },
+      { id: "ti2", definitionId: "def1", dueDate: T2, assignedToId: "Kid2", status: "PENDING", completedAt: null, completedById: null, quantityConsumed: null, movedFrom: T, awaitingCheck: false, createdAt: T2 },
+      { id: "ti3", definitionId: "def2", dueDate: T, assignedToId: "Kid", status: "DONE", completedAt: T, completedById: "Mom", quantityConsumed: 1.5, movedFrom: null, awaitingCheck: false, createdAt: T },
     ],
     pointsLedger: [
       { id: "pl1", personId: "Kid", delta: 5, reason: null, instanceId: "ti1", orderId: null, createdAt: T },

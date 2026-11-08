@@ -123,7 +123,7 @@ function fullBackup(): Backup {
       startDate: T,
       endDate: null,
       timesOfDay: [],
-      weatherSensitive: false,
+      weatherSensitive: false, needsCheck: false,
       points: 5,
       assignmentStrategy: "FIXED",
       assigneeIds: ["kid", "mom"],
@@ -132,7 +132,7 @@ function fullBackup(): Backup {
     },
   ];
   b.taskInstances = [
-    { id: "ti1", definitionId: "def1", dueDate: T, assignedToId: "kid", status: "DONE", completedAt: T, completedById: "kid", quantityConsumed: null, movedFrom: null, createdAt: T },
+    { id: "ti1", definitionId: "def1", dueDate: T, assignedToId: "kid", status: "DONE", completedAt: T, completedById: "kid", quantityConsumed: null, movedFrom: null, awaitingCheck: false, createdAt: T },
   ];
   b.pointsLedger = [{ id: "pl1", personId: "kid", delta: 5, reason: null, instanceId: "ti1", orderId: null, createdAt: T }];
   b.rewards = [{ id: "rw1", title: "Ice cream", pointCost: 50, active: true, emoji: null, bucketId: null, limitPerWeek: null, needsApproval: false, createdAt: T }];

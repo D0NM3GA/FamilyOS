@@ -541,6 +541,7 @@ export function remapBackup(
       endDate: dateOrNull(r.endDate),
       timesOfDay: r.timesOfDay,
       weatherSensitive: r.weatherSensitive,
+      needsCheck: r.needsCheck,
       points: r.points,
       assignmentStrategy: r.assignmentStrategy,
       active: r.active,
