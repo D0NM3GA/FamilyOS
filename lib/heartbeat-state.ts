@@ -3,11 +3,12 @@
  * System card and (Phase 67b) the admins' system reminder. lib/heartbeat.ts re-exports these.
  */
 
-export type JobName = "zone" | "money" | "purges" | "entra" | "cleanup" | "reminders";
+export type JobName = "zone" | "keys" | "money" | "purges" | "entra" | "cleanup" | "reminders";
 
 /** The jobs in the order they run, with how the System card names them. */
 export const JOBS: { name: JobName; label: string }[] = [
   { name: "zone", label: "Household clock" },
+  { name: "keys", label: "Encryption key check" },
   { name: "money", label: "Money syncs and alerts" },
   { name: "purges", label: "Expired sign-in links and invites" },
   { name: "entra", label: "Microsoft access check" },

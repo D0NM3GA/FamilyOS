@@ -63,6 +63,9 @@ their own medicines everywhere, medicine stock stops at zero and asks for a refi
 reminder's rule, a chore's new schedule applies at once, trips over several days show on each day,
 **Try again** really fetches the page again, two phones on one grocery list no longer clash,
 and a pick on a pending charge stays with it once it posts.
+**The security and ops safety net (67)**: where you're signed in and sign-out everywhere, a fuller
+sign-in log, admins reminded when a job or the backup stops, weekly and monthly backups, a key
+check and a way to change the encryption key, weekly vulnerability scans, and capped logs.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they
@@ -305,8 +308,10 @@ across the tree; older notes in docs/BUILD.md that suggest `npm audit fix` preda
 rules), and never `--force`.
 
 `npm audit` is expected to report the one accepted item below (5 "high" lines, all the same
-`braces` advisory) until upstream fixes it, and `npm audit --omit=dev` nothing; anything else
-is new and needs a look.
+`braces` advisory) until upstream fixes it, and `npm audit --omit=dev` no high or critical item;
+anything else is new and needs a look. Phase 67c: the weekly supply-chain workflow checks that
+itself (`npm audit --omit=dev --audit-level=high` fails it) and scans the published image with
+Trivy (high and critical with a fix available), so a new advisory shows up as a failed run.
 
 **Checked 2026-10-08:** 619 packages, all from registry.npmjs.org with sha512 integrity and
 verified registry signatures (185 with provenance attestations); none of the versions named
@@ -578,7 +583,15 @@ encrypted with `age` to the public key in `/etc/familyos/backup-recipients.txt`
 password manager, never on the server, and without the public key the script refuses to run. It
 also copies to `BACKUP_RCLONE_REMOTE` (an rclone remote the owner sets up, OneDrive here) and
 checks the copy arrived. It records each run for Data & backups → **System** and calls
-`BACKUP_PING_URL` when set (`/fail` on failure). Setting up the key, OneDrive and disk
+`BACKUP_PING_URL` when set (`/fail` on failure).
+
+Phase 67c: Sunday's dump is also kept in `weekly/` for 8 weeks (`BACKUP_KEEP_WEEKS`) and the
+1st of the month's in `monthly/` for 12 months (`BACKUP_KEEP_MONTHS`), beside the nightly ones in
+each place, so corruption noticed after a fortnight still has a good copy. Off site, the nightly
+prune stays in the top folder and each longer-kept folder has its own. For an off-site copy the
+server can't delete (a compromised server could otherwise wipe all three), give rclone a
+credential that can only add files, turn on the provider's versioning or retention rules, and set
+`BACKUP_RCLONE_PRUNE=0` so the script never deletes there. Setting up the key, OneDrive and disk
 encryption: `docs/guides/admin.md` §12. To restore one (Phase 42 turns this into a practiced drill): stop the app, restore in one
 transaction (a failed restore leaves the database as it was), then start everything again so
 any newer migrations run before the app:
@@ -607,6 +620,32 @@ for it to be healthy, compares row counts in the family's tables with the `.coun
 nightly backup writes beside each dump, checks a database carrying a migration the code doesn't
 know still migrates (what a rollback leaves), then removes everything it made. Nothing it does
 touches the real database. Rehearse break-glass at the same time.
+
+### Changing the encryption key (Phase 67c)
+
+`INTEGRATION_ENCRYPTION_KEY` seals the bank and card connections, school feed addresses, the
+phone-alert keys and each backup's money section. To change it (a key that may have leaked, or
+on a schedule):
+
+1. Make a new key (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`)
+   and put it in the password manager beside the old one.
+2. In `familyos.env`: `INTEGRATION_ENCRYPTION_KEY` = the new key,
+   `INTEGRATION_ENCRYPTION_KEY_PREVIOUS` = the old one. Restart the app.
+3. A minute after the restart (and every half hour after), Data & backups → **System** →
+   **Encryption key check** says "N re-sealed", then "all on the current key": everything
+   stored is on the new key.
+4. Remove `INTEGRATION_ENCRYPTION_KEY_PREVIOUS` and restart. Keep the old key in the password
+   manager: backups made before the change need it (restore them with it set as the previous key).
+
+The key check runs every tick without a change too: a server started with a key that isn't this
+database's fails it, and admins get the system reminder.
+
+**`BETTER_AUTH_SECRET`** (sign-in cookies, stored Microsoft tokens) rotates with Better Auth's
+own `BETTER_AUTH_SECRETS` (`2:<new>,1:<old>`, newest first), keeping `BETTER_AUTH_SECRET` set to
+the old value for tokens stored before. Every device is signed out (cookies are signed with the
+current secret only), so plan it for a quiet evening; Microsoft people sign in again as usual.
+The profile-switch cookie is keyed from the newest secret too, so profiles picked with a PIN need
+picking again.
 
 ### Testing the image
 

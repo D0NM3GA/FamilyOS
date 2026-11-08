@@ -1,6 +1,8 @@
 # Phase 41: the dependency checks (README "Dependencies"), whenever what gets installed could
 # change, and weekly, since a version that was fine can be pulled from the registry later.
 # Their own workflow: they read ~800 registry documents, which other pull requests needn't wait on.
+# Phase 67c: and the known-vulnerability checks, which used to be run by hand: npm's advisories for
+# what ships (high and critical fail it), and Trivy's scan of the image the server pulls.
 name: Supply chain
 
 on:
@@ -48,3 +50,34 @@ jobs:
       - run: npm ci
       # The registry's signatures and provenance for everything installed.
       - run: npm audit signatures
+      # Phase 67c: what ships (not dev tools) has no high or critical advisory. A fix goes in like
+      # any update (exact pin, seven days old); an accepted one is written up in README "Dependencies".
+      - run: npm audit --omit=dev --audit-level=high
+
+  image:
+    name: Image scan
+    # The published image, weekly and by hand only: a pull request's image isn't published yet.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Scan the latest published image with Trivy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Trivy's own image from its GHCR copy (signed in already, so no anonymous Docker Hub
+          # limits), pinned by digest (0.76.1).
+          TRIVY: ghcr.io/aquasecurity/trivy@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+        run: |
+          # Registry names must be lowercase; the account name may not be.
+          owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/$owner/familyos:main"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
+          docker pull "$image"
+          docker pull "$TRIVY"
+          # High and critical only, and only ones with a fixed version to move to.
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY" image \
+            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress "$image"

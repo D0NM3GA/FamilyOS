@@ -100,6 +100,11 @@ if COMPOSE_PROJECT=familyos-test BACKUP_DIR="$work/backups" BACKUP_AGE_RECIPIENT
   exit 1
 fi
 test -z "$(ls "$work"/backups/ 2> /dev/null)" || { echo "a refused backup left a file behind" >&2; exit 1; }
-COMPOSE_PROJECT=familyos-test BACKUP_DIR="$work/backups" BACKUP_AGE_RECIPIENTS="$work/backup-recipients.txt" scripts/backup-prod.sh
+# Phase 67c: as if it were a Sunday and the 1st, so the weekly and monthly copies are made too.
+COMPOSE_PROJECT=familyos-test BACKUP_DIR="$work/backups" BACKUP_AGE_RECIPIENTS="$work/backup-recipients.txt" BACKUP_TIERS="weekly monthly" scripts/backup-prod.sh
 test -z "$(ls "$work"/backups/*.dump 2> /dev/null)" || { echo "a plain dump was left beside the encrypted one" >&2; exit 1; }
+for tier in weekly monthly; do
+  ls "$work"/backups/$tier/familyos-*.dump.age > /dev/null 2>&1 && ls "$work"/backups/$tier/familyos-*.dump.age.counts > /dev/null 2>&1 \
+    || { echo "no $tier copy (with its counts) was kept" >&2; exit 1; }
+done
 AGE_IDENTITY_FILE="$work/backup-key.txt" scripts/restore-drill.sh "$(ls "$work"/backups/familyos-*.dump.age | head -n1)"

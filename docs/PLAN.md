@@ -2828,8 +2828,8 @@ the app, before they bite. Checked against the code 2026-11-08. The owner said g
   moves on; a late result from that run is ignored. Money and the Entra check hold leases; the rest
   are idempotent or claim per key, so an overlap does no harm.
 - **Backups:** the off-site nightly prune is anchored to the top folder (`--max-depth 1`), and
-  weekly/ and monthly/ get their own prunes (local `-mtime +56` / `+366`, rclone `--min-age 57d` /
-  `367d` on that folder). Each kept dump takes its `.counts` with it.
+  weekly/ and monthly/ get their own prunes (local `-mtime +56` / `+372`, 12 × 31 days, and rclone
+  `--min-age 57d` / `373d` on that folder). Each kept dump takes its `.counts` with it.
 - **Re-sealing runs in the app, not a script:** the server image has no scripts or TypeScript
   runner, so the new `keys` background job does it. It opens the key-check row (a `ServerSecret`
   named `key-check`, no new table) and fails if the current key can't. While

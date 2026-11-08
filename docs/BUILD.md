@@ -1998,3 +1998,34 @@ job starting again ("still running from an earlier tick"), so a job that hangs e
 pile up runs holding connections; the morning summary's line follows the reminder's switch; tests
 count by title (a dev database can hold stale heartbeats) and cover the dropped late answer. Left
 as is: the unread-notification cleanup has no index leading on readAt (family-sized table).
+
+### 67c — Backups that outlast a bad fortnight, keys that can change, scans, logs
+
+**Backups:** `backup-prod.sh` also keeps Sunday's dump in `weekly/` (`BACKUP_KEEP_WEEKS`, 8) and
+the 1st's in `monthly/` (`BACKUP_KEEP_MONTHS`, 12), with its `.counts`, in each place; folders
+that exist are expired every night (`find -mtime`). Off site the nightly prune is `--max-depth 1`
+(rclone filters match at any depth, so it would have eaten weekly/ and monthly/), each folder has
+its own, and `BACKUP_RCLONE_PRUNE=0` deletes nothing there. `BACKUP_TIERS` stands in for the date
+in `container-test.sh`, which checks both copies. Empty-array loops are written for old bash.
+**Keys:** `INTEGRATION_ENCRYPTION_KEY_PREVIOUS` (validated at start, never equal to the current
+key) is tried when the current key fails (`openSealed`; GCM fails cleanly with the wrong key).
+The new `keys` job (after `zone`) opens a sealed check value (`ServerSecret` "key-check",
+`lib/key-check.ts`) every tick and fails with `WrongKeyError` when no key does; while a previous
+key is set it re-seals the server secrets, bank and card connections (`lib/finance/reseal.ts`, with
+a fresh Privacy.com fingerprint) and school feed addresses (`lib/school/feeds/reseal.ts`), each
+update matched on the old IV so a secret saved meanwhile isn't overwritten. The `keyVersion`
+columns stay unused; Undo and finder seals just expire. A backup's money section opens with
+either key. README has the runbook, `BETTER_AUTH_SECRETS` included. **Scans:** the supply-chain
+workflow runs `npm audit --omit=dev --audit-level=high`, and weekly (and by hand) a Trivy scan of
+`ghcr.io/<owner>/familyos:main` from Trivy's image pinned by digest. zod went to 4.6.7 for
+GHSA-mrhx-c7xc-m3w5, the one high advisory in what ships. **Logs:** every compose service uses the
+`local` driver (5 × 10 MB); `deploy/logrotate/familyos` rotates the host logs weekly with
+`copytruncate`.
+Fable's review of 67c: the off-site `rclone check` saw tonight's copy in the local weekly/ and
+monthly/ folders too and would have failed every Sunday and 1st (now `--max-depth 1`); the tier
+prunes run only on folders that are there, without hiding real errors; a pre-67c database restored
+onto a server with other keys gets no key check sealed with the wrong key (it's made only when the
+key opens the server's other secrets), and a malformed check row says so rather than "wrong key";
+the profile-switch cookie is keyed from the newest `BETTER_AUTH_SECRETS` entry while rotating;
+Trivy comes from its GHCR copy while signed in; the System card says when a weekly or monthly copy
+was made; logrotate names its `su`. Monthly copies are kept 12 × 31 days.

@@ -449,7 +449,14 @@ the dump can be read, **encrypts it** with `age`, keeps 14 days in `/var/backups
 `.counts` file beside each for the restore drill: table names and row counts only), and copies each
 to the NAS and to OneDrive: three copies, two kinds of storage, one away from the house. If the NAS
 share isn't mounted, or a copy doesn't check out, it stops with an error. Only the encrypted file
-is ever kept.
+is ever kept. Sunday's backup is also kept for 8 weeks (in `weekly/`) and the 1st of the month's
+for a year (in `monthly/`), in all three places, so a problem noticed weeks later still has a good
+copy to go back to.
+
+**An off-site copy the server can't delete** (recommended): give rclone a OneDrive (or other)
+credential that can only add files, or turn on the provider's version history or retention, and
+add `BACKUP_RCLONE_PRUNE=0` to the crontab line so the script never deletes there. Then tidy the
+off-site folder with the provider's own rules.
 
 **The key, once.** On your own computer (not the server), with `age` installed:
 
@@ -477,6 +484,11 @@ Run it once by hand to see it work. **Settings → Data & backups → System** s
 run (size and where it was kept), or that it failed and at which step; `BACKUP_PING_URL` (in the
 crontab line) is called after each run, with `/fail` on the end when it failed, for a checker that
 emails you. The log is `/var/log/familyos-backup.log`.
+
+**Changing the encryption key.** If the settings file may have leaked, change
+`INTEGRATION_ENCRYPTION_KEY` with the steps in the README ("Changing the encryption key"): the
+old key goes in `INTEGRATION_ENCRYPTION_KEY_PREVIOUS` until System says everything is re-sealed.
+Keep the old key in the password manager for older backups.
 
 **Disk encryption.** The database's own files on the VM aren't encrypted by the app (only its
 stored connection secrets are). Keep the VM's disk encrypted (the hypervisor's disk encryption, or
@@ -682,6 +694,7 @@ purpose, at least 7 days after a release.
 | Nightly backups | `/var/log/familyos-backup.log` |
 | Break-glass | `/var/log/familyos-break-glass.log`, `journalctl -t familyos` |
 | Break-glass certificate | `/var/log/familyos-cert.log` |
+| Rotating those logs | Once: `sudo cp /opt/familyos/deploy/logrotate/familyos /etc/logrotate.d/` (weekly, 8 kept). The containers' own logs are capped at 50 MB each already. |
 | Sign-in changes | Settings → Sign-in → Recent changes |
 | Backups and restores | Settings → Data & backups → Backup history |
 | Did the jobs and the nightly backup run? | Settings → Data & backups → System |
