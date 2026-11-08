@@ -90,9 +90,17 @@ describe.skipIf(!RUN)("money jars (database)", { timeout: 60_000 }, () => {
     await syncConnection(conn.id, { fetchFn, now }); // idempotent
     expect(await prisma.finTransaction.count({ where: { jarId: ids.jar } })).toBe(3);
 
+    // Phase 66c: Dad files the pending coffee and ties it to a grocery trip before it posts.
+    const treats = await prisma.finCategory.create({ data: { jarId: ids.jar, key: "treats", name: "Treats", kind: "SPEND" } });
+    const trip = await prisma.purchase.create({ data: { householdId: ids.h, purchasedById: ids.dad } });
+    await prisma.finTransaction.updateMany({ where: { jarId: ids.jar, externalId: "P1" }, data: { categoryId: treats.id, categorySource: "PERSON", purchaseId: trip.id, purchaseLinkedBy: "PERSON" } });
+
     txns = txns.filter((t) => t.id !== "P1").concat({ id: "T3", posted: day("2025-10-05"), amount: "-4.75", description: "COFFEE" });
     await syncConnection(conn.id, { fetchFn, now: new Date("2025-10-07T12:00:00Z") });
     expect((await prisma.finTransaction.findFirstOrThrow({ where: { jarId: ids.jar, externalId: "P1" } })).state).toBe("SUPERSEDED");
+    // ...and the posted row it became keeps both; the pending row lets go of the trip.
+    expect(await prisma.finTransaction.findFirstOrThrow({ where: { jarId: ids.jar, externalId: "T3" } })).toMatchObject({ categoryId: treats.id, categorySource: "PERSON", purchaseId: trip.id, purchaseLinkedBy: "PERSON" });
+    expect((await prisma.finTransaction.findFirstOrThrow({ where: { jarId: ids.jar, externalId: "P1" } })).purchaseId).toBeNull();
     expect((await prisma.finAccount.findFirstOrThrow({ where: { jarId: ids.jar, externalId: "A1" } })).balanceCents).toBe(10000);
     // Phase 34: one balance per account per sync day; a second sync that day replaced the first.
     const days = await prisma.finBalanceDay.findMany({ where: { account: { jarId: ids.jar } }, orderBy: { day: "asc" }, select: { day: true, balanceCents: true } });
