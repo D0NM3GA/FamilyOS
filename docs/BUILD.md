@@ -2071,6 +2071,11 @@ today: Ivy 2, Max 1", `chores:all:<day>`). Both listed in My notifications with 
 as a grown-up sees them, so all-day and timed rows use the calendar's cutoffs), kids' schoolwork
 due today and tonight's dinner (`getTodaysDinner`), each with its app on. Outlook stays out (the
 tick has no Microsoft token).
+Fable's review of 68b: dinner rides along only when the summary has something else to say (a
+planned meal alone sent everyone a one-line summary); long homework and event lists end "and N
+more"; a kid's own homework bell says "You have a quiz due tomorrow" (the grown-ups' has the name,
+under its own key); the zone comes from `processZone`; tests show a grown-up's own class and an
+"Anyone" chore aren't counted. Noted: `plannedRows` takes today from the clock, not the caller.
 
 ### 68c — Phone notifications that keep working
 

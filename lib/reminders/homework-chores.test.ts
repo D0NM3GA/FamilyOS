@@ -12,9 +12,9 @@ const work = (o: Partial<HomeworkRow>): HomeworkRow => ({ id: "a1", title: "Frac
 describe("planHomework", () => {
   it("from 3 pm the day before, to the kid and the grown-ups", () => {
     expect(planHomework([work({})], [{ id: "mom" }], day(14))).toEqual([]);
-    const [r] = planHomework([work({})], [{ id: "mom" }], day(15));
-    expect(r).toMatchObject({ kind: "REMINDER_HOMEWORK", key: "homework:a1:2026-11-09", title: "Max has a quiz due tomorrow: Fractions", href: "/school?kid=max" });
-    expect(r.recipients.sort()).toEqual(["max", "mom"]);
+    const [kid, adults] = planHomework([work({})], [{ id: "mom" }], day(15));
+    expect(kid).toMatchObject({ kind: "REMINDER_HOMEWORK", key: "homework:a1:2026-11-09", recipients: ["max"], title: "You have a quiz due tomorrow: Fractions", href: "/school?kid=max" });
+    expect(adults).toMatchObject({ key: "homework-for:a1:2026-11-09", recipients: ["mom"], title: "Max has a quiz due tomorrow: Fractions" });
   });
 
   it("not when it's done, or due another day", () => {
@@ -43,6 +43,16 @@ describe("the morning summary's new lines", () => {
   it("school events, schoolwork due today and dinner", () => {
     const lines = digestLines({ choresMine: 0, choresAll: 0, dosesMine: 0, dosesAll: 0, school: [], cars: [], dates: [], schoolEvents: ["Early dismissal"], homework: ["Max, a quiz: Fractions"], dinner: "Tacos" });
     expect(lines).toEqual(["At school today: Early dismissal", "Due today: Max, a quiz: Fractions", "Dinner tonight: Tacos"]);
+  });
+
+  it("dinner alone isn't a summary", () => {
+    expect(digestLines({ choresMine: 0, choresAll: 0, dosesMine: 0, dosesAll: 0, school: [], cars: [], dates: [], dinner: "Tacos" })).toBeNull();
+  });
+
+  it("long lists end with how many more", async () => {
+    const { andMore } = await import("./digest");
+    expect(andMore(["a", "b", "c"], 2)).toEqual(["a", "b", "and 1 more"]);
+    expect(andMore(["a"], 2)).toEqual(["a"]);
   });
 });
 

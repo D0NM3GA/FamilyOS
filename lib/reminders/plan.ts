@@ -367,20 +367,22 @@ export type HomeworkRow = { id: string; title: string; kind: string; className: 
 
 const WORK_WORDS: Record<string, string> = { HOMEWORK: "homework", TEST: "a test", QUIZ: "a quiz", PROJECT: "a project" };
 
-/** A kid's homework, quiz, test or project still to do and due tomorrow, from 3 pm: to the kid (bell) and the grown-ups. */
+/**
+ * A kid's homework, quiz, test or project still to do and due tomorrow, from 3 pm: the kid's bell
+ * in their own words ("You have a quiz due tomorrow"), and the grown-ups' with the kid's name.
+ */
 export function planHomework(rows: HomeworkRow[], grownUps: GrownUp[], now: Date): Reminder[] {
   if (now.getHours() < HOMEWORK_FROM_HOUR) return [];
   const tomorrow = addDays(atMidnight(now), 1);
   return rows
     .filter((r) => r.status === "TODO" && atMidnight(r.dueDate).getTime() === tomorrow.getTime())
-    .map((r) => ({
-      kind: "REMINDER_HOMEWORK" as const,
-      key: `homework:${r.id}:${dayKey(r.dueDate)}`,
-      recipients: unique([r.kid.id, ...grownUps.map((g) => g.id)]),
-      title: `${r.kid.firstName} has ${WORK_WORDS[r.kind] ?? "schoolwork"} due tomorrow: ${r.title}`,
-      href: `/school?kid=${encodeURIComponent(r.kid.id)}`,
-      urgent: false,
-    }));
+    .flatMap((r) => {
+      const what = `${WORK_WORDS[r.kind] ?? "schoolwork"} due tomorrow: ${r.title}`;
+      const base = { kind: "REMINDER_HOMEWORK" as const, href: `/school?kid=${encodeURIComponent(r.kid.id)}`, urgent: false };
+      const kid: Reminder = { ...base, key: `homework:${r.id}:${dayKey(r.dueDate)}`, recipients: [r.kid.id], title: `You have ${what}` };
+      const adults = grownUps.filter((g) => g.id !== r.kid.id).map((g) => g.id);
+      return adults.length ? [kid, { ...base, key: `homework-for:${r.id}:${dayKey(r.dueDate)}`, recipients: adults, title: `${r.kid.firstName} has ${what}` }] : [kid];
+    });
 }
 
 export type OpenChoreRow = { kid: { id: string; firstName: string } };
