@@ -551,7 +551,7 @@ export type SealedMoney = z.infer<typeof sealedMoneySchema>;
 export const backupSchema = z.object({
   format: z.literal(BACKUP_FORMAT),
   // Every version this file format has had: older files restore with what they lack defaulted.
-  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, BACKUP_SCHEMA_VERSION]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, BACKUP_SCHEMA_VERSION]),
   exportedAt: iso,
   /**
    * Chore/med due dates and vehicle log dates are stored as the SERVER's local midnight.
