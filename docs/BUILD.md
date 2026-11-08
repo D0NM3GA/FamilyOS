@@ -2167,3 +2167,25 @@ search (raw bank text can carry the amount); a search link never asks for a futu
 says "at any branch". Dropped: counting how many charges an every-branch rule covers (the answer
 names the store; the rule's effect is visible in Activity). Left as is: a hand-added bill marked
 paid still shows on the calendar's due day, as found bills do.
+
+### 70c — Chore checks and swaps
+
+**A grown-up checks it:** `TaskDefinition.needsCheck` and `TaskInstance.awaitingCheck` (migration
+`20261205120000_chore_checks_swaps`; household backup v17 carries both, older files have them off).
+`completeChore` on such a chore by a kid sets DONE with `completedById` and `awaitingCheck`, leaving
+`completedAt` null and paying nothing, so pet presents, Activity, milestones and the ledger (all keyed
+on `completedAt` or the ledger row) wait. `checkChore` (grown-ups, never who ticked it): **OK** is
+a guarded update (still DONE and waiting, same ticker) that sets `completedAt` and pays through the
+same `pay` helper a normal Done uses; **Not yet** returns it to PENDING. Undo pins
+`awaitingCheck` and `completedById` too (a waiting tick has no `completedAt` to pin). A waiting chore
+still counts as done on the chart, Home's finished fold and the day's progress, with "waiting for a
+grown-up's check" on its card. `lib/chores/checks.ts` feeds **Waiting for a check** on Chores and
+Home's count. **Swaps:** `ChoreSwap` (instance and its day, from, to, optional chore given back and
+its day, status PENDING / ACCEPTED / DECLINED / CANCELLED / LAPSED), cascading with either instance,
+so a chore edit's dropped days take their requests along. `lib/chores/swaps.ts`: kids only, to
+another kid of the household (no pool check, as a grown-up's Give to has none); one open request
+per chore. Accepting claims the request first (so two taps can't both run it), then moves each chore
+with a guarded update (still pending, whose it was, on the day recorded); if either fails the
+transaction rolls back and the request is LAPSED. Open requests are re-checked when shown (done,
+moved, given away, past) and lapsed. Grown-ups see "swapped from Ivy" on a moved chore
+(`swappedFrom`). Least-assigned rotation counts a swapped chore for its new kid, as a Give to does.
