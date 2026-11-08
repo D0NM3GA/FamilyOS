@@ -37,10 +37,12 @@ const domains = {
     ],
   },
   meds: {
-    files: ["./lib/meds/**/*.{ts,tsx}", "./app/(app)/meds/**/*.{ts,tsx}", "./app/print/meds/**/*.{ts,tsx}"],
+    files: ["./lib/meds/**/*.{ts,tsx}", "./app/(app)/meds/**/*.{ts,tsx}", "./app/print/meds/**/*.{ts,tsx}", "./components/meds/**/*.{ts,tsx}"],
     restrict: [
       "@/lib/meds/*",
       "@/lib/meds",
+      "@/components/meds/*",
+      "@/components/meds",
       "@/app/(app)/meds/*",
       "@/app/(app)/meds",
       "@/app/print/meds/*",

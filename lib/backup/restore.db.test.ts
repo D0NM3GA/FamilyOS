@@ -52,7 +52,7 @@ function fixture(): Backup {
     taskDefinitions: [
       { id: "def1", title: "Dishes", notes: null, domain: "CHORE", frequencyType: "DAILY", interval: null, daysOfWeek: [], startDate: T,
         timesOfDay: [], weatherSensitive: true, points: 5, assignmentStrategy: "ROUND_ROBIN", assigneeIds: ["Kid", "Kid2", "Mom"], active: true, createdAt: T },
-      { id: "def2", title: "Vitamin", notes: "with food", domain: "MED", frequencyType: "DAYS_OF_WEEK", interval: null, daysOfWeek: [1, 3], startDate: T,
+      { id: "def2", title: "Vitamin", notes: "with food", domain: "MED", frequencyType: "AS_NEEDED", interval: null, daysOfWeek: [1, 3], startDate: T,
         timesOfDay: ["08:00", "20:00"], weatherSensitive: false, points: 0, assignmentStrategy: "FIXED", assigneeIds: ["Kid"], active: true, createdAt: T2 },
     ],
     taskInstances: [
@@ -72,7 +72,7 @@ function fixture(): Backup {
       { id: "ro1", rewardId: "rw1", personId: "Kid", placedById: "Kid", title: "Ice cream", emoji: "🍦", cost: 3, status: "DELIVERED",
         note: null, decidedAt: T2, decidedById: "Mom", closedAt: T2, closedById: "Mom", createdAt: T2 },
     ],
-    medications: [{ id: "m1", taskDefinitionId: "def2", quantityOnHand: 28.5, doseAmount: 1.5, refillThresholdQuantity: 5, prescriberId: "Doc", pharmacyId: "Pharm" }],
+    medications: [{ id: "m1", taskDefinitionId: "def2", quantityOnHand: 28.5, doseAmount: 1.5, refillThresholdQuantity: 5, minGapHours: 4, maxPerDay: 3, prescriberId: "Doc", pharmacyId: "Pharm" }],
     vehicles: [{ id: "v1", name: "Van", make: "Honda", model: "Odyssey", year: 2019, vin: "1EXAMPLE0PARKER17", currentMileage: 50000, mileageUpdatedAt: T2, active: true, createdAt: T }],
     maintenanceItems: [{ id: "mi1", vehicleId: "v1", title: "Oil", notes: null, intervalMiles: 5000, intervalMonths: 6, lastDoneMileage: 48000, lastDoneAt: T, active: true, createdAt: T }],
     serviceLogs: [{ id: "sl1", itemId: "mi1", doneAt: T, mileage: 48000, notes: "Jiffy", costCents: 5999, loggedById: "Mom", createdAt: T }],

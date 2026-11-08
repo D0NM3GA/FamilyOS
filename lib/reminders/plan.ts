@@ -1,5 +1,6 @@
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { daysOfSupply } from "./supply";
+import { AS_NEEDED_LOW_DOSES, dosesLeft } from "@/lib/meds/as-needed";
 
 /**
  * Phase 62: what to remind whom about, worked out from rows. Pure (no Prisma, no clock but `now`),
@@ -89,19 +90,22 @@ export type MedRow = {
 };
 
 /** Low: a week of supply or less, or at the refill count when that's sooner. */
-export function isMedLow(m: MedRow): { low: boolean; days: number | null } {
-  if (m.quantityOnHand == null) return { low: false, days: null };
+export function isMedLow(m: MedRow): { low: boolean; days: number | null; doses: number | null } {
+  if (m.quantityOnHand == null) return { low: false, days: null, doses: null };
   const days = daysOfSupply(m);
   const byDays = days != null && days <= LOW_DAYS;
   const byCount = m.refillThresholdQuantity != null && m.quantityOnHand <= m.refillThresholdQuantity;
-  return { low: byDays || byCount, days };
+  // Phase 65a: an as-needed medicine is low at its refill count, or a few doses left.
+  const doses = m.frequencyType === "AS_NEEDED" ? dosesLeft(m.quantityOnHand, m.doseAmount) : null;
+  const byDoses = doses != null && doses <= AS_NEEDED_LOW_DOSES;
+  return { low: byDays || byCount || byDoses, days, doses };
 }
 
 export function planMedLow(meds: MedRow[], grownUps: GrownUp[]): { reminders: Reminder[]; notLow: string[] } {
   const reminders: Reminder[] = [];
   const notLow: string[] = [];
   for (const m of meds) {
-    const { low, days } = isMedLow(m);
+    const { low, days, doses } = isMedLow(m);
     // A stopped medicine isn't reminded about, and is forgotten, so starting it again while low reminds.
     if (!m.active || !low) {
       notLow.push(m.medicationId);
@@ -112,7 +116,11 @@ export function planMedLow(meds: MedRow[], grownUps: GrownUp[]): { reminders: Re
       // One per med while it stays low; run.ts clears it once it isn't, so the next time reminds.
       key: `med:${m.medicationId}`,
       recipients: grownUps.map((g) => g.id),
-      title: days != null ? `${m.title} is running low (about ${Math.max(0, Math.floor(days))} ${Math.floor(days) === 1 ? "day" : "days"} left)` : `${m.title} is running low`,
+      title:
+        doses != null
+          ? `${m.title} is running low (about ${doses} ${doses === 1 ? "dose" : "doses"} left)`
+          : days != null
+            ? `${m.title} is running low (about ${Math.max(0, Math.floor(days))} ${Math.floor(days) === 1 ? "day" : "days"} left)` : `${m.title} is running low`,
       href: "/meds/manage",
       urgent: false,
     });

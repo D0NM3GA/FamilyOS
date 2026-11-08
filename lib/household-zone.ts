@@ -67,7 +67,8 @@ export const DAY_COLUMNS = [
   {
     table: "task_instance",
     column: "dueDate",
-    where: `"definitionId" IN (SELECT id FROM task_definition WHERE "householdId" = $1)`,
+    // Phase 65a: an as-needed dose's dueDate is the instant it was taken, not a day.
+    where: `"definitionId" IN (SELECT id FROM task_definition WHERE "householdId" = $1 AND "frequencyType" <> 'AS_NEEDED')`,
   },
   // Phase 59.2b: a moved chore's original day, a plain shift (it's not unique, so nothing to dedupe).
   {

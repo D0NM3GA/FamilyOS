@@ -1,3 +1,5 @@
+import { dosesLeft } from "@/lib/meds/as-needed";
+
 /**
  * Phase 62: about how many days a medication's stock lasts, from its schedule. Pure, so Meds'
  * "about N days left" and the running-low reminder agree. Null when it can't be told: no count,
@@ -38,6 +40,11 @@ export function daysOfSupply(m: SupplyInput): number | null {
 
 /** "about 5 days left", or null when it can't be told. For Meds and Manage. */
 export function daysLeftLabel(m: SupplyInput): string | null {
+  // Phase 65a: an as-needed medicine has no daily rate; its supply is told in doses.
+  if (m.frequencyType === "AS_NEEDED") {
+    const left = dosesLeft(m.quantityOnHand, m.doseAmount);
+    return left == null || left <= 0 ? null : `${left} ${left === 1 ? "dose" : "doses"} left`;
+  }
   const days = daysOfSupply(m);
   if (days == null) return null;
   // An empty bottle says so with its count and the Low badge, not "less than a day".

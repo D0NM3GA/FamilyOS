@@ -1,7 +1,7 @@
 import { formatTimeOfDay } from "@/lib/format";
 
 type RecurrenceLike = {
-  frequencyType: "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | "INTERVAL_DAYS" | "DAYS_OF_WEEK";
+  frequencyType: "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | "INTERVAL_DAYS" | "DAYS_OF_WEEK" | "AS_NEEDED";
   interval: number | null;
   daysOfWeek: number[];
 };
@@ -18,6 +18,8 @@ export function describeRecurrence(rule: RecurrenceLike): string {
   switch (rule.frequencyType) {
     case "ONCE":
       return "Once";
+    case "AS_NEEDED":
+      return "As needed";
     case "DAILY":
       return "Daily";
     case "WEEKLY":

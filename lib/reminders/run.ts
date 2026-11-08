@@ -161,7 +161,8 @@ async function doseReminders(householdId: string, grownUps: { id: string }[], no
     where: {
       status: "PENDING",
       dueDate: { gte: new Date(now.getTime() - DOSE_LOOKBACK_MS), lte: now },
-      definition: { householdId, domain: "MED", active: true },
+      // Phase 65a: as-needed medicines have no doses to miss.
+      definition: { householdId, domain: "MED", active: true, frequencyType: { not: "AS_NEEDED" } },
     },
     select: {
       definitionId: true,

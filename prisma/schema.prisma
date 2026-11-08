@@ -409,6 +409,8 @@ enum FrequencyType {
   MONTHLY
   INTERVAL_DAYS
   DAYS_OF_WEEK
+  /// Phase 65a: a medicine taken when needed. No scheduled doses; each dose is logged as taken.
+  AS_NEEDED
 }
 
 enum AssignmentStrategy {
@@ -827,6 +829,10 @@ model Medication {
   /// bought and cleared, until quantityOnHand is raised back above it (via addStock or the
   /// edit form) — see app/(app)/meds/actions.ts's completeInstance for the full rationale.
   refillThresholdQuantity Float?
+  /// Phase 65a, as-needed medicines only: the fewest hours between doses, and the most doses in
+  /// any 24 hours (lib/meds/as-needed.ts). Either may be unset.
+  minGapHours             Float?
+  maxPerDay               Int?
 
   /// Both ordinary Person contacts (isHouseholdMember: false) — see docs/BUILD.md Phase 9
   /// for why lib/people.ts's staleContacts excludes anyone referenced here.

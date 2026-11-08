@@ -55,7 +55,7 @@ export async function markOlderMissedIds(opts: { householdId: string; domain: Ta
     where: {
       status: "PENDING",
       dueDate: { lt: overdueSince(opts.now) },
-      definition: { householdId: opts.householdId, domain: opts.domain },
+      definition: { householdId: opts.householdId, domain: opts.domain, frequencyType: { not: "AS_NEEDED" } },
       ...(opts.personId ? { assignedToId: opts.personId } : {}),
     },
     data: { status: "SKIPPED", completedAt: new Date(), completedById: opts.byId },

@@ -45,7 +45,7 @@ export const MED_EXPORTS: Record<string, CsvExport> = {
   },
   "dose-history": {
     label: "Dose history",
-    description: "Every scheduled dose, including upcoming ones, and when each was taken.",
+    description: "Every scheduled dose, including upcoming ones, and when each was taken; as-needed doses when taken.",
     build: async (householdId) => {
       const rows = await prisma.taskInstance.findMany({
         where: { definition: { householdId, domain: "MED" } },

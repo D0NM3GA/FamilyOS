@@ -72,6 +72,8 @@ export default async function EditMedPage({
             quantityOnHand: definition.medication?.quantityOnHand ?? null,
             doseAmount: definition.medication?.doseAmount ?? null,
             refillThresholdQuantity: definition.medication?.refillThresholdQuantity ?? null,
+            minGapHours: definition.medication?.minGapHours ?? null,
+            maxPerDay: definition.medication?.maxPerDay ?? null,
             prescriberId: definition.medication?.prescriberId ?? null,
             pharmacyId: definition.medication?.pharmacyId ?? null,
           }}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DOSE_GRACE_MS, isMedLow, nextOn, planDates, planDoses, planMedLow, planSchool, type DoseRow, type MedRow } from "./plan";
-import { daysOfSupply, dosesPerDay } from "./supply";
+import { daysLeftLabel, daysOfSupply, dosesPerDay } from "./supply";
 import { clockText, inQuietHours, parseClock } from "./quiet";
 import { grownUpsOf } from "./people";
 import { listedKinds, nextOff } from "./prefs";
@@ -58,7 +58,7 @@ describe("days of supply", () => {
 
   const med = (over: Partial<MedRow> = {}): MedRow => ({ medicationId: "m1", title: "Vitamin D", active: true, refillThresholdQuantity: null, ...base, ...over });
   it("low at a week or less, or at the refill count", () => {
-    expect(isMedLow(med({ quantityOnHand: 14 }))).toEqual({ low: true, days: 7 });
+    expect(isMedLow(med({ quantityOnHand: 14 }))).toEqual({ low: true, days: 7, doses: null });
     expect(isMedLow(med({ quantityOnHand: 16 })).low).toBe(false);
     expect(isMedLow(med({ quantityOnHand: 40, refillThresholdQuantity: 40 })).low).toBe(true);
     expect(isMedLow(med({ quantityOnHand: 3, doseAmount: null })).low).toBe(false);
@@ -69,6 +69,16 @@ describe("days of supply", () => {
     expect(reminders).toHaveLength(1);
     expect(reminders[0]).toMatchObject({ key: "med:m1", recipients: ["dad", "mom"], title: "Vitamin D is running low (about 4 days left)" });
     expect(notLow).toEqual(["m2", "m3"]);
+  });
+
+  it("an as-needed medicine is low at a few doses, told in doses (Phase 65a)", () => {
+    const prn = (quantityOnHand: number) => med({ frequencyType: "AS_NEEDED", timesOfDay: [], quantityOnHand, doseAmount: 2 });
+    expect(isMedLow(prn(10))).toEqual({ low: true, days: null, doses: 5 });
+    expect(isMedLow(prn(12)).low).toBe(false);
+    expect(planMedLow([prn(6)], grownUps).reminders[0].title).toBe("Vitamin D is running low (about 3 doses left)");
+    expect(daysLeftLabel({ ...base, frequencyType: "AS_NEEDED", quantityOnHand: 7, doseAmount: 2 })).toBe("3 doses left");
+    expect(daysLeftLabel({ ...base, frequencyType: "AS_NEEDED", quantityOnHand: 1, doseAmount: 1 })).toBe("1 dose left");
+    expect(daysLeftLabel({ ...base, frequencyType: "AS_NEEDED", quantityOnHand: 0.5, doseAmount: 1 })).toBeNull();
   });
 });
 

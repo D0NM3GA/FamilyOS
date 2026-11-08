@@ -490,6 +490,8 @@ a due date or a grade). A note's text never goes into that history, only that it
   the password manager, not next to the file.**
 - Backups and restores need you to be **using the app as yourself** (your own sign-in, not a
   switched profile), signed in within the last 15 minutes (the page offers **Sign in again**).
+- A backup made by a newer version of the app (say, one with as-needed medicines) won't restore
+  on an older one: update the server first. Older backups always restore on a newer one.
 - Every backup and restore is in **Backup history** on the same page, and announced in the bell
   and Teams to the other admins and every money jar member.
 

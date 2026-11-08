@@ -31,7 +31,9 @@ import { LookScene } from "@/components/look-scene";
 import { choreProgressFor, currentHour, greetingLine } from "@/lib/bunson-moments";
 import { toCardInstance } from "@/lib/tasks/card";
 import { completeInstance as completeChore, uncompleteInstance as undoChore } from "./chores/actions";
-import { completeInstance as completeMed, uncompleteInstance as undoMed } from "./meds/actions";
+import { completeInstance as completeMed, uncompleteInstance as undoMed, takeAsNeeded, undoAsNeeded } from "./meds/actions";
+import { getAsNeeded } from "@/lib/meds/as-needed-queries";
+import { AsNeededRow } from "@/components/meds/as-needed-row";
 import { BigHome } from "./big-home";
 import { getMyWallet, getOpenOrders } from "@/lib/store/queries";
 import { getDisabledApps } from "@/lib/app-switches";
@@ -59,6 +61,8 @@ async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof
     on("chores") ? ensureInstancesGenerated(profile.householdId, today, "CHORE") : null,
     on("meds") ? ensureInstancesGenerated(profile.householdId, today, "MED") : null,
   ]);
+  // Phase 65a: their own as-needed medicines, alongside today's doses.
+  const asNeededLoad = on("meds") ? getAsNeeded(profile.householdId, { personId: profile.id }) : Promise.resolve([]);
   // "My stuff": their own chores plus "Anyone" ones they can grab (and earn) themselves.
   const [chores, meds, wallet, school, household, words, ownsCalendar] = await Promise.all([
     on("chores")
@@ -97,6 +101,9 @@ async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof
       meds={myMeds.map(toCardInstance)}
       medTimes={Object.fromEntries(myMeds.map((i) => [i.id, formatTimeOfDay(i.dueDate)]))}
       overdueMedIds={meds.overdue.map((i) => i.id)}
+      asNeeded={await asNeededLoad}
+      onTakeAsNeeded={takeAsNeeded}
+      onUndoAsNeeded={undoAsNeeded}
       school={school}
       schoolToday={schoolToday.map((e) => ({ key: `${e.feedId}:${e.occurrenceKey}`, title: e.title }))}
       birthdays={birthdays}
@@ -131,6 +138,8 @@ export default async function HomePage() {
   ]);
 
   const homeZone = settings.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Phase 65a: as-needed medicines in the Today card: a grown-up sees everyone's, a kid their own.
+  const asNeededLoad = on("meds") ? getAsNeeded(profile.householdId, isAdult(profile) ? {} : { personId: profile.id }) : Promise.resolve([]);
   const [upcomingDates, stale, choreBoard, medBoard, vehicleBoards, activity, schoolDue, schoolFeed, openOrders, , todayAgenda, members] = await Promise.all([
     upcomingImportantDates(profile.householdId, 30),
     staleContacts(profile.householdId, { excludeId: profile.id, limit: 5 }),
@@ -155,6 +164,7 @@ export default async function HomePage() {
     getAgendaWeek(profile, { start: today, days: 1, eventsOnly: true, timeZone: homeZone, disabledApps: disabled }),
     getHouseholdMembers(profile.householdId),
   ]);
+  const asNeeded = await asNeededLoad;
   const { events: schoolEvents, zone } = schoolFeed;
   // Outlook joins the Today strip from the Calendar card's own fetch, shared, inside its own Suspense.
   const memberIds = new Set(members.map((m) => m.id));
@@ -238,6 +248,13 @@ export default async function HomePage() {
                     onUndo={undoMed}
                     timed
                   />
+                  {asNeeded.length > 0 && (
+                    <ul className="mt-3 space-y-2" aria-label="As needed">
+                      {asNeeded.map((m) => (
+                        <AsNeededRow key={m.definitionId} med={m} viewerId={profile.id} viewerIsAdult={isAdult(profile)} take={takeAsNeeded} undo={undoAsNeeded} />
+                      ))}
+                    </ul>
+                  )}
                 </section>
               )}
             </div>

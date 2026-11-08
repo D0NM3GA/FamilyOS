@@ -133,7 +133,7 @@ function fullBackup(): Backup {
   b.pointsLedger = [{ id: "pl1", personId: "kid", delta: 5, reason: null, instanceId: "ti1", orderId: null, createdAt: T }];
   b.rewards = [{ id: "rw1", title: "Ice cream", pointCost: 50, active: true, emoji: null, bucketId: null, limitPerWeek: null, needsApproval: false, createdAt: T }];
   b.medications = [
-    { id: "m1", taskDefinitionId: "def1", quantityOnHand: 30, doseAmount: 1, refillThresholdQuantity: 5, prescriberId: "doc", pharmacyId: null },
+    { id: "m1", taskDefinitionId: "def1", quantityOnHand: 30, doseAmount: 1, refillThresholdQuantity: 5, minGapHours: null, maxPerDay: null, prescriberId: "doc", pharmacyId: null },
   ];
   b.vehicles = [{ id: "v1", name: "Van", make: null, model: null, year: null, vin: null, currentMileage: 100, mileageUpdatedAt: T, active: true, createdAt: T }];
   b.maintenanceItems = [
