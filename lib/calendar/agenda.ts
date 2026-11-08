@@ -14,7 +14,7 @@ import type { ImportantDateRow, SchoolDueRow, SchoolEventRow, TaskRow, VehicleDu
  * timed one is an instant, read in the household's zone, like lib/format's formatEventWhen.
  */
 
-export type AgendaKind = "date" | "bill" | "outlook" | "schoolEvent" | "vehicle" | "school" | "homework" | "med" | "chore";
+export type AgendaKind = "date" | "bill" | "outlook" | "schoolEvent" | "vehicle" | "school" | "homework" | "med" | "chore" | "meal";
 export type AgendaStatus = "open" | "done" | "skipped";
 
 export type AgendaItem = {
@@ -133,6 +133,8 @@ const KIND_ORDER: Record<AgendaKind, number> = {
   homework: 6,
   med: 7,
   chore: 8,
+  // Phase 65d: today's dinner, on Home's strip.
+  meal: 9,
 };
 
 export function compareAgendaItems(a: AgendaItem, b: AgendaItem): number {

@@ -34,6 +34,8 @@ import { completeInstance as completeChore, uncompleteInstance as undoChore } fr
 import { completeInstance as completeMed, uncompleteInstance as undoMed, takeAsNeeded, undoAsNeeded } from "./meds/actions";
 import { getAsNeeded } from "@/lib/meds/as-needed-queries";
 import { getRunningLow } from "@/lib/groceries/queries";
+import { getTodaysDinner } from "@/lib/groceries/meals";
+import { dayKey } from "@/lib/calendar/agenda";
 import { addItem } from "./groceries/actions";
 import { AsNeededRow } from "@/components/meds/as-needed-row";
 import { BigHome } from "./big-home";
@@ -144,6 +146,8 @@ export default async function HomePage() {
   const asNeededLoad = on("meds") ? getAsNeeded(profile.householdId, isAdult(profile) ? {} : { personId: profile.id }) : Promise.resolve([]);
   // Phase 65c: grown-ups only (the owner's call), when Groceries is on.
   const runningLowLoad = isAdult(profile) && on("groceries") ? getRunningLow(profile.householdId) : Promise.resolve([]);
+  // Phase 65d: today's dinner joins the Today strip, for everyone, when Groceries is on.
+  const dinnerLoad = on("groceries") ? getTodaysDinner(profile.householdId) : Promise.resolve(null);
   const [upcomingDates, stale, choreBoard, medBoard, vehicleBoards, activity, schoolDue, schoolFeed, openOrders, , todayAgenda, members] = await Promise.all([
     upcomingImportantDates(profile.householdId, 30),
     staleContacts(profile.householdId, { excludeId: profile.id, limit: 5 }),
@@ -168,7 +172,13 @@ export default async function HomePage() {
     getAgendaWeek(profile, { start: today, days: 1, eventsOnly: true, timeZone: homeZone, disabledApps: disabled }),
     getHouseholdMembers(profile.householdId),
   ]);
-  const [asNeeded, runningLow] = await Promise.all([asNeededLoad, runningLowLoad]);
+  const [asNeeded, runningLow, dinner] = await Promise.all([asNeededLoad, runningLowLoad, dinnerLoad]);
+  const stripItems: AgendaItem[] = dinner
+    ? [
+        ...todayAgenda.items,
+        { key: "dinner", kind: "meal", emoji: "🍽️", title: `Dinner: ${dinner}`, who: null, day: dayKey(today), minutes: null, status: "open", note: null, href: "/groceries/meals", external: false },
+      ]
+    : todayAgenda.items;
   const { events: schoolEvents, zone } = schoolFeed;
   // Outlook joins the Today strip from the Calendar card's own fetch, shared, inside its own Suspense.
   const memberIds = new Set(members.map((m) => m.id));
@@ -213,11 +223,11 @@ export default async function HomePage() {
       />
 
       {outlookLoad ? (
-        <Suspense fallback={<TodayStrip items={todayAgenda.items} memberIds={memberIds} colors={colors} />}>
-          <TodayStripWithOutlook items={todayAgenda.items} load={outlookLoad} today={today} zone={zone} memberIds={memberIds} colors={colors} />
+        <Suspense fallback={<TodayStrip items={stripItems} memberIds={memberIds} colors={colors} />}>
+          <TodayStripWithOutlook items={stripItems} load={outlookLoad} today={today} zone={zone} memberIds={memberIds} colors={colors} />
         </Suspense>
       ) : (
-        <TodayStrip items={todayAgenda.items} memberIds={memberIds} colors={colors} />
+        <TodayStrip items={stripItems} memberIds={memberIds} colors={colors} />
       )}
 
       {showToday && (
