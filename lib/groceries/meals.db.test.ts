@@ -57,7 +57,9 @@ describe.skipIf(!RUN)("meal plan (database)", { timeout: 60_000 }, () => {
     expect(await saveMeal(meal.id, {}, form({ name: "Tacos", ingredients: "Tortillas\n2 Tomatoes\nLimes" }))).toEqual({ ok: "Tacos updated." });
     await saveMeal(meal.id, {}, form({ name: "Tacos", ingredients: "Tortillas\n2 Tomatoes" }));
 
-    expect(await saveWeek(weekKey, {}, form({ [`meal:${todayIndex}`]: meal.id, [`note:${todayIndex}`]: "early", [`meal:${otherIndex}`]: meal.id, [`note:${(todayIndex + 2) % 7}`]: "Out" }))).toEqual({ ok: "The week is saved." });
+    // Yesterday too, when this week has one: its ingredients aren't added (Phase 69b).
+    const yesterday = todayIndex > 0 && otherIndex !== todayIndex - 1 && (todayIndex + 2) % 7 !== todayIndex - 1 ? { [`meal:${todayIndex - 1}`]: meal.id } : {};
+    expect(await saveWeek(weekKey, {}, form({ [`meal:${todayIndex}`]: meal.id, [`note:${todayIndex}`]: "early", [`meal:${otherIndex}`]: meal.id, [`note:${(todayIndex + 2) % 7}`]: "Out", ...yesterday }))).toEqual({ ok: "The week is saved." });
     expect(await saveWeek(weekKey, {}, form({ "meal:0": "not-a-meal" }))).toEqual({ error: "One of those meals isn't saved anymore. Reload and pick again." });
     expect(await getTodaysDinner(ids.h)).toBe("Tacos · early");
 
@@ -81,7 +83,7 @@ describe.skipIf(!RUN)("meal plan (database)", { timeout: 60_000 }, () => {
     expect(plan[todayIndex]).toMatchObject({ mealId: null, note: "Tacos · early" });
     expect(plan[otherIndex]).toMatchObject({ mealId: null, note: "Tacos" });
     expect(plan[(todayIndex + 2) % 7].note).toBe("Out");
-    expect(plan.filter((d) => d.mealId || d.note)).toHaveLength(3);
+    expect(plan.filter((d) => d.mealId || d.note)).toHaveLength(3 + Object.keys(yesterday).length);
   });
 
   test("a kid can't plan", async () => {

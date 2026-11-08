@@ -2135,3 +2135,10 @@ a check-off commits could show it unticked for a moment). **Good until:** the Re
 paperwork has a date box, its default (`goodUntilDefault`, server-side) a cycle on from the due day,
 moved on while not after today; the action saves it under the item's row lock with `dueAtBefore`
 for Undo, refusing one not after the renewal; empty keeps the cycle rule.
+Fable's review of 69b: "bought since the snooze" compares days (purchases are known by the day),
+so a purchase that day or later ends it; Good until and the cycle rule apply only to the latest
+renewal (a catch-up entry for an older one leaves the due day alone); Undo puts back an empty due
+day too; "That week is over" for a past week; the Good until box says what it's for; the snooze
+query is skipped when nothing could be snoozed; tests cover a same-day purchase, a past day's meal,
+a backdated renewal and paperwork without a due day. Left as is: kids can say "Still have some" on
+the Groceries chips (the list is everyone's).

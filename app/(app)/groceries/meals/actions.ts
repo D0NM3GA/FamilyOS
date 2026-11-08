@@ -152,7 +152,10 @@ export async function addWeekToList(weekStartRaw: string): Promise<MealFormState
     if (missing.length) await tx.shoppingListItem.createMany({ data: missing.map((n) => ({ listId: list.id, productId: n.productId, quantity: n.quantity, addedById: profile.id })) });
     return missing;
   });
-  if (need.length === 0) return { ok: days.length ? "Everything the rest of the week's meals need is on the list (or always in the house)." : "No saved meals planned for the rest of this week." };
+  if (need.length === 0) {
+    if (today >= addDays(weekStart, 7)) return { ok: "That week is over." };
+    return { ok: days.length ? "Everything the rest of the week's meals need is on the list (or always in the house)." : "No saved meals planned for the rest of this week." };
+  }
   revalidatePath("/groceries");
   revalidatePath("/groceries/shop");
   revalidateMeals();

@@ -25,6 +25,7 @@ export function shouldRefresh(o: { hiddenAt: number | null; freshDay: string; no
  * has turned while it was open (the device's day, which is the family's except on a trip).
  * `everyMs` also refreshes on a timer while it's shown (the Shop view).
  */
+/** `paused` is for a page with `everyMs` (the Shop view): a refresh skipped while paused comes on the next tick. */
 export function RefreshOnReturn({ everyMs, paused = false }: { everyMs?: number; paused?: boolean }) {
   const router = useRouter();
   const hiddenAt = useRef<number | null>(null);

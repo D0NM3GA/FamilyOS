@@ -63,6 +63,13 @@ describe.skipIf(!RUN)("running low (database)", { timeout: 60_000 }, () => {
     // Snoozed long enough ago, it's back.
     await prisma.product.update({ where: { id: eggs.id }, data: { lowSnoozedAt: new Date(Date.now() - 30 * day) } });
     expect((await getRunningLow(ids.h)).map((s) => s.label)).toEqual(["Eggs", "Rice"]);
+    // Snoozed two days ago, then bought yesterday: the snooze is over (eggs aren't low now anyway,
+    // so check the lower-level list with a long look-ahead).
+    await prisma.product.update({ where: { id: eggs.id }, data: { lowSnoozedAt: new Date(Date.now() - 2 * day) } });
+    const { getPantrySuggestions } = await import("./queries");
+    expect((await getPantrySuggestions(ids.h, { aheadDays: 30 })).some((s) => s.label === "Eggs")).toBe(false);
+    await prisma.purchase.create({ data: { householdId: ids.h, purchasedAt: new Date(Date.now() - day), items: { create: { productId: eggs.id, description: "Eggs", quantity: 1 } } } });
+    expect((await getPantrySuggestions(ids.h, { aheadDays: 30 })).some((s) => s.label === "Eggs")).toBe(true);
     await prisma.product.update({ where: { id: eggs.id }, data: { lowSnoozedAt: null } });
   });
 });

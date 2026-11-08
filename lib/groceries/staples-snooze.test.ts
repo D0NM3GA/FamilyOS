@@ -13,8 +13,12 @@ describe("stillSnoozed", () => {
     expect(stillSnoozed(null, { lastsDays: 7, daysSinceLast: 20 }, NOW)).toBe(false);
   });
 
-  it("ends when it's bought after", () => {
+  it("ends when it's bought after, the same day included", () => {
     expect(stillSnoozed(daysAgo(5), { lastsDays: 14, daysSinceLast: 2 }, NOW)).toBe(false);
+    // Snoozed this morning, bought this afternoon (0 days since).
+    expect(stillSnoozed(new Date(2026, 10, 8, 8), { lastsDays: 14, daysSinceLast: 0 }, NOW)).toBe(false);
+    // Snoozed this morning; last bought yesterday: still hidden.
+    expect(stillSnoozed(new Date(2026, 10, 8, 8), { lastsDays: 14, daysSinceLast: 1 }, NOW)).toBe(true);
   });
 });
 

@@ -235,7 +235,8 @@ function LogServiceForm({
           <label htmlFor={`${id}-until`} className={`block ${fieldLabel}`}>
             Good until
           </label>
-          <input id={`${id}-until`} type="date" name="goodUntil" defaultValue={goodUntil ?? ""} className={`mt-1 ${field}`} />
+          <input id={`${id}-until`} type="date" name="goodUntil" defaultValue={goodUntil ?? ""} min={todayInputValue} aria-describedby={`${id}-until-hint`} className={`mt-1 ${field}`} />
+          <p id={`${id}-until-hint`} className="mt-1 text-xs text-muted-foreground">When it next needs renewing.</p>
         </div>
       )}
       {!paperwork && (

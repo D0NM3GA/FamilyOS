@@ -452,9 +452,10 @@ export async function logMaintenanceDone(
     // late renewal keeps the cycle).
     // Phase 69b: or to the Good until day the form gives, under the same lock (Undo puts back
     // `dueAtBefore` either way).
-    if (item.kind === "PAPERWORK" && goodUntil) {
+    // Only for the latest renewal: a catch-up entry for an older one leaves the due day alone.
+    if (item.kind === "PAPERWORK" && becomesLatest && goodUntil) {
       await tx.vehicleMaintenanceItem.update({ where: { id: itemId }, data: { nextDueAt: goodUntil } });
-    } else if (item.kind === "PAPERWORK" && item.intervalMonths && before) {
+    } else if (item.kind === "PAPERWORK" && becomesLatest && item.intervalMonths && before) {
       await tx.vehicleMaintenanceItem.update({ where: { id: itemId }, data: { nextDueAt: addMonths(before, item.intervalMonths) } });
     }
     // Gated on becomesLatest too: a backdated entry the code has already decided is *older*
@@ -524,10 +525,10 @@ export async function undoLastService(itemId: string) {
     await tx.vehicleServiceLog.delete({ where: { id: latest.id } });
     const remaining = await tx.vehicleServiceLog.findFirst({ where: { itemId }, orderBy: [{ doneAt: "desc" }, { createdAt: "desc" }] });
     // Phase 65b: undoing a renewal puts back the due day it had before.
-    const nextDueAt = item.kind === "PAPERWORK" && latest.dueAtBefore ? latest.dueAtBefore : undefined;
+    // Phase 69b: an empty due day before (Good until on paperwork that had none) goes back to empty.
     await tx.vehicleMaintenanceItem.update({
       where: { id: itemId },
-      data: { lastDoneMileage: remaining?.mileage ?? null, lastDoneAt: remaining?.doneAt ?? null, ...(nextDueAt ? { nextDueAt } : {}) },
+      data: { lastDoneMileage: remaining?.mileage ?? null, lastDoneAt: remaining?.doneAt ?? null, ...(item.kind === "PAPERWORK" ? { nextDueAt: latest.dueAtBefore } : {}) },
     });
   });
 

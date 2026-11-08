@@ -3018,7 +3018,7 @@ Checked against the code 2026-11-08.
   ticked rows (in the cart) count as on the list; `Product.alwaysHave` ("We always have it", on
   the Pantry item's sheet and beside an ingredient in a saved meal) is skipped. Backups carry it.
 - **Running low: "Still have some".** A button beside **+ Add** on Home's card (and the Groceries
-  chips) hides the item for one usual gap (`Product.lowSnoozedUntil`); buying it clears that.
+  chips) hides the item for one usual gap (`Product.lowSnoozedAt`); buying it ends that.
 - **The Shop view picks up changes** from other phones when it's shown again (the same hook), and
   every 60 seconds while it's open and online.
 - **Renewing car paperwork says until when.** The **Renewed** form gets a **Good until** date,
@@ -3050,9 +3050,10 @@ Checked against the code 2026-11-08.
   car one is already cached); the re-use claim is dropped. `app/dev-preview/shell` gets the same
   safe-area height. Refresh: the Shop view's timer skips while taps are still syncing.
 - **Snooze where both read it:** `getPantrySuggestions` (Home's card and the Groceries chips) leaves
-  out a product whose `lowSnoozedUntil` is ahead and that hasn't been bought since it was snoozed (a
+  out a product snoozed less than one usual gap ago (`lowSnoozedAt`) and not bought since (a
   purchase after the snooze ends it, from any path). "We always have it" lives on the Pantry item's
-  sheet only (ingredients are a text box). Backups v16 carry both Product columns.
+  sheet only (ingredients are a text box). Backups v16 carry `alwaysHave`; `lowSnoozedAt` is passing
+  state, left out.
 - **The week list:** from `max(week start, today)`; any row on the list (ticked or not) counts;
   `alwaysHave` products skipped in `weekShopping`.
 - **Good until:** the Renewed form's date defaults to the next due after today (sent as a string;
