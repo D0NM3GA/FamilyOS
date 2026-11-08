@@ -229,7 +229,8 @@ An admin can also keep a shared calendar in Outlook filled with birthdays and ca
 The chores board shows what's **due today**, what's **late**, and what's coming up.
 
 - Tick a chore off when it's done (**Done** on the board and Home, **Done!** in Big
-  buttons). Made a mistake? Tap the undo arrow. Kids tick their own chores and Anyone chores.
+  buttons). Made a mistake? Tap the undo arrow, or **Undo** on the bar at the bottom when the chore
+  has left the list (Overdue, Upcoming, Home): it stays about ten seconds. Kids tick their own chores and Anyone chores.
 - **Anyone: grab it!** chores are for whoever gets there first; kids can grab them too.
 - What's after today is folded under **Next 14 days**. Tap it to look ahead. Change a chore's days or
   people and those 14 days follow at once (a chore you moved by hand keeps its day).

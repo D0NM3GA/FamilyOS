@@ -2353,3 +2353,12 @@ calendar's kids (their rows stay, for coming back) and an item still for one kid
 filter; a calendar is only ever for kids (or someone with school details), as School lists them;
 kids ticked with "Whole family" are kept; adding a calendar again for a kid already on it says so;
 search folds too. Tests for the actions' household scoping and the join.
+
+### After Phase 70: Undo that stays, and menus that close
+
+On Overdue and Upcoming (Chores and Meds) a done card leaves the list, and on Home it folds under
+"✓ done", the moment the save lands, so its own Undo flashed for an instant. The board's
+`MilestoneToastBoard` now also holds an Undo bar (`useReportUndo`): the card hands over its title
+and undo, and the bar stays ten seconds, held while the pointer or focus is on it. Meds gets the
+wrapper too. `MoreMenu` (the status pill, every ⋯): tapping its own button again closes it; before,
+the menu's blur closed it first and the same tap opened it again.
