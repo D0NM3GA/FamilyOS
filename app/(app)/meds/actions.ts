@@ -276,7 +276,6 @@ export async function completeInstance(instanceId: string) {
   const pointsRecipient = instance.assignedToId ?? profile.id;
   const now = new Date();
   const medication = instance.definition.medication;
-  const consumed = doseConsumption(medication?.quantityOnHand ?? null, medication?.doseAmount ?? null);
 
   const result = await prisma.$transaction(async (tx) => {
     const { count } = await tx.taskInstance.updateMany({
@@ -284,6 +283,10 @@ export async function completeInstance(instanceId: string) {
       data: { status: "DONE", completedAt: now, completedById: profile.id },
     });
     if (count === 0) return { completed: false, needsRefill: false };
+    // Phase 66a: the count and dose amount as they are now, like takeAsNeeded, not as the page
+    // was loaded (a count set or a dose amount changed in between would be missed).
+    const fresh = medication ? await tx.medication.findUnique({ where: { id: medication.id } }) : null;
+    const consumed = doseConsumption(fresh?.quantityOnHand ?? null, fresh?.doseAmount ?? null);
 
     await tx.pointsLedger.create({
       data: {
@@ -295,17 +298,17 @@ export async function completeInstance(instanceId: string) {
     });
 
     let needsRefill = false;
-    if (consumed != null && medication) {
+    if (consumed != null && fresh) {
       // needsRefill is judged against the row THIS decrement produced, not the
       // pre-transaction snapshot — a concurrent second dose or addStock landing between
       // the initial read and this write would otherwise make the trigger fire (or not)
       // based on a value that's already stale by the time it matters.
       // Phase 66a: clamped at zero and rounded; the dose records what was really taken, so Undo
       // gives back exactly that, and low is the reminder's rule (lib/reminders/supply.ts).
-      const stock = await takeStock(tx, medication.id, consumed);
+      const stock = await takeStock(tx, fresh.id, consumed);
       if (stock) {
         await tx.taskInstance.update({ where: { id: instanceId }, data: { quantityConsumed: stock.taken } });
-        needsRefill = lowAfter(instance.definition, medication, stock.after);
+        needsRefill = lowAfter(instance.definition, fresh, stock.after);
       }
     }
 
@@ -314,9 +317,9 @@ export async function completeInstance(instanceId: string) {
 
   // Post-commit, best-effort — a refill reminder is a convenience; the dose completion
   // itself must never fail because the shopping list did. A level trigger: this fires
-  // again on the NEXT dose after the refill item is bought and cleared, until
-  // quantityOnHand is raised back above the threshold (via addStock or the edit form) —
-  // deliberate, not a bug, so a stale low count doesn't silently stop nagging.
+  // again on the NEXT dose after the refill item is bought and cleared, until the stock is
+  // no longer low (isMedLow: raised via addStock, the edit form or a trip) — deliberate, not
+  // a bug, so a stale low count doesn't silently stop nagging.
   if (result.completed && result.needsRefill) {
     await requestRefill({ householdId: profile.householdId, title: instance.definition.title, byId: profile.id, forId: instance.assignedToId, medicationId: medication?.id ?? null });
   }
