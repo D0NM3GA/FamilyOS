@@ -10,6 +10,9 @@ describe("running ahead (Phase 70e)", () => {
     expect(runningAhead(11000, 10000, 0.3)).toBe(false);
     expect(runningAhead(6000, 10000, 1)).toBe(false);
     expect(runningAhead(6000, 0, 0.3)).toBe(false);
+    // Exactly 15 points ahead isn't "more than"; a carry below zero is the over path.
+    expect(runningAhead(6000, 10000, 0.45)).toBe(false);
+    expect(runningAhead(6000, -500, 0.3)).toBe(false);
   });
 
   test("the budget line says so", () => {
@@ -50,5 +53,12 @@ describe("the year (Phase 70e)", () => {
     expect(csv).toContain("Total 2025");
     expect(csv).toContain("🍕 Dining,50.00,20.00");
     expect(csv).toContain("Not in a category,5.00");
+  });
+
+  test("a surprise hidden from the viewer is only in the Surprises total", () => {
+    const s = yearSummary([...rows, { amountCents: -4000, postedOn: "2025-05-05", pending: false, categoryId: "food", surprise: true }], cats, 2025, "2026-03-15");
+    expect(s.surprisesCents).toBe(4000);
+    expect(s.lines.find((l) => l.category.id === "food")!.spentCents).toBe(5000);
+    expect(yearCsv(s)).toContain("Surprises,40.00,,");
   });
 });

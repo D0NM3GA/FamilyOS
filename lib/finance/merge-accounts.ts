@@ -1,6 +1,6 @@
 import type { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { dedupeAccount } from "./sync";
+import { carryCategory, dedupeAccount } from "./sync";
 
 type Tx = Prisma.TransactionClient;
 
@@ -50,10 +50,14 @@ const asObject = (v: unknown): Record<string, unknown> => (v && typeof v === "ob
 async function moveRows(tx: Tx, sourceId: string, targetId: string): Promise<number> {
   const rows = await tx.finTransaction.findMany({ where: { accountId: sourceId }, select: { id: true, source: true, externalId: true } });
   if (rows.length === 0) return 0;
-  const clashes = await tx.finTransaction.findMany({
-    where: { accountId: targetId, OR: rows.map((r) => ({ source: r.source, externalId: r.externalId })) },
-    select: { id: true, source: true, externalId: true },
-  });
+  // A statement account only holds statement (MANUAL) rows: one lookup by id, in chunks.
+  const clashes: { id: string; source: string; externalId: string }[] = [];
+  const ids = [...new Set(rows.map((r) => r.externalId))];
+  for (let i = 0; i < ids.length; i += 5000) {
+    clashes.push(
+      ...(await tx.finTransaction.findMany({ where: { accountId: targetId, source: "MANUAL", externalId: { in: ids.slice(i, i + 5000) } }, select: { id: true, source: true, externalId: true } })),
+    );
+  }
   const clashOf = new Map(clashes.map((c) => [`${c.source}|${c.externalId}`, c.id]));
   for (const r of rows) {
     const existing = clashOf.get(`${r.source}|${r.externalId}`);
@@ -62,6 +66,8 @@ async function moveRows(tx: Tx, sourceId: string, targetId: string): Promise<num
       where: { id: r.id },
       data: { externalId: `${r.externalId}:merged:${r.id}`, state: "DUPLICATE", duplicateOfId: existing },
     });
+    // What a person put on it (a category, a surprise, a trip) comes along, as the duplicate check does.
+    await carryCategory(tx, r.id, existing);
   }
   const { count } = await tx.finTransaction.updateMany({ where: { accountId: sourceId }, data: { accountId: targetId } });
   return count;

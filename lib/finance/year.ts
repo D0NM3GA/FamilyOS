@@ -17,6 +17,8 @@ export type YearSummary = {
   uncategorizedOutCents: number;
   surprisesCents: number;
   incomeCents: number;
+  /** Rows the year was made from (the jar's history counts a download by them). */
+  rowCount: number;
 };
 
 /** The months of `year` to count: all twelve, or through this month for the year in progress. */
@@ -48,6 +50,7 @@ export function yearSummary(rows: BudgetRow[], categories: BudgetCategory[], yea
     uncategorizedOutCents: sum((m) => m.uncategorizedOutCents),
     surprisesCents: sum((m) => m.surprisesCents),
     incomeCents: sum((m) => m.incomeCents),
+    rowCount: rows.filter((r) => months.includes(r.postedOn.slice(0, 7))).length,
   };
 }
 

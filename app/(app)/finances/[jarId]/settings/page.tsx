@@ -56,6 +56,8 @@ export default async function JarSettingsPage({
   ]);
   const [recent, leftOut] = await Promise.all([recentImports(jar.id), leftOutAccountIds(jar.id)]);
   const feedAccounts = accounts.filter((a) => a.source === "SIMPLEFIN");
+  // Phase 70e: a statement account with a feed account in its currency to merge into.
+  const mergeable = (a: (typeof accounts)[number]) => a.source === "MANUAL" && !leftOut.has(a.id) && feedAccounts.some((f) => !leftOut.has(f.id) && f.currency === a.currency);
   const memberIds = new Set(members.map((m) => m.person.id));
   const addable = eligible.filter((p) => !memberIds.has(p.id));
   const conn = (p: "SIMPLEFIN" | "PRIVACY") => connections.find((c) => c.provider === p);
@@ -456,7 +458,7 @@ export default async function JarSettingsPage({
       </section>
 
       {/* Phase 70e: a statement account that's really a feed account, merged so nothing counts twice. */}
-      {accounts.some((a) => a.source === "MANUAL" && !leftOut.has(a.id)) && feedAccounts.some((a) => !leftOut.has(a.id)) && (
+      {accounts.some((a) => mergeable(a)) && (
         <section className={card}>
           <h2 className="font-extrabold">🔗 Merge a statement account</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -465,7 +467,7 @@ export default async function JarSettingsPage({
           </p>
           <ul className="mt-2 flex flex-col gap-3">
             {accounts
-              .filter((a) => a.source === "MANUAL" && !leftOut.has(a.id))
+              .filter((a) => mergeable(a))
               .map((a) => (
                 <li key={a.id}>
                   <ActionForm action={mergeAccounts.bind(null, jar.id, a.id)} className="flex flex-wrap items-center gap-2 text-sm">

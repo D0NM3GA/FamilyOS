@@ -26,6 +26,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ jar
   const form = await request.formData().catch(() => null);
   const year = parseYear(form?.get("year"), today);
   const summary = await loadYear(jar.id, viewer.id, year, today);
-  await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "EXPORTED", data: { month: null, year, count: summary.lines.length } });
+  await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "EXPORTED", data: { month: null, year, count: summary.rowCount } });
   return downloadResponse(yearCsv(summary), `year-${year}.csv`, "text/csv; charset=utf-8");
 }

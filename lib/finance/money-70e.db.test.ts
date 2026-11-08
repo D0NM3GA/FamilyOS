@@ -55,6 +55,45 @@ describe.skipIf(!RUN)("money: merging accounts and faster filing (database)", { 
     expect((await prisma.finAccount.findUniqueOrThrow({ where: { id: ids.feed } })).importLayouts).toEqual({ a: { date: 0 } });
   });
 
+  test("the same statement imported into both: the clash folds and keeps what a person set", async () => {
+    const { mergeStatementAccount } = await import("./merge-accounts");
+    const { ensureCategories } = await import("./organize");
+    await ensureCategories(prisma, ids.jar);
+    const dining = await prisma.finCategory.findFirstOrThrow({ where: { jarId: ids.jar, key: "dining" } });
+    const second = await prisma.finAccount.create({ data: { jarId: ids.jar, source: "MANUAL", externalId: `second-${t}`, name: "Card again" }, select: { id: true } });
+    const shared = `shared-${t}`;
+    const inFeed = await prisma.finTransaction.create({ data: { jarId: ids.jar, accountId: ids.feed, source: "MANUAL", externalId: shared, postedOn: day("2026-09-03"), amountCents: -1234, description: "BAKERY", merchantKey: "bakery example" }, select: { id: true } });
+    const inStatement = await prisma.finTransaction.create({
+      data: { jarId: ids.jar, accountId: second.id, source: "MANUAL", externalId: shared, postedOn: day("2026-09-03"), amountCents: -1234, description: "BAKERY", merchantKey: "bakery example", categoryId: dining.id, categorySource: "PERSON" },
+      select: { id: true },
+    });
+    expect((await mergeStatementAccount(ids.jar, second.id, ids.feed)).ok).toBe(true);
+    expect(await prisma.finTransaction.findUniqueOrThrow({ where: { id: inStatement.id } })).toMatchObject({ state: "DUPLICATE", duplicateOfId: inFeed.id });
+    expect(await prisma.finTransaction.findUniqueOrThrow({ where: { id: inFeed.id } })).toMatchObject({ categoryId: dining.id, categorySource: "PERSON" });
+  });
+
+  test("a windowed duplicate check pairs rows a few days before the window, not older ones", async () => {
+    const { dedupeAccount } = await import("./sync");
+    const near = await row(ids.feed, "MANUAL", "2026-06-26", -777);
+    await row(ids.feed, "SIMPLEFIN", "2026-06-26", -777);
+    const far = await row(ids.feed, "MANUAL", "2026-06-20", -888);
+    await row(ids.feed, "SIMPLEFIN", "2026-06-20", -888);
+    await prisma.$transaction((tx) => dedupeAccount(tx, ids.jar, ids.feed, day("2026-06-30")));
+    expect((await prisma.finTransaction.findUniqueOrThrow({ where: { id: near.id } })).state).toBe("DUPLICATE");
+    expect((await prisma.finTransaction.findUniqueOrThrow({ where: { id: far.id } })).state).toBe("ACTIVE");
+  });
+
+  test("a search never shows a surprise hidden from whoever searches", async () => {
+    const { activityWhere } = await import("./activity");
+    const mom = await prisma.person.create({ data: { householdId: ids.h, firstName: "Mom", role: "ADULT", isHouseholdMember: true } });
+    await row(ids.feed, "SIMPLEFIN", "2026-10-20", -4999, { merchantKey: "lego store example", description: "LEGO STORE", giftById: mom.id, giftHiddenFrom: [ids.dad], giftRevealOn: day("2099-01-01") });
+    const today = "2026-11-08";
+    const seen = await prisma.finTransaction.findMany({ where: activityWhere(ids.jar, ids.dad, today, { month: "2026-11", q: "lego" }) });
+    expect(seen).toHaveLength(0);
+    const momSees = await prisma.finTransaction.findMany({ where: activityWhere(ids.jar, mom.id, today, { month: "2026-11", q: "lego" }) });
+    expect(momSees).toHaveLength(1);
+  });
+
   test("a sync files its own days; an old automatic pick stays; a refund still finds an older charge", async () => {
     const { categorizeJar, ensureCategories } = await import("./organize");
     await ensureCategories(prisma, ids.jar);

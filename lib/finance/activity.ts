@@ -86,11 +86,13 @@ export function activityWhere(
   return {
     jarId,
     state: f.leftOut ? { in: ["ACTIVE", "IGNORED"] } : "ACTIVE",
-    ...visibleToWhere(viewerId, today),
+    // Both are ORs, so they're ANDed, never spread: spreading a search's OR over the surprise one
+    // would show a member a surprise hidden from them.
+    AND: [visibleToWhere(viewerId, today), ...(f.q ? [matchWhere(f.q)] : [])],
     ...(f.account ? { accountId: f.account } : {}),
     ...(f.category === "none" ? { categoryId: null } : f.category ? { categoryId: f.category } : {}),
     // Phase 70e: a search looks through every month.
-    ...(f.q ? matchWhere(f.q) : f.month ? { postedOn: monthRange(f.month) } : {}),
+    ...(!f.q && f.month ? { postedOn: monthRange(f.month) } : {}),
   };
 }
 

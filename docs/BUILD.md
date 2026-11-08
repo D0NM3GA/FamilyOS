@@ -2322,3 +2322,12 @@ duplicate check runs. Jar history `ACCOUNTS_MERGED` (migration `20261206120000_a
 and compares rows from five days before it; `categorizeJar` takes `since` too and files only rows
 from then on plus any not filed yet, while refund pairing still looks back over the whole jar. A rule
 change, a category edit, the page's tidy-up and a merge still work over everything.
+Fable's review of 70e: a search ANDs the surprise filter instead of spreading over it (both were
+ORs, so the search's replaced it and a member could find a surprise hidden from them; tests now
+check the filter is there and that a search finds nothing hidden); a merge's clashing row carries
+what a person set to the row it folds into, and finds clashes in one lookup; a sync files from its
+window's first day, not its first instant; the month's spreadsheet button hides during a search;
+the year's empty note counts surprises and its download notes rows, not lines; the merge list shows
+only accounts with a feed account in their currency. Tests for the duplicate check's window, a
+merge clash and a surprise in the year. Left as is: Money's page reads each jar's month (a family
+has a jar or three).

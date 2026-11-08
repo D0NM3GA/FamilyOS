@@ -536,9 +536,11 @@ export default async function JarPage({
           </p>
           {/* A POST, not a link: nothing prefetches or re-fetches a download, and each one is noted. */}
           <form method="post" action={`/finances/${jar.id}/export`} className="mt-2 flex flex-wrap gap-2">
-            <button type="submit" name="month" value={filters.month} className={btn}>
-              ⬇️ {monthName(filters.month)}
-            </button>
+            {!filters.q && (
+              <button type="submit" name="month" value={filters.month} className={btn}>
+                ⬇️ {monthName(filters.month)}
+              </button>
+            )}
             <button type="submit" name="month" value="all" className={btn}>
               ⬇️ Everything
             </button>

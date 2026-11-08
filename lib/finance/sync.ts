@@ -117,7 +117,7 @@ export async function syncConnection(connectionId: string, deps: { fetchFn?: typ
       const { accounts, messages } = await fetchAccounts(secret, { start, end: new Date(now.getTime() + DAY) }, deps.fetchFn);
       const kept = await guardAccounts(conn.id, conn.jarId, conn.createdById, accounts);
       await applySimpleFin(conn.jarId, kept, day(start), todayCivil(now));
-      await organizeSafely(conn.jarId, now, start);
+      await organizeSafely(conn.jarId, now, asDate(day(start)));
       await finish(conn.id, conn.jarId, now, { message: messages.join(" · ").slice(0, 200) || null });
     } else {
       const charges = await fetchCharges(secret, start, deps.fetchFn);
@@ -136,7 +136,7 @@ export async function syncConnection(connectionId: string, deps: { fetchFn?: typ
         }
       }
       await enrichPrivacy(prisma, conn.jarId, now);
-      await organizeSafely(conn.jarId, now, start);
+      await organizeSafely(conn.jarId, now, asDate(day(start)));
       await finish(conn.id, conn.jarId, now, {});
     }
   } catch (err) {
@@ -465,7 +465,7 @@ async function organizeSafely(jarId: string, now?: Date, since?: Date) {
  * the trip where nobody can see it. Phase 27: and a surprise mark, so the row that stays
  * doesn't show the gift (lib/finance/gifts.ts).
  */
-async function carryCategory(db: Tx, fromId: string, toId: string) {
+export async function carryCategory(db: Tx, fromId: string, toId: string) {
   const from = await db.finTransaction.findUnique({
     where: { id: fromId },
     select: { categoryId: true, categorySource: true, purchaseId: true, purchaseLinkedBy: true, giftById: true, giftHiddenFrom: true, giftRevealOn: true, giftCopiedFromId: true },

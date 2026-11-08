@@ -67,7 +67,7 @@ export default async function YearPage({ params, searchParams }: { params: Promi
         </div>
       </dl>
 
-      {s.lines.length === 0 && s.uncategorizedOutCents === 0 ? (
+      {s.lines.length === 0 && s.uncategorizedOutCents === 0 && s.surprisesCents === 0 ? (
         <p className="mt-6 text-muted-foreground">Nothing spent in {year} in this jar.</p>
       ) : (
         <ul className="ui-card mt-4 divide-y-2 divide-dashed divide-ink/10 rounded-2xl border-2 border-ink bg-card dark:divide-white/10 dark:border-white/20">

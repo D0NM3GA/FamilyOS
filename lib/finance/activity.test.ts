@@ -17,6 +17,9 @@ describe("Activity filters", () => {
     const where = activityWhere("j1", "v", TODAY, { month: "2026-08", q: "pizza" });
     expect(where.postedOn).toBeUndefined();
     expect(JSON.stringify(where)).toContain("pizza");
+    // The surprise filter survives a search.
+    expect(JSON.stringify(where)).toContain("giftRevealOn");
+    expect(JSON.stringify(activityWhere("j1", "v", TODAY, { month: "2026-08" }))).toContain("giftRevealOn");
     expect(activityFilters({ month: "2026-08" }, TODAY).month).toBe("2026-08");
     // The future, junk, or a repeated parameter: this month.
     expect(activityFilters({ month: "2026-11" }, TODAY).month).toBe("2026-10");
@@ -45,14 +48,14 @@ describe("Activity filters", () => {
     expect(activityWhere("j1", "p1", TODAY, { month: "2026-08", account: "a1", category: "none" })).toEqual({
       jarId: "j1",
       state: "ACTIVE",
-      ...visibleToWhere("p1", TODAY),
+      AND: [visibleToWhere("p1", TODAY)],
       accountId: "a1",
       categoryId: null,
       postedOn: { gte: new Date("2026-08-01T00:00:00Z"), lt: new Date("2026-09-01T00:00:00Z") },
     });
     // Everything (the spreadsheet's "Everything"): no month, still only what they may see.
     const all = activityWhere("j1", "p1", TODAY, { month: null, category: "c1" });
-    expect(all).toMatchObject({ jarId: "j1", categoryId: "c1", OR: visibleToWhere("p1", TODAY).OR });
+    expect(all).toMatchObject({ jarId: "j1", categoryId: "c1", AND: [visibleToWhere("p1", TODAY)] });
     expect(all).not.toHaveProperty("postedOn");
   });
 });
