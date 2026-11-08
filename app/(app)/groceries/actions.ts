@@ -11,7 +11,7 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAdult } from "@/lib/authz";
-import { findOrCreateProductByName, getOrCreateActiveList, productNameKey, restockFromTrip } from "@/lib/shopping-list";
+import { findOrCreateProductByName, getOrCreateActiveList, lockList, productNameKey, restockFromTrip } from "@/lib/shopping-list";
 import { searchProductsLocal } from "@/lib/groceries/queries";
 import { normalizeBarcode } from "@/lib/groceries/barcode";
 import { lookupBarcode } from "@/lib/groceries/openfoodfacts";
@@ -19,7 +19,7 @@ import { lookupWithUpcEFallback } from "@/lib/groceries/off-lookup";
 import { guessedSectionId } from "@/lib/groceries/section-edits";
 import { CONTAINERS, SIZE_UNITS, describeSize, parseOffQuantity } from "@/lib/groceries/size";
 import { mergeProducts } from "@/lib/groceries/merge";
-import { addProductToList, applyChecks, putRowBack, takeRowOff, vetoKidPick } from "@/lib/groceries/list";
+import { addProductToList, applyChecks, putRowBack, takeRowOff, untickRow, vetoKidPick } from "@/lib/groceries/list";
 import { openRemoved, sealRemoved } from "@/lib/groceries/undo";
 import { tripSavedHref } from "@/lib/groceries/shop";
 import { sheetReturnPath } from "@/lib/groceries/return-to";
@@ -212,33 +212,46 @@ export async function addItemByBarcode(rawBarcode: string, name?: string): Promi
   return { kind: "added", productName: product.name, createdProduct: product.created };
 }
 
-async function assertOwnedItem(itemId: string, householdId: string) {
-  const item = await prisma.shoppingListItem.findFirst({
-    where: { id: itemId, list: { householdId } },
-  });
-  if (!item) throw new Error("Item not found");
-  return item;
-}
-
+/**
+ * Phase 66b: a row another phone already finished or took off is left alone, not an error page.
+ * Un-ticking folds into the same item added again meanwhile (lib/groceries/list.ts untickRow).
+ */
 export async function toggleItem(itemId: string, done: boolean) {
   const profile = await requireActiveProfile();
   await assertAppOn(profile.householdId, "groceries");
-  await assertOwnedItem(itemId, profile.householdId);
 
-  await prisma.shoppingListItem.update({ where: { id: itemId }, data: { done } });
+  if (done) {
+    await prisma.shoppingListItem.updateMany({ where: { id: itemId, list: { householdId: profile.householdId } }, data: { done: true } });
+  } else {
+    const list = await getOrCreateActiveList(profile.householdId);
+    await prisma.$transaction(async (tx) => {
+      await lockList(tx, list.id);
+      await untickRow(tx, profile.householdId, itemId);
+    });
+  }
   revalidateGroceries();
 }
 
-/** The row's −/+. Down to zero takes it off the list. */
-export async function setQuantity(itemId: string, quantity: number) {
+/**
+ * The row's −/+, one step at a time. Phase 66b: the step is applied to the amount as it is now,
+ * so two phones each tapping + make it 3, not both 2. Down to zero takes it off the list; a row
+ * already gone does nothing.
+ */
+export async function stepQuantity(itemId: string, step: 1 | -1) {
   const profile = await requireActiveProfile();
   await assertAppOn(profile.householdId, "groceries");
-  await assertOwnedItem(itemId, profile.householdId);
-  if (!Number.isFinite(quantity)) return;
+  if (step !== 1 && step !== -1) return;
 
-  const q = Math.min(999, Math.round(quantity * 100) / 100);
-  if (q <= 0) await prisma.shoppingListItem.delete({ where: { id: itemId } });
-  else await prisma.shoppingListItem.update({ where: { id: itemId }, data: { quantity: q } });
+  // One transaction: the step, then the row goes if that left nothing, so no zero row is left.
+  // (Postgres can't reliably update and delete one row in a single statement.)
+  await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE shopping_list_item i
+      SET quantity = LEAST(999, ROUND((i.quantity + ${step})::numeric, 2)::float8)
+      FROM shopping_list l
+      WHERE i.id = ${itemId} AND l.id = i."listId" AND l."householdId" = ${profile.householdId}`,
+    prisma.shoppingListItem.deleteMany({ where: { id: itemId, list: { householdId: profile.householdId }, quantity: { lte: 0 } } }),
+  ]);
   revalidateGroceries();
 }
 
@@ -246,7 +259,6 @@ export async function setQuantity(itemId: string, quantity: number) {
 export async function setRequestedBy(itemId: string, personId: string | null) {
   const profile = await requireActiveProfile();
   await assertAppOn(profile.householdId, "groceries");
-  await assertOwnedItem(itemId, profile.householdId);
 
   if (personId) {
     const person = await prisma.person.findFirst({
@@ -255,8 +267,8 @@ export async function setRequestedBy(itemId: string, personId: string | null) {
     if (!person) throw new Error("Person not found");
   }
 
-  await prisma.shoppingListItem.update({
-    where: { id: itemId },
+  await prisma.shoppingListItem.updateMany({
+    where: { id: itemId, list: { householdId: profile.householdId } },
     data: { requestedById: personId },
   });
   revalidateGroceries();
@@ -546,7 +558,8 @@ export async function syncChecks(ops: { itemId: string; done: boolean }[]): Prom
     const r = syncOp.safeParse(op);
     return r.success ? [r.data] : [];
   });
-  const applied = await applyChecks(profile.householdId, valid);
+  const list = await getOrCreateActiveList(profile.householdId);
+  const applied = await applyChecks(profile.householdId, list.id, valid);
   if (valid.length > 0) revalidateGroceries();
   return { applied };
 }
@@ -571,10 +584,9 @@ const noteSchema = z.string().trim().max(200);
 export async function setItemNote(itemId: string, formData: FormData) {
   const profile = await requireActiveProfile();
   await assertAppOn(profile.householdId, "groceries");
-  await assertOwnedItem(itemId, profile.householdId);
   const parsed = noteSchema.safeParse(String(formData.get("note") ?? ""));
   if (!parsed.success) return;
-  await prisma.shoppingListItem.update({ where: { id: itemId }, data: { note: parsed.data || null } });
+  await prisma.shoppingListItem.updateMany({ where: { id: itemId, list: { householdId: profile.householdId } }, data: { note: parsed.data || null } });
   revalidateGroceries();
 }
 

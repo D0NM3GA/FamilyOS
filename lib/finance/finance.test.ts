@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { checkAccessUrl, claimSetupToken, claimUrlFromToken, errlistWords, fetchAccounts, parseAccounts, utcDay } from "./simplefin";
+import { checkAccessUrl, claimSetupToken, claimUrlFromToken, errlistWords, fetchAccounts, parseAccounts } from "./simplefin";
 import { parsePage } from "./privacy";
 import { parseCsv, parseOfx, parseStatement, splitCsv } from "./importers";
 import { dupKey, findDuplicates, matchPrivacy, supersededPending } from "./reconcile";
@@ -39,7 +39,7 @@ describe("SimpleFIN", () => {
     expect(seen.auth).toBe(`Basic ${b64("u@x:p")}`);
   });
 
-  it("parses accounts: decimal strings to cents, UTC days, pending with posted 0", () => {
+  it("parses accounts: decimal strings to cents, posted days in UTC, pending days in the household's zone", () => {
     const now = new Date("2026-10-05T12:00:00Z");
     const { accounts, messages } = parseAccounts(
       {
@@ -55,18 +55,25 @@ describe("SimpleFIN", () => {
             transactions: [
               { id: "T1", posted: 1759622400, amount: "-54.99", description: "PWP*NETFLIX.COM PRIVACY.COM" },
               { id: "T2", posted: 0, transacted_at: 1759660000, amount: "-4.50", description: "COFFEE", pending: true },
-              { id: "T3", posted: 1759622400, amount: "1.234", description: "bad amount" },
+              // Phase 66c: more than two decimals round to the cent; junk is still dropped.
+              { id: "T3", posted: 1759622400, amount: "-1.2350", description: "FOUR DECIMALS" },
+              { id: "T4", posted: 1759622400, amount: "1.2.3", description: "bad amount" },
+              // 9 pm in New York on Oct 5 is already Oct 6 in UTC.
+              { id: "T5", posted: 0, transacted_at: Date.UTC(2025, 9, 6, 1) / 1000, amount: "-9.00", description: "DINNER", pending: true },
             ],
           },
         ],
       },
       now,
+      "America/New_York",
     );
     expect(messages).toEqual(["Connection to Chase may need attention"]);
     expect(accounts[0]).toMatchObject({ id: "A1", org: "Chase", balanceCents: 123456 });
     expect(accounts[0].transactions).toEqual([
       { id: "T1", postedOn: "2025-10-05", amountCents: -5499, description: "PWP*NETFLIX.COM PRIVACY.COM", payee: null, memo: null, pending: false },
-      { id: "T2", postedOn: utcDay(1759660000), amountCents: -450, description: "COFFEE", payee: null, memo: null, pending: true },
+      { id: "T2", postedOn: "2025-10-05", amountCents: -450, description: "COFFEE", payee: null, memo: null, pending: true },
+      { id: "T3", postedOn: "2025-10-05", amountCents: -124, description: "FOUR DECIMALS", payee: null, memo: null, pending: false },
+      { id: "T5", postedOn: "2025-10-05", amountCents: -900, description: "DINNER", payee: null, memo: null, pending: true },
     ]);
   });
 });

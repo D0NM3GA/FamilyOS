@@ -11,6 +11,7 @@ import { merchantKeyOf } from "./categories";
 import { organizeJar } from "./organize";
 import { todayCivil } from "./budget";
 import { civilDate } from "./gifts";
+import { carryPendingPicks } from "./pending-match";
 
 /**
  * Phase 25: getting money data in and through the reconciler (lib/finance/reconcile.ts).
@@ -290,7 +291,11 @@ async function applySimpleFin(jarId: string, accounts: SfAccount[], windowStartD
           windowStartDay,
           today,
         );
-        if (gone.length) await tx.finTransaction.updateMany({ where: { id: { in: gone } }, data: { state: "SUPERSEDED" } });
+        if (gone.length) {
+          await tx.finTransaction.updateMany({ where: { id: { in: gone } }, data: { state: "SUPERSEDED" } });
+          // Phase 66c: a category or trip someone picked on the pending row moves to its posted one.
+          await carryPendingPicks(tx, jarId, gone);
+        }
         await dedupeAccount(tx, jarId, account.id);
       },
       { timeout: 30_000 },

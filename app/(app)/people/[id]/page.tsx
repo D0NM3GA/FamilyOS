@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { Mail, Phone, Pencil, RefreshCw } from "lucide-react";
+import { Mail, Phone, Pencil } from "lucide-react";
 import { requireActiveProfile, isSessionOwner } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
 import {
@@ -30,10 +30,9 @@ import { InteractionList, type InteractionRow } from "./interaction-list";
 import { ImportantDates } from "./important-dates";
 import { RelationshipsCard } from "./relationships-card";
 import { RecordTabs } from "./record-tabs";
-import { syncFromMicrosoft } from "./actions";
+import { SyncFromMicrosoftButton } from "./sync-button";
 import { getRewardWords } from "@/lib/household-settings";
 import { rewardCount } from "@/lib/reward-words";
-import { SubmitButton } from "@/components/submit";
 import { microsoftLinkedUserIds, signInKindOf } from "@/lib/sign-in-kind";
 import { parseItemRef, itemParam } from "@/lib/work-items/history";
 import { ItemPanel } from "../../item-panel";
@@ -187,15 +186,7 @@ export default async function PersonRecordPage({
               <QuickAction href={`/people/${person.id}/edit`} icon={Pencil} label="Edit" />
             )}
             {person.id === profile.id && ownerOnMicrosoft && (
-              <form action={syncFromMicrosoft.bind(null, person.id)}>
-                <SubmitButton
-                  title="Sync from Microsoft"
-                  aria-label="Sync from Microsoft"
-                  className={`${iconBtn} ring-1 ring-input`}
-                >
-                  <RefreshCw size={16} />
-                </SubmitButton>
-              </form>
+              <SyncFromMicrosoftButton personId={person.id} />
             )}
           </div>
         </div>

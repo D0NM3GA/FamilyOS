@@ -1906,3 +1906,43 @@ Fable's review of 66a: Home's Today card, the calendar and search still showed a
 transaction); tests now check the chore edit really saved, cover as-needed stock and its undo, a
 dose that leaves plenty, and a kid's calendar doses; the refill comments say isMedLow. Left as is:
 an event from 11:50 pm to 12:10 am shows on both days.
+
+### 66b — Two phones on the list, and failures in words
+
+**Steps:** the list's −/+ call `stepQuantity(itemId, ±1)`, applied in SQL to the amount as it is
+(capped at 999), with the zero-delete in the same transaction; `setQuantity` is gone. **Gone rows:**
+`toggleItem`, `setRequestedBy` and `setItemNote` use household-scoped `updateMany`, so a row
+another phone took off does nothing; `assertOwnedItem` is gone. **One row per item:** `lockList`
+(`lib/shopping-list.ts`) takes `SELECT … FOR UPDATE` on the household's one list row; every path
+that adds a row or un-ticks one takes it first and then looks: `addProductToList`,
+`requestItemByName` (now in a transaction, its Pantry item found first since that one recovers
+from a unique-key race), `putRowBack`, `addWeekToList`, Pantry merge, and `untickRow`, which
+folds a ticked row into an unchecked twin added meanwhile (amount added; note, who it's for and a
+medicine or car source kept when the twin has none). Toggling and the Shop view's `applyChecks`
+(now given the list id) both un-tick through it. Paths that only remove or tick rows (finishing a
+trip, taking a row off) don't need the lock, so writes after a lookup go by id with
+`updateMany`/`deleteMany`. **Sync from Microsoft** returns `{ error }` and
+`SyncFromMicrosoftButton` (`useActionState`) shows it in place. Home's Called/Texted stay plain
+forms: no typed input, so nothing to say.
+Fable's review of 66b: no lock cycle (every locking path takes the list first); un-tick and add no
+longer crash when a lock-free removal beats them; the step and its zero-delete share a transaction
+(Postgres can't update and delete one row in a single statement); Pantry merge takes the lock; the
+fold keeps the note and who it's for.
+
+### 66c — Money
+
+**Pending picks:** right after a sync marks pending rows SUPERSEDED (same transaction, after the
+posted rows are in), `carryPendingPicks` (`lib/finance/pending-match.ts`) hands a person's
+category, a grocery trip link (with `purchaseLinkedBy`) and a matched order email to the posted
+row each became. The matcher, `postedRowFor`, is the one surprise marks used (same account and
+feed, 0–10 days later, same sign, amount within 25%, same merchant), now shared with
+`gifts.ts`; candidates are only rows that can take something and haven't taken from another
+pending row in that sync. It runs once, at that moment. **Feed amounts:** `feedAmountToCents`
+(`lib/money.ts`) rounds a third decimal and beyond to the cent, half away from zero, in string
+arithmetic; typed money still refuses it. **Pending days:** `parseAccounts` reads a pending row's
+`transacted_at` (or now) as a day in the household's zone, which the server keeps; posted rows
+keep the bank's UTC date. The stored and parsed days are both plain strings, so a pending row is
+rewritten once after the change and then stays put.
+Fable's review of 66c: the carry could pick a posted row that couldn't take the pick, or one another
+pending charge had just filled, and drop it (candidates now exclude both); order emails move too.
+Left as is: `feedAmountToCents` refuses ".5" like `decimalToCents`.

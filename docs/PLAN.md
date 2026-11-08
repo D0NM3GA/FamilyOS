@@ -2676,10 +2676,11 @@ the code 2026-11-08. The owner said go on the review's grouping ("Yes, start 66"
   list's row first (`SELECT id FROM shopping_list WHERE id = … FOR UPDATE`) and then checks:
   `addProductToList`, `requestItemByName`, `addWeekToList` and un-ticking a done row (which folds
   into an unchecked twin of the same item, adding its amount, instead of making two).
-- **Failures in words, not the error page.** "Sync from Microsoft" on your own person page and
-  Home's "Called" / "Texted" buttons become small client forms (`useActionState` with
-  `SubmitButton`) whose actions return `{ error }` instead of throwing, so a Microsoft timeout
-  says so in place. Guard-style throws for tampered ids stay as they are.
+- **Failures in words, not the error page.** "Sync from Microsoft" on your own person page becomes
+  a small client form (`useActionState` with `SubmitButton`) whose action returns `{ error }`
+  instead of throwing, so a Microsoft timeout says so in place. Home's "Called" / "Texted" stay
+  plain forms: they send no typed input, so the only failure left is a person deleted meanwhile.
+  Guard-style throws for tampered ids stay as they are.
 
 ### 66c — Money
 

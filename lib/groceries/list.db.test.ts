@@ -69,7 +69,7 @@ describe.skipIf(!RUN)("kid picks and shop check-offs (database)", () => {
     const theirs = await prisma.product.create({ data: { householdId: ids.other, name: "Milk", nameKey: "milk" } });
     const theirRow = await prisma.shoppingListItem.create({ data: { listId: ids.otherList, productId: theirs.id } });
 
-    const applied = await applyChecks(ids.h, [
+    const applied = await applyChecks(ids.h, ids.list, [
       { itemId: milk.id, done: true },
       { itemId: milk.id, done: false },
       { itemId: milk.id, done: true },
@@ -79,6 +79,30 @@ describe.skipIf(!RUN)("kid picks and shop check-offs (database)", () => {
     expect(applied).toBe(1);
     expect((await prisma.shoppingListItem.findUniqueOrThrow({ where: { id: milk.id } })).done).toBe(true);
     expect((await prisma.shoppingListItem.findUniqueOrThrow({ where: { id: theirRow.id } })).done).toBe(false);
-    expect(await applyChecks(ids.h, [])).toBe(0);
+    expect(await applyChecks(ids.h, ids.list, [])).toBe(0);
+  });
+
+  test("two phones adding the same item at once make one row with two (Phase 66b)", async () => {
+    const eggs = await prisma.product.create({ data: { householdId: ids.h, name: "Eggs", nameKey: "eggs" } });
+    await Promise.all([
+      addProductToList(ids.h, ids.list, eggs.id, { id: ids.kid, role: "ADULT" }),
+      addProductToList(ids.h, ids.list, eggs.id, { id: ids.kid, role: "ADULT" }),
+      addProductToList(ids.h, ids.list, eggs.id, { id: ids.kid, role: "ADULT" }),
+    ]);
+    const rows = await prisma.shoppingListItem.findMany({ where: { listId: ids.list, productId: eggs.id, done: false } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].quantity).toBe(3);
+  });
+
+  test("un-ticking a row folds it into the same item added again meanwhile (Phase 66b)", async () => {
+    const bread = await prisma.product.create({ data: { householdId: ids.h, name: "Bread", nameKey: "bread" } });
+    const ticked = await prisma.shoppingListItem.create({ data: { listId: ids.list, productId: bread.id, quantity: 2, done: true, note: "the seeded one", requestedById: ids.kid } });
+    const fresh = await prisma.shoppingListItem.create({ data: { listId: ids.list, productId: bread.id, quantity: 1 } });
+    expect(await applyChecks(ids.h, ids.list, [{ itemId: ticked.id, done: false }])).toBe(1);
+    const rows = await prisma.shoppingListItem.findMany({ where: { listId: ids.list, productId: bread.id } });
+    // Its note and who it was for come along, since the fresh row had neither.
+    expect(rows.map((r) => [r.id, r.quantity, r.done, r.note, r.requestedById])).toEqual([[fresh.id, 3, false, "the seeded one", ids.kid]]);
+    // Un-ticking a row that's gone (another phone finished the trip) is quietly nothing.
+    expect(await applyChecks(ids.h, ids.list, [{ itemId: ticked.id, done: false }])).toBe(0);
   });
 });

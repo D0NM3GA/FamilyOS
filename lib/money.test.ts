@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest";
-import { centsToInput, decimalToCents, formatMoney, formatWholeDollars, parseMoneyInput, roundEstimateCents } from "./money";
+import { centsToInput, decimalToCents, feedAmountToCents, formatMoney, formatWholeDollars, parseMoneyInput, roundEstimateCents } from "./money";
 
 describe("decimalToCents", () => {
   it("parses bank decimal strings exactly", () => {
@@ -80,5 +80,22 @@ describe("roundEstimateCents", () => {
 describe("formatWholeDollars", () => {
   it("shows no cents", () => {
     expect(formatWholeDollars(223000)).toBe("$2,230");
+  });
+});
+
+describe("feedAmountToCents (Phase 66c)", () => {
+  it("rounds extra decimals to the cent, half away from zero", () => {
+    expect(feedAmountToCents("-12.3450")).toBe(-1235);
+    expect(feedAmountToCents("-12.3449")).toBe(-1234);
+    expect(feedAmountToCents("0.005")).toBe(1);
+    expect(feedAmountToCents("19.999")).toBe(2000);
+  });
+
+  it("reads two decimals or fewer like decimalToCents, and still refuses junk", () => {
+    expect(feedAmountToCents("-4.5")).toBe(-450);
+    expect(feedAmountToCents(12)).toBe(1200);
+    expect(feedAmountToCents("1.2.3")).toBeNull();
+    expect(feedAmountToCents("")).toBeNull();
+    expect(feedAmountToCents(null)).toBeNull();
   });
 });

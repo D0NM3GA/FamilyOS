@@ -21,6 +21,24 @@ export function decimalToCents(raw: string | number | null | undefined): number 
   return Number.isSafeInteger(signed) && Math.abs(signed) <= MAX_CENTS ? signed : null;
 }
 
+/**
+ * Phase 66c: a bank feed's amount, where a few banks send more than two decimals ("-12.3450").
+ * Those were dropped without a word (decimalToCents refuses them, rightly, for typed money);
+ * here they round to the cent, half away from zero, in string arithmetic. Null for junk.
+ */
+export function feedAmountToCents(raw: string | number | null | undefined): number | null {
+  if (raw == null) return null;
+  const text = String(raw).trim().replace(/,/g, "");
+  const m = text.match(/^([+-]?)(\d+)(?:\.(\d*))?$/);
+  if (!m) return null;
+  const decimals = m[3] ?? "";
+  if (decimals.length <= 2) return decimalToCents(text);
+  const roundUp = Number(decimals[2]) >= 5 ? 1 : 0;
+  const cents = Number(m[2]) * 100 + Number(decimals.slice(0, 2)) + roundUp;
+  const signed = m[1] === "-" ? -cents : cents;
+  return Number.isSafeInteger(signed) && Math.abs(signed) <= MAX_CENTS ? signed : null;
+}
+
 export type MoneyParse = { ok: true; cents: number | null } | { ok: false; error: string };
 
 /**

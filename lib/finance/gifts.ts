@@ -1,6 +1,7 @@
 import type { Prisma } from "@/app/generated/prisma/client";
 import { prisma, type Tx } from "@/lib/prisma";
 import { todayCivil } from "./budget";
+import { postedRowFor } from "./pending-match";
 
 /**
  * Phase 27: surprises. A jar member marks a charge as a gift, hidden from some of the jar's
@@ -18,8 +19,6 @@ import { todayCivil } from "./budget";
 
 type Db = Tx | typeof prisma;
 const DAY = 86_400_000;
-/** How long after a marked pending charge its posted row can turn up. */
-const POST_WINDOW_DAYS = 10;
 const LOOKBACK_DAYS = 60;
 
 export const MAX_REVEAL_DAYS = 366;
@@ -145,31 +144,7 @@ export async function spreadGiftMarks(db: Db, jarId: string, now: Date = new Dat
       where: { jarId, accountId: p.accountId, source: p.source, pending: false, id: { not: p.id }, OR: [{ id: root }, { giftCopiedFromId: root }] },
     });
     if (handedOn) continue;
-    const candidates = await db.finTransaction.findMany({
-      where: {
-        jarId,
-        accountId: p.accountId,
-        source: p.source,
-        state: "ACTIVE",
-        pending: false,
-        ...takesMark(today),
-        postedOn: { gte: p.postedOn, lte: new Date(p.postedOn.getTime() + POST_WINDOW_DAYS * DAY) },
-        amountCents: p.amountCents < 0 ? { lt: 0 } : { gt: 0 },
-      },
-      select: { id: true, amountCents: true, postedOn: true, merchantKey: true },
-    });
-    const pKey = p.merchantKey === "-" ? "" : p.merchantKey;
-    const sameMerchant = (key: string) => key !== "-" && key !== "" && (key === pKey || pKey.includes(key) || key.includes(pKey));
-    const close = candidates
-      .filter((c) => Math.abs(c.amountCents - p.amountCents) <= Math.abs(p.amountCents) * 0.25)
-      .filter((c) => (pKey ? sameMerchant(c.merchantKey) : true));
-    close.sort(
-      (a, b) =>
-        Number(b.merchantKey === pKey) - Number(a.merchantKey === pKey) ||
-        Math.abs(a.amountCents - p.amountCents) - Math.abs(b.amountCents - p.amountCents) ||
-        a.postedOn.getTime() - b.postedOn.getTime(),
-    );
-    const best = close[0];
+    const best = await postedRowFor(db, jarId, p, takesMark(today));
     if (!best) continue;
     const { count } = await db.finTransaction.updateMany({ where: { id: best.id, jarId, ...takesMark(today) }, data: copyData(p) });
     copied += count;

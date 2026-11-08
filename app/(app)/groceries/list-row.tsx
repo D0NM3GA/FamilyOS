@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Check, Minus, Plus } from "lucide-react";
 import { amountLabel, describeSize, type Size } from "@/lib/groceries/size";
 import { btn, btnDanger } from "@/components/styles";
-import { setQuantity, toggleItem, vetoItem } from "./actions";
+import { stepQuantity, toggleItem, vetoItem } from "./actions";
 import { TakeOffButton } from "./list-undo";
 import { ConfirmSubmit, SubmitButton } from "@/components/submit";
 
@@ -96,7 +96,7 @@ export function ListRow({ item, href, vetoable = false }: { item: ListRowItem; h
             <Minus size={16} />
           </TakeOffButton>
         ) : (
-          <form action={setQuantity.bind(null, item.id, item.quantity - 1)}>
+          <form action={stepQuantity.bind(null, item.id, -1)}>
             <SubmitButton className={stepBtn} aria-label={`One less ${item.product.name}`}>
               <Minus size={16} />
             </SubmitButton>
@@ -105,7 +105,7 @@ export function ListRow({ item, href, vetoable = false }: { item: ListRowItem; h
         <span className="min-w-12 text-center text-sm font-bold">
           {amountLabel(item.quantity, item.product.container)}
         </span>
-        <form action={setQuantity.bind(null, item.id, item.quantity + 1)}>
+        <form action={stepQuantity.bind(null, item.id, 1)}>
           <SubmitButton
             className={stepBtn}
             aria-label={`One more ${item.product.name}`}
