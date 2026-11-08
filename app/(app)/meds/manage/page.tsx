@@ -62,7 +62,7 @@ export default async function ManageMedsPage() {
                     {def.title}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {describeRecurrence(def)} · {def.timesOfDay.map(formatHHmm).join(", ")}
+                    {[describeRecurrence(def), def.timesOfDay.map(formatHHmm).join(", ")].filter(Boolean).join(" · ")}
                     {def.points > 0 ? ` · ${def.points} ⭐` : ""}
                   </p>
                   <div className="mt-1 flex min-w-0 items-center gap-2">
@@ -126,6 +126,9 @@ export default async function ManageMedsPage() {
                     DailyMed
                     <span className="sr-only">: look up {def.title} (opens in a new tab)</span>
                   </a>
+                  <Link href={`/meds/${def.id}/history`} className={btn}>
+                    History<span className="sr-only"> of {def.title}</span>
+                  </Link>
                   <Link href={`/meds/${def.id}/edit`} className={btn}>
                     Edit<span className="sr-only"> {def.title}</span>
                   </Link>
