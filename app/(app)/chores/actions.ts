@@ -9,6 +9,7 @@ import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAdult, isAdult } from "@/lib/authz";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { markOlderMissedIds } from "@/lib/tasks/skip";
+import { scheduleChanged } from "@/lib/tasks/edit";
 import { completeChore, reassignChore, skipChore, uncompleteChore, unskipChore } from "@/lib/tasks/chore-cores";
 import { deleteEventsFor, recordEvents } from "@/lib/work-items/events";
 import { moveChore, moveChoreIn, type MoveTarget } from "@/lib/tasks/move";
@@ -99,18 +100,33 @@ export async function updateTaskDefinition(
 
   const existing = await prisma.taskDefinition.findFirst({
     where: { id: definitionId, householdId: profile.householdId, domain: "CHORE" },
+    include: { assignees: { select: { id: true } } },
   });
   if (!existing) return { error: "Chore not found." };
+  // Phase 66a: a new schedule or pool applies now, not in two weeks. The days already planned
+  // from the old one go (not ones moved by hand, which keep their new day), and the board,
+  // Home and the calendar plan the new ones on their next load, the same as Meds' edit.
+  const replan = scheduleChanged({ ...existing, assigneeIds: existing.assignees.map((a) => a.id) }, { ...result.fields, assigneeIds: result.assigneeIds });
 
-  await prisma.taskDefinition.update({
-    where: { id: definitionId },
-    data: {
-      ...result.fields,
-      assignees: { set: result.assigneeIds.map((id) => ({ id })) },
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.taskDefinition.update({
+      where: { id: definitionId },
+      data: {
+        ...result.fields,
+        assignees: { set: result.assigneeIds.map((id) => ({ id })) },
+      },
+    });
+    if (replan) {
+      const waiting = { definitionId, status: "PENDING" as const, dueDate: { gte: atMidnight(new Date()) }, movedFrom: null };
+      const going = await tx.taskInstance.findMany({ where: waiting, select: { id: true } });
+      await tx.taskInstance.deleteMany({ where: { id: { in: going.map((i) => i.id) } } });
+      await deleteEventsFor(tx, "CHORE", going.map((i) => i.id));
+    }
   });
 
   revalidatePath("/chores");
+  revalidatePath("/calendar");
+  revalidatePath("/");
   redirect("/chores/manage");
 }
 
