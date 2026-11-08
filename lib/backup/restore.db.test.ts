@@ -97,9 +97,9 @@ function fixture(): Backup {
     stores: [{ id: "s1", name: "Kroger", createdAt: T }],
     productGroups: [{ id: "g1", name: "Dairy", emoji: "🥛", sortOrder: 1, starterKey: "dairy", createdAt: T }],
     products: [
-      { id: "p1", name: "Eggs", barcode: `bc-${tag}`, brand: "Happy", imageUrl: null, sizeAmount: 12, sizeUnit: "count", container: "carton", defaultStoreId: "s1", groupId: "g1", createdAt: T },
-      { id: "p2", name: "Paper towels", barcode: null, brand: null, imageUrl: null, sizeAmount: 12, sizeUnit: "rolls", container: "pack", defaultStoreId: null, groupId: null, createdAt: T },
-      { id: "p3", name: "Birthday candles", barcode: null, brand: null, imageUrl: null, sizeAmount: null, sizeUnit: null, container: null, defaultStoreId: null, groupId: null, createdAt: T2 },
+      { id: "p1", name: "Eggs", barcode: `bc-${tag}`, brand: "Happy", imageUrl: null, sizeAmount: 12, sizeUnit: "count", container: "carton", defaultStoreId: "s1", groupId: "g1", alwaysHave: false, createdAt: T },
+      { id: "p2", name: "Paper towels", barcode: null, brand: null, imageUrl: null, sizeAmount: 12, sizeUnit: "rolls", container: "pack", defaultStoreId: null, groupId: null, alwaysHave: false, createdAt: T },
+      { id: "p3", name: "Birthday candles", barcode: null, brand: null, imageUrl: null, sizeAmount: null, sizeUnit: null, container: null, defaultStoreId: null, groupId: null, alwaysHave: false, createdAt: T2 },
     ],
     shoppingListItems: [
       { id: "li1", productId: "p1", quantity: 2, done: false, kidPick: true, addedById: "Mom", requestedById: "Kid", medicationId: null, vehicleSupplyId: null, note: "the big tub", createdAt: T },

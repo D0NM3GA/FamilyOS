@@ -334,6 +334,8 @@ const product = z.object({
   container: nullableText.default(null),
   defaultStoreId: nullableId,
   groupId: nullableId,
+  // v16 (Phase 69b): "We always have it"; older files have it off.
+  alwaysHave: z.boolean().default(false),
   createdAt: iso,
 });
 
@@ -513,12 +515,13 @@ export const BACKUP_FORMAT = "familyos-household-backup";
  * frequency and a medicine's minGapHours / maxPerDay, which a server before it can't read); v13
  * (Phase 65b) car paperwork and repairs (an item's kind and nextDueAt, a service log's title);
  * v14 (Phase 65d) the meal plan (meals, their ingredients, the planned days); v15 (Phase 68a) a
- * course of medicine's last day (endDate, none in older files). Older
+ * course of medicine's last day (endDate, none in older files); v16 (Phase 69b) a Pantry item's
+ * "We always have it" (off in older files). Older
  * files still restore with the arrays they lack defaulting to empty, so restoring one
  * removes that data here (the restore preview shows those delete counts). A v1 file still restores: those arrays
  * default to empty (and the restore preview says existing supplies will be removed).
  */
-export const BACKUP_SCHEMA_VERSION = 15;
+export const BACKUP_SCHEMA_VERSION = 16;
 
 /**
  * Phase 28 (v7): the household's money jars, sealed (AES-256-GCM over gzipped JSON, see
@@ -541,7 +544,7 @@ export type SealedMoney = z.infer<typeof sealedMoneySchema>;
 export const backupSchema = z.object({
   format: z.literal(BACKUP_FORMAT),
   // Every version this file format has had: older files restore with what they lack defaulted.
-  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, BACKUP_SCHEMA_VERSION]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, BACKUP_SCHEMA_VERSION]),
   exportedAt: iso,
   /**
    * Chore/med due dates and vehicle log dates are stored as the SERVER's local midnight.

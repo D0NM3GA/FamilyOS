@@ -55,4 +55,14 @@ describe.skipIf(!RUN)("running low (database)", { timeout: 60_000 }, () => {
       ["Rice", 2],
     ]);
   });
+
+  test("Still have some hides it for a usual gap; buying it again brings it back (Phase 69b)", async () => {
+    const eggs = await prisma.product.findFirstOrThrow({ where: { householdId: ids.h, name: "Eggs" } });
+    await prisma.product.update({ where: { id: eggs.id }, data: { lowSnoozedAt: new Date() } });
+    expect((await getRunningLow(ids.h)).map((s) => s.label)).toEqual(["Rice"]);
+    // Snoozed long enough ago, it's back.
+    await prisma.product.update({ where: { id: eggs.id }, data: { lowSnoozedAt: new Date(Date.now() - 30 * day) } });
+    expect((await getRunningLow(ids.h)).map((s) => s.label)).toEqual(["Eggs", "Rice"]);
+    await prisma.product.update({ where: { id: eggs.id }, data: { lowSnoozedAt: null } });
+  });
 });

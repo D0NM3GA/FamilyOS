@@ -68,6 +68,7 @@ export async function ItemSheet({
         container: product.container,
         defaultStoreId: product.defaultStoreId,
         groupId: product.groupId,
+        alwaysHave: product.alwaysHave,
       }}
       stores={stores}
       sections={sections}

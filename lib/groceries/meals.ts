@@ -70,14 +70,15 @@ export function ingredientLines(items: { name: string; quantity: number }[]): st
  */
 export function weekShopping(
   mealIds: (string | null)[],
-  ingredients: Map<string, { productId: string; quantity: number }[]>,
+  ingredients: Map<string, { productId: string; quantity: number; alwaysHave?: boolean }[]>,
   onList: Set<string>,
 ): { productId: string; quantity: number }[] {
   const need = new Map<string, number>();
   for (const mealId of mealIds) {
     if (!mealId) continue;
     for (const i of ingredients.get(mealId) ?? []) {
-      if (onList.has(i.productId)) continue;
+      // Phase 69b: "We always have it" (salt, oil) isn't added.
+      if (onList.has(i.productId) || i.alwaysHave) continue;
       need.set(i.productId, (need.get(i.productId) ?? 0) + i.quantity);
     }
   }

@@ -109,8 +109,9 @@ const checks = {
   recallAck: true satisfies Covered<VehicleRecallAckModel, Row<"recallAcks">>,
   store: true satisfies Covered<StoreModel, Row<"stores">, Scope>,
   productGroup: true satisfies Covered<ProductGroupModel, Row<"productGroups">, Scope>,
-  // nameKey: derived from the name on restore (lib/product-name.ts).
-  product: true satisfies Covered<ProductModel, Row<"products">, Scope | "updatedAt" | "nameKey">,
+  // nameKey: derived from the name on restore (lib/product-name.ts). lowSnoozedAt: a "Still have
+  // some" that lasts one usual gap (Phase 69b), passing state.
+  product: true satisfies Covered<ProductModel, Row<"products">, Scope | "updatedAt" | "nameKey" | "lowSnoozedAt">,
   // listId: one shopping list per household, recreated by getOrCreateActiveList.
   shoppingListItem: true satisfies Covered<ShoppingListItemModel, Row<"shoppingListItems">, "listId" | "updatedAt">,
   purchase: true satisfies Covered<PurchaseModel, Row<"purchases">, Scope | "listId">,

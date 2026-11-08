@@ -169,7 +169,7 @@ function fullBackup(): Backup {
   b.stores = [{ id: "s1", name: "Kroger", createdAt: T }];
   b.productGroups = [{ id: "g1", name: "Dairy", emoji: "🥛", sortOrder: 1, starterKey: "dairy", createdAt: T }];
   b.products = [
-    { id: "p1", name: "Eggs", barcode: "123", brand: null, imageUrl: null, sizeAmount: 12, sizeUnit: "count", container: "carton", defaultStoreId: "s1", groupId: "g1", createdAt: T },
+    { id: "p1", name: "Eggs", barcode: "123", brand: null, imageUrl: null, sizeAmount: 12, sizeUnit: "count", container: "carton", defaultStoreId: "s1", groupId: "g1", alwaysHave: false, createdAt: T },
   ];
   b.shoppingListItems = [
     { id: "li1", productId: "p1", quantity: 1, done: false, kidPick: true, addedById: "mom", requestedById: "kid", medicationId: null, vehicleSupplyId: null, note: "the big tub", createdAt: T },
@@ -566,8 +566,8 @@ describe("older files' groceries (Phase 22)", () => {
     b.quantityUnits = [{ id: "u1", name: "Dozen", abbreviation: "dz" }];
     b.productGroups = [{ id: "g1", name: "Dairy", createdAt: T }];
     b.products = [
-      { id: "p1", name: "Eggs", barcode: "123", brand: null, imageUrl: null, defaultUnitId: "u1", defaultStoreId: "s1", groupId: "g1", createdAt: T },
-      { id: "p2", name: "eggs", barcode: "456", brand: null, imageUrl: null, defaultUnitId: null, defaultStoreId: null, groupId: null, createdAt: T },
+      { id: "p1", name: "Eggs", barcode: "123", brand: null, imageUrl: null, defaultUnitId: "u1", defaultStoreId: "s1", groupId: "g1", alwaysHave: false, createdAt: T },
+      { id: "p2", name: "eggs", barcode: "456", brand: null, imageUrl: null, defaultUnitId: null, defaultStoreId: null, groupId: null, alwaysHave: false, createdAt: T },
     ];
     b.shoppingListItems = [
       { id: "li1", productId: "p2", freeText: null, quantity: 1, unitId: "u1", done: false, addedById: "mom", requestedById: null, createdAt: T },

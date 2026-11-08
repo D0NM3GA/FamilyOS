@@ -14,7 +14,7 @@ import {
 } from "@/lib/groceries/queries";
 import { AddBox } from "./add-box";
 import { ItemSheet } from "./item-sheet";
-import { finishTrip, addItem } from "./actions";
+import { finishTrip, addItem, stillHaveSome } from "./actions";
 import { ListRow } from "./list-row";
 import { ListDock } from "./list-undo";
 import { KidTiles } from "./kid-tiles";
@@ -134,14 +134,24 @@ export default async function GroceriesPage({
           <h2 className={sectionTitle}>Probably need soon</h2>
           <div className={`mt-2 ${chipRow}`}>
             {pantrySuggestions.map((s) => (
-              <form key={s.key} action={addItem.bind(null, s.productId ? { productId: s.productId } : { name: s.label })}>
-                <SubmitButton
-                  title={`Should last about ${Math.round(s.lastsDays)} days — last bought ${s.daysSinceLast} days ago`}
-                  className={`${chip} border-sun bg-sun/20 text-foreground`}
-                >
-                  + {s.label}
-                </SubmitButton>
-              </form>
+              <span key={s.key} className="inline-flex items-center">
+                <form action={addItem.bind(null, s.productId ? { productId: s.productId } : { name: s.label })}>
+                  <SubmitButton
+                    title={`Should last about ${Math.round(s.lastsDays)} days — last bought ${s.daysSinceLast} days ago`}
+                    className={`${chip} border-sun bg-sun/20 text-foreground`}
+                  >
+                    + {s.label}
+                  </SubmitButton>
+                </form>
+                {/* Phase 69b: "Still have some" hides it for one usual gap. */}
+                {s.productId && (
+                  <form action={stillHaveSome.bind(null, s.productId)}>
+                    <SubmitButton title="Still have some" aria-label={`Still have some ${s.label}`} className="inline-flex size-11 items-center justify-center text-muted-foreground hover:text-foreground sm:size-8">
+                      ×
+                    </SubmitButton>
+                  </form>
+                )}
+              </span>
             ))}
           </div>
         </div>

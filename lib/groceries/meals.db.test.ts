@@ -63,8 +63,18 @@ describe.skipIf(!RUN)("meal plan (database)", { timeout: 60_000 }, () => {
 
     expect(await addWeekToList(weekKey)).toEqual({ ok: "Added 2 items to the list." });
     const rows = await prisma.shoppingListItem.findMany({ where: { list: { householdId: ids.h } }, include: { product: true } });
-    expect(rows.map((r) => [r.product.name, r.quantity]).sort()).toEqual([["Tomatoes", 4], ["Tortillas", 2]]);
-    expect(await addWeekToList(weekKey)).toEqual({ ok: "Everything the week's meals need is already on the list." });
+    // Phase 69b: only today on counts, so on a Saturday the "other" day (Sunday) is already past.
+    const days = otherIndex > todayIndex ? 2 : 1;
+    expect(rows.map((r) => [r.product.name, r.quantity]).sort()).toEqual([["Tomatoes", 2 * days], ["Tortillas", days]]);
+    expect(await addWeekToList(weekKey)).toEqual({ ok: "Everything the rest of the week's meals need is on the list (or always in the house)." });
+
+    // Phase 69b: a ticked row counts as on the list, and "We always have it" is never added.
+    await prisma.shoppingListItem.updateMany({ where: { list: { householdId: ids.h } }, data: { done: true } });
+    expect(await addWeekToList(weekKey)).toMatchObject({ ok: expect.stringMatching(/^Everything/) });
+    await prisma.shoppingListItem.deleteMany({ where: { list: { householdId: ids.h } } });
+    await prisma.product.updateMany({ where: { householdId: ids.h, name: "Tortillas" }, data: { alwaysHave: true } });
+    expect(await addWeekToList(weekKey)).toEqual({ ok: "Added 1 item to the list." });
+    expect((await prisma.shoppingListItem.findMany({ where: { list: { householdId: ids.h } }, include: { product: true } })).map((r) => r.product.name)).toEqual(["Tomatoes"]);
 
     await deleteMeal(meal.id);
     const plan = await getWeekPlan(ids.h, week);
