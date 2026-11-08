@@ -1,6 +1,7 @@
 "use client";
 
 import { AddBox } from "../add-box";
+import { RefreshOnReturn } from "@/components/refresh-on-return";
 import { useLook } from "@/components/look";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -167,6 +168,8 @@ export function ShopView({ householdId, rows: serverRows, stores }: { householdI
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Phase 69b: what other phones add or tick shows up: on coming back, and each minute. */}
+      <RefreshOnReturn everyMs={60_000} paused={pending > 0} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-extrabold">{store ? `At ${store}` : "Shopping"}</h1>
         {pending > 0 && (
