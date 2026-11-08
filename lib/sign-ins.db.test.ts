@@ -18,6 +18,7 @@ type Modules = {
   signIns: typeof import("@/lib/sign-ins");
   notices: typeof import("@/lib/sign-in-notices");
   my: typeof import("@/lib/my-passkeys");
+  sessions: typeof import("@/lib/my-sessions");
   prisma: typeof import("@/lib/prisma").prisma;
 };
 
@@ -53,6 +54,7 @@ describe.skipIf(!RUN)("managing sign-ins (scratch database)", { timeout: 180_000
       signIns: await import("@/lib/sign-ins"),
       notices: await import("@/lib/sign-in-notices"),
       my: await import("@/lib/my-passkeys"),
+      sessions: await import("@/lib/my-sessions"),
       prisma: (await import("@/lib/prisma")).prisma,
     };
     await setupUser("dad");
@@ -133,6 +135,48 @@ describe.skipIf(!RUN)("managing sign-ins (scratch database)", { timeout: 180_000
     const phone = new SoftAuthenticator(RP_ID, ORIGIN);
     expect((await accept(again.token, phone)).res.status).toBe(200);
     people.mom.device = phone;
+  });
+
+  test("your own devices: sign out one, or every other; never this one or someone else's (Phase 67a)", async () => {
+    const { dad, mom } = people;
+    const phone = await signInWith(mom.device);
+    const tablet = await signInWith(mom.device);
+    const laptop = await signInWith(mom.device);
+    const current = (await (await call(phone.jar, "/get-session")).json()).session.id as string;
+    const tabletId = (await (await call(tablet.jar, "/get-session")).json()).session.id as string;
+    const me = { userId: mom.userId, currentSessionId: current, person: mom.person };
+
+    const listed = await m.sessions.listMySessions(mom.userId, current);
+    expect(listed[0]).toMatchObject({ id: current, current: true });
+    expect(listed.length).toBeGreaterThanOrEqual(3);
+    // Not this one, and not Dad's.
+    expect(await m.sessions.signOutMySession(me, current)).toBe(false);
+    const dadsSession = await m.prisma.session.findFirst({ where: { userId: dad.userId } });
+    if (dadsSession) expect(await m.sessions.signOutMySession(me, dadsSession.id)).toBe(false);
+
+    expect(await m.sessions.signOutMySession(me, tabletId)).toBe(true);
+    expect((await (await call(tablet.jar, "/get-session")).json())?.session ?? null).toBeNull();
+    expect(await m.sessions.signOutMyOtherSessions(me)).toBeGreaterThanOrEqual(1);
+    expect((await (await call(laptop.jar, "/get-session")).json())?.session ?? null).toBeNull();
+    expect(await m.prisma.session.count({ where: { userId: mom.userId } })).toBe(1);
+    const details = (await m.prisma.signInEvent.findMany({ where: { subjectId: mom.person.id, kind: "SIGNED_OUT_ELSEWHERE" }, select: { detail: true } })).map((e) => e.detail);
+    expect(details.sort()).toEqual(["everywhere else", "one device"]);
+
+    // Better Auth's own session routes are off.
+    expect((await call(phone.jar, "/list-sessions")).status).toBe(404);
+    expect((await call(phone.jar, "/revoke-other-sessions", { method: "POST", body: {} })).status).toBe(404);
+  });
+
+  test("an admin signs someone out on every device; their passkey still gets them in (Phase 67a)", async () => {
+    const { dad, mom } = people;
+    await m.prisma.notification.deleteMany({});
+    await signInWith(mom.device);
+    await m.signIns.signOutEverywhere(dad.person, mom.person.id);
+    expect(await m.prisma.session.count({ where: { userId: mom.userId } })).toBe(0);
+    expect(await titlesFor(mom.person.id)).toEqual(["🔐 Dad signed you out on every device. Sign in again where you use the app."]);
+    expect(await m.prisma.signInEvent.count({ where: { subjectId: mom.person.id, kind: "SIGNED_OUT_EVERYWHERE" } })).toBe(1);
+    expect((await signInWith(mom.device)).res.status).toBe(200);
+    await expect(m.signIns.signOutEverywhere(dad.person, dad.person.id)).rejects.toMatchObject({ code: "self" });
   });
 
   test("not for yourself, and not for someone on Microsoft", async () => {

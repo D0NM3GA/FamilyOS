@@ -14,7 +14,7 @@ import { SignInAgain } from "@/components/sign-in-again";
 import { btnDanger } from "@/components/styles";
 import { InviteForm } from "./invite-form";
 import { ResetPasskeys } from "./reset-passkeys";
-import { changeRoleAction, checkEntraNow, removeSignInAction, resetPasskeysAction, revokeInviteAction } from "./actions";
+import { changeRoleAction, checkEntraNow, removeSignInAction, resetPasskeysAction, revokeInviteAction, signOutEverywhereAction } from "./actions";
 import { ENTRA_OUTCOME_WORDS, entraCheckStatus } from "@/lib/entra-check";
 import { entraUsersAndGroupsUrl } from "@/lib/microsoft-admin";
 import { SubmitButton } from "@/components/submit";
@@ -183,6 +183,16 @@ export default async function SignInSettingsPage({ searchParams }: { searchParam
                       </ConfirmSubmit>
                     </form>
                     {!p.provider && <ResetPasskeys action={resetPasskeysAction.bind(null, p.id)} name={p.firstName} hours={RECOVERY_HOURS} />}
+                    <form action={signOutEverywhereAction.bind(null, p.id)}>
+                      <ConfirmSubmit
+                        question={`Sign ${p.firstName} out on every device? Use it for a lost or stolen phone. ${p.provider ? "They sign in again with their account." : "Their passkeys stay, so they sign in again as usual."}`}
+                        yes="Sign out everywhere"
+                        aria-label={`Sign ${p.firstName} out on every device`}
+                        className={`${linkButton} text-brand-text hover:underline`}
+                      >
+                        Sign out everywhere
+                      </ConfirmSubmit>
+                    </form>
                     {!p.inJar && (
                       <form action={removeSignInAction.bind(null, p.id)}>
                         <ConfirmSubmit
