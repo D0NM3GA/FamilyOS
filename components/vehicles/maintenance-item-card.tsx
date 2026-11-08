@@ -21,6 +21,8 @@ export type MaintenanceItem = {
   supplies: { label: string; onHand: string | null; low: boolean }[];
   /** Phase 65b: paperwork is renewed, not serviced: no miles, and its due day moves on. */
   paperwork?: boolean;
+  /** Phase 69b: the "Good until" box's starting value ("YYYY-MM-DD", made on the server). */
+  goodUntil?: string;
 };
 
 const sticker = "inline-block -rotate-1 rounded-md px-1.5 text-xs font-bold";
@@ -154,6 +156,7 @@ export function MaintenanceItemCard({
           currentMileageLabel={item.currentMileageLabel}
           usesSupplies={item.supplies.length > 0}
           paperwork={item.paperwork}
+          goodUntil={item.goodUntil}
           onCancel={() => setFormOpen(false)}
           onSuccess={(notice) => {
             setFormOpen(false);
@@ -177,6 +180,7 @@ function LogServiceForm({
   currentMileageLabel,
   usesSupplies,
   paperwork,
+  goodUntil,
   onCancel,
   onSuccess,
 }: {
@@ -186,6 +190,7 @@ function LogServiceForm({
   currentMileageLabel: string;
   usesSupplies: boolean;
   paperwork?: boolean;
+  goodUntil?: string;
   onCancel: () => void;
   onSuccess: (notice?: string) => void;
 }) {
@@ -225,6 +230,15 @@ function LogServiceForm({
           className={`mt-1 ${field}`}
         />
       </div>
+      {paperwork && (
+        <div>
+          <label htmlFor={`${id}-until`} className={`block ${fieldLabel}`}>
+            Good until
+          </label>
+          <input id={`${id}-until`} type="date" name="goodUntil" defaultValue={goodUntil ?? ""} min={todayInputValue} aria-describedby={`${id}-until-hint`} className={`mt-1 ${field}`} />
+          <p id={`${id}-until-hint`} className="mt-1 text-xs text-muted-foreground">When it next needs renewing.</p>
+        </div>
+      )}
       {!paperwork && (
       <div>
         <label htmlFor={`${id}-mileage`} className={`block ${fieldLabel}`}>

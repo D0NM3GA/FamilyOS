@@ -779,6 +779,7 @@ function remapPantry(
     container: string | null;
     defaultStoreId: string | null;
     groupId: string | null;
+    alwaysHave: boolean;
     createdAt: Date;
   }[] = [];
 
@@ -795,6 +796,7 @@ function remapPantry(
       kept.imageUrl ??= r.imageUrl;
       kept.defaultStoreId ??= r.defaultStoreId == null ? null : opts.stores.get(r.defaultStoreId)!;
       kept.groupId ??= r.groupId == null ? null : opts.groups.get(r.groupId)!;
+      kept.alwaysHave ||= r.alwaysHave;
       if (kept.sizeAmount == null && kept.sizeUnit == null && kept.container == null) {
         Object.assign(kept, { sizeAmount: r.sizeAmount, sizeUnit: r.sizeUnit, container: r.container });
       }
@@ -816,6 +818,7 @@ function remapPantry(
       container: r.container,
       defaultStoreId: r.defaultStoreId == null ? null : opts.stores.get(r.defaultStoreId)!,
       groupId: r.groupId == null ? null : opts.groups.get(r.groupId)!,
+      alwaysHave: r.alwaysHave,
       createdAt: new Date(r.createdAt),
     });
   }
@@ -842,6 +845,7 @@ function remapPantry(
       container: null,
       defaultStoreId: null,
       groupId: null,
+      alwaysHave: false,
       createdAt: new Date(r.createdAt),
     });
     return id;

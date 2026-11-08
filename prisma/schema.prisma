@@ -1189,6 +1189,12 @@ model Product {
   groupId String?
   group   ProductGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
+  /// Phase 69b: "We always have it" (salt, oil): the week's meal list doesn't add it.
+  alwaysHave   Boolean   @default(false)
+  /// Phase 69b: "Still have some" on running low: hidden for one usual gap from then, or until it's
+  /// bought again.
+  lowSnoozedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -215,7 +215,28 @@ export async function getPantrySuggestions(
     quantity: r.quantity,
   }));
 
-  return computePantrySuggestions(history, new Date(), opts);
+  const now = new Date();
+  const found = computePantrySuggestions(history, now, opts);
+  // Phase 69b: "Still have some" hides an item for one usual gap from when it was said, unless
+  // it's been bought since (a purchase from any path ends it).
+  const ids = found.flatMap((s) => (s.productId ? [s.productId] : []));
+  if (ids.length === 0) return found;
+  const snoozed = await prisma.product.findMany({
+    where: { householdId, lowSnoozedAt: { not: null }, id: { in: ids } },
+    select: { id: true, lowSnoozedAt: true },
+  });
+  const snoozedSince = new Map(snoozed.map((p) => [p.id, p.lowSnoozedAt!]));
+  return found.filter((s) => !s.productId || !stillSnoozed(snoozedSince.get(s.productId) ?? null, s, now));
+}
+
+/** Pure: snoozed at `at`, it stays hidden for one usual gap, unless bought after `at`. */
+export function stillSnoozed(at: Date | null, s: { lastsDays: number; daysSinceLast: number }, now: Date): boolean {
+  if (!at) return false;
+  // Purchases are known by the day, so this compares days: bought that day or later ends it.
+  const dayOf = (d: Date) => Math.round(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86_400_000);
+  if (dayOf(now) - s.daysSinceLast >= dayOf(at)) return false;
+  // lastsDays is always above zero from the planner; the floor keeps a stray 0 from never hiding.
+  return now.getTime() < at.getTime() + Math.max(1, s.lastsDays) * 86_400_000;
 }
 
 /** Phase 65c: Home's "Probably running low" for grown-ups: out now or within 3 days, nothing already on the list. */
@@ -328,6 +349,7 @@ export async function getItemForSheet(householdId: string, productId: string) {
       barcode: true,
       groupId: true,
       defaultStoreId: true,
+      alwaysHave: true,
       updatedAt: true,
     },
   });

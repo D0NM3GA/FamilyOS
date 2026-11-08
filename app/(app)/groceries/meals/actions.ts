@@ -132,22 +132,30 @@ export async function addWeekToList(weekStartRaw: string): Promise<MealFormState
   await assertAppOn(profile.householdId, "groceries");
   const weekStart = parseLocalDate(weekStartRaw);
   if (!weekStart || weekStart.getDay() !== 0) return { error: "That week didn't look right. Reload and try again." };
+  // Phase 69b: only the days still to come (a Monday trip done, Sunday and Monday aren't added
+  // again on Wednesday), and nothing marked "We always have it".
+  const today = atMidnight(new Date());
+  const from = weekStart > today ? weekStart : today;
   const days = await prisma.mealPlanDay.findMany({
-    where: { householdId: profile.householdId, day: { gte: weekStart, lt: addDays(weekStart, 7) }, mealId: { not: null } },
-    select: { mealId: true, meal: { select: { ingredients: { select: { productId: true, quantity: true } } } } },
+    where: { householdId: profile.householdId, day: { gte: from, lt: addDays(weekStart, 7) }, mealId: { not: null } },
+    select: { mealId: true, meal: { select: { ingredients: { select: { productId: true, quantity: true, product: { select: { alwaysHave: true } } } } } } },
   });
   const list = await getOrCreateActiveList(profile.householdId);
-  const ingredients = new Map(days.map((d) => [d.mealId!, d.meal?.ingredients ?? []]));
+  const ingredients = new Map(days.map((d) => [d.mealId!, (d.meal?.ingredients ?? []).map((i) => ({ productId: i.productId, quantity: i.quantity, alwaysHave: i.product.alwaysHave }))]));
   // Phase 66b: read and added under the list's lock, so an add from another phone in between
   // can't end up as a second row of the same thing.
   const need = await prisma.$transaction(async (tx) => {
     await lockList(tx, list.id);
-    const onList = new Set((await tx.shoppingListItem.findMany({ where: { listId: list.id, done: false }, select: { productId: true } })).map((i) => i.productId));
+    // Anything on the list counts, in the cart (ticked) too.
+    const onList = new Set((await tx.shoppingListItem.findMany({ where: { listId: list.id }, select: { productId: true } })).map((i) => i.productId));
     const missing = weekShopping(days.map((d) => d.mealId), ingredients, onList);
     if (missing.length) await tx.shoppingListItem.createMany({ data: missing.map((n) => ({ listId: list.id, productId: n.productId, quantity: n.quantity, addedById: profile.id })) });
     return missing;
   });
-  if (need.length === 0) return { ok: days.length ? "Everything the week's meals need is already on the list." : "No saved meals planned this week." };
+  if (need.length === 0) {
+    if (today >= addDays(weekStart, 7)) return { ok: "That week is over." };
+    return { ok: days.length ? "Everything the rest of the week's meals need is on the list (or always in the house)." : "No saved meals planned for the rest of this week." };
+  }
   revalidatePath("/groceries");
   revalidatePath("/groceries/shop");
   revalidateMeals();

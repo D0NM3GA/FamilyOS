@@ -355,7 +355,9 @@ One shared list for the whole family.
 - **Probably need soon** suggests things you buy regularly, counting how many you got: two packs
   last about twice as long as one. Grown-ups also see **Probably running low** on Home, when there's something: what's
   probably out or will be within three days, soonest first, each with **+ Add** to put it on the
-  list.
+  list. Bought a lot last time? **Still have some** (or the **×** beside a chip) hides it for about
+  as long as it usually lasts; buying it again brings it back.
+- The Shop view picks up what others add or tick from their phones, about every minute.
 
 **Kids** get picture tiles: **Tap what you want!** and it goes on the list. A grown-up can answer
 **Not this time**, and you'll get a kind note in your bell.
@@ -395,7 +397,9 @@ trips**.
 saved meal or type a note ("Leftovers", "Out"), then **Save the week**. A saved meal has a name and
 its ingredients, one per line ("Tortillas", "2 Tomatoes": a number first is how many to buy; "12 oz
 pasta" is one pasta); each becomes a Pantry item. **Add what's missing to the list** puts the week's ingredients on the list, amounts
-added up, skipping what's already there. Today's dinner shows in **Happening today** on Home.
+added up, from today to the end of the week (not days already eaten), skipping what's on the list
+already (in the cart too) and anything whose Pantry item says **We always have it** (salt, oil:
+tick it on the item). Today's dinner shows in **Happening today** on Home.
 Grown-ups plan; kids can see the week. Deleting a meal keeps its name on the days that had it.
 
 ## School
@@ -503,7 +507,8 @@ run, anything already overdue reminds once.
 **Paperwork.** Registration, inspection and insurance go under **Paperwork** on the car's page:
 **+ Add paperwork**, pick what it is, when it's next due, and every how many months (12 unless you
 change it). It reminds two weeks before; tap **Renewed** when it's done (with the cost, if you
-like) and the next due day moves on a full cycle from the old one, even if you renewed late. The
+like). **Good until** starts at the next due day after today, a full cycle on from the old one;
+change it for a term of another length. The
 undo arrow takes a renewal back. To change one, use **Manage vehicles**.
 
 **Repairs.** One-off fixes (a battery, a windshield) go in with **+ Log a repair** under **Service

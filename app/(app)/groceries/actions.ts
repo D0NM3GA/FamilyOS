@@ -411,6 +411,8 @@ const sheetSchema = z.object({
   newStore: z.preprocess(blankToNull, z.string().trim().max(60).nullable()),
   groupId: z.preprocess(blankToNull, z.string().nullable()),
   barcode: z.preprocess(blankToNull, z.string().trim().max(32).nullable()),
+  // Phase 69b: a checkbox, "on" when ticked.
+  alwaysHave: z.preprocess((v) => v === "on", z.boolean()),
 });
 
 async function findOrCreateStore(householdId: string, name: string) {
@@ -490,6 +492,7 @@ export async function saveItemDetails(
         defaultStoreId,
         groupId,
         barcode,
+        alwaysHave: d.alwaysHave,
       },
     });
   } catch (err) {
@@ -590,3 +593,14 @@ export async function setItemNote(itemId: string, formData: FormData) {
   revalidateGroceries();
 }
 
+/**
+ * Phase 69b: "Still have some" on a running-low item (Home's card, the Groceries chips): it's left
+ * out for one usual gap from now, or until it's bought again (lib/groceries/queries.ts).
+ */
+export async function stillHaveSome(productId: string) {
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
+  if (typeof productId !== "string" || productId.length > 64) return;
+  await prisma.product.updateMany({ where: { id: productId, householdId: profile.householdId }, data: { lowSnoozedAt: new Date() } });
+  revalidateGroceries();
+}

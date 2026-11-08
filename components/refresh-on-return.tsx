@@ -25,13 +25,21 @@ export function shouldRefresh(o: { hiddenAt: number | null; freshDay: string; no
  * has turned while it was open (the device's day, which is the family's except on a trip).
  * `everyMs` also refreshes on a timer while it's shown (the Shop view).
  */
-export function RefreshOnReturn({ everyMs }: { everyMs?: number }) {
+/** `paused` is for a page with `everyMs` (the Shop view): a refresh skipped while paused comes on the next tick. */
+export function RefreshOnReturn({ everyMs, paused = false }: { everyMs?: number; paused?: boolean }) {
   const router = useRouter();
   const hiddenAt = useRef<number | null>(null);
   const freshDay = useRef(dayOf(new Date()));
+  // Read by the timer and the visibility check, not a dependency: a change doesn't reset the timer.
+  const pausedRef = useRef(paused);
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   useEffect(() => {
     const refresh = () => {
+      // Taps still syncing (the Shop view): a refresh started now could un-tick a row for a moment.
+      if (pausedRef.current) return;
       hiddenAt.current = null;
       freshDay.current = dayOf(new Date());
       router.refresh();

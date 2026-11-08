@@ -24,6 +24,8 @@ type Props = {
     container: string | null;
     defaultStoreId: string | null;
     groupId: string | null;
+    /** Phase 69b. */
+    alwaysHave?: boolean;
   };
   stores: { id: string; name: string }[];
   sections: { id: string; name: string; emoji: string | null }[];
@@ -241,6 +243,15 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
               <p className="text-sm">{lastPriceText ?? "Snap a receipt after a trip to see prices."}</p>
             </div>
           )}
+
+          {/* Phase 69b: salt, oil: the week's meal list leaves it off. */}
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" name="alwaysHave" defaultChecked={product.alwaysHave ?? false} className="mt-0.5 size-4" />
+            <span>
+              <span className="font-semibold">We always have it</span>
+              <span className="block text-xs text-muted-foreground">&quot;Add what&apos;s missing&quot; on the meal plan won&apos;t add it.</span>
+            </span>
+          </label>
 
           <label className="flex flex-col gap-2">
             <span className={fieldLabel}>Barcode</span>

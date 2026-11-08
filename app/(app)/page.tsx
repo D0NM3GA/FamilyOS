@@ -38,7 +38,7 @@ import { getAsNeeded } from "@/lib/meds/as-needed-queries";
 import { getRunningLow } from "@/lib/groceries/queries";
 import { getTodaysDinner } from "@/lib/groceries/meals";
 import { dayKey } from "@/lib/calendar/agenda";
-import { addItem } from "./groceries/actions";
+import { addItem, stillHaveSome } from "./groceries/actions";
 import { AsNeededRow } from "@/components/meds/as-needed-row";
 import { BigHome } from "./big-home";
 import { getMyWallet, getOpenOrders } from "@/lib/store/queries";
@@ -464,6 +464,14 @@ export default async function HomePage() {
                     <span className="block truncate font-semibold text-foreground">{s.label}</span>
                     <span className="text-xs text-muted-foreground">{s.daysLeft <= 0 ? "probably out" : `about ${s.daysLeft} ${s.daysLeft === 1 ? "day" : "days"} left`}</span>
                   </span>
+                  {/* Phase 69b: a bulk buy needn't nag for weeks. */}
+                  {s.productId && (
+                    <form action={stillHaveSome.bind(null, s.productId)} className="shrink-0">
+                      <SubmitButton className="inline-flex min-h-11 items-center px-1 text-xs font-medium text-muted-foreground hover:text-foreground sm:min-h-0" aria-label={`Still have some ${s.label}`}>
+                        Still have some
+                      </SubmitButton>
+                    </form>
+                  )}
                   <form action={addItem.bind(null, s.productId ? { productId: s.productId } : { name: s.label })} className="shrink-0">
                     <SubmitButton className={btn} pendingText="Adding…" aria-label={`Add ${s.label} to the list`}>
                       + Add

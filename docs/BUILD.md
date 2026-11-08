@@ -2120,3 +2120,25 @@ pages, so the links are prefetched to it and the hint could never show, and a fi
 tilted card would have drawn inside it); the guard now catches any `error &&` (two more fixed); the
 bottom bar keeps clear of a landscape notch; a page shown again while offline refreshes once it's
 back online; the plan says Home names failed parts in one line at the top (as built).
+
+### 69b — Groceries and cars
+
+**Staples:** `Product.alwaysHave` ("We always have it" on the Pantry item's sheet) and
+`weekShopping` skips it; `addWeekToList` counts days from `max(week start, today)` and treats any
+row on the list (ticked too) as there. **Still have some:** `Product.lowSnoozedAt`; `stillHaveSome`
+sets it from Home's card and the Groceries chips (`×`); `getPantrySuggestions`, which both read,
+leaves an item out for one usual gap from then unless it was bought since (`stillSnoozed`, pure).
+Migration `20261203120000_product_staples_snooze`; backups v16 carry `alwaysHave`;
+`lowSnoozedAt` is passing state, left out (coverage test says so). **Shop view:**
+`RefreshOnReturn everyMs={60_000}`, `paused` while taps are still syncing (a refresh begun before
+a check-off commits could show it unticked for a moment). **Good until:** the Renewed form for
+paperwork has a date box, its default (`goodUntilDefault`, server-side) a cycle on from the due day,
+moved on while not after today; the action saves it under the item's row lock with `dueAtBefore`
+for Undo, refusing one not after the renewal; empty keeps the cycle rule.
+Fable's review of 69b: "bought since the snooze" compares days (purchases are known by the day),
+so a purchase that day or later ends it; Good until and the cycle rule apply only to the latest
+renewal (a catch-up entry for an older one leaves the due day alone); Undo puts back an empty due
+day too; "That week is over" for a past week; the Good until box says what it's for; the snooze
+query is skipped when nothing could be snoozed; tests cover a same-day purchase, a past day's meal,
+a backdated renewal and paperwork without a due day. Left as is: kids can say "Still have some" on
+the Groceries chips (the list is everyone's).

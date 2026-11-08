@@ -167,6 +167,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
           container: true,
           defaultStoreId: true,
           groupId: true,
+          alwaysHave: true,
           createdAt: true,
         },
       }),
