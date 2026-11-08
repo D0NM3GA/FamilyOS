@@ -49,7 +49,7 @@ export type ManualBillInput = {
 
 const STEP_MONTHS: Record<BillCadence, number> = { MONTHLY: 1, QUARTERLY: 3, YEARLY: 12, ONCE: 0 };
 const DAY = 86_400_000;
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
+export const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
 const monthIndex = (d: string) => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - 1;
 
 /** How far ahead a bill's next due day is looked for: a yearly one is at most a year off. */

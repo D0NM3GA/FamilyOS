@@ -53,6 +53,7 @@ export async function searchMoney(
   ]);
 
   const groups: MoneySearchGroup[] = [];
+  const thisMonth = todayCivil().slice(0, 7);
   if (charges.length) {
     groups.push({
       title: "Money",
@@ -60,10 +61,12 @@ export async function searchMoney(
         const day = dayOf(c.postedOn);
         return {
           id: c.id,
-          label: c.merchantName || (c.merchantKey && c.merchantKey !== "-" ? merchantLabel(c.merchantKey) : c.description.slice(0, 60)),
+          // Never the bank's raw text, which can carry the amount.
+          label: c.merchantName || (c.merchantKey && c.merchantKey !== "-" ? merchantLabel(c.merchantKey) : "A charge"),
           sublabel: `${c.jar.name} · ${day}`,
           // The jar's activity on that month.
-          href: `/finances/${c.jarId}?month=${day.slice(0, 7)}`,
+          // No later than this month: the jar page doesn't open a future one.
+          href: `/finances/${c.jarId}?month=${(day.slice(0, 7) > thisMonth ? thisMonth : day.slice(0, 7))}`,
         };
       }),
     });

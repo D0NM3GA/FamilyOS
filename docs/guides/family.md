@@ -468,7 +468,8 @@ Inside a jar:
   the careful side; **Not a bill** takes a store out. **🎒 School fees**: tap **Count school fees
   in this jar** (in the jar that pays them; only one should) and open fees with an amount from
   School count in Coming up and Safe to spend until they're done in School. Paid a bill you added by
-  hand some other way (a school portal, Zelle)? **Paid** beside it in Coming up stops it counting.
+  hand some other way (a school portal, Zelle)? **Paid** beside it in Coming up stops it counting
+  (**Undo** on the bill if that was a slip).
 - **Log it in Cars:** a charge filed under **Gas & car** has **⛽ Fill-up** and **🔧 Service**
   buttons for each car: they open the car's page with the cost and day filled in.
 - **📈 Trends**: money out month by month, and where it went.

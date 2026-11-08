@@ -57,8 +57,8 @@ export default async function SearchPage({
       )}
 
       <div className="mt-6 space-y-6">
-        {groups.map((group) => (
-          <div key={group.title}>
+        {groups.map((group, i) => (
+          <div key={`${i}:${group.title}`}>
             <h2 className={sectionTitle}>{group.title}</h2>
             <ul className="mt-2 space-y-1">
               {group.items.map((item) => (

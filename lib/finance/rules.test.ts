@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { branchKey, ruleCovers, ruleResolver } from "./rules";
+import { branchKey, ruleCovers, ruleFiling, ruleResolver } from "./rules";
 import { nextDueOn } from "./manual-bills";
 
 describe("every-branch rules (Phase 69c)", () => {
@@ -27,6 +27,12 @@ describe("every-branch rules (Phase 69c)", () => {
     expect(ruleCovers(rules[0], "joes pizza riverton")).toBe(true);
     expect(ruleCovers(rules[1], "joes pizza riverton")).toBe(false);
     expect(ruleCovers({ key: "chipotle" }, "chipotle")).toBe(true);
+  });
+
+  it("finds the one rule filing a charge", () => {
+    expect(ruleFiling(rules, "joes pizza airport")?.key).toBe("joes pizza airport");
+    expect(ruleFiling(rules, "joes pizza riverton")?.key).toBe("joes pizza");
+    expect(ruleFiling(rules, "tacos")).toBeUndefined();
   });
 
   it("offers the key without its town", () => {

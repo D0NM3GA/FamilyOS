@@ -8,8 +8,8 @@ import { findRecurring, daysBetween, paidCheck, type Recurring } from "@/lib/fin
 import { todayCivil } from "@/lib/finance/budget";
 import { centsToInput, formatMoney } from "@/lib/money";
 import { forecast } from "@/lib/finance/forecast";
-import { BILL_CADENCES, billsAhead, CADENCE_LABEL, nextDueOn, ownKeys, readManualBills, schoolFeesAsBills, type ManualBillInput } from "@/lib/finance/manual-bills";
-import { addManualBill, markManualBillPaid, markRecurring, removeManualBill, setCountSchoolFees, updateManualBill } from "../../actions";
+import { BILL_CADENCES, addDays, billsAhead, CADENCE_LABEL, nextDueOn, ownKeys, readManualBills, schoolFeesAsBills, type ManualBillInput } from "@/lib/finance/manual-bills";
+import { addManualBill, markManualBillPaid, unmarkManualBillPaid, markRecurring, removeManualBill, setCountSchoolFees, updateManualBill } from "../../actions";
 import { ActionForm, ConfirmSubmit, Submit } from "../../forms";
 import { JarHeader } from "../jar-header";
 import { SafeToSpend } from "../safe-to-spend";
@@ -300,6 +300,13 @@ function ManualBillCard({
         {CADENCE_LABEL[bill.cadence]} · {next ? `${next < today ? "was due" : "next"} ${day(next)}` : `was due ${day(bill.nextDue)}, done`}
         {bill.createdBy && <> · added by {bill.createdBy}</>}
       </p>
+      {/* Phase 69c: a wrong "Paid" tap is put right here. */}
+      {bill.paidDueOn && bill.paidDueOn >= addDays(today, -31) && (
+        <ActionForm action={unmarkManualBillPaid.bind(null, jarId, bill.id)} className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>Marked paid for {day(bill.paidDueOn)}.</span>
+          <Submit className={btn}>Undo</Submit>
+        </ActionForm>
+      )}
       <details>
         <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-xl px-2 text-sm font-bold text-muted-foreground underline hover:bg-muted sm:min-h-9">
           Edit

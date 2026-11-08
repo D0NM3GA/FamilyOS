@@ -2160,3 +2160,10 @@ jar and day, no amounts; a charge opens its jar's month, a bill opens Bills), re
 page through a new lint exception like the calendar's bills one. **Dinners on the calendar:**
 `loadMeals` and `mealItems`, only with Groceries on and not for events-only reads (the month, Home's
 strip, which adds today's dinner itself).
+Fable's review of 69c: stopping "always" removes only the rule that files that charge (a branch's
+own rule, else the every-branch one), not both; "Paid" has an Undo on the bill, and editing a bill's
+due day or cadence clears an old paid mark; a charge without a merchant shows as "A charge" in
+search (raw bank text can carry the amount); a search link never asks for a future month; history
+says "at any branch". Dropped: counting how many charges an every-branch rule covers (the answer
+names the store; the rule's effect is visible in Activity). Left as is: a hand-added bill marked
+paid still shows on the calendar's due day, as found bills do.

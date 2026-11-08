@@ -59,6 +59,9 @@ describe.skipIf(!RUN)("money search, branch rules, paid bills, dinners (database
     expect(groups[0].items[0].href).toBe(`/finances/${ids.jar}?month=2026-11`);
     expect(JSON.stringify(groups)).not.toMatch(/24\.00|2400/);
     expect((await searchMoney(who.profile as never, "lunch")).map((g) => g.title)).toEqual(["Bills"]);
+    // A charge with no merchant shows as "A charge", never the bank's raw text.
+    await prisma.finTransaction.create({ data: { jarId: ids.jar, accountId: ids.account, source: "MANUAL", externalId: `k-${t}`, postedOn: new Date("2026-11-03T00:00:00Z"), amountCents: -1234, description: "POS PIZZAHUT 12.34", merchantKey: "-" } });
+    expect((await searchMoney(who.profile as never, "pizzahut"))[0].items.map((i) => i.label)).toEqual(["A charge"]);
     // The surprise hidden from Dad doesn't show for him.
     expect(await searchMoney(who.profile as never, "lego")).toEqual([]);
     // A profile switched to with a PIN, a kid, and a grown-up not in the jar: nothing.
@@ -77,6 +80,10 @@ describe.skipIf(!RUN)("money search, branch rules, paid bills, dinners (database
     expect(await setCategory(ids.jar, riverton.id, ids.dining, "branches")).toEqual({ ok: "Every Joes Pizza charge, at any branch, is Dining now." });
     const springfield = await prisma.finTransaction.findFirstOrThrow({ where: { jarId: ids.jar, merchantKey: "joes pizza springfield" } });
     expect(springfield).toMatchObject({ categoryId: ids.dining, categorySource: "RULE" });
+    // A rule for one branch of its own: forgetting it leaves the every-branch rule.
+    await prisma.categoryRule.create({ data: { jarId: ids.jar, key: "joes pizza springfield", categoryId: ids.dining } });
+    await forgetRule(ids.jar, "joes pizza springfield");
+    expect((await prisma.categoryRule.findMany({ where: { jarId: ids.jar } })).map((r) => r.key)).toEqual(["joes pizza"]);
     await forgetRule(ids.jar, "joes pizza springfield");
     expect(await prisma.categoryRule.count({ where: { jarId: ids.jar } })).toBe(0);
   });
@@ -92,6 +99,10 @@ describe.skipIf(!RUN)("money search, branch rules, paid bills, dinners (database
     expect(after.paidDueOn).toBe(due);
     expect(nextDueOn(after, new Date().toISOString().slice(0, 10))).not.toBe(due);
     expect(await markManualBillPaid(ids.jar, bill.id, "2020-01-01")).toEqual({ error: "That bill's due day has changed. Reload to see the latest." });
+    // Undo puts it back.
+    const { unmarkManualBillPaid } = await import("@/app/(app)/finances/actions");
+    await unmarkManualBillPaid(ids.jar, bill.id);
+    expect((await readManualBills(prisma, ids.jar))[0].paidDueOn).toBeNull();
   });
 
   test("dinners show on the calendar week, not the month", async () => {

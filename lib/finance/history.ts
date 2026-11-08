@@ -33,7 +33,7 @@ export const EVENT_DATA = {
   DISCONNECTED: z.object({ provider: z.enum(["SIMPLEFIN", "PRIVACY"]) }),
   IMPORTED: z.object({ count: z.number().int().nonnegative(), account: name }),
   IMPORT_REMOVED: z.object({ count: z.number().int().nonnegative() }),
-  CATEGORY_SET: z.object({ category: label.nullable(), always: z.boolean(), key, label }),
+  CATEGORY_SET: z.object({ category: label.nullable(), always: z.boolean(), branches: z.boolean().optional(), key, label }),
   RULE_FORGOTTEN: z.object({ key, label }),
   BUDGET_SET: z.object({ category: label, cents: z.number().int().nullable() }),
   BILL_ANSWERED: z.object({ key, label, status: z.enum(["KEEP", "CANCEL", "HIDDEN", "CLEAR"]) }),
@@ -120,7 +120,7 @@ export function describeEvent(kind: JarEventKind, raw: unknown, actor: string): 
       return `${actor} removed an import (${d.count} transaction${d.count === 1 ? "" : "s"})`;
     case "CATEGORY_SET":
       return d.always
-        ? `${actor} set ${d.label} to always be ${d.category ?? "uncategorized"}`
+        ? `${actor} set ${d.label}${d.branches ? ", at any branch," : ""} to always be ${d.category ?? "uncategorized"}`
         : `${actor} put a ${d.label} charge in ${d.category ?? "no category"}`;
     case "RULE_FORGOTTEN":
       return `${actor} stopped the "always" rule for ${d.label}`;

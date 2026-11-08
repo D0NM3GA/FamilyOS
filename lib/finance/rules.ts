@@ -18,6 +18,12 @@ export function ruleResolver(rules: readonly Rule[]): (key: string) => string | 
   };
 }
 
+/** The one rule that files a key: an exact one, else the longest "every branch" one it starts with. */
+export function ruleFiling<R extends Pick<Rule, "key" | "matchPrefix">>(rules: readonly R[], key: string): R | undefined {
+  if (!key) return undefined;
+  return rules.find((r) => r.key === key) ?? [...rules].filter((r) => r.matchPrefix && key.startsWith(`${r.key} `)).sort((a, b) => b.key.length - a.key.length)[0];
+}
+
 /** Whether a rule covers a key: the same key, or an "every branch" rule it starts with. */
 export function ruleCovers(rule: Pick<Rule, "key" | "matchPrefix">, key: string): boolean {
   return rule.key === key || (Boolean(rule.matchPrefix) && key.startsWith(`${rule.key} `));
