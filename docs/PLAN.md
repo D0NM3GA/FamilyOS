@@ -3089,6 +3089,185 @@ keyboard shortcuts.
 69a fresh pages and the frame; 69b groceries and cars; 69c money, search and the calendar.
 
 
+## Phase 70 — scope (new capabilities, 2026-11-08)
+
+The fifth and last phase from the review of 2026-11-08: things the app can't do yet. Checked
+against the code 2026-11-08.
+
+### The owner's answers (2026-11-08)
+
+- **Outlook: each person's own calendar, and a family calendar for everyone.** Kids have
+  Microsoft accounts with their own calendars. The app copies each person's own calendar and the
+  family calendar in the background; grown-ups see everyone's, kids see their own and the family
+  calendar. An event marked Private in Outlook shows only as "Busy" to anyone but its owner.
+- **A grown-up check: per chore, optional.** A "A grown-up checks it" switch on a chore; a kid's
+  tick waits for a grown-up's **OK** before stickers are paid.
+- **Swaps: the other kid accepts.** A kid asks a brother or sister to take a chore; once they
+  accept it's theirs. Grown-ups see the swap and can move it back as today.
+
+### 70a and 70b — Outlook calendars for everyone, and who's driving
+
+Today Outlook events show only to a grown-up signed in with Microsoft, read live with that
+session's token (`lib/graph/calendar.ts`, Home and the calendar page), so kids and the kitchen
+tablet see none of them.
+
+- **Read in the background with an app-only token.** The app registration gets Exchange "RBAC
+  for Applications" `Application Calendars.Read`, scoped by a management scope to a mail-enabled
+  security group holding the family's mailboxes (no Entra Graph permission, so nothing else is
+  readable; the same pattern as alert mail). README "Outlook calendars" gives the PowerShell
+  steps and the `Test-ServicePrincipalAuthorization` check.
+- **What's copied (Settings → Calendars, admins).** Each person with a Microsoft sign-in can have
+  their own calendar copied (a switch per person; the mailbox is their sign-in's address). One
+  family calendar: a mailbox (one of the people) and a calendar in it, picked from a list read
+  with the app token. **Check access** tries a read and says what failed in plain words.
+- **The copy.** `OutlookCalendar` (household, kind PERSON or FAMILY, person, calendar id, lease,
+  last success, fixed-text last error) and `OutlookEvent` (calendar, Graph id, iCalUId, title,
+  place, start, end, all day, private) replaced for a window of 7 days back to 60 ahead. A
+  private event is stored without its title or place. A background job (`outlook`, in
+  `lib/background.ts`) and a visit to Home or the calendar after 15 minutes refresh it under a
+  lease, like school feeds. Excluded from backups (integration state).
+- **Who sees what.** Grown-ups: everything. Kids: the family calendar and their own. Anyone else's
+  private event: "Busy". The same meeting in the family calendar and a person's own (same
+  iCalUId and start) shows once.
+- **Where.** Home's week card and Today strip, and the calendar page, read the copy for everyone
+  (person events carry `who`, so they get the person's color). With nothing set up, today's live
+  view stays as it is.
+- **Who's driving.** A grown-up can set a driver (a grown-up) on a timed event: `EventDriver`
+  (household, calendar, Graph id, person), kept when the copy is replaced and dropped once the
+  event has left the window. Shown as "Driving: Dad" on the calendar and Home, to everyone.
+
+### 70c and 70d — Chores, gifts and the pet
+
+- **A grown-up check.** `TaskDefinition.needsCheck` (chores). A kid's tick on one sets the
+  instance DONE with `awaitingCheck`, and pays nothing; a grown-up's **OK** pays the stickers
+  (milestone, pet present) and clears it; **Not yet** puts it back to pending. A grown-up ticking
+  it pays at once. The kid can undo while it waits. Grown-ups see "Waiting for a check" on the
+  Chores board and a count on Home's chores card.
+- **Swaps.** `ChoreSwap` (instance, from, to, status, optional chore given back). A kid asks
+  another kid to take one of their pending chores, optionally taking one of theirs in return; the
+  other kid sees it on their chores and accepts or declines. Accepting reassigns both in one
+  transaction, only if each is still pending and still theirs. A request lapses when its chore is
+  done, moved or past. Swapped chores show "From Ivy" to grown-ups.
+- **Gift ideas on a person.** `GiftIdea` (person, text, added by, given). Grown-ups add, mark
+  given and remove them on the person's page; never shown to the person they're for. The
+  birthday reminder lists up to three open ideas.
+- **The pet keeps weekend hours on no-school days.** A day with an all-day school feed event
+  whose title says no school (no school, holiday, break, teacher work or in-service day, school
+  closed) uses the weekend hours. On by default; a switch beside the pet's care hours.
+
+### 70e — Money
+
+- **Search the jar's Activity.** A search box on Activity looks through every month by merchant,
+  label and words (the same match as the app's search), newest first.
+- **Running ahead.** A budget line that's spent much more than the month so far would suggest
+  (past half its budget and more than 15 points ahead of the month's share) shows "Running ahead"
+  before it's over, on the budget page and Money's home.
+- **The year in one page.** Trends → **Year**: spending and income by category for a calendar
+  year, with a spreadsheet download (for taxes).
+- **Merge a statement account into the feed's.** An account made from a statement import can be
+  merged into a bank-feed account in the same jar: its rows move across and the usual duplicate
+  check folds the weeks both cover, so they don't count twice. Asks first.
+- **Faster syncs.** The duplicate check and filing on a sync look only at rows near the new ones
+  (the sync window), not the whole history. A rule change still files the whole jar.
+
+### 70f — School feeds
+
+- **One feed for several kids.** A feed can be for any number of kids (`SchoolFeedKid`), or the
+  whole family when none. Existing feeds keep their kid. Kids see feeds for the family or that
+  include them.
+- **The same event from two feeds shows once.** A district and a school feed that carry the same
+  event (same title, start and end) show it once on the calendar and Home, with every kid it's for.
+
+### Settled after Fable's scope review (2026-11-08)
+
+Outlook:
+- **The mailbox is stored, not inferred.** Kids never get a sign-in row (`/not-provisioned`), so
+  `OutlookCalendar.mailbox` is explicit: a person with a Microsoft sign-in defaults to their
+  account's object id (`Account.accountId`, the `oid`, which Graph takes in `/users/{id}`); anyone
+  else gets an address an admin types (filled from `Person.email`, checked like alert mail's
+  address, then by **Check access**). Settings lists every household member.
+- **The app's own write-back isn't shown twice.** Events the calendar sync wrote (the
+  `FamilyOSSourceKey` extended property) are dropped from the copy.
+- **Copy or live, never both.** Once the household has any copied calendar, Home and the
+  calendar read only the copy, for every viewer; the live read (and Settings → Calendar on Home,
+  which then says so) applies only when none is set up. Adding an event and the write-back keep
+  their own-token paths.
+- **Stable ids.** calendarView is asked for immutable ids (`Prefer: IdType="ImmutableId"`);
+  `EventDriver` is unique on (calendar, Graph id). A driver is dropped only when its event is
+  missing from a successful replace *and* ended before the window, so one bad read loses nothing.
+  The fold (family and own copy of one meeting) matches iCalUId, start and all-day.
+- **Private.** `sensitivity` private or confidential counts as private. A private event's owner
+  is the calendar's person (the family calendar's mailbox person for that one); the check is the
+  active profile's id, never the session, so a PIN-switched profile never sees another's titles.
+- **Who's the viewer.** `requireActiveProfile()`; kids by role. When someone's access ends
+  (`entraAccessEndedAt`) or they stop being a household member, the job switches their calendar
+  off and deletes its events and drivers; Person deletion cascades. Settings hides them.
+- **Large calendars.** Follow `@odata.nextLink` up to 1,000 events per calendar, then a fixed
+  "very large; only part shown" note. UTC requests as today.
+- **The job.** `outlook` joins `JobName`/`JOBS` and `lib/background.ts` after `entra`; claimed per
+  calendar under a lease; skipped while Calendar is off; a 429's Retry-After is honored.
+- **Less stored.** No `webLink` or body in the copy.
+
+Chores, gifts and the pet:
+- **A waiting chore has no `completedAt`.** The kid's tick sets `awaitingCheck` and
+  `completedById`, leaving `completedAt` null, so pet presents, Activity, Home's finished count
+  and milestones (all keyed on `completedAt`) wait for the OK for free. **OK** is a guarded
+  update (still DONE and waiting), then stickers, milestone and the event; **Not yet** returns it
+  to pending with nothing to take back. A kid can't OK their own.
+- **Swaps against everything else.** `ChoreSwap` cascades with its instance (a chore edit drops
+  pending ones). Accepting checks each instance is still pending, still assigned as asked and on
+  the day recorded with the request; a grown-up's reassign or move lapses open requests. Only to
+  another kid in the household; no pool check (a grown-up's reassign has none). Least-assigned
+  counts the swapped chore for its new kid, as a reassign does (noted in BUILD.md).
+- **Gift ideas stay hidden.** Left out of the backup of the person they're for (the money
+  surprise pattern) with a test, and out of search and Activity. Email and Teams copies of the
+  reminder say only how many ideas are saved; the text stays in the app.
+- **No-school days.** A pure `isNoSchoolTitle()` with word boundaries ("Breakfast" and
+  "Holiday Concert" don't count), tested both ways. The pet's pure `advance` gets a set of
+  weekend-like days, built from all-day events (multi-day spread out) in feeds for the family or
+  the pet's person. `Household.petNoSchoolDays` (default on).
+
+Money:
+- **A merge re-points everything** in one transaction: transactions, the account's imports and
+  reconcile issues, and import layouts; the source's balance days go. Refused unless the source
+  is a statement (MANUAL) account and neither is left out. A row already in the target (the same
+  statement imported twice) becomes its DUPLICATE. Then the usual duplicate check runs.
+- **Faster syncs window only what's filed.** Filing looks at rows in the sync window (and any not
+  yet filed); refund matching keeps its whole-jar look back; imports use their own day range.
+- **Running ahead** is pure in `budget.ts`: this month, spending lines with a budget (with carry),
+  not over, past half and more than 15 points ahead of the day's share. Money's home shows a
+  count per jar.
+- **The year** follows the jar export route (CSV), with surprises hidden as on Activity.
+
+School:
+- **The family flag is explicit.** `SchoolFeed.forFamily`; a feed for nobody (its last kid
+  deleted) shows to grown-ups only as "Nobody's yet", so it can't widen. `kidPersonId` moves into
+  `SchoolFeedKid` and goes; every reader changes (calendar sources, school queries, search, the
+  feeds page and forms). Feeds aren't in backups.
+- **The fold** needs the same all-day flag too. Agenda items gain `whoIds` ("Ivy & Max"); a
+  person filter matches any of them.
+
+Size: six pull requests instead of four (below).
+
+### Tests
+
+Unit: Outlook visibility (grown-up, kid, private), the iCalUId fold, Graph event parsing; the
+running-ahead rule; no-school day matching and the pet's hours; the feed fold. DB: the copy
+replace keeping drivers; kid scope on the copy; the chore check paying once and Not yet; swaps
+(accept, decline, lapsed, the race); gift ideas hidden from their person; the account merge and
+its duplicates; several kids on a feed.
+
+### Not in this phase
+
+Writing to anyone's own Outlook calendar; a reminder to the driver; kids' allowance (still the
+owner's call).
+
+### Pull requests
+
+70a the Outlook copy and who sees it; 70b who's driving; 70c chore checks and swaps; 70d gift ideas
+and the pet; 70e money; 70f school feeds.
+
+
 ## Open items
 
 ### Waiting on a decision

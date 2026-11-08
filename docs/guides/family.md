@@ -138,7 +138,7 @@ grown-ups.
 ## Home
 
 Your day at a glance. **Happening today** sits at the top when something's on: birthdays, school
-events, schoolwork and car work due, and your own Outlook events, in the day's order, each in its
+events, schoolwork and car work due, and Outlook events, in the day's order, each in its
 person's colour. Then **Today**: chores and meds to tick off right there, with what's
 finished folded under **✓ done** (Undo is in there). Then **This week's calendar**, **School this
 week**, **Upcoming dates** (birthdays and anniversaries, with how far off each is and the age a
@@ -153,11 +153,16 @@ for a moment, a line at the top says which, and the rest still shows.
 pharmacy aren't on it; for anyone else you don't want reminders about (the plumber), set their
 **Check-in reminder** to 0.
 
-Signed in with Microsoft? Your own Outlook calendar shows on your own profile. Pick which
-calendar in Settings → Calendar on Home.
+**Outlook:** once an admin has set up Outlook calendars, everyone sees them here and on the
+calendar, kids too: grown-ups see every copied calendar (each person's name in front of their own
+events), kids the family calendar and their own. Something marked Private in Outlook shows only as
+"Busy" (to you, "Private"). The copy is refreshed once it's 15 minutes old, when someone opens
+Home or Calendar or in the half-hourly background run. Until it's set up, the
+grown-up signed in with Microsoft sees their own Outlook on their own profile; pick which calendar
+in Settings → Calendar on Home.
 
-In **Big buttons** view, Home is just **My chores**, **My meds today**, **Today and this week** (school
-events today and the family's birthdays this week), **School this week** and a peek at the store.
+In **Big buttons** view, Home is just **My chores**, **My meds today**, **Today and this week** (today's
+Outlook events they can see, school events today and the family's birthdays this week), **School this week** and a peek at the store.
 
 <!-- screenshot: Home, Full app and Big buttons -->
 
@@ -187,8 +192,7 @@ The family's address book: everyone in the house, plus grandparents, friends, te
 ## Calendar
 
 The family's whole week in one place: chores and meds, birthdays and dates, homework and school
-calendars, car maintenance, and your own Outlook events (on your own profile, if you sign in with
-Microsoft). Tap anything to go where it lives. The arrows and **Today** move around, and **Month** shows the
+calendars, car maintenance, and Outlook events (see Home for whose). Tap anything to go where it lives. The arrows and **Today** move around, and **Month** shows the
 whole month's events (chores and doses stay on the weeks). Grown-ups can pick one person with the
 name chips: each row's color shows whose it is (two people sharing a first name get their own chip). A day's doses share one row; tap it to see them.
 
@@ -201,8 +205,8 @@ on your own sign-in. Nobody else sees them, and no amounts.
 a day, a time if it has one, and who it's for ("Ivy: Dentist"). It goes to the Outlook calendar the
 page shows; change or delete it in Outlook.
 
-Kids see the family calendar too, with their own school things and doses (no cars, no Outlook, no
-bills).
+Kids see the family calendar too, with their own school things and doses, and of Outlook the
+family calendar and their own (no cars, no bills).
 
 Something that runs over several days, like a weekend trip, shows on each of its days: at its
 start time on the first, and all day after, with when it ends ("until Sun 2:00 PM").

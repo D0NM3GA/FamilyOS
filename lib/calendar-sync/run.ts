@@ -1,3 +1,4 @@
+import { SOURCE_PROPERTY_ID } from "@/lib/graph/source-property";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { Graph, GraphResponse } from "@/lib/graph/client";
@@ -18,12 +19,11 @@ import { planSync, type SyncOp } from "./plan";
 
 export type { Graph };
 
+
 export const MAX_OPS_PER_RUN = 60;
 const LEASE_MS = 5 * 60_000;
 /** How far ahead chores and meds are written. */
 const TASK_HORIZON_DAYS = 14;
-/** Tags every event with the row it mirrors, so an orphan can be traced even without its link. */
-const SOURCE_PROPERTY_ID = "String {5b6a2d4e-8f0c-4c8e-9f3b-2a7d1e6c9b10} Name FamilyOSSourceKey";
 
 export type RunResult =
   | { status: "skipped"; reason: "busy" | "missing" | "off" }

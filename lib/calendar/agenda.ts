@@ -347,7 +347,8 @@ export function outlookItems(events: readonly CalendarEvent[], start: Date, time
         kind: "outlook" as const,
         emoji: "📆",
         title: e.subject,
-        who: null,
+        who: e.who ?? null,
+        whoId: e.whoId ?? null,
         status: "open" as const,
         href: e.webLink,
         external: e.webLink != null,
@@ -357,7 +358,7 @@ export function outlookItems(events: readonly CalendarEvent[], start: Date, time
 }
 
 /** Kinds whose `who` is a family member's first name (a car's name or a contact's full name isn't). */
-const PERSON_KINDS: ReadonlySet<AgendaKind> = new Set(["chore", "med", "school", "homework", "schoolEvent"]);
+const PERSON_KINDS: ReadonlySet<AgendaKind> = new Set(["chore", "med", "school", "homework", "schoolEvent", "outlook"]);
 
 /** The family member (their id) a row belongs to, if any. By id since Phase 60, so two sharing a first name keep apart. */
 export function itemPerson(item: AgendaItem, members: ReadonlySet<string>): string | null {

@@ -11,6 +11,8 @@ import { formatMonthDay } from "@/lib/format";
 import { getHouseholdSettings } from "@/lib/household-settings";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { scheduleFeedRefresh } from "@/lib/school/feeds/schedule";
+import { scheduleOutlookRefresh } from "@/lib/outlook-copy/schedule";
+import { getCopiedEvents, hasOutlookCopy } from "@/lib/outlook-copy/view";
 import { getCalendarEvents, type CalendarEventsResult } from "@/lib/graph/calendar";
 import {
   MONTH_GRID_DAYS,
@@ -62,11 +64,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const start = isMonth ? weekStartOf(month) : parseWeekParam(week, today);
   const days = isMonth ? MONTH_GRID_DAYS : 7;
 
-  const [settings, sessionOwner, disabledApps, members] = await Promise.all([
+  const [settings, sessionOwner, disabledApps, members, copied] = await Promise.all([
     getHouseholdSettings(profile.householdId),
     isSessionOwner(profile),
     getDisabledApps(profile.householdId),
     getHouseholdMembers(profile.householdId),
+    hasOutlookCopy(profile.householdId),
+    // Phase 70a: copied Outlook calendars over 15 minutes old refresh after the page is sent.
+    scheduleOutlookRefresh(profile.householdId).catch(() => {}),
     // School feeds older than 6 hours refresh after this page is sent (Phase 18.5); not while
     // School is turned off (the feeds check that themselves).
     scheduleFeedRefresh(profile.householdId).catch(() => {}),
@@ -81,7 +86,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   // Phase 64a: the family's Outlook calendar stays current from here too (its owner, on their own
   // Microsoft sign-in, as Home does; scheduleAutoSync keeps its own lease and 30-minute pace).
 
-  const outlook = onMicrosoft && profile.authUserId ? getCalendarEvents(profile.authUserId, { start, end: addDays(start, days) }, { calendarId: profile.homeCalendarId }) : null;
+  // Phase 70a: once the household copies its Outlook calendars, everyone reads the copy (never both).
+  const outlook = copied
+    ? getCopiedEvents(profile, { start, end: addDays(start, days) })
+    : onMicrosoft && profile.authUserId ? getCalendarEvents(profile.authUserId, { start, end: addDays(start, days) }, { calendarId: profile.homeCalendarId }) : null;
   const [agenda, , canAddEvents] = await Promise.all([
     getAgendaWeek(profile, { start, days, eventsOnly: isMonth, timeZone: zone, now, disabledApps }),
     onMicrosoft ? scheduleAutoSync(profile).catch(() => {}) : null,

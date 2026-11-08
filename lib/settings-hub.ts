@@ -63,6 +63,8 @@ export type HubFacts = {
   alertsEmail: boolean;
   outlookOn: boolean;
   outlookSync: { error: boolean } | null;
+  /** Phase 70a: the Outlook calendars copied for everyone (admins). */
+  outlookCopies: { count: number; error: boolean } | null;
   lastBackup: { at: Date; label: string } | null;
   now: Date;
 };
@@ -225,6 +227,23 @@ export function buildHub(f: HubFacts): HubGroup[] {
           ? { text: "Needs a look: the last sync failed", tone: "attention" }
           : { text: "Syncing", tone: "ok" },
       keywords: "outlook microsoft birthdays calendar sync",
+    });
+  }
+  if (f.outlookOn && f.admin && f.outlookCopies) {
+    const c = f.outlookCopies;
+    connect.push({
+      id: "outlook-calendars",
+      href: "/settings/outlook-calendars",
+      title: "Outlook calendars in the app",
+      description: "Everyone's own Outlook calendar and the family's, copied so kids and the kitchen tablet see them too.",
+      icon: "calendar",
+      status:
+        c.count === 0
+          ? { text: "Not set up", tone: "neutral" }
+          : c.error
+            ? { text: "Needs a look: a calendar didn't copy", tone: "attention" }
+            : { text: `Copying ${c.count === 1 ? "1 calendar" : `${c.count} calendars`}`, tone: "ok" },
+      keywords: "outlook microsoft calendar kids tablet family copy",
     });
   }
   const staleDays = f.lastBackup ? (f.now.getTime() - f.lastBackup.at.getTime()) / 86_400_000 : Infinity;
