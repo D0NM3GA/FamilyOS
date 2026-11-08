@@ -76,6 +76,8 @@ export const DAY_COLUMNS = [
     column: "movedFrom",
     where: `"definitionId" IN (SELECT id FROM task_definition WHERE "householdId" = $1)`,
   },
+  // Phase 65d: a planned dinner's day.
+  { table: "meal_plan_day", column: "day", where: `"householdId" = $1` },
   // Phase 65b: a renewal's due day before it (what undo puts back).
   {
     table: "vehicle_service_log",

@@ -440,6 +440,13 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     orderBy: { createdAt: "asc" },
   });
 
+  // Phase 65d: the meal plan.
+  const [meals, mealIngredients, mealPlanDays] = await Promise.all([
+    tx.meal.findMany({ where: { householdId }, select: { id: true, name: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
+    tx.mealIngredient.findMany({ where: { meal: { householdId } }, select: { id: true, mealId: true, productId: true, quantity: true } }),
+    tx.mealPlanDay.findMany({ where: { householdId }, select: { id: true, day: true, mealId: true, note: true }, orderBy: { day: "asc" } }),
+  ]);
+
   // Phase 47: the digital pet. Pets, items and memories carry householdId; a game payout
   // only its person.
   const [pets, petItems, petPlays, petMemorials, petGifts, petDiscoveries] = await Promise.all([
@@ -561,6 +568,9 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     petGifts: petGifts.map((g) => ({ ...g, grantedAt: iso(g.grantedAt), openedAt: isoOrNull(g.openedAt) })),
     petDiscoveries: petDiscoveries.map((d) => ({ ...d, foundAt: iso(d.foundAt) })),
     workItemEvents: workItemEvents.map((e) => ({ ...e, createdAt: iso(e.createdAt) })),
+    meals: meals.map((m) => ({ ...m, createdAt: iso(m.createdAt) })),
+    mealIngredients,
+    mealPlanDays: mealPlanDays.map((d) => ({ ...d, day: iso(d.day) })),
     sealedMoney: hooks.sealMoney ? await hooks.sealMoney(tx, householdId) : null,
   };
 

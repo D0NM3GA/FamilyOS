@@ -93,6 +93,9 @@ function emptyBackup(): Backup {
     petGifts: [],
     petDiscoveries: [],
     workItemEvents: [],
+    meals: [],
+    mealIngredients: [],
+    mealPlanDays: [],
     sealedMoney: null,
   };
 }

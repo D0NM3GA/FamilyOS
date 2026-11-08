@@ -84,7 +84,7 @@ function moneyContext(backup: Backup, people: PeoplePlan, linked: LinkedPerson[]
 
 async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promise<Record<string, number>> {
   const person = { householdId };
-  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories, petDiscoveries, history] = await Promise.all([
+  const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories, petDiscoveries, history, meals, plannedDays] = await Promise.all([
     db.person.count({ where: { householdId, authUserId: null } }),
     db.taskInstance.count({ where: { definition: { householdId } } }),
     db.taskDefinition.count({ where: { householdId } }),
@@ -106,6 +106,8 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     db.petMemorial.count({ where: { householdId } }),
     db.petDiscovery.count({ where: { householdId } }),
     db.workItemEvent.count({ where: { householdId } }),
+    db.meal.count({ where: { householdId } }),
+    db.mealPlanDay.count({ where: { householdId } }),
   ]);
   return {
     "people (without their own sign-in)": people,
@@ -129,6 +131,8 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     "pet memories": petMemories,
     "pet collection book entries": petDiscoveries,
     "history of chores & schoolwork": history,
+    meals,
+    "planned dinners": plannedDays,
   };
 }
 
@@ -157,6 +161,8 @@ function insertCounts(b: Backup): Record<string, number> {
     "pet memories": b.petMemorials.length,
     "pet collection book entries": b.petDiscoveries.length,
     "history of chores & schoolwork": b.workItemEvents.length,
+    meals: b.meals.length,
+    "planned dinners": b.mealPlanDays.length,
   };
 }
 
@@ -246,6 +252,9 @@ export async function applyRestore(
       }
 
       // 2. Delete, cascade-safe (checked against prisma/schema.prisma's onDelete rules).
+      // Phase 65d: the meal plan (ingredients cascade from their meal).
+      await tx.mealPlanDay.deleteMany({ where: { householdId } });
+      await tx.meal.deleteMany({ where: { householdId } });
       await tx.purchase.deleteMany({ where: { householdId } }); // cascades purchase items
       await tx.shoppingListItem.deleteMany({ where: { list: { householdId } } });
       await tx.product.deleteMany({ where: { householdId } });
@@ -335,6 +344,10 @@ export async function applyRestore(
       await createInChunks(rows.petDiscoveries, (data) => tx.petDiscovery.createMany({ data }));
       // Phase 59.1c: after the chores, schoolwork and forms it describes.
       await createInChunks(rows.workItemEvents, (data) => tx.workItemEvent.createMany({ data }));
+      // Phase 65d: after the Pantry items its ingredients use.
+      await createInChunks(rows.meals, (data) => tx.meal.createMany({ data }));
+      await createInChunks(rows.mealIngredients, (data) => tx.mealIngredient.createMany({ data }));
+      await createInChunks(rows.mealPlanDays, (data) => tx.mealPlanDay.createMany({ data }));
 
       // 4a. Phase 49: the file's days move to the restored household's zone, each keeping its
       // date and clock time, and the household records the zone they're in now.

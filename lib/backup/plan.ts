@@ -119,6 +119,11 @@ export function checkReferences(b: Backup): string[] {
   check("products.defaultStoreId", b.products.map((r) => r.defaultStoreId), stores);
   check("products.groupId", b.products.map((r) => r.groupId), groups);
   check("shoppingListItems.productId", b.shoppingListItems.map((r) => r.productId), products);
+  // Phase 65d.
+  const mealIds = idsOf(b.meals);
+  check("mealIngredients.mealId", b.mealIngredients.map((r) => r.mealId), mealIds);
+  check("mealIngredients.productId", b.mealIngredients.map((r) => r.productId), products);
+  check("mealPlanDays.mealId", b.mealPlanDays.map((r) => r.mealId), mealIds);
   check("shoppingListItems.addedById", b.shoppingListItems.map((r) => r.addedById), people);
   check("shoppingListItems.requestedById", b.shoppingListItems.map((r) => r.requestedById), people);
   check("purchases.purchasedById", b.purchases.map((r) => r.purchasedById), people);
@@ -174,6 +179,9 @@ function tables(b: Backup): Record<string, { id: string }[]> {
     petMemorials: b.petMemorials,
     petGifts: b.petGifts,
     workItemEvents: b.workItemEvents,
+    meals: b.meals,
+    mealIngredients: b.mealIngredients,
+    mealPlanDays: b.mealPlanDays,
   };
 }
 
@@ -431,6 +439,7 @@ export function remapBackup(
   const rewards = mapFor(b.rewards);
   const buckets = mapFor(b.rewardBuckets);
   const orders = mapFor(b.rewardOrders);
+  const meals = mapFor(b.meals);
 
   // References were verified by checkReferences, so a missing key can't happen; `!` keeps
   // that assumption loud rather than silently writing undefined.
@@ -721,6 +730,23 @@ export function remapBackup(
       if (!itemId) return [];
       return [{ ...r, id: newId(), householdId, itemId, actorId: r.actorId == null ? null : (people.get(r.actorId) ?? null), createdAt: date(r.createdAt) }];
     }),
+    // Phase 65d: the meal plan. Pantry items that fold together (look-alike names) make one
+    // ingredient per meal, amounts added.
+    meals: b.meals.map((r) => ({ id: req(meals, r.id), householdId, name: r.name, createdAt: date(r.createdAt) })),
+    mealIngredients: [
+      ...b.mealIngredients
+        .reduce((acc, r) => {
+          const mealId = req(meals, r.mealId);
+          const productId = req(products, r.productId);
+          const key = `${mealId}:${productId}`;
+          const had = acc.get(key);
+          if (had) had.quantity += r.quantity;
+          else acc.set(key, { id: newId(), mealId, productId, quantity: r.quantity });
+          return acc;
+        }, new Map<string, { id: string; mealId: string; productId: string; quantity: number }>())
+        .values(),
+    ],
+    mealPlanDays: b.mealPlanDays.map((r) => ({ id: newId(), householdId, day: date(r.day), mealId: opt(meals, r.mealId), note: r.note })),
   };
 }
 
