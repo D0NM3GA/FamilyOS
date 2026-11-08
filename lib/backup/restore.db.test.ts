@@ -50,9 +50,9 @@ function fixture(): Backup {
       { id: "r2", fromId: "Kid", toId: "Mom", type: "CHILD", label: null, createdAt: T },
     ],
     taskDefinitions: [
-      { id: "def1", title: "Dishes", notes: null, domain: "CHORE", frequencyType: "DAILY", interval: null, daysOfWeek: [], startDate: T,
+      { id: "def1", title: "Dishes", notes: null, domain: "CHORE", frequencyType: "DAILY", interval: null, daysOfWeek: [], startDate: T, endDate: null,
         timesOfDay: [], weatherSensitive: true, points: 5, assignmentStrategy: "ROUND_ROBIN", assigneeIds: ["Kid", "Kid2", "Mom"], active: true, createdAt: T },
-      { id: "def2", title: "Vitamin", notes: "with food", domain: "MED", frequencyType: "AS_NEEDED", interval: null, daysOfWeek: [1, 3], startDate: T,
+      { id: "def2", title: "Vitamin", notes: "with food", domain: "MED", frequencyType: "AS_NEEDED", interval: null, daysOfWeek: [1, 3], startDate: T, endDate: "2026-01-20T05:00:00.000Z",
         timesOfDay: ["08:00", "20:00"], weatherSensitive: false, points: 0, assignmentStrategy: "FIXED", assigneeIds: ["Kid"], active: true, createdAt: T2 },
     ],
     taskInstances: [

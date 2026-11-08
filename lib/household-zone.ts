@@ -64,6 +64,8 @@ function announce(zone: string): void {
  */
 export const DAY_COLUMNS = [
   { table: "task_definition", column: "startDate", where: `"householdId" = $1` },
+  // Phase 68a: a course's last day.
+  { table: "task_definition", column: "endDate", where: `"householdId" = $1` },
   {
     table: "task_instance",
     column: "dueDate",

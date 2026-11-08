@@ -9,6 +9,7 @@ import { AvatarStack } from "@/components/avatar-stack";
 import { PageHeader } from "@/components/page-header";
 import { btn, btnPrimary, card, field } from "@/components/styles";
 import { describeRecurrence, formatHHmm } from "@/lib/tasks/format";
+import { courseDay } from "@/lib/meds/form";
 import { setDefinitionActive, addStock } from "../actions";
 import { requireAppOn } from "@/lib/app-guard";
 import { SubmitButton } from "@/components/submit";
@@ -80,7 +81,7 @@ export default async function ManageMedsPage() {
                     {def.title}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {[describeRecurrence(def), def.timesOfDay.map(formatHHmm).join(", ")].filter(Boolean).join(" · ")}
+                    {[describeRecurrence(def), def.timesOfDay.map(formatHHmm).join(", "), def.endDate && def.frequencyType !== "AS_NEEDED" ? `last day ${courseDay(def.endDate)}` : null].filter(Boolean).join(" · ")}
                     {def.points > 0 ? ` · ${def.points} ⭐` : ""}
                   </p>
                   <div className="mt-1 flex min-w-0 items-center gap-2">

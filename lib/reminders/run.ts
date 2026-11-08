@@ -7,13 +7,14 @@ import { captureError } from "@/lib/observability";
 import { formatTimeOfDay } from "@/lib/format";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
-import { DOSE_LOOKBACK_MS, planCars, planDates, planDoses, planMedLow, planRecalls, planSchool, planSystem, type NewRecall, type Reminder, type ReminderKind } from "./plan";
+import { DOSE_AHEAD_MS, DOSE_GRACE_MS, DOSE_LOOKBACK_MS, planDosesDue, planCars, planDates, planDoses, planMedLow, planRecalls, planSchool, planSystem, type NewRecall, type Reminder, type ReminderKind } from "./plan";
 import { JOBS } from "@/lib/heartbeat-state";
 import { computeDueStatus } from "@/lib/vehicles/due-status";
 import { daysUntilMiles, milesPerDay, MILEAGE_WINDOW_DAYS, type Reading } from "@/lib/vehicles/mileage";
 import { checkRecalls } from "@/lib/vehicles/nhtsa";
 import { inQuietHours } from "./quiet";
 import { grownUpsOf } from "./people";
+import { kindOff } from "./prefs";
 import { sendDigests } from "./digest";
 
 /**
@@ -27,6 +28,7 @@ import { sendDigests } from "./digest";
 /** How the card in Teams (and an email's link) names where a reminder leads. */
 export const REMINDER_CARDS: Record<ReminderKind, TeamsCard> = {
   REMINDER_DOSE: { heading: "💊 Meds", linkText: "Open Meds" },
+  REMINDER_DOSE_DUE: { heading: "💊 Meds", linkText: "Open Meds" },
   REMINDER_MED_LOW: { heading: "💊 Meds", linkText: "Open Meds" },
   REMINDER_SCHOOL: { heading: "🎒 School", linkText: "Open School" },
   REMINDER_DATE: { heading: "📅 People", linkText: "Open their page" },
@@ -38,7 +40,7 @@ export const REMINDER_CARDS: Record<ReminderKind, TeamsCard> = {
 /** Send history older than this is forgotten. */
 export const REMINDER_MEMORY_DAYS = 400;
 
-type Person = { id: string; adult: boolean; admin: boolean; off: string[]; quietStart: number | null; quietEnd: number | null };
+type Person = { id: string; adult: boolean; grownUpRole: boolean; admin: boolean; off: string[]; optIn: string[]; quietStart: number | null; quietEnd: number | null };
 
 export async function runReminders(now: Date = new Date()): Promise<string> {
   await prisma.reminderSent.deleteMany({ where: { sentAt: { lt: new Date(now.getTime() - REMINDER_MEMORY_DAYS * 86_400_000) } } });
@@ -63,7 +65,10 @@ export async function remindHousehold(householdId: string, now: Date): Promise<n
 
   const kinds: [string, () => Promise<Reminder[]>][] = [];
   if (await appOn(householdId, "meds")) {
-    kinds.push(["doses", () => doseReminders(householdId, grownUps, now)]);
+    kinds.push(["doses", () => doseReminders(householdId, people, now)]);
+    // Phase 68a: after the dose planners, on its own so a failure here can't lose their plans.
+    // Only while Meds is on; nothing is planned past an end day meanwhile anyway.
+    kinds.push(["courses", async () => (await endFinishedCourses(householdId, now), [])]);
     kinds.push(["med_low", () => medLowReminders(householdId, grownUps)]);
   }
   if (await appOn(householdId, "school")) kinds.push(["school", () => schoolReminders(householdId, grownUps, now)]);
@@ -108,7 +113,8 @@ export async function remindHousehold(householdId: string, now: Date): Promise<n
     for (const personId of r.recipients) {
       const person = byId.get(personId);
       if (!person || already.has(`${personId}|${r.key}`)) continue;
-      if (person.adult && person.off.includes(r.kind)) continue;
+      // Phase 68a: an opt-in kind only to who switched it on; any other unless switched off.
+      if (person.adult && kindOff(r.kind, person)) continue;
       // Quiet hours defer: not claimed now, so the next tick after they end sends it.
       if (person.adult && !r.urgent && inQuietHours(person, now)) continue;
       const id = await claim(householdId, personId, r);
@@ -128,14 +134,17 @@ export async function remindHousehold(householdId: string, now: Date): Promise<n
 async function loadPeople(householdId: string): Promise<Person[]> {
   const rows = await prisma.person.findMany({
     where: { householdId, isHouseholdMember: true },
-    select: { id: true, role: true, entraAccessEndedAt: true, reminderPrefs: { select: { off: true, quietStart: true, quietEnd: true } } },
+    select: { id: true, role: true, entraAccessEndedAt: true, reminderPrefs: { select: { off: true, optIn: true, quietStart: true, quietEnd: true } } },
   });
   const adults = new Set(grownUpsOf(rows).map((g) => g.id));
   return rows.map((p) => ({
     id: p.id,
     adult: adults.has(p.id),
+    // A grown-up by role, Entra access or not: whose dose is a grown-up's own (Phase 68a).
+    grownUpRole: p.role === "ADULT" || p.role === "ADMIN",
     admin: adults.has(p.id) && p.role === "ADMIN",
     off: p.reminderPrefs?.off ?? [],
+    optIn: p.reminderPrefs?.optIn ?? [],
     quietStart: p.reminderPrefs?.quietStart ?? null,
     quietEnd: p.reminderPrefs?.quietEnd ?? null,
   }));
@@ -158,14 +167,17 @@ async function claim(householdId: string, personId: string, r: Reminder): Promis
   }
 }
 
-async function doseReminders(householdId: string, grownUps: { id: string }[], now: Date): Promise<Reminder[]> {
+async function doseReminders(householdId: string, people: Person[], now: Date): Promise<Reminder[]> {
   // Doses are otherwise made only when a page opens: make today's (and tomorrow's) first, so a
   // day nobody looked still reminds.
   await ensureInstancesGenerated(householdId, addDays(atMidnight(now), 2), "MED");
+  const grownUps = people.filter((p) => p.adult);
+  const adults = new Set(people.filter((p) => p.grownUpRole).map((g) => g.id));
   const rows = await prisma.taskInstance.findMany({
     where: {
       status: "PENDING",
-      dueDate: { gte: new Date(now.getTime() - DOSE_LOOKBACK_MS), lte: now },
+      // Phase 68a: a little ahead too, for "a dose is due".
+      dueDate: { gte: new Date(now.getTime() - DOSE_LOOKBACK_MS), lte: new Date(now.getTime() + DOSE_AHEAD_MS) },
       // Phase 65a: as-needed medicines have no doses to miss.
       definition: { householdId, domain: "MED", active: true, frequencyType: { not: "AS_NEEDED" } },
     },
@@ -177,20 +189,33 @@ async function doseReminders(householdId: string, grownUps: { id: string }[], no
       definition: { select: { title: true, timesOfDay: true, active: true } },
     },
   });
-  return planDoses(
-    rows.map((r) => ({
-      definitionId: r.definitionId,
-      dueDate: r.dueDate,
-      title: r.definition.title,
-      timeLabel: formatTimeOfDay(r.dueDate),
-      timed: r.definition.timesOfDay.length > 0,
-      active: r.definition.active,
-      status: r.status,
-      assignedTo: r.assignedTo,
-    })),
-    grownUps,
-    now,
-  );
+  const doses = rows.map((r) => ({
+    definitionId: r.definitionId,
+    dueDate: r.dueDate,
+    title: r.definition.title,
+    timeLabel: formatTimeOfDay(r.dueDate),
+    timed: r.definition.timesOfDay.length > 0,
+    active: r.definition.active,
+    status: r.status,
+    assignedTo: r.assignedTo ? { ...r.assignedTo, adult: adults.has(r.assignedTo.id) } : null,
+  }));
+  const optedIn = grownUps.filter((g) => g.optIn.includes("REMINDER_DOSE_DUE"));
+  return [...planDoses(doses, grownUps, now), ...planDosesDue(doses, optedIn, now)];
+}
+
+/**
+ * Phase 68a: a course of medicine past its last day switches itself off (kept, not deleted).
+ * Nothing after the last day was planned, so there's nothing to clear. Only once the last day's
+ * latest dose is past its missed-dose window, so that reminder still comes (it needs the medicine
+ * active); after the dose planners, in the same tick.
+ */
+export async function endFinishedCourses(householdId: string, now: Date): Promise<number> {
+  const cutoff = addDays(atMidnight(new Date(now.getTime() - DOSE_GRACE_MS)), -1);
+  const { count } = await prisma.taskDefinition.updateMany({
+    where: { householdId, domain: "MED", active: true, endDate: { not: null, lte: cutoff } },
+    data: { active: false },
+  });
+  return count;
 }
 
 async function medLowReminders(householdId: string, grownUps: { id: string }[]): Promise<Reminder[]> {

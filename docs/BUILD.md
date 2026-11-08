@@ -2029,3 +2029,30 @@ key opens the server's other secrets), and a malformed check row says so rather 
 the profile-switch cookie is keyed from the newest `BETTER_AUTH_SECRETS` entry while rotating;
 Trivy comes from its GHCR copy while signed in; the System card says when a weekly or monthly copy
 was made; logrotate names its `su`. Monthly copies are kept 12 × 31 days.
+
+## Phase 68 — Reminders ahead of time
+
+The third phase from the review of 2026-11-08 (scope in docs/PLAN.md, with the owner's answers).
+
+### 68a — Doses on time, and courses that end
+
+**A dose is due:** `REMINDER_DOSE_DUE` (migration `20261202120000_dose_due_and_course_end`).
+`doseReminders` loads PENDING doses up to 15 minutes ahead and feeds `planDoses` and
+`planDosesDue`: a timed dose from 15 minutes before to 90 after; a grown-up's own dose to them, a
+kid's or nobody's to the grown-ups who opted in plus the kid (bell). Key `dose-due:<def>:<day>:<hhmm>`.
+Not urgent: quiet hours that outlast the window mean it isn't sent (the missed one still is).
+**Opt-in:** `ReminderPrefs.optIn`; `REMINDER_KINDS` entries can be `optIn`; `kindOff` decides
+in the run (an opt-in kind only if switched on, others unless switched off); `nextOptIn` saves it
+keeping hidden kinds; My notifications ticks opt-in kinds from `optIn`. `listedKinds` knows
+"chores". **Course end:** `TaskDefinition.endDate` (a stored day column, in `DAY_COLUMNS`);
+`courseEnd` (`lib/meds/form.ts`) turns "after N days" (start + N − 1) or "on a date" into it;
+`planInstances` plans nothing after it; `endFinishedCourses` (after the dose planners each tick)
+switches a medicine off once its last day plus the missed-dose grace has passed, deleting nothing.
+Meds and Manage say "Last day". Backups v15 carry `endDate` (none in older files).
+Fable's review of 68a: turning a finished course back on takes its past end day off (the next
+tick would have switched it off again), as the guide now says; switching courses off is its own
+step in the tick, so a failure there can't lose the dose plans; whose dose is a grown-up's own goes
+by role, so an adult whose Entra access ended isn't treated as a kid; "Last day" shows only for
+scheduled medicines and says the year when it isn't this one; tests cover the window's edge, both
+doses on the last day, a course ending today, and turning one back on. Left as is: with Meds off,
+ended courses stay active until it's on again (nothing is planned past the end meanwhile).

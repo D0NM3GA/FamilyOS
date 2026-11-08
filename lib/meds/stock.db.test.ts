@@ -127,6 +127,19 @@ describe.skipIf(!RUN)("medicine stock (database)", { timeout: 60_000 }, () => {
     expect(all.filter((r) => r.domain === "MED").length).toBeGreaterThan(1);
   });
 
+  test("turning a finished course back on takes its past end day off (Phase 68a)", async () => {
+    const { setDefinitionActive } = await import("@/app/(app)/meds/actions");
+    const { def } = await medicine(`Course ${t}`, { quantityOnHand: null, doseAmount: null });
+    await prisma.taskDefinition.update({ where: { id: def.id }, data: { active: false, endDate: new Date(2026, 0, 10) } });
+    await setDefinitionActive(def.id, true);
+    expect(await prisma.taskDefinition.findUniqueOrThrow({ where: { id: def.id } })).toMatchObject({ active: true, endDate: null });
+    // An end still ahead stays.
+    const ahead = atMidnight(new Date(Date.now() + 5 * 86_400_000));
+    await prisma.taskDefinition.update({ where: { id: def.id }, data: { active: false, endDate: ahead } });
+    await setDefinitionActive(def.id, true);
+    expect((await prisma.taskDefinition.findUniqueOrThrow({ where: { id: def.id } })).endDate?.getTime()).toBe(ahead.getTime());
+  });
+
   test("a week of supply left puts the refill on the list, with no refill count set", async () => {
     const { completeInstance } = await import("@/app/(app)/meds/actions");
     const title = `Weekly refill ${t}`;

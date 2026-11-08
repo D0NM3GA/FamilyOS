@@ -142,7 +142,7 @@ describe("grown-ups", () => {
 
 describe("reminder settings", () => {
   it("lists only kinds whose app is on, and keeps hidden kinds' switches when saving", () => {
-    expect(listedKinds((app) => app === "meds").map((k) => k.kind)).toEqual(["REMINDER_DOSE", "REMINDER_MED_LOW", "REMINDER_DATE"]);
+    expect(listedKinds((app) => app === "meds").map((k) => k.kind)).toEqual(["REMINDER_DOSE_DUE", "REMINDER_DOSE", "REMINDER_MED_LOW", "REMINDER_DATE"]);
     expect(listedKinds((app) => app === "cars").map((k) => k.kind)).toEqual(["REMINDER_DATE", "REMINDER_CAR", "REMINDER_RECALL"]);
     // School off (hidden) stays as it was; of the listed ones, only what's unticked is off.
     expect(nextOff(["REMINDER_SCHOOL", "REMINDER_DOSE"], ["REMINDER_DOSE", "REMINDER_MED_LOW", "REMINDER_DATE"], new Set(["REMINDER_DOSE", "REMINDER_DATE"]))).toEqual(["REMINDER_MED_LOW", "REMINDER_SCHOOL"]);

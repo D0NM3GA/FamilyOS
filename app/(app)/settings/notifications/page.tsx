@@ -48,15 +48,18 @@ export default async function MyNotificationsPage({ searchParams }: { searchPara
   ]);
   const vapid = await getVapid();
   // Phase 62: reminders, only the kinds whose app is on.
-  const [medsOn, schoolOn, carsOn, reminderPrefs, channels] = await Promise.all([
+  const [medsOn, schoolOn, carsOn, choresOn, reminderPrefs, channels] = await Promise.all([
     appOn(profile.householdId, "meds"),
     appOn(profile.householdId, "school"),
     appOn(profile.householdId, "cars"),
+    appOn(profile.householdId, "chores"),
     readReminderPrefs(profile.id),
     reminderChannels(profile.householdId, profile.id),
   ]);
-  const kinds = listedKinds((app) => (app === "meds" ? medsOn : app === "school" ? schoolOn : carsOn), isAdmin(profile));
+  const kinds = listedKinds((app) => ({ meds: medsOn, school: schoolOn, cars: carsOn, chores: choresOn })[app], isAdmin(profile));
   const off = new Set(reminderPrefs?.off ?? []);
+  // Phase 68a: opt-in kinds are ticked only once switched on.
+  const optIn = new Set(reminderPrefs?.optIn ?? []);
   // Phase 40.2c: an admin's notices about other people's sign-ins can be switched off.
   // Own sign-in only, as the switch's action checks (not the DEV-ONLY dev sign-in).
   const signInSwitch = isAdmin(profile) && (await isSessionOwner(profile)) ? await othersSignInNoticesOn(profile.id) : null;
@@ -107,7 +110,7 @@ export default async function MyNotificationsPage({ searchParams }: { searchPara
             <legend className="sr-only">Remind me when</legend>
             {kinds.map((k) => (
               <label key={k.kind} className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
-                <input type="checkbox" name="kind" value={k.kind} defaultChecked={!off.has(k.kind)} className="size-4" />
+                <input type="checkbox" name="kind" value={k.kind} defaultChecked={k.optIn ? optIn.has(k.kind) : !off.has(k.kind)} className="size-4" />
                 {k.label}
               </label>
             ))}

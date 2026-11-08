@@ -13,7 +13,7 @@ import { isMedLow } from "@/lib/reminders/supply";
 import { canTakeYet } from "@/lib/meds/dose-window";
 import { nextAllowed, notYetWords, whenWords } from "@/lib/meds/as-needed";
 import { searchRxTerms } from "@/lib/meds/rxterms";
-import { medFormSchema } from "@/lib/meds/form";
+import { courseEnd, medFormSchema } from "@/lib/meds/form";
 import { requestItemByName } from "@/lib/shopping-list";
 import { captureError } from "@/lib/observability";
 import { markOlderMissed as markOlderTasksMissed, skipInstance as skipTask, unskipInstance as unskipTask } from "@/lib/tasks/skip";
@@ -50,6 +50,9 @@ function parseMedForm(formData: FormData) {
     maxPerDay: numOrUndefined("maxPerDay"),
     prescriberId: idOrUndefined("prescriberId"),
     pharmacyId: idOrUndefined("pharmacyId"),
+    endMode: String(formData.get("endMode") ?? "never") || "never",
+    endDays: numOrUndefined("endDays"),
+    endDate: idOrUndefined("endDate"),
   };
 
   const parsed = medFormSchema.safeParse(raw);
@@ -69,14 +72,19 @@ function parseMedForm(formData: FormData) {
     maxPerDay,
     prescriberId,
     pharmacyId,
+    endMode,
+    endDays,
+    endDate,
     ...rest
   } = parsed.data;
+  const end = courseEnd({ frequencyType: rest.frequencyType, startDate: rest.startDate, endMode, endDays, endDate });
+  if ("error" in end) return { error: end.error } as const;
   const asNeeded = rest.frequencyType === "AS_NEEDED";
   // An as-needed medicine has no times; its limits mean nothing on a schedule.
   const dedupedTimes = asNeeded ? [] : Array.from(new Set(timesOfDay)).sort();
 
   return {
-    fields: { ...rest, notes: notes || null, interval: interval ?? null, timesOfDay: dedupedTimes },
+    fields: { ...rest, notes: notes || null, interval: interval ?? null, timesOfDay: dedupedTimes, endDate: end.endDate },
     assigneeIds,
     medFields: {
       quantityOnHand: quantityOnHand ?? null,
@@ -198,6 +206,14 @@ export async function setDefinitionActive(definitionId: string, active: boolean)
     where: { id: definitionId, householdId: profile.householdId, domain: "MED" },
     data: { active },
   });
+  // Phase 68a: turning a finished course back on means it goes on: its past end day goes too, or
+  // the next tick would switch it off again. A course whose end is still ahead keeps it.
+  if (active) {
+    await prisma.taskDefinition.updateMany({
+      where: { id: definitionId, householdId: profile.householdId, domain: "MED", endDate: { lt: atMidnight(new Date()) } },
+      data: { endDate: null },
+    });
+  }
 
   // Deactivating stops future roll-forward, but doesn't touch instances already on the
   // board — without this, already-generated future doses (up to 14 days out) would keep

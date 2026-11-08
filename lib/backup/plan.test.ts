@@ -121,6 +121,7 @@ function fullBackup(): Backup {
       interval: null,
       daysOfWeek: [],
       startDate: T,
+      endDate: null,
       timesOfDay: [],
       weatherSensitive: false,
       points: 5,

@@ -7,7 +7,11 @@ import type { ReminderKind } from "./plan";
  * settings rule: lists show only what can be changed), and saving leaves the others as they were.
  */
 
-export const REMINDER_KINDS: { kind: ReminderKind; label: string; app: "meds" | "school" | "cars" | null; adminOnly?: boolean }[] = [
+export type ReminderApp = "meds" | "school" | "cars" | "chores";
+
+export const REMINDER_KINDS: { kind: ReminderKind; label: string; app: ReminderApp | null; adminOnly?: boolean; optIn?: boolean }[] = [
+  // Phase 68a: off until switched on (the owner's call).
+  { kind: "REMINDER_DOSE_DUE", label: "A dose is due: your own, and the kids'", app: "meds", optIn: true },
   { kind: "REMINDER_DOSE", label: "A dose wasn't marked (comes through quiet hours)", app: "meds" },
   { kind: "REMINDER_MED_LOW", label: "A medicine is running low", app: "meds" },
   { kind: "REMINDER_SCHOOL", label: "A school form, fee or to-do is due today or tomorrow", app: "school" },
@@ -19,7 +23,7 @@ export const REMINDER_KINDS: { kind: ReminderKind; label: string; app: "meds" | 
 ];
 
 /** The kinds to list, given which apps are on and whether the reader is an admin. */
-export function listedKinds(isOn: (app: "meds" | "school" | "cars") => boolean, admin = false) {
+export function listedKinds(isOn: (app: ReminderApp) => boolean, admin = false) {
   return REMINDER_KINDS.filter((k) => (k.app === null || isOn(k.app)) && (admin || !k.adminOnly));
 }
 
@@ -29,12 +33,26 @@ export function nextOff(previousOff: string[], listed: ReminderKind[], ticked: S
   return [...new Set([...keptHidden, ...listed.filter((k) => !ticked.has(k))])].sort();
 }
 
+/** Phase 68a: the new `optIn` list: listed opt-in kinds ticked, plus unlisted ones that were on. */
+export function nextOptIn(previousOn: string[], listed: ReminderKind[], ticked: Set<string>): string[] {
+  const keptHidden = previousOn.filter((k) => !listed.includes(k as ReminderKind));
+  return [...new Set([...keptHidden, ...listed.filter((k) => ticked.has(k))])].sort();
+}
+
+/** Whether a kind is off for someone: an opt-in kind until it's in `optIn`, any other once it's in `off`. */
+export function kindOff(kind: string, prefs: { off: string[]; optIn: string[] }): boolean {
+  return OPT_IN.has(kind) ? !prefs.optIn.includes(kind) : prefs.off.includes(kind);
+}
+
+const OPT_IN = new Set<string>(REMINDER_KINDS.filter((k) => k.optIn).map((k) => k.kind));
+
 export function readReminderPrefs(personId: string) {
   return prisma.reminderPrefs.findUnique({ where: { personId } });
 }
 
 export type ReminderPrefsInput = {
   off: string[];
+  optIn?: string[];
   quietStart: number | null;
   quietEnd: number | null;
   teamsEnabled?: boolean;
@@ -46,6 +64,7 @@ export type ReminderPrefsInput = {
 export async function saveReminderPrefs(personId: string, input: ReminderPrefsInput) {
   const data = {
     off: input.off,
+    ...(input.optIn === undefined ? {} : { optIn: input.optIn }),
     quietStart: input.quietStart,
     quietEnd: input.quietEnd,
     ...(input.teamsEnabled === undefined ? {} : { teamsEnabled: input.teamsEnabled }),

@@ -2867,6 +2867,119 @@ new capabilities (70). A CSP report endpoint and Cloudflare settings stay out of
 67a sign-ins and the log; 67b alerts and timeouts; 67c backups, keys, scans and logs.
 
 
+## Phase 68 — scope (reminders ahead of time, 2026-11-08)
+
+The third phase from the review of 2026-11-08: reminders that come before something is missed, and
+phone notifications that keep working. Checked against the code 2026-11-08.
+
+### The owner's answers (2026-11-08)
+
+- **A dose is due: opt-in, kids' doses to grown-ups.** Off until a grown-up switches it on in My
+  notifications. Their own doses remind them; a kid's dose (or one for nobody in particular)
+  reminds the grown-ups who switched it on; the kid gets the bell for their own.
+- **Chores still open: 6 pm, the kid and the grown-ups.** Each kid with chores still open today
+  gets a bell ("2 chores still to do today"); grown-ups get one line ("Still to do today: Ivy 2,
+  Max 1"), switchable in My notifications.
+- **A course of medicine: for N days, or until a date.** On the medicine's form; after its last
+  day no more doses are made and it switches itself off (kept, not deleted).
+
+### 68a — Doses on time, and courses that end
+
+- **`REMINDER_DOSE_DUE`** (a new kind, opt-in): planned for a PENDING timed dose of an active
+  scheduled medicine from 15 minutes before its time until the missed-dose reminder's 90 minutes
+  after (ticks are 30 minutes apart, so it comes within about a quarter hour of the time). Key
+  `dose-due:<definition>:<day>:<hhmm>` like the missed one. Recipients: the dose's grown-up if it's
+  theirs and they opted in; for a kid's or nobody's dose, the grown-ups who opted in, plus the kid
+  (bell only). Not urgent (quiet hours hold it; see below).
+  "Time for Ivy's 8:00 AM dose of Amoxicillin".
+- **Opt-in storage:** `ReminderPrefs.optIn String[]` (default empty). `REMINDER_KINDS` entries gain
+  `optIn: true`; My notifications ticks them from `optIn`, the rest from `off` as now; saving keeps
+  hidden kinds as they were in both lists.
+- **Course end:** `TaskDefinition.endDate DateTime?` (local midnight, a stored day column, so in
+  `DAY_COLUMNS`). The medicine form (scheduled frequencies only) gets "Ends: never / after N days /
+  on a date"; after N days stores start + N − 1. `planInstances` (`lib/tasks/instances.ts`) makes
+  nothing after it. Each reminders tick switches off active medicines whose end day has passed
+  (`active: false`; nothing past the end day was made). Meds shows
+  "Last day Nov 18" under it; Manage too. Backups v15 carry `endDate`.
+
+### 68b — Homework, chores, and a fuller morning
+
+- **`REMINDER_HOMEWORK`**: homework, a quiz, a test or a project still TODO and due tomorrow, from
+  3 pm today: the kid gets the bell, grown-ups their channels ("Max has a quiz tomorrow: Fractions").
+  Key per assignment and due day. A kid's assignment only, through the kid's school profile.
+- **`REMINDER_CHORES`** at 6 pm (from the 18:00 tick until midnight): one bell per kid with
+  PENDING chores due today ("2 chores still to do today"), key `chores:<kid>:<day>`; one reminder to
+  grown-ups listing them ("Still to do today: Ivy 2, Max 1"), key `chores:all:<day>`. Not urgent.
+- **Morning summary gains:** today's school feed events ("No school", "Early dismissal": only
+  events for the reader's kids or the whole family), homework and tests due today, and tonight's
+  dinner (`getTodaysDinner`), each only when its app is on. Outlook events stay out: the summary is
+  sent by the background tick, which has no one's Microsoft token.
+
+### 68c — Phone notifications that keep working
+
+- **A renewed subscription follows:** the service worker handles `pushsubscriptionchange` by
+  subscribing again with the same key and posting old and new to `/api/push/renew`, which moves the
+  row (signed-in user's own row only, matched by the old endpoint). Without an old one it does
+  nothing (the next visit to My notifications re-subscribes, as now).
+- **Notifications don't pile up:** each carries a `tag` (its kind and link), so a newer one about
+  the same thing replaces the older; `badge` is a small one-colour icon (`/notification-badge.png`)
+  instead of Android's blank square.
+- **The unread count on the app icon:** where the browser supports it, the bell sets
+  `navigator.setAppBadge(unread)` and clears it at zero.
+
+### Settled after Fable's scope review (2026-11-08)
+
+- **One dose query, two planners:** `doseReminders` loads PENDING doses up to `now + 15 min` (it
+  stopped at now) and feeds both `planDoses` and the new `planDosesDue`. `DoseRow.assignedTo` gains
+  `adult`, filled like the school owner. The window (15 min before to 90 after) is wider than the
+  tick, so no dose is skipped.
+- **Opt-in in the run:** `loadPeople` loads `optIn`; an opt-in kind goes to a grown-up only if it's in
+  their `optIn` (beside the `off` check). `nextOptIn` is `nextOff`'s twin (ticked means in the list;
+  hidden kinds kept). `listedKinds` learns `"chores"`, and both callers pass it. A kid's bell for
+  their own dose doesn't depend on anyone opting in.
+- **Quiet hours:** they hold the due reminder; if they outlast its window it isn't sent (the
+  urgent missed-dose reminder still is).
+- **Course end:** `TaskDefinitionLike` gains `endDate`; `planInstances` clamps to it, so nothing
+  past the end day is made and switching off deletes nothing. The switch-off runs after the dose
+  planners in the tick, and only once the end day plus the missed-dose grace has passed, so a late
+  last dose still gets its missed reminder. Chores never set it. The edit form shows "until" with
+  the stored day. Backups v15: `endDate` nullable, defaulting to none for older files.
+- **Homework:** a kid's assignments only (profiles of kids), due tomorrow (`dueDate` is a local
+  midnight), key `homework:<id>:<day>`. No overlap with school forms (`SchoolTask`).
+- **Chores nudge:** chores are made for today first (`ensureInstancesGenerated` CHORE). A kid counts
+  their own PENDING chores due today, not "Anyone" ones; grown-ups' own chores aren't in it. From
+  the first tick at or after 18:00 until midnight; a grown-up whose quiet hours start at 18:00
+  doesn't get the line.
+- **Summary:** every active feed's events for today (the kids' and the family's), read with the
+  same two cutoffs as the calendar (all-day rows are UTC dates, timed ones instants, in the
+  household's zone). Homework and tests due today; tonight's dinner. Each only with its app on.
+- **Renewing a subscription:** the service worker takes the key from the old subscription, or
+  fetches it from `GET /api/push/key` (the public key, nothing else). `POST /api/push/renew` moves
+  the row whose old endpoint belongs to this household, keeping its person (devices are the
+  household's, as `saveThisDevice` treats them), with the restore route's guards (same-origin
+  fetch, JSON, Origin = Host) and the existing subscription schema. Where the event never fires
+  (Safari often), a dead subscription is removed by the 410 path as now. Badging: desktop and
+  installed iOS apps; Chrome on Android has none.
+- **Tag:** `deliverNotifications` reads each notification's kind; the payload carries
+  `tag: kind:href`; the service worker passes `tag` and `badge`.
+- **Guides:** family.md (the new reminders, kids' bells, course end) and admin.md.
+
+### Tests
+
+Unit: the dose-due plan (window, recipients by owner and opt-in), course end in `planInstances`,
+the homework and chores plans and their keys, the summary's new lines, opt-in saving. DB: a course
+switching itself off; opt-in sending only to who opted in; the renew route (own row only).
+
+### Not in this phase
+
+Everything else from the 2026-11-08 review: everyday friction (69), new capabilities (70). Outlook
+events in the morning summary; per-person reminder times; snoozing.
+
+### Pull requests
+
+68a doses and courses; 68b homework, chores and the summary; 68c phone notifications.
+
+
 ## Open items
 
 ### Waiting on a decision

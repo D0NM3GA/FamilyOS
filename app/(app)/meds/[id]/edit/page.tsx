@@ -66,6 +66,7 @@ export default async function EditMedPage({
             interval: definition.interval,
             daysOfWeek: definition.daysOfWeek,
             startDate: definition.startDate,
+            endDate: definition.endDate,
             points: definition.points,
             timesOfDay: definition.timesOfDay,
             assigneeIds: definition.assignees.map((a) => a.id),

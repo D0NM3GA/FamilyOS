@@ -110,6 +110,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
           interval: true,
           daysOfWeek: true,
           startDate: true,
+          endDate: true,
           timesOfDay: true,
           weatherSensitive: true,
           points: true,
@@ -511,6 +512,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     taskDefinitions: taskDefinitions.map(({ assignees, ...t }) => ({
       ...t,
       startDate: iso(t.startDate),
+      endDate: isoOrNull(t.endDate),
       createdAt: iso(t.createdAt),
       assigneeIds: assignees.map((a) => a.id),
     })),

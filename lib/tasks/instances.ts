@@ -18,6 +18,8 @@ export type TaskDefinitionLike = {
   daysOfWeek: number[];
   timesOfDay: string[];
   assignmentStrategy: AssignmentStrategyValue;
+  /** Phase 68a: a course's last day; nothing is planned after it. */
+  endDate?: Date | null;
 };
 
 export type PlannedInstance = { dueDate: Date; assignedToId: string | null };
@@ -68,7 +70,9 @@ export function planInstances(
   const todayMid = atMidnight(today);
   const from = latest ? (atMidnight(latest) < todayMid ? atMidnight(latest) : todayMid) : def.startDate;
 
-  const dayOccurrences = generateOccurrences(rule, { from, to: horizon });
+  const last = def.endDate && def.endDate < horizon ? def.endDate : horizon;
+  if (last < from) return [];
+  const dayOccurrences = generateOccurrences(rule, { from, to: last });
   const dueDates = expandTimesOfDay(dayOccurrences, def.timesOfDay);
   if (dueDates.length === 0) return [];
 
