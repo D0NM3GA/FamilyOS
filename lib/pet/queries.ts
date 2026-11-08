@@ -1,3 +1,4 @@
+import { cache } from "react";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
@@ -58,7 +59,8 @@ const NO_SCHOOL_LOOKBACK_DAYS = 45;
  * Phase 70d: days with no school in the calendars for the family or for this person, when the
  * household keeps weekend hours then (on by default). Reads the cached feed events directly.
  */
-async function noSchoolWeekendDays(householdId: string, personId: string | null, now: Date): Promise<WeekendDays | undefined> {
+const noSchoolWeekendDays = cache(async (householdId: string, personId: string | null, day: string): Promise<WeekendDays | undefined> => {
+  const now = new Date(`${day}T12:00:00Z`);
   const events = await prisma.schoolFeedEvent.findMany({
     where: {
       allDay: true,
@@ -71,16 +73,18 @@ async function noSchoolWeekendDays(householdId: string, personId: string | null,
   });
   const days = noSchoolDays(events);
   return days.size ? days : undefined;
-}
+});
 
 /**
  * The household's care hours and time zone, from the row the layout already read this request
  * (React `cache`). Read before a transaction starts, never inside one: a read through the shared
  * client mid-transaction would need a second pool connection while the first is held.
  */
+/** `personId` null: just the hours (Settings), without reading the school calendars. */
 export async function getCareHours(householdId: string, personId: string | null = null, now = new Date()): Promise<CareSettings> {
   const row = await getHouseholdRow(householdId);
-  const weekendDays = row?.petNoSchoolDays === false ? undefined : await noSchoolWeekendDays(householdId, personId, now);
+  // Once per request and day (React `cache`): the pet page and its catch-up share one read.
+  const weekendDays = personId === null || row?.petNoSchoolDays === false ? undefined : await noSchoolWeekendDays(householdId, personId, now.toISOString().slice(0, 10));
   return { careHours: readCareHours(row?.petCareHours), timeZone: row?.timezone ?? processZone(), weekendDays };
 }
 
@@ -310,7 +314,7 @@ export type MyPet = {
 
 /** This person's pet as it is right now, their items, and a goodbye if it just went. */
 export async function getMyPet(profile: Profile, now = new Date()): Promise<MyPet> {
-  const settings = await getCareHours(profile.householdId, profile.id);
+  const settings = await getCareHours(profile.householdId, profile.id, now);
   const result = await prisma.$transaction((tx) => catchUp(tx, profile, settings, now, true));
   const [items, presents] = await Promise.all([
     getMyItems(profile.id),

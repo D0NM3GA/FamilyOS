@@ -4,13 +4,13 @@ import { careHoursToday, DEFAULT_CARE_HOURS, isCareMinute, localTime, MINUTE_MS 
 
 describe("isNoSchoolTitle", () => {
   it("days off", () => {
-    for (const t of ["No School", "No School - Teacher Workday", "Thanksgiving Break", "Winter Break", "Spring break", "Schools closed", "Teacher Work Day", "Teacher Planning Day", "Professional Development Day - No Students", "Holiday", "Student Holiday", "Mid-Winter Break"]) {
+    for (const t of ["No School", "No School - Teacher Workday", "Thanksgiving Break", "Winter Break", "Spring break", "Schools closed", "Teacher Work Day", "Teacher Planning Day", "Professional Development Day - No Students", "Holiday", "Student Holiday", "Mid-Winter Break", "Veterans Day - No School", "Labor Day", "Memorial Day", "Presidents Day", "MLK Day", "Martin Luther King Jr. Day", "Juneteenth", "Thanksgiving", "Election Day", "Snow Day", "Winter Recess", "Spring Recess", "Staff Development Day", "Staff Inservice", "PD Day", "Teacher Institute Day", "No Students", "Non-Student Day", "Student Non-Attendance Day", "District Closed", "Records Day", "Christmas Holiday"]) {
       expect(isNoSchoolTitle(t), t).toBe(true);
     }
   });
 
   it("events at school, and words inside other words, aren't", () => {
-    for (const t of ["Holiday Concert", "Breakfast with Santa", "Winter Break Camp signups due", "Spring Break book fair", "Picture Day", "Early Dismissal", "Holiday Party in class", "Breakout session", ""]) {
+    for (const t of ["Holiday Concert", "Breakfast with Santa", "Winter Break Camp signups due", "Spring Break book fair", "Picture Day", "Early Dismissal", "Holiday Party in class", "Breakout session", "", "Return from Winter Break", "Last day before Winter Break", "Classes resume after Spring Break", "Winter Break begins - early dismissal", "Holiday Spirit Week", "Holiday Shop", "Holiday Sweater Day", "Brain Break", "Holiday Program", "Early Release", "Half Day", "Thanksgiving Lunch"]) {
       expect(isNoSchoolTitle(t), t).toBe(false);
     }
   });
@@ -26,6 +26,10 @@ describe("noSchoolDays", () => {
       { title: "Book fair", startsAt: day("2026-11-16"), endsAt: day("2026-11-17"), allDay: true },
     ]);
     expect([...days].sort()).toEqual(["2026-11-11", "2026-11-25", "2026-11-26", "2026-11-27"]);
+  });
+
+  it("a break longer than a month is left out, not cut off partway", () => {
+    expect(noSchoolDays([{ title: "Summer Break", startsAt: day("2026-06-10"), endsAt: day("2026-08-20"), allDay: true }]).size).toBe(0);
   });
 });
 

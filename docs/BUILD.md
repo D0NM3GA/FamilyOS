@@ -2268,3 +2268,12 @@ all-day events from the family's feeds and the pet's kid's (45 days back, for a 
 `Household.petNoSchoolDays` is on (default); `localTime` now gives the local day, and `isCareMinute`,
 `careMinutes` and `careHoursToday` treat those days as weekends. The switch sits under Settings →
 Apps → Pet care hours, and is in backups.
+Fable's review of 70d: the no-school check now leaves school days alone when a title names the
+return, the last or first day, a short day or an event ("Return from Winter Break", "Holiday Spirit
+Week", "Early Release"), and knows more days off (public holidays by name, recess, snow days, staff
+development, "No Students", district closed); a break over a month is left out rather than cut off
+partway. The restore preview counts the gift ideas it replaces and says why the file-taker's own
+can't come back; the feed read is cached per request and day, skipped on Settings, and `getMyPet`
+passes its `now` through; idea counts are scoped to the household; `GiftIdea` gets a household
+index (migration `20261205140000_gift_idea_household_index`). Tests: a restore by someone keeps
+theirs without doubling, and the realistic titles both ways.

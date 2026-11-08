@@ -343,6 +343,7 @@ model GiftIdea {
   createdAt   DateTime  @default(now())
 
   @@index([personId])
+  @@index([householdId])
   @@map("gift_idea")
 }
 

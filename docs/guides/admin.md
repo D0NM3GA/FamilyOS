@@ -562,6 +562,10 @@ household as it was downloads first. Tick **Also put the money jars back** to br
 back (members are told). Afterwards: kids' PINs in Settings → Household, invites for passkey
 people, and reconnect bank feeds and other connections.
 
+**Gift ideas** in a backup never include the ones for whoever took the file, so a restore can't put
+those back; the ideas for the admin restoring are kept as they are. The preview says how many it
+replaces.
+
 ### The restore drill
 
 Every few months, and after any big change, prove a backup really restores:

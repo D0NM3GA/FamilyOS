@@ -317,7 +317,7 @@ async function dateReminders(householdId: string, grownUps: { id: string }[], no
     select: { id: true, type: true, month: true, day: true, year: true, person: { select: { id: true, firstName: true } } },
   });
   // Phase 70d: how many open gift ideas each birthday person has.
-  const ideas = await openGiftIdeaCounts([...new Set(dates.filter((d) => d.type === "BIRTHDAY").map((d) => d.person.id))]);
+  const ideas = await openGiftIdeaCounts(householdId, [...new Set(dates.filter((d) => d.type === "BIRTHDAY").map((d) => d.person.id))]);
   return planDates(dates, grownUps, now, ideas);
 }
 

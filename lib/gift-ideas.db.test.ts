@@ -54,7 +54,7 @@ describe.skipIf(!RUN)("gift ideas and no-school days (database)", { timeout: 60_
   test("birthday reminders count open ideas only", async () => {
     const { openGiftIdeaCounts } = await import("./gift-ideas");
     await prisma.giftIdea.create({ data: { householdId: ids.h, personId: ids.ivy, text: "Given already", givenAt: new Date() } });
-    const counts = await openGiftIdeaCounts([ids.ivy, ids.dad, ids.max]);
+    const counts = await openGiftIdeaCounts(ids.h, [ids.ivy, ids.dad, ids.max]);
     expect(counts.get(ids.ivy)).toBe(1);
     expect(counts.get(ids.dad)).toBe(1);
     expect(counts.has(ids.max)).toBe(false);
@@ -78,4 +78,32 @@ describe.skipIf(!RUN)("gift ideas and no-school days (database)", { timeout: 60_
     expect((await getCareHours(ids.h, ids.ivy, now)).weekendDays).toBeUndefined();
     await prisma.household.update({ where: { id: ids.h }, data: { petNoSchoolDays: true } });
   });
+  test("a restore by someone keeps the ideas for them, never doubles them, and says what it replaces", async () => {
+    const { buildBackup } = await import("./backup/build");
+    const { previewRestore, applyRestore } = await import("./backup/restore");
+    const user = await prisma.user.create({ data: { id: `e2e-gifts-mom-${t}`, name: "Mom", email: `mom-gifts-${t}@example.com` } });
+    // The restorer must be an admin with their own sign-in. Last test: a restore gives the others new ids.
+    await prisma.person.update({ where: { id: ids.mom }, data: { authUserId: user.id, role: "ADMIN", email: user.email } });
+    try {
+      await prisma.giftIdea.create({ data: { householdId: ids.h, personId: ids.mom, text: "Garden gloves", addedById: ids.dad } });
+      // Taken by Dad: his own ideas stay out; Mom's and Ivy's are in.
+      const file = await buildBackup(ids.h, new Date(), { takenBy: ids.dad });
+      expect(file.giftIdeas.map((g) => g.text).sort()).toEqual(["Garden gloves", "Given already", "Paint set"]);
+      const preview = await previewRestore(ids.h, file, { takenBy: ids.mom });
+      if (!preview.ok) throw new Error(preview.errors.join(" "));
+      // Everything but Mom's own: Dad's hat and Ivy's two.
+      expect(preview.preview.deletes["gift ideas"]).toBe(3);
+      expect(preview.preview.giftNote).not.toBeNull();
+      const done = await applyRestore(ids.h, ids.mom, file, { expectedPlanDigest: preview.preview.planDigest, hooks: { takenBy: ids.mom } });
+      if (!done.ok) throw new Error(done.errors.join(" "));
+      const after = await prisma.giftIdea.findMany({ where: { householdId: ids.h }, select: { text: true, personId: true } });
+      expect(after.filter((g) => g.personId === ids.mom).map((g) => g.text)).toEqual(["Garden gloves"]);
+      // Dad's hat isn't in a file he took, so it's gone: the preview's note says so.
+      expect(after.map((g) => g.text).sort()).toEqual(["Garden gloves", "Given already", "Paint set"]);
+    } finally {
+      await prisma.person.update({ where: { id: ids.mom }, data: { authUserId: null } });
+      await prisma.user.deleteMany({ where: { id: user.id } });
+    }
+  });
+
 });

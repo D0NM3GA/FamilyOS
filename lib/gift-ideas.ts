@@ -59,8 +59,8 @@ export async function removeGiftIdea(viewer: Viewer, ideaId: string): Promise<Gi
 }
 
 /** How many open (not yet given) ideas each person has, for birthday reminders. */
-export async function openGiftIdeaCounts(personIds: string[]): Promise<Map<string, number>> {
+export async function openGiftIdeaCounts(householdId: string, personIds: string[]): Promise<Map<string, number>> {
   if (personIds.length === 0) return new Map();
-  const rows = await prisma.giftIdea.groupBy({ by: ["personId"], where: { personId: { in: personIds }, givenAt: null }, _count: { _all: true } });
+  const rows = await prisma.giftIdea.groupBy({ by: ["personId"], where: { householdId, personId: { in: personIds }, givenAt: null }, _count: { _all: true } });
   return new Map(rows.map((r) => [r.personId, r._count._all]));
 }

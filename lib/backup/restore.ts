@@ -47,6 +47,8 @@ export type RestorePreview = {
   matchedButRemoved: number;
   /** Phase 49: the days will be moved to the restored household's zone; null when they won't. */
   timeZoneNote: string | null;
+  /** Phase 70d: why some gift ideas won't come back (never the file-taker's own). */
+  giftNote: string | null;
   anythingToDelete: boolean;
   /** Phase 28: money jars sealed in the file. */
   sealedMoneyJars: number;
@@ -82,8 +84,12 @@ function moneyContext(backup: Backup, people: PeoplePlan, linked: LinkedPerson[]
   };
 }
 
-async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promise<Record<string, number>> {
+const GIFT_NOTE = "Gift ideas for whoever took this file aren't in it, so a restore can't put theirs back; the ones here for you stay.";
+
+async function deleteCounts(db: Tx | typeof prisma, householdId: string, viewerId: string | null): Promise<Record<string, number>> {
   const person = { householdId };
+  // Phase 70d: a restore replaces gift ideas, except the ones for whoever's restoring.
+  const giftIdeas = await db.giftIdea.count({ where: { householdId, ...(viewerId ? { personId: { not: viewerId } } : {}) } });
   const [people, instances, definitions, vehicles, products, listItems, purchases, rewards, interactions, points, supplies, schoolProfiles, schoolTasks, schoolAssignments, orders, shelves, prices, pets, petMemories, petDiscoveries, history, meals, plannedDays] = await Promise.all([
     db.person.count({ where: { householdId, authUserId: null } }),
     db.taskInstance.count({ where: { definition: { householdId } } }),
@@ -133,6 +139,7 @@ async function deleteCounts(db: Tx | typeof prisma, householdId: string): Promis
     "history of chores & schoolwork": history,
     meals,
     "planned dinners": plannedDays,
+    "gift ideas": giftIdeas,
   };
 }
 
@@ -163,6 +170,7 @@ function insertCounts(b: Backup): Record<string, number> {
     "history of chores & schoolwork": b.workItemEvents.length,
     meals: b.meals.length,
     "planned dinners": b.mealPlanDays.length,
+    "gift ideas": b.giftIdeas.length,
   };
 }
 
@@ -179,7 +187,7 @@ async function validate(householdId: string, backup: Backup): Promise<{ ok: true
 export async function previewRestore(householdId: string, backup: Backup, hooks: BackupHooks = {}): Promise<{ ok: true; preview: RestorePreview } | Rejection> {
   const v = await validate(householdId, backup);
   if (!v.ok) return v;
-  const deletes = await deleteCounts(prisma, householdId);
+  const deletes = await deleteCounts(prisma, householdId, hooks.takenBy ?? null);
   let money: RestorePreview["money"] = null;
   if (backup.sealedMoney) {
     if (!hooks.previewMoney) money = { canRestore: false, reason: "Money jars can't be put back from here." };
@@ -201,6 +209,7 @@ export async function previewRestore(householdId: string, backup: Backup, hooks:
       newMembersNeedingPin: v.people.newMembers,
       matchedButRemoved: v.people.matchedButRemoved,
       timeZoneNote: dayZoneNote(restoredDayZones(backup, deployZone())),
+      giftNote: deletes["gift ideas"] > 0 || backup.giftIdeas.length > 0 ? GIFT_NOTE : null,
       anythingToDelete: Object.values(deletes).some((n) => n > 0),
       sealedMoneyJars: backup.sealedMoney?.jarCount ?? 0,
       money,

@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   try {
     if (mode === "preview") {
-      const result = await previewRestore(viewer.householdId, parsed.backup, { previewMoney });
+      const result = await previewRestore(viewer.householdId, parsed.backup, { previewMoney, takenBy: viewer.id });
       if (!result.ok) return json({ errors: result.errors }, 400);
       return json({ preview: result.preview, fileHash });
     }
