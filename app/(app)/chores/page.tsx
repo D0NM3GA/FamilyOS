@@ -43,7 +43,7 @@ import { GrownUpSwaps, KidSwaps, WaitingForCheck } from "./checks-and-swaps";
 export default async function ChoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ person?: string; all?: string; show?: string; item?: string; swap?: string }>;
+  searchParams: Promise<{ person?: string; all?: string; show?: string; item?: string; swap?: string; check?: string }>;
 }) {
   await requireAppOn("chores");
   const profile = await requireActiveProfile();
@@ -85,7 +85,8 @@ export default async function ChoresPage({
     viewerIsAdult ? swappedFrom(profile.householdId, allInstances.map((i) => i.id)) : Promise.resolve(new Map<string, string>()),
     viewerIsAdult ? openSwapsForGrownUps(profile.householdId, atMidnight(new Date())) : Promise.resolve([]),
   ]);
-  const swapNotice = params.swap === "asked" || params.swap === "lapsed" || params.swap === "gone" ? params.swap : null;
+  const swapNotice = params.swap === "asked" || params.swap === "lapsed" || params.swap === "gone" || params.swap === "taken" || params.swap === "declined" ? params.swap : null;
+  const checkNotice = params.check === "ok" || params.check === "again" ? params.check : null;
   const swapNote = (id: string) => (fromSwap.has(id) ? `swapped from ${fromSwap.get(id)}` : null);
   const hasWeatherSensitiveChore = allInstances.some((i) => i.definition.weatherSensitive);
   const forecast: ForecastPeriod[] | null = hasWeatherSensitiveChore
@@ -371,7 +372,7 @@ export default async function ChoresPage({
           />
         )}
 
-        <WaitingForCheck rows={waiting} zone={household.timezone ?? undefined} />
+        <WaitingForCheck rows={waiting} notice={checkNotice} zone={household.timezone ?? undefined} />
         <GrownUpSwaps swaps={askedSwaps} zone={household.timezone ?? undefined} />
         {swaps && <KidSwaps incoming={swaps.incoming} outgoing={swaps.outgoing} notice={swapNotice} zone={household.timezone ?? undefined} />}
 
