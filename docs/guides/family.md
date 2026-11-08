@@ -438,7 +438,8 @@ Inside a jar:
 - **📒 Activity**: every charge, a month at a time. Tap one to set its category ("always for this
   store"), link the order or grocery trip, or make it a **🎁 Surprise** (hidden from chosen people
   until a day you pick). Money back from a store goes in the same category as your last charge
-  there, so a return lowers that budget.
+  there, so a return lowers that budget. A category or trip you set on a pending charge stays with it once it
+  posts, and a pending charge is dated the day you made it.
   **New since you last looked** sits above the month's charges: ones that came in since your last visit (the
   first time, the last 30 days), each with the category the app guessed. Fix any that are off and
   tap **Save all**, or **Mark all seen** to clear them. It's yours: someone else in the jar has

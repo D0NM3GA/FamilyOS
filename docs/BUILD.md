@@ -1928,3 +1928,21 @@ Fable's review of 66b: no lock cycle (every locking path takes the list first); 
 longer crash when a lock-free removal beats them; the step and its zero-delete share a transaction
 (Postgres can't update and delete one row in a single statement); Pantry merge takes the lock; the
 fold keeps the note and who it's for.
+
+### 66c — Money
+
+**Pending picks:** right after a sync marks pending rows SUPERSEDED (same transaction, after the
+posted rows are in), `carryPendingPicks` (`lib/finance/pending-match.ts`) hands a person's
+category, a grocery trip link (with `purchaseLinkedBy`) and a matched order email to the posted
+row each became. The matcher, `postedRowFor`, is the one surprise marks used (same account and
+feed, 0–10 days later, same sign, amount within 25%, same merchant), now shared with
+`gifts.ts`; candidates are only rows that can take something and haven't taken from another
+pending row in that sync. It runs once, at that moment. **Feed amounts:** `feedAmountToCents`
+(`lib/money.ts`) rounds a third decimal and beyond to the cent, half away from zero, in string
+arithmetic; typed money still refuses it. **Pending days:** `parseAccounts` reads a pending row's
+`transacted_at` (or now) as a day in the household's zone, which the server keeps; posted rows
+keep the bank's UTC date. The stored and parsed days are both plain strings, so a pending row is
+rewritten once after the change and then stays put.
+Fable's review of 66c: the carry could pick a posted row that couldn't take the pick, or one another
+pending charge had just filled, and drop it (candidates now exclude both); order emails move too.
+Left as is: `feedAmountToCents` refuses ".5" like `decimalToCents`.
