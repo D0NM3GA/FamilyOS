@@ -20,7 +20,7 @@ function Labeled({ label, children }: { label: React.ReactNode; children: React.
 }
 
 function Result({ state }: { state: SchoolFormState }) {
-  if (state.error) return <p className="text-sm text-destructive">{state.error}</p>;
+  if (state.error) return <p role="alert" className="text-sm text-destructive">{state.error}</p>;
   if (state.notice) return <p className="text-sm text-emerald-700 dark:text-emerald-300">{state.notice}</p>;
   return null;
 }

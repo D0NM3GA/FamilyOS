@@ -58,7 +58,7 @@ export function PinForm({ action, hasPin, kid }: { action: Action; hasPin: boole
       >
         {state.success ? "Done" : "Cancel"}
       </button>
-      {state.error && <span className="w-full text-xs text-destructive">{state.error}</span>}
+      {state.error && <span role="alert" className="w-full text-xs text-destructive">{state.error}</span>}
       {state.success && <span className="w-full text-xs text-emerald-600">PIN saved.</span>}
     </form>
   );

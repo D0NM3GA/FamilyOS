@@ -11,7 +11,7 @@ export function RefreshButton({ action, name }: { action: () => Promise<FeedForm
       <button type="submit" disabled={pending} aria-label={`Refresh ${name}`} className={btn}>
         {pending ? "Refreshing…" : "Refresh"}
       </button>
-      {state.error && <span className="text-xs text-destructive">{state.error}</span>}
+      {state.error && <span role="alert" className="text-xs text-destructive">{state.error}</span>}
       {state.notice && <span className="text-xs text-muted-foreground">{state.notice}</span>}
     </form>
   );

@@ -146,14 +146,14 @@ export function StatementImport({
           </div>
         )}
         <div aria-live="polite">
-          {message.error && <p className="text-sm font-semibold text-tomato">{message.error}</p>}
+          {message.error && <p role="alert" className="text-sm font-semibold text-tomato">{message.error}</p>}
           {message.ok && <p className="text-sm font-semibold">{message.ok}</p>}
         </div>
       </div>
 
       {recent.length > 0 && <RecentImports recent={recent} removeImport={removeImport} onDone={setRemoved} />}
       <div aria-live="polite">
-        {removed.error && <p className="text-sm font-semibold text-tomato">{removed.error}</p>}
+        {removed.error && <p role="alert" className="text-sm font-semibold text-tomato">{removed.error}</p>}
         {removed.ok && <p className="text-sm font-semibold">{removed.ok}</p>}
       </div>
     </div>

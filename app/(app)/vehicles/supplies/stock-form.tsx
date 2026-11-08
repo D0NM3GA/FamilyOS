@@ -31,7 +31,7 @@ export function StockForm({
       <button type="submit" disabled={pending} aria-label={`Add stock: ${name}`} className={btn}>
         Add stock
       </button>
-      {state.error && <span className="text-xs text-destructive">{state.error}</span>}
+      {state.error && <span role="alert" className="text-xs text-destructive">{state.error}</span>}
     </form>
   );
 }

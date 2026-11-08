@@ -106,7 +106,7 @@ function OdometerFormInner({
       <button type="button" onClick={onCancel} className={btn}>
         Cancel
       </button>
-      {state.error && <p className="w-full text-xs text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="w-full text-xs text-destructive">{state.error}</p>}
     </form>
   );
 }

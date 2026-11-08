@@ -110,7 +110,7 @@ export function HouseholdSettingsForm({
         </p>
       </div>
 
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
       {state.success && <p className="text-sm text-green-700 dark:text-green-400">Saved.</p>}
 
       <button

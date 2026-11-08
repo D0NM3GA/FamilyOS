@@ -147,7 +147,7 @@ export function RelationshipsCard({
               className={`${field} w-full min-w-0`}
             />
           )}
-          {state.error && <p className="text-xs text-destructive">{state.error}</p>}
+          {state.error && <p role="alert" className="text-xs text-destructive">{state.error}</p>}
           <div className="flex flex-wrap gap-2">
             <button type="submit" disabled={pending} className={btnPrimary}>
               {pending ? "Saving…" : "Save"}
