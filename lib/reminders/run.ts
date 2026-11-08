@@ -1,3 +1,4 @@
+import { openGiftIdeaCounts } from "@/lib/gift-ideas";
 import { prisma } from "@/lib/prisma";
 import { Prisma, type NotificationKind } from "@/app/generated/prisma/client";
 import { appOn } from "@/lib/app-switches";
@@ -315,7 +316,9 @@ async function dateReminders(householdId: string, grownUps: { id: string }[], no
     where: { person: { householdId }, type: { in: ["BIRTHDAY", "ANNIVERSARY"] } },
     select: { id: true, type: true, month: true, day: true, year: true, person: { select: { id: true, firstName: true } } },
   });
-  return planDates(dates, grownUps, now);
+  // Phase 70d: how many open gift ideas each birthday person has.
+  const ideas = await openGiftIdeaCounts([...new Set(dates.filter((d) => d.type === "BIRTHDAY").map((d) => d.person.id))]);
+  return planDates(dates, grownUps, now, ideas);
 }
 
 /** The odometer readings a car has from the last 90 days: fill-ups, services and its own current mileage. */

@@ -138,6 +138,7 @@ export function checkReferences(b: Backup): string[] {
   check("petPlays.personId", b.petPlays.map((r) => r.personId), people);
   check("petMemorials.personId", b.petMemorials.map((r) => r.personId), people);
   check("petGifts.personId", b.petGifts.map((r) => r.personId), people);
+  check("giftIdeas.personId", b.giftIdeas.map((r) => r.personId), people);
   check("petDiscoveries.personId", b.petDiscoveries.map((r) => r.personId), people);
   // petGifts.instanceId isn't checked: a present whose chore isn't in the file keeps its
   // place in the daily cap with no chore (remapBackup nulls it, like the database's SET NULL).
@@ -148,6 +149,7 @@ function tables(b: Backup): Record<string, { id: string }[]> {
   return {
     people: b.people,
     importantDates: b.importantDates,
+    giftIdeas: b.giftIdeas,
     interactions: b.interactions,
     relationships: b.relationships,
     taskDefinitions: b.taskDefinitions,
@@ -343,6 +345,7 @@ type OptionalHouseholdField =
   | "disabledApps"
   | "setupReviewed"
   | "petCareHours"
+  | "petNoSchoolDays"
   | "statementDateOrder";
 
 /** Household settings from the file, re-validated the way the settings form validates them. */
@@ -382,6 +385,7 @@ export function normalizeHousehold(
     // Phase 47: kept only if it reads as care hours. readCareHours hands back the defaults
     // object itself when it can't, which here means "none set" (the same hours).
     petCareHours: careHoursOrNull(h.petCareHours),
+    petNoSchoolDays: h.petNoSchoolDays ?? true,
     statementDateOrder: h.statementDateOrder ?? "AUTO",
   };
 }
@@ -513,6 +517,15 @@ export function remapBackup(
         },
       })),
     importantDates: b.importantDates.map((r) => ({ ...r, id: newId(), personId: req(people, r.personId) })),
+    giftIdeas: b.giftIdeas.map((r) => ({
+      ...r,
+      id: newId(),
+      householdId: opts.householdId,
+      personId: req(people, r.personId),
+      addedById: opt(people, r.addedById),
+      givenAt: dateOrNull(r.givenAt),
+      createdAt: date(r.createdAt),
+    })),
     interactions: b.interactions.map((r) => ({
       ...r,
       id: newId(),

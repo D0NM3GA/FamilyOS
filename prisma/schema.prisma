@@ -72,6 +72,8 @@ model Household {
   /// lib/pet/care-hours.ts). Null means the defaults. Read through lib/pet/stored.ts, which
   /// falls back to the defaults for anything it can't use.
   petCareHours       Json?
+  /// Phase 70d: the pet keeps its weekend hours on no-school days from the school calendars.
+  petNoSchoolDays    Boolean   @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -108,6 +110,7 @@ model Household {
   petMemorials           PetMemorial[]
   petGifts               PetGift[]
   choreSwaps             ChoreSwap[]
+  giftIdeas              GiftIdea[]
   petDiscoveries         PetDiscovery[]
   workItemEvents         WorkItemEvent[]
 
@@ -214,6 +217,9 @@ model Person {
   updatedAt DateTime @updatedAt
 
   importantDates     ImportantDate[]
+  /// Phase 70d: gift ideas for this person (never shown to them), and the ones they added.
+  giftIdeas          GiftIdea[]           @relation("GiftIdeaFor")
+  giftIdeasAdded     GiftIdea[]           @relation("GiftIdeaBy")
   calendarSyncs      CalendarSync[]
   /// Phase 70a: this person's own Outlook calendar (and the family one, when it's in their mailbox).
   outlookCalendars   OutlookCalendar[]
@@ -319,6 +325,25 @@ enum ImportantDateType {
   BIRTHDAY
   ANNIVERSARY
   OTHER
+}
+
+/// Phase 70d: a gift idea for someone, kept by the grown-ups and never shown to the person it's for
+/// (nor put in a backup they take). Listed in their birthday reminder.
+model GiftIdea {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  personId    String
+  person      Person    @relation("GiftIdeaFor", fields: [personId], references: [id], onDelete: Cascade)
+  text        String
+  addedById   String?
+  addedBy     Person?   @relation("GiftIdeaBy", fields: [addedById], references: [id], onDelete: SetNull)
+  /// When it was given (it stays, crossed off, so nobody buys it twice).
+  givenAt     DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([personId])
+  @@map("gift_idea")
 }
 
 model ImportantDate {

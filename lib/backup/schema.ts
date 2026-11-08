@@ -100,6 +100,8 @@ const household = z.object({
   // Phase 47: when the pet is awake, as stored (JSON). Restore keeps it only if it reads as
   // care hours (lib/pet/stored.ts); absent in older files (the default hours).
   petCareHours: z.json().nullable().default(null),
+  // v18 (Phase 70d): weekend hours on no-school days; absent in older files (on).
+  petNoSchoolDays: z.boolean().default(true),
   // Phase 52: how ambiguous statement dates read; absent in older files (automatic).
   statementDateOrder: z.enum(["AUTO", "MONTH_FIRST", "DAY_FIRST"]).default("AUTO"),
 });
@@ -130,6 +132,16 @@ const importantDate = z.object({
   month: int,
   day: int,
   year: int.nullable(),
+});
+
+/** v18 (Phase 70d): a gift idea for someone. Never the backup-taker's own (they'd see them). */
+const giftIdea = z.object({
+  id,
+  personId: id,
+  text,
+  addedById: nullableId,
+  givenAt: nullableIso,
+  createdAt: iso,
 });
 
 const interaction = z.object({
@@ -523,12 +535,14 @@ export const BACKUP_FORMAT = "familyos-household-backup";
  * v14 (Phase 65d) the meal plan (meals, their ingredients, the planned days); v15 (Phase 68a) a
  * course of medicine's last day (endDate, none in older files); v16 (Phase 69b) a Pantry item's
  * "We always have it" (off in older files); v17 (Phase 70c) a chore's grown-up check and a tick
- * waiting for it (off in older files). Older
+ * waiting for it (off in older files); v18 (Phase 70d) gift ideas (none in older files, so restoring
+ * one removes them, except the restorer's own, which no file they take can hold) and the pet's
+ * no-school days switch. Older
  * files still restore with the arrays they lack defaulting to empty, so restoring one
  * removes that data here (the restore preview shows those delete counts). A v1 file still restores: those arrays
  * default to empty (and the restore preview says existing supplies will be removed).
  */
-export const BACKUP_SCHEMA_VERSION = 17;
+export const BACKUP_SCHEMA_VERSION = 18;
 
 /**
  * Phase 28 (v7): the household's money jars, sealed (AES-256-GCM over gzipped JSON, see
@@ -551,7 +565,7 @@ export type SealedMoney = z.infer<typeof sealedMoneySchema>;
 export const backupSchema = z.object({
   format: z.literal(BACKUP_FORMAT),
   // Every version this file format has had: older files restore with what they lack defaulted.
-  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, BACKUP_SCHEMA_VERSION]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, BACKUP_SCHEMA_VERSION]),
   exportedAt: iso,
   /**
    * Chore/med due dates and vehicle log dates are stored as the SERVER's local midnight.
@@ -564,6 +578,7 @@ export const backupSchema = z.object({
   household,
   people: z.array(person),
   importantDates: z.array(importantDate),
+  giftIdeas: z.array(giftIdea).default([]),
   interactions: z.array(interaction),
   relationships: z.array(relationship),
   taskDefinitions: z.array(taskDefinition),

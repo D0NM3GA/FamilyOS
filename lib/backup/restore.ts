@@ -285,6 +285,8 @@ export async function applyRestore(
       const everyone = { householdId };
       await tx.pointsLedger.deleteMany({ where: { person: everyone } });
       await tx.importantDate.deleteMany({ where: { person: everyone } });
+      // Phase 70d: gift ideas, except ones for whoever's restoring (no file they take holds those).
+      await tx.giftIdea.deleteMany({ where: { householdId, personId: { not: viewerId } } });
       await tx.interactionLog.deleteMany({ where: { person: everyone } });
       await tx.personRelationship.deleteMany({ where: { OR: [{ from: everyone }, { to: everyone }] } });
       await tx.person.deleteMany({ where: { householdId, authUserId: null } });
@@ -299,6 +301,7 @@ export async function applyRestore(
       for (const u of rows.matchedPeopleUpdates) await tx.person.update({ where: { id: u.id }, data: u.data });
       await createInChunks(rows.newPeople, (data) => tx.person.createMany({ data }));
       await createInChunks(rows.importantDates, (data) => tx.importantDate.createMany({ data }));
+      await createInChunks(rows.giftIdeas.filter((g) => g.personId !== viewerId), (data) => tx.giftIdea.createMany({ data }));
       await createInChunks(rows.interactions, (data) => tx.interactionLog.createMany({ data }));
       await createInChunks(rows.relationships, (data) => tx.personRelationship.createMany({ data }));
       await createInChunks(rows.stores, (data) => tx.store.createMany({ data }));

@@ -15,6 +15,11 @@ import { LOOK_SELECT } from "@/lib/family-look";
  * sealMoney in; without it a backup has no money section.
  */
 export type BackupHooks = {
+  /**
+   * Phase 70d: who's taking the backup: gift ideas for them stay out of the file (they'd read them),
+   * and a restore by them keeps the ones already here.
+   */
+  takenBy?: string;
   sealMoney?: (tx: Tx, householdId: string) => Promise<SealedMoney | null>;
   /** Phase 28.5: what putting the file's jars back would do, in counts only. */
   previewMoney?: (box: SealedMoney, ctx: MoneyRestoreContext) => { ok: true; preview: MoneyRestoreCounts } | { ok: false; errors: string[] };
@@ -78,7 +83,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     await Promise.all([
       tx.household.findUniqueOrThrow({
         where: { id: householdId },
-        select: { name: true, timezone: true, dayZone: true, latitude: true, longitude: true, familyGoalStickers: true, familyGoalTitle: true, disabledApps: true, setupReviewed: true, petCareHours: true, statementDateOrder: true, ...LOOK_SELECT },
+        select: { name: true, timezone: true, dayZone: true, latitude: true, longitude: true, familyGoalStickers: true, familyGoalTitle: true, disabledApps: true, setupReviewed: true, petCareHours: true, petNoSchoolDays: true, statementDateOrder: true, ...LOOK_SELECT },
       }),
       tx.person.findMany({
         where: { householdId },
@@ -497,6 +502,13 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
   const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
   const databaseMigration = await latestMigration(tx);
+  // Phase 70d: gift ideas, never the ones for whoever takes the file.
+  const giftIdeas = await tx.giftIdea.findMany({
+    where: { householdId, ...(hooks.takenBy ? { personId: { not: hooks.takenBy } } : {}) },
+    select: { id: true, personId: true, text: true, addedById: true, givenAt: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
+
   // Phase 49: dayZone goes into exportedTimeZone, not the household (lib/backup/coverage.test.ts).
   const { dayZone, ...householdSettings } = household;
 
@@ -510,6 +522,7 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
     household: householdSettings,
     people: people.map((p) => ({ ...p, lastContactedAt: isoOrNull(p.lastContactedAt), createdAt: iso(p.createdAt) })),
     importantDates,
+    giftIdeas: giftIdeas.map((g) => ({ ...g, givenAt: isoOrNull(g.givenAt), createdAt: iso(g.createdAt) })),
     interactions: interactions.map((i) => ({ ...i, occurredAt: iso(i.occurredAt), createdAt: iso(i.createdAt) })),
     relationships: relationships.map((r) => ({ ...r, createdAt: iso(r.createdAt) })),
     taskDefinitions: taskDefinitions.map(({ assignees, ...t }) => ({

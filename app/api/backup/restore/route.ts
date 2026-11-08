@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       if (withMoney && !hold) return json({ errors: ["A bank sync is running right now. Try again in a minute."] }, 409);
       const result = await applyRestore(viewer.householdId, viewer.id, parsed.backup, {
         expectedPlanDigest: url.searchParams.get("plan") ?? "",
-        hooks: { sealMoney, restoreMoney },
+        hooks: { sealMoney, restoreMoney, takenBy: viewer.id },
         restoreMoney: withMoney,
       }).catch(async (err: unknown) => {
         await hold?.release();

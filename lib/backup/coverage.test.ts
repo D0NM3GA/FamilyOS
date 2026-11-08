@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import type {
   HouseholdModel,
   ImportantDateModel,
+  GiftIdeaModel,
   InteractionLogModel,
   MedicationModel,
   PersonModel,
@@ -92,6 +93,7 @@ const checks = {
     | "setupCardHidden"
   >,
   importantDate: true satisfies Covered<ImportantDateModel, Row<"importantDates">>,
+  giftIdea: true satisfies Covered<GiftIdeaModel, Row<"giftIdeas">, Scope>,
   interaction: true satisfies Covered<InteractionLogModel, Row<"interactions">>,
   relationship: true satisfies Covered<PersonRelationshipModel, Row<"relationships">>,
   taskDefinition: true satisfies Covered<TaskDefinitionModel, Row<"taskDefinitions">, Scope | "updatedAt">,
@@ -144,5 +146,5 @@ const checks = {
 
 test("every app-owned model is checked for backup coverage", () => {
   expect(Object.values(checks).every(Boolean)).toBe(true);
-  expect(Object.keys(checks)).toHaveLength(42);
+  expect(Object.keys(checks)).toHaveLength(43);
 });
