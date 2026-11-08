@@ -1165,7 +1165,9 @@ Phase 61: the server's own log lines are JSON, one per event (`lib/observability
 `captureError` writes one too, so an error is seen with or without Sentry. Data & backups →
 **System** (admins) shows each background job's and the nightly backup's last run, and
 `HEALTHCHECK_PING_URL` (optional) is called after each run of the jobs, with `/fail` when one
-failed.
+failed. Phase 67b: admins get a `REMINDER_SYSTEM` reminder when a job fails or is late, or the
+backup fails or is 36 hours late; it's sent by the reminders job, so only the outside check-in
+can say that the reminders job itself stopped. Each job has 10 minutes per tick.
 
 **This app holds health, contact and location data, so what may be sent is locked down in
 code** (`lib/observability/`; see docs/BUILD.md Phase 15). Sentry never receives:
