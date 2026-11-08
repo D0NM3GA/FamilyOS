@@ -665,6 +665,9 @@ enum NotificationKind {
   REMINDER_SYSTEM
   /// Phase 68a: a dose is due now (opt-in).
   REMINDER_DOSE_DUE
+  /// Phase 68b: homework or a test due tomorrow; chores still open at 6 pm.
+  REMINDER_HOMEWORK
+  REMINDER_CHORES
 }
 
 enum BackupKind {

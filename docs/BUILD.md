@@ -2049,3 +2049,18 @@ keeping hidden kinds; My notifications ticks opt-in kinds from `optIn`. `listedK
 `planInstances` plans nothing after it; `endFinishedCourses` (after the dose planners each tick)
 switches a medicine off once its last day plus the missed-dose grace has passed, deleting nothing.
 Meds and Manage say "Last day". Backups v15 carry `endDate` (none in older files).
+
+### 68b — Homework, chores, and a fuller morning
+
+`REMINDER_HOMEWORK` and `REMINDER_CHORES` (migration `20261202130000_homework_chores_reminders`).
+**Homework:** `homeworkReminders` loads kids' TODO assignments due tomorrow (local-midnight due
+days, kids' profiles only) from 3 pm; `planHomework` sends to the kid (bell) and the grown-ups,
+key `homework:<id>:<day>`, "Max has a quiz due tomorrow: Fractions", linking to the kid's School.
+**Chores:** from the first tick at or after 18:00, `choreReminders` makes today's chores and counts
+each kid's own PENDING ones (not "Anyone", not grown-ups'); `planChores` gives each kid a bell
+("2 chores still to do today", `chores:<kid>:<day>`) and the grown-ups one line ("Still to do
+today: Ivy 2, Max 1", `chores:all:<day>`). Both listed in My notifications with their apps.
+**Summary:** `morningExtras` adds today's events from every active school feed (`loadSchoolEvents`
+as a grown-up sees them, so all-day and timed rows use the calendar's cutoffs), kids' schoolwork
+due today and tonight's dinner (`getTodaysDinner`), each with its app on. Outlook stays out (the
+tick has no Microsoft token).

@@ -7,7 +7,7 @@ import { captureError } from "@/lib/observability";
 import { formatTimeOfDay } from "@/lib/format";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
-import { DOSE_AHEAD_MS, DOSE_GRACE_MS, DOSE_LOOKBACK_MS, planDosesDue, planCars, planDates, planDoses, planMedLow, planRecalls, planSchool, planSystem, type NewRecall, type Reminder, type ReminderKind } from "./plan";
+import { CHORES_FROM_HOUR, DOSE_AHEAD_MS, DOSE_GRACE_MS, DOSE_LOOKBACK_MS, HOMEWORK_FROM_HOUR, planChores, planDosesDue, planHomework, planCars, planDates, planDoses, planMedLow, planRecalls, planSchool, planSystem, type NewRecall, type Reminder, type ReminderKind } from "./plan";
 import { JOBS } from "@/lib/heartbeat-state";
 import { computeDueStatus } from "@/lib/vehicles/due-status";
 import { daysUntilMiles, milesPerDay, MILEAGE_WINDOW_DAYS, type Reading } from "@/lib/vehicles/mileage";
@@ -31,6 +31,8 @@ export const REMINDER_CARDS: Record<ReminderKind, TeamsCard> = {
   REMINDER_DOSE_DUE: { heading: "💊 Meds", linkText: "Open Meds" },
   REMINDER_MED_LOW: { heading: "💊 Meds", linkText: "Open Meds" },
   REMINDER_SCHOOL: { heading: "🎒 School", linkText: "Open School" },
+  REMINDER_HOMEWORK: { heading: "🎒 School", linkText: "Open School" },
+  REMINDER_CHORES: { heading: "🧹 Chores", linkText: "Open Chores" },
   REMINDER_DATE: { heading: "📅 People", linkText: "Open their page" },
   REMINDER_CAR: { heading: "🚐 Cars", linkText: "Open Cars" },
   REMINDER_RECALL: { heading: "🚐 Cars", linkText: "Open Cars" },
@@ -68,7 +70,11 @@ export async function remindHousehold(householdId: string, now: Date): Promise<n
     kinds.push(["doses", () => doseReminders(householdId, people, now)]);
     kinds.push(["med_low", () => medLowReminders(householdId, grownUps)]);
   }
-  if (await appOn(householdId, "school")) kinds.push(["school", () => schoolReminders(householdId, grownUps, now)]);
+  if (await appOn(householdId, "school")) {
+    kinds.push(["school", () => schoolReminders(householdId, grownUps, now)]);
+    kinds.push(["homework", () => homeworkReminders(householdId, people, now)]);
+  }
+  if (await appOn(householdId, "chores")) kinds.push(["chores", () => choreReminders(householdId, people, now)]);
   if (await appOn(householdId, "cars")) {
     kinds.push(["cars", () => carReminders(householdId, grownUps, now)]);
     kinds.push(["recalls", () => recallReminders(householdId, grownUps, now)]);
@@ -256,6 +262,47 @@ async function schoolReminders(householdId: string, grownUps: { id: string }[], 
   return planSchool(
     tasks.map((t) => ({ ...t, owner: t.ownerPersonId ? { id: t.ownerPersonId, adult: adults.has(t.ownerPersonId) } : null })),
     grownUps,
+    now,
+  );
+}
+
+/** Phase 68b: kids' schoolwork due tomorrow, from 3 pm. */
+async function homeworkReminders(householdId: string, people: Person[], now: Date): Promise<Reminder[]> {
+  if (now.getHours() < HOMEWORK_FROM_HOUR) return [];
+  const tomorrow = addDays(atMidnight(now), 1);
+  const rows = await prisma.schoolAssignment.findMany({
+    where: {
+      status: "TODO",
+      dueDate: { gte: tomorrow, lt: addDays(tomorrow, 1) },
+      profile: { person: { householdId, isHouseholdMember: true, role: "KID" } },
+    },
+    select: { id: true, title: true, kind: true, className: true, dueDate: true, status: true, profile: { select: { person: { select: { id: true, firstName: true } } } } },
+  });
+  return planHomework(
+    rows.map((r) => ({ ...r, dueDate: r.dueDate!, kid: r.profile.person })),
+    people.filter((p) => p.adult),
+    now,
+  );
+}
+
+/** Phase 68b: kids' own chores still open today, from 6 pm. */
+async function choreReminders(householdId: string, people: Person[], now: Date): Promise<Reminder[]> {
+  if (now.getHours() < CHORES_FROM_HOUR) return [];
+  // Chores are otherwise made when a page opens: make today's first.
+  await ensureInstancesGenerated(householdId, atMidnight(now), "CHORE");
+  const today = atMidnight(now);
+  const rows = await prisma.taskInstance.findMany({
+    where: {
+      status: "PENDING",
+      dueDate: { gte: today, lt: addDays(today, 1) },
+      definition: { householdId, domain: "CHORE", active: true },
+      assignedTo: { isHouseholdMember: true, role: "KID" },
+    },
+    select: { assignedTo: { select: { id: true, firstName: true } } },
+  });
+  return planChores(
+    rows.flatMap((r) => (r.assignedTo ? [{ kid: r.assignedTo }] : [])),
+    people.filter((p) => p.adult),
     now,
   );
 }

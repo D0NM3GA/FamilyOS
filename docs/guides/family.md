@@ -535,7 +535,9 @@ there's nothing to reply to.
 
 **Reminders** (Settings → My notifications → **Reminders**): the app reminds grown-ups when a
 dose wasn't marked (about an hour and a half after its time), a medicine is running low (a week
-left, or its refill count), a school form, fee or to-do is due today or tomorrow, a birthday
+left, or its refill count), a school form, fee or to-do is due today or tomorrow, a kid has
+homework, a quiz, a test or a project due tomorrow (from 3 pm), kids still have chores open at
+6 pm (one line: "Still to do today: Ivy 2, Max 1"), a birthday
 or anniversary is coming up this week (not your own), car work is due within a week, or paperwork within two (or overdue),
 and a new safety recall is listed for one of the cars. Each goes once, in the bell and on your
 phones; tick **In Teams** or **By email** to get them there too, where the family has those set up.
@@ -548,11 +550,14 @@ about a quarter hour), for your own medicines and the kids'. A kid gets the bell
 dose either way. If your quiet hours cover the dose's time, the missed-dose reminder still comes.
 
 **Morning summary:** under the same heading, tick **In Teams** or **By email** for a message at
-7:00 am (or when your quiet hours end) with today's chores and doses, school things due today or
-tomorrow, car work and birthdays this week. Nothing on: nothing sent.
+7:00 am (or when your quiet hours end) with today's chores and doses, what's on the school
+calendars today ("Early dismissal"), schoolwork due today, school things due today or tomorrow,
+car work and birthdays this week, and tonight's dinner from the meal plan. Your Outlook events
+aren't in it. Nothing on: nothing sent.
 
-Kids get notes in the bell (orders, "Not this time", and a reminder when their own dose is due or
-wasn't marked), not on their phone.
+Kids get notes in the bell (orders, "Not this time", a reminder when their own dose is due or
+wasn't marked, homework due tomorrow, and "2 chores still to do today" at 6 pm), not on their
+phone.
 
 ## Your own settings
 
