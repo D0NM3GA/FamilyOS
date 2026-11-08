@@ -1793,3 +1793,30 @@ showed as new, hence `postedAt`; the mark only moves forward (a tab left open fo
 later look); **Save all** files and marks seen in one transaction; the guide says where the list
 sits; the event's wording has a test.
 
+## Phase 65 — New capabilities
+
+The last phase from the review of 2026-11-07 (scope in docs/PLAN.md, with the owner's answers).
+
+### 65a — Medicines: as needed, and dose history
+
+`FrequencyType.AS_NEEDED` makes no scheduled doses (`firstOccurrenceOnOrAfter` returns none; "As
+needed" in `describeRecurrence`); the medicine form drops times for it and offers
+`Medication.minGapHours` (0.5–72) and `maxPerDay` (1–24). Chores still reject it. **Take a dose**
+(`takeAsNeeded`) locks the definition's row, reads the doses of the last day (or the gap) inside the
+transaction and decides with `nextAllowed` (`lib/meds/as-needed.ts`: the gap from the last dose; the
+maximum over any 24 hours, from the dose that must age out), then makes a DONE instance due and
+done now, with stock, stickers and the refill item as for a scheduled dose (low also at 5 doses
+left). `undoAsNeeded` deletes the dose rather than putting it back to waiting. The board, the
+calendar, missed-dose reminders and "mark older missed" leave AS_NEEDED out. `AsNeededRow`
+(`components/meds/as-needed-row.tsx`, from `getAsNeeded`) shows on Meds, in Home's Today card (a
+grown-up everyone's, a kid their own) and on Big buttons Home. Days left and the low reminder say
+doses. `/meds/[id]/history` and `/print/meds/[id]/history` (`lib/meds/history.ts`) list 90 days of
+doses for grown-ups and the medicine's own person. Backups v12 carry the limits.
+Fable's review of 65a: switching a medicine to As needed drops every waiting dose (overdue ones
+would otherwise linger where nothing clears them); the scheduled take and undo refuse as-needed
+doses; a zone move leaves as-needed doses alone (their dueDate is an instant) and the history
+orders them by when they were taken; `components/meds` joins the meds lint zone; the take and undo
+buttons name their medicine for screen readers; Manage drops a stray separator and refreshes after
+a dose; the last-dose lookup is bounded to 90 days ("Not taken lately" past that); dates past a
+week say the date; the form has bounds; the restore test round-trips an AS_NEEDED medicine.
+

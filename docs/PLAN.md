@@ -2485,6 +2485,148 @@ Outlook events from the app; anything from 65.
 
 64a Home and calendar, 64b groceries, 64c money.
 
+## Phase 65 — scope (new capabilities, 2026-11-07)
+
+The last phase from the review of 2026-11-07: things the app can't do yet. Checked against the code
+2026-11-07.
+
+### The owner's answers (2026-11-07)
+
+- **As-needed medicines: a minimum gap and a daily maximum.** Log a dose with a tap; the app says
+  when the next is allowed and stops at the daily maximum. No missed-dose reminders for these.
+- **Meal plan: a week grid and the list.** A dinner per day; a meal can list its ingredients; one tap
+  adds what's missing to the grocery list. Meals are saved for reuse.
+- **Running low on Home: grown-ups only.** A "Probably running low" card from how fast each item is
+  bought, weighted by quantity, with **Add to list**.
+- **Car paperwork: every N months.** Pick registration, inspection or insurance, set when it's next
+  due; it repeats every 12 (or chosen) months and reminds like car service. One-off repairs are
+  logged with a cost and count in the car's costs.
+
+### 65a — Medicines: as needed, and dose history
+
+- **As needed:** a new `FrequencyType.AS_NEEDED`. Its definition generates no scheduled doses
+  (`lib/tasks/schedule.ts` returns none), so there's nothing to miss and no missed-dose reminder.
+  `Medication` gains `minGapHours Float?` (0.5–72) and `maxPerDay Int?` (1–24), set on the medicine's
+  form when "As needed" is picked (both optional).
+- **Take a dose** on the medicine's row (Meds page and Today): `takeAsNeeded(definitionId)` creates a
+  `TaskInstance` (due and done now, `completedById`, `quantityConsumed` from `doseConsumption`),
+  decrements stock and asks for a refill when low, exactly as `completeInstance` does. Refused, with
+  the reason in words, when it's sooner than `minGapHours` after the last dose taken ("Next dose
+  from 3:40 pm") or `maxPerDay` doses were taken in the last 24 hours ("That's 4 in 24 hours; next
+  from 9:15 am"). The rules are a pure `lib/meds/as-needed.ts` (`nextAllowed(doses, rules, now)`).
+  The row shows "Last taken 2:10 pm · next from 6:10 pm" or "Can take now". Undo (the same
+  `uncompleteInstance`) deletes that dose and gives the stock back.
+- **Who:** the same rule as taking a scheduled dose today (the assignee, or a grown-up).
+- **Days left** for an as-needed medicine is "N doses left" (stock ÷ dose amount), never days; the
+  running-low reminder for it uses doses, not days (low at the refill threshold, or 5 doses).
+- **Dose history:** `/meds/[id]/history`, linked from the medicine: the last 90 days of doses
+  (taken with who and when, skipped, missed), newest first, grouped by day, same visibility as the
+  medicine; a **Print** link to `/print/meds/[id]/history` (the print shell), for a doctor visit.
+
+### 65b — Cars: repairs and paperwork
+
+- **One-off repair:** `VehicleRepair { vehicleId, doneAt, mileage?, title (120), costCents?, notes? }`.
+  **+ Log a repair** on the car page (title, day, optional miles and cost). Counted in
+  `summarizeCosts` (lifetime and 12 months) next to service and fuel; listed in the car's history;
+  a mileage on it updates the car's `currentMileage` when higher, as a service does. Delete asks
+  first.
+- **Paperwork:** `VehiclePaper { vehicleId, kind REGISTRATION|INSPECTION|INSURANCE|OTHER, label?
+  (60, for OTHER), everyMonths Int (1–60, default 12), dueOn Date }`. A car's **Paperwork** card
+  lists each with "due in 3 weeks" / "overdue". **Renewed** sets `dueOn` forward by `everyMonths`
+  from the old due day (not today, so a late renewal keeps the cycle), and an optional cost kept
+  as a `VehiclePaperRenewal { paperId, renewedOn, costCents? }`, counted in costs. Edit and delete (asks first).
+- **Reminders:** the reminders job's car pass also plans paperwork due within 14 days or overdue,
+  once per due date (`paper:<id>:<dueOn>`), to grown-ups, like car work.
+- Backups v12 carry repairs, papers and renewals.
+
+### 65c — Groceries: running low on Home
+
+- `lib/groceries/running-low.ts` (pure): for each product with purchases on at least 3 distinct days
+  in the last 365, the use rate is the quantity bought before the last trip divided by the days from
+  the first trip to the last; the last trip's quantity lasts `lastQty / rate` days. An item is
+  "probably running low" when that runs out within 3 days or has (but not more than 3 cycles ago:
+  then it's stale, as in pantry suggestions). Not when it's on the list (not done).
+- A **Probably running low** card on grown-ups' full Home when Groceries is on: at most 6, soonest
+  first, each "about 2 days left" / "probably out", with **Add to list** (the Groceries add action,
+  quantity = the usual amount, rounded).
+
+### 65d — Groceries: a light meal plan
+
+- Models: `Meal { householdId, name (80), ingredients }`, `MealIngredient { mealId, productId,
+  quantity Float default 1 }`, `MealPlanDay { householdId, day Date, mealId?, note (120)? }`, unique
+  per household and day.
+- `/groceries/meals`, a tab of Groceries: the week Monday to Sunday (prev / next week), each day a
+  saved meal picked from a list, or a typed note ("Leftovers", "Out"). **Meals** lists saved meals:
+  name and ingredients (picked from products, with quantity), edit, delete (asks first; days that
+  used it keep the name as their note).
+- **Add what's missing to the list** for the shown week: each ingredient product of the week's
+  meals, quantities summed, that isn't already on the list (not done) is added, requested by the
+  viewer; it says how many were added.
+- Grown-ups plan and edit; kids see the week (read-only). Today's dinner shows in Home's Today card
+  ("Dinner: Tacos").
+- Backups v13 carry meals, ingredients and plan days.
+
+### Settled after Fable's scope review (2026-11-07)
+
+- **65a undo deletes.** `uncompleteInstance` puts a dose back to PENDING, which for an as-needed dose
+  would make it a dose to take, a missed-dose reminder and a "mark older missed" target. So a new
+  `undoAsNeeded(instanceId)` deletes the row in one transaction (stock back from `quantityConsumed`,
+  its points ledger row removed), only for an AS_NEEDED definition. `doseReminders`, `planDoses` and
+  `markOlderMissedIds` also skip AS_NEEDED definitions outright.
+- **65a takes re-check inside the transaction** (two people logging seconds apart): the doses of the
+  last 24 hours are read in the transaction, `nextAllowed` decides there.
+- **65a everywhere the frequency is listed:** the unions in `lib/tasks/schedule.ts`,
+  `lib/tasks/format.ts` ("As needed"), `lib/meds/form.ts` and `app/(app)/chores/actions.ts` (chores
+  keep rejecting it; the chores form doesn't offer it). `firstOccurrenceOnOrAfter` returns none.
+  The medicine form drops times of day for it (`timesOfDay` may be empty only then). Low stock for an
+  as-needed medicine: at the refill threshold, or 5 doses or fewer, with "about N doses left".
+- **65a where the take button lives:** a query for active AS_NEEDED medicines with their last day of
+  doses, and an `AsNeededRow` on Meds, in Home's Today card, and on Big buttons Home for the kid's own.
+- **65a history and print are for grown-ups, or the medicine's own person** (the Meds board is
+  household-wide, a history isn't).
+- **Backups:** each PR bumps to the next version at merge time and adds it to the accepted list:
+  65a carries `minGapHours` / `maxPerDay` (and AS_NEEDED in the frequency enum, which an older
+  server can't read), 65b the car fields, 65d the meal models.
+- **65b reuses car work instead of new models** (car work already reaches due status, reminders,
+  Home, the Today strip, search, activity, export and print):
+  - **Paperwork** is a `VehicleMaintenanceItem` with `kind PAPERWORK` (default `SERVICE`), named from
+    a pick (Registration, Inspection, Insurance) or typed, `intervalMonths` (default 12) and a new
+    `nextDueAt` (the day it's due; for paperwork the due status uses it, not miles). **Renewed** logs
+    a `VehicleServiceLog` (optional cost, miles = the car's current) and moves `nextDueAt` on by
+    `intervalMonths` from the old due day (`addMonths`, which clamps month ends).
+  - **A repair** is a `VehicleServiceLog` with no maintenance item (`maintenanceItemId` nullable)
+    and its own `title`; miles default to the car's current, so costs per mile hold. Listed in the
+    car's history, counted in costs, in the export and activity.
+  - Reminders: paperwork reminds 14 days ahead (car work stays 7); the preference label says so.
+- **65c is one heuristic, not two:** `computePantrySuggestions` gains quantity weighting (the history
+  rows carry quantity) and serves both Groceries' "Probably need soon" and Home's card. **Add to
+  list** is `addProductToList` (usual quantity, adds to a row already there). Left out: anything on
+  the list at all, as on Groceries. The card joins Home's card list and voice kickers, for
+  `isAdult && on("groceries")`, its query only for grown-ups, in the same `Promise.all`.
+- **65d details:** the week runs Sunday to Saturday, like the calendar (`weekStartOf`).
+  `MealPlanDay.day` is a stored day (`DAY_COLUMNS`). Today's dinner shows in Home's Today strip
+  ("🍽️ Dinner: Tacos") when Groceries is on. Add-to-list is grown-ups only and uses
+  `addProductToList` per ingredient. A **Meals** button joins Groceries' sticker buttons. Deletes
+  (a meal, a repair, paperwork) ask first.
+
+### Tests
+
+Unit: `nextAllowed` (gap, rolling 24 hours, both, none), doses-left wording, paper renewal dates
+(month ends, Feb 29), costs with repairs and renewals, the running-low maths (rate, stale, on the list),
+the week's missing items (summing, already on the list). DB: taking an as-needed dose (stock, refusal,
+undo), history visibility, paperwork reminders once, repairs in costs, meal plan add-to-list, backups
+round-trip for the new models. Guides: family.md and admin.md for each.
+
+### Not in this phase
+
+Recipes with steps, breakfast and lunch, nutrition; paperwork documents (photos, PDFs); repair
+categories; running low on kids' Home.
+
+### Pull requests
+
+65a meds, 65b cars, 65c running low, 65d meal plan.
+
+
 ## Open items
 
 ### Waiting on a decision

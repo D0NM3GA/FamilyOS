@@ -304,6 +304,17 @@ The row of people picks whose doses to see, with each person's total, like on Ch
 Grown-ups: **+ New medication** and **Manage**. Stock, prescriber and pharmacy are under **More
 options**; people already used as a prescriber or pharmacy come first in those lists.
 
+**As needed.** A medicine taken only when it's needed (an allergy syrup, a pain reliever) repeats
+**As needed**: it has no times, and you can set the fewest hours between doses and the most in 24
+hours. It shows under **As needed** on Meds and in Home's Today card (a kid sees their own) with
+**Take a dose**, when it was last taken and when the next is allowed; too soon, it says from when.
+It counts down in doses ("6 doses left") and asks for a refill with a few left. **Undo the last
+dose** takes back a slip.
+
+**History.** A medicine's **History** (on Manage, and under an as-needed one) lists every dose of
+the last 90 days, taken (and by whom), skipped or not marked; **Print** makes a page for a doctor
+visit. Grown-ups see any; a kid sees their own.
+
 **Away from home.** On a trip to another time zone, times show home's first and then where you
 are ("8:00 AM at home · 2:00 PM here"), so doses stay on their usual schedule. Days stay home's
 days. Home says so at the top while you're away.
