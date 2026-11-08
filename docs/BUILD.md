@@ -2331,3 +2331,19 @@ the year's empty note counts surprises and its download notes rows, not lines; t
 only accounts with a feed account in their currency. Tests for the duplicate check's window, a
 merge clash and a surprise in the year. Left as is: Money's page reads each jar's month (a family
 has a jar or three).
+
+### 70f — School feeds
+
+**Several kids:** `SchoolFeed.forFamily` and `SchoolFeedKid` (feed, person), migration
+`20261206130000_school_feed_kids`, which moves each feed's old kid into the join table (no kid: the
+family's) and drops `kidPersonId`. Family is explicit, so a feed whose last kid is deleted (the join
+rows cascade) shows to grown-ups only, "Nobody's yet", and never widens. `lib/school/feeds/scope.ts`:
+`feedScope(studentId)` (the family's or the ones they're on; grown-ups looking at everyone, all),
+`FEED_WHO`, `feedKids`, `feedForWords`; used by the calendar's `loadSchoolEvents`, School's
+`getUpcomingSchoolEvents`, search and the pet's no-school days (written out there, Pet can't import
+School). Adding a calendar that's already there for another kid joins that kid to it; **Who it's for**
+on the feeds page sets the family or any kids. **The fold:** `foldFeedEvents` (same title ignoring
+case and spacing, start, end and all-day flag; a family feed's copy makes it the family's), on both
+loaders. Agenda items carry `whoIds`; `itemsForPerson` shows an item for several people to each
+of them, and `studentId` (link, colour) is set only when there's exactly one. School shows
+"Ivy & Max", or the feed's name for the family's. Feeds stay out of backups.

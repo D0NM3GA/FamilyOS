@@ -466,7 +466,9 @@ yours to handle, in one tap).
 
 Kids see their own. Grown-ups set up each kid's school details and add homework. Admins add the
 school's calendar under **Calendars**: type the school's website and the app finds its calendar
-(or paste the calendar's subscribe link). **Print a fridge card** makes a one-page summary.
+(or paste the calendar's subscribe link). A calendar can be for several kids (siblings at one
+school), and an event that's on two calendars shows once, with each kid it's for ("Ivy & Max").
+**Print a fridge card** makes a one-page summary.
 
 <!-- screenshot: a kid's school page -->
 
