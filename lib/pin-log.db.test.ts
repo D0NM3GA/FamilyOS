@@ -8,12 +8,16 @@ import { hashPin } from "@/lib/pin-hash";
  * and taking someone off the household are logged with the change.
  */
 const RUN = import.meta.env.MODE === "db";
-const who = { profile: null as null | Record<string, unknown> };
+const who = { profile: null as null | Record<string, unknown>, owner: true };
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/navigation", async (orig) => ({ ...(await orig<typeof import("next/navigation")>()), redirect: (to: string) => { throw new Error(`redirect:${to}`); } }));
+vi.mock("@/lib/session", async (orig) => ({
+  ...(await orig<typeof import("@/lib/session")>()),
+  getServerSession: async () => ({ session: { id: "this-device", createdAt: new Date() }, user: { id: `e2e-pinlog-${Date.now()}` } }),
+}));
 vi.mock("@/lib/active-profile", async (orig) => {
   const real = await orig<typeof import("@/lib/active-profile")>();
-  return { ...real, requireActiveProfile: async () => who.profile, getAuthPerson: async () => who.profile, isSessionOwner: async () => true };
+  return { ...real, requireActiveProfile: async () => who.profile, getAuthPerson: async () => who.profile, isSessionOwner: async () => who.owner };
 });
 
 describe.skipIf(!RUN)("the sign-in log's PIN and member entries (database)", { timeout: 60_000 }, () => {
@@ -62,5 +66,18 @@ describe.skipIf(!RUN)("the sign-in log's PIN and member entries (database)", { t
     await expect(removeHouseholdMember(ids.ivy)).rejects.toThrow("redirect:/settings/household");
     expect(await prisma.signInEvent.count({ where: { subjectId: ids.ivy, kind: "MEMBER_REMOVED" } })).toBe(1);
     expect((await prisma.person.findUniqueOrThrow({ where: { id: ids.ivy } })).isHouseholdMember).toBe(false);
+  });
+
+  test("a profile switched to with a PIN can't sign out the sign-in's devices", async () => {
+    const { signOutDevice, signOutEverywhereElse } = await import("@/app/(app)/settings/devices/actions");
+    const other = await prisma.session.create({ data: { userId: ids.user, token: `tok-${t}`, expiresAt: new Date(Date.now() + 86_400_000) } });
+    who.owner = false;
+    try {
+      await expect(signOutDevice(other.id)).rejects.toThrow("redirect:/settings/devices");
+      await expect(signOutEverywhereElse()).rejects.toThrow("redirect:/settings/devices");
+      expect(await prisma.session.count({ where: { id: other.id } })).toBe(1);
+    } finally {
+      who.owner = true;
+    }
   });
 });

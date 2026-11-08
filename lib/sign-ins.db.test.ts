@@ -151,8 +151,10 @@ describe.skipIf(!RUN)("managing sign-ins (scratch database)", { timeout: 180_000
     expect(listed.length).toBeGreaterThanOrEqual(3);
     // Not this one, and not Dad's.
     expect(await m.sessions.signOutMySession(me, current)).toBe(false);
-    const dadsSession = await m.prisma.session.findFirst({ where: { userId: dad.userId } });
-    if (dadsSession) expect(await m.sessions.signOutMySession(me, dadsSession.id)).toBe(false);
+    const dadsJar = (await signInWith(dad.device)).jar;
+    const dadsSessionId = (await (await call(dadsJar, "/get-session")).json()).session.id as string;
+    expect(await m.sessions.signOutMySession(me, dadsSessionId)).toBe(false);
+    expect(await m.prisma.session.count({ where: { id: dadsSessionId } })).toBe(1);
 
     expect(await m.sessions.signOutMySession(me, tabletId)).toBe(true);
     expect((await (await call(tablet.jar, "/get-session")).json())?.session ?? null).toBeNull();
