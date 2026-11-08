@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { Suspense } from "react";
 import { countLowSupplies, getVehiclesWithStatus } from "@/lib/vehicles/queries";
 import { toISODate } from "@/lib/vehicles/dates";
@@ -61,6 +62,7 @@ export default async function VehiclesPage() {
                       className="inline-flex min-h-11 items-center hover:text-brand-text hover:underline sm:min-h-0"
                     >
                       {vehicle.name} →
+                      <LinkPending />
                     </Link>
                     {/* Streams in after the board — never holds the page on NHTSA. */}
                     <Suspense fallback={null}>

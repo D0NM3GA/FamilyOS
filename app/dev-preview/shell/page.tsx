@@ -44,7 +44,7 @@ export default async function ShellPreviewPage({
         data-view={big ? "BIG" : "FULL"}
         data-bunson-volume={volume}
         className={`flex h-dvh flex-col overflow-hidden [--bottom-bar-h:0px] max-md:pb-[var(--bottom-bar-h)] ${
-          big ? "max-md:[--bottom-bar-h:5rem]" : "max-md:[--bottom-bar-h:4.25rem]"
+          big ? "max-md:[--bottom-bar-h:calc(5rem_+_env(safe-area-inset-bottom))]" : "max-md:[--bottom-bar-h:calc(4.25rem_+_env(safe-area-inset-bottom))]"
         }`}
       >
         <TopBar

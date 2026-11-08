@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
 import { listPeople, fullName, type PeopleFilter } from "@/lib/people";
@@ -91,6 +92,7 @@ export default async function PeoplePage({
                   href={`/people/${person.id}`}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-muted"
                 >
+                  <LinkPending />
                   <Avatar
                     personId={person.id}
                     hasPhoto={person.photoContentType !== null}

@@ -31,6 +31,9 @@ export async function generateViewport(): Promise<Viewport> {
   await connection();
   const color = themeColorOf((await getFamilyLook()).themeColor);
   return {
+    // Phase 69a: the page may run under the iPhone's home indicator and a notch, and the
+    // env(safe-area-inset-*) values the bottom bar, the sheets and the page's sides use are real.
+    viewportFit: "cover",
     themeColor: [
       { media: "(prefers-color-scheme: light)", color: color.light.chrome },
       { media: "(prefers-color-scheme: dark)", color: color.dark.chrome },

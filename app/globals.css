@@ -269,6 +269,9 @@ main#main,
   }
   body {
     @apply bg-background text-foreground;
+    /* Phase 69a: with viewport-fit=cover, keep the page clear of a notch in landscape. */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
   html {
     @apply font-sans;
@@ -843,5 +846,15 @@ select:disabled {
     background: white !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+}
+
+/* Phase 69a: the bar a heavy link shows while its page is on its way (components/link-pending.tsx). */
+@keyframes link-pending {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
   }
 }
