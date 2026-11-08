@@ -54,6 +54,10 @@ search lands on the thing.
 **Daily friction (64)**: today's events at the top of Home, how far off each date is, adding an
 event to the family's Outlook calendar, adding from the Shop view and notes on list items, and a
 money jar's **New since you last looked** to file new charges at once.
+**New capabilities (65)**, the last phase from the review of 2026-11-07: medicines taken as needed
+(a minimum gap and a daily maximum) and a printable dose history, car paperwork that renews and
+reminds, one-off repairs in a car's costs, "probably running low" on grown-ups' Home weighted by
+how many were bought, and a light weekly meal plan that puts what's missing on the list.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they

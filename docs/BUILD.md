@@ -1856,3 +1856,24 @@ chip's hint says "Should last about N days"; a list item's name also excludes ol
 by description (their Pantry item deleted), on Home and Groceries, so **+ Add** always clears it;
 Home sorts by the unrounded days left.
 
+### 65d — Groceries: a light meal plan
+
+`Meal` (a name), `MealIngredient` (a Pantry item and an amount, one per meal and item) and
+`MealPlanDay` (a stored day, in `DAY_COLUMNS`; a meal or a note; one per household and day).
+`/groceries/meals` (a **🍽️ Meals** button on Groceries) shows the week Sunday to Saturday like the
+calendar (`?week=`, ten years either way). Grown-ups save the whole week in one form (each meal
+checked against the household; a day with neither is cleared), save meals with ingredients typed one
+per line (`parseIngredients`: a number first is how many; same items fold), each found or made as a
+Pantry item with a section guess, and **Add what's missing** (`weekShopping`: each item once,
+summed, skipping what's on the list unticked). Deleting a meal (asks first) writes its name into
+the days that had it. Kids see the week read-only. Today's dinner joins Home's Today strip (a
+`meal` agenda kind) when Groceries is on. Backups v14 carry the three; a restore folds ingredients
+whose Pantry items fold.
+Fable's review of 65d: a count needs a space after it, so "2% milk", "7-Up" and "1/2 onion" stay
+whole names, a weight or volume ("12 oz pasta") is one of the rest, and a saved meal reads back the
+same on a re-save ("1 x 7-Up"); Pantry items are found or made before the meal's one write, outside
+a transaction, so their race path works; meal names are once per household; deleting a meal keeps
+its name ahead of a day's note, and a day shows both ("Tacos · early") on Home and to kids; a meal
+deleted mid-save says so instead of failing; `?week=` refuses days that don't exist; the restore
+preview counts planned dinners.
+
