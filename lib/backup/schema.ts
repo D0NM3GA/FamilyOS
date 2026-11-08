@@ -234,6 +234,9 @@ const medication = z.object({
   quantityOnHand: z.number().nullable(),
   doseAmount: z.number().nullable(),
   refillThresholdQuantity: z.number().nullable(),
+  // v12 (Phase 65a): an as-needed medicine's limits.
+  minGapHours: z.number().nullable().default(null),
+  maxPerDay: z.number().int().nullable().default(null),
   prescriberId: nullableId,
   pharmacyId: nullableId,
 });
@@ -493,12 +496,13 @@ export const BACKUP_FORMAT = "familyos-household-backup";
  * prices and learned receipt matches; v7 (Phase 28) the sealed money jars; v8 (Phase 47) the
  * digital pet (pets, their items, game payouts, chore presents, the memory book, the collection book, and the household's care
  * hours); v9 (Phase 59.1c) the history of chores, schoolwork and school forms; v10 (Phase 63a)
- * which medicine or car supply put a list item there; v11 (Phase 64c) a list item's note. Older
+ * which medicine or car supply put a list item there; v11 (Phase 64c) a list item's note; v12 (Phase 65a) as-needed medicines (the AS_NEEDED
+ * frequency and a medicine's minGapHours / maxPerDay, which a server before it can't read). Older
  * files still restore with the arrays they lack defaulting to empty, so restoring one
  * removes that data here (the restore preview shows those delete counts). A v1 file still restores: those arrays
  * default to empty (and the restore preview says existing supplies will be removed).
  */
-export const BACKUP_SCHEMA_VERSION = 11;
+export const BACKUP_SCHEMA_VERSION = 12;
 
 /**
  * Phase 28 (v7): the household's money jars, sealed (AES-256-GCM over gzipped JSON, see
@@ -521,7 +525,7 @@ export type SealedMoney = z.infer<typeof sealedMoneySchema>;
 export const backupSchema = z.object({
   format: z.literal(BACKUP_FORMAT),
   // Every version this file format has had: older files restore with what they lack defaulted.
-  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, BACKUP_SCHEMA_VERSION]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, BACKUP_SCHEMA_VERSION]),
   exportedAt: iso,
   /**
    * Chore/med due dates and vehicle log dates are stored as the SERVER's local midnight.

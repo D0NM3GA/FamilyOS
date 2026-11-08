@@ -88,7 +88,8 @@ export async function loadTaskInstances(
     where: {
       ...(opts.pendingOnly ? { status: "PENDING" as const } : {}),
       dueDate: { gte: opts.from, lt: opts.until },
-      definition: { householdId, ...(opts.activeOnly ? { active: true } : {}), domain: { in: [...opts.domains] } },
+      // Phase 65a: an as-needed dose isn't a calendar item.
+      definition: { householdId, ...(opts.activeOnly ? { active: true } : {}), domain: { in: [...opts.domains] }, frequencyType: { not: "AS_NEEDED" } },
     },
     select: {
       id: true,

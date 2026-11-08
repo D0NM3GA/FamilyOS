@@ -4,7 +4,7 @@
  * "due today" chore should match the family's actual wall-clock day.
  */
 
-export type FrequencyType = "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | "INTERVAL_DAYS" | "DAYS_OF_WEEK";
+export type FrequencyType = "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | "INTERVAL_DAYS" | "DAYS_OF_WEEK" | "AS_NEEDED";
 
 export type RecurrenceRule = {
   frequencyType: FrequencyType;
@@ -85,6 +85,8 @@ export function firstOccurrenceOnOrAfter(rule: RecurrenceRule, from: Date): Date
   if (rule.frequencyType === "ONCE") {
     return start >= fromMid ? start : null;
   }
+  // Phase 65a: an as-needed medicine has no schedule; each dose is logged when it's taken.
+  if (rule.frequencyType === "AS_NEEDED") return null;
 
   const target = fromMid < start ? start : fromMid;
 

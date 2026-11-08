@@ -244,6 +244,8 @@ export async function readBackup(tx: Tx, householdId: string, now: Date, hooks: 
         quantityOnHand: true,
         doseAmount: true,
         refillThresholdQuantity: true,
+        minGapHours: true,
+        maxPerDay: true,
         prescriberId: true,
         pharmacyId: true,
       },

@@ -47,7 +47,8 @@ export async function getBoardInstances(
   // The person filter goes under AND: the window below is an OR of its own, and two OR keys
   // in one where would overwrite each other (the person filter silently dropped).
   const scope = {
-    definition: { householdId, domain },
+    // Phase 65a: as-needed doses have their own row (components/meds/as-needed-row.tsx), not the board's.
+    definition: { householdId, domain, frequencyType: { not: "AS_NEEDED" as const } },
     ...(personId ? { AND: [includeUnassigned ? { OR: [{ assignedToId: personId }, { assignedToId: null }] } : { assignedToId: personId }] } : {}),
     ...(unassignedOnly && !personId ? { AND: [{ assignedToId: null }] } : {}),
   };
