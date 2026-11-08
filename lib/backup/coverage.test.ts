@@ -39,6 +39,9 @@ import type {
   PetGiftModel,
   PetDiscoveryModel,
   WorkItemEventModel,
+  MealModel,
+  MealIngredientModel,
+  MealPlanDayModel,
 } from "@/app/generated/prisma/models";
 import type { Backup } from "./schema";
 
@@ -132,9 +135,13 @@ const checks = {
   petDiscovery: true satisfies Covered<PetDiscoveryModel, Row<"petDiscoveries">, Scope>,
   // Phase 59.1c.
   workItemEvent: true satisfies Covered<WorkItemEventModel, Row<"workItemEvents">, Scope>,
+  // Phase 65d.
+  meal: true satisfies Covered<MealModel, Row<"meals">, Scope>,
+  mealIngredient: true satisfies Covered<MealIngredientModel, Row<"mealIngredients">>,
+  mealPlanDay: true satisfies Covered<MealPlanDayModel, Row<"mealPlanDays">, Scope>,
 };
 
 test("every app-owned model is checked for backup coverage", () => {
   expect(Object.values(checks).every(Boolean)).toBe(true);
-  expect(Object.keys(checks)).toHaveLength(39);
+  expect(Object.keys(checks)).toHaveLength(42);
 });

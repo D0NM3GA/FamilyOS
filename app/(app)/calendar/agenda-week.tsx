@@ -21,6 +21,7 @@ const KIND_LOOK: Record<AgendaKind, { stripe: string; label: string }> = {
   vehicle: { stripe: "border-l-teal-400", label: "Car" },
   med: { stripe: "border-l-tomato", label: "Med" },
   chore: { stripe: "border-l-sun", label: "Chore" },
+  meal: { stripe: "border-l-lime", label: "Dinner" },
 };
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

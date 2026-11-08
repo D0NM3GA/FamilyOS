@@ -81,6 +81,9 @@ model Household {
   stores                 Store[]
   productGroups          ProductGroup[]
   products               Product[]
+  /// Phase 65d: the meal plan.
+  meals                  Meal[]
+  mealPlanDays           MealPlanDay[]
   itemPrices             ItemPrice[]
   receiptAliases         ReceiptAlias[]
   moneyJars              MoneyJar[]
@@ -1172,6 +1175,8 @@ model Product {
   purchaseItems PurchaseItem[]
   prices        ItemPrice[]
   receiptAliases ReceiptAlias[]
+  /// Phase 65d: the meals it's an ingredient of.
+  mealIngredients MealIngredient[]
 
   @@unique([householdId, barcode])
   @@unique([householdId, nameKey])
@@ -2659,3 +2664,47 @@ model PetDiscovery {
   @@index([householdId])
   @@map("pet_discovery")
 }
+
+/// Phase 65d: a saved dinner (the owner's call: a light weekly plan). Its ingredients are Pantry
+/// items, so "add what's missing" puts real list rows on the list.
+model Meal {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name        String
+  createdAt   DateTime  @default(now())
+
+  ingredients MealIngredient[]
+  days        MealPlanDay[]
+
+  @@index([householdId])
+  @@map("meal")
+}
+
+model MealIngredient {
+  id        String  @id @default(cuid())
+  mealId    String
+  meal      Meal    @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Float   @default(1)
+
+  @@unique([mealId, productId])
+  @@map("meal_ingredient")
+}
+
+/// Phase 65d: one day's dinner: a saved meal or a typed note ("Leftovers", "Out"). `day` is a
+/// stored day (lib/household-zone.ts DAY_COLUMNS). A deleted meal leaves its name as the note.
+model MealPlanDay {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  day         DateTime
+  mealId      String?
+  meal        Meal?     @relation(fields: [mealId], references: [id], onDelete: SetNull)
+  note        String?
+
+  @@unique([householdId, day])
+  @@map("meal_plan_day")
+}
+

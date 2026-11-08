@@ -133,6 +133,16 @@ function fixture(): Backup {
       { id: "ev2", itemType: "ASSIGNMENT", itemId: "sa1", actorId: "Mom", action: "GRADE", field: null, fromValue: null, toValue: "18/20", createdAt: T2 },
       { id: "ev3", itemType: "SCHOOL_TASK", itemId: "st1", actorId: null, action: "EDIT", field: "title", fromValue: "Trip slip", toValue: "Field trip slip", createdAt: T2 },
     ],
+    // Phase 65d: a meal, its ingredients, a day with it and a day with a note.
+    meals: [{ id: "meal1", name: "Pancakes", createdAt: T }],
+    mealIngredients: [
+      { id: "mi-a", mealId: "meal1", productId: "p1", quantity: 2 },
+      { id: "mi-b", mealId: "meal1", productId: "p2", quantity: 1 },
+    ],
+    mealPlanDays: [
+      { id: "md1", day: T, mealId: "meal1", note: null },
+      { id: "md2", day: T2, mealId: null, note: "Leftovers" },
+    ],
     sealedMoney: null,
   };
 }
@@ -171,6 +181,8 @@ const REFS: Record<string, Record<string, string>> = {
   petGifts: { personId: "people", instanceId: "taskInstances" },
   petDiscoveries: { personId: "people" },
   workItemEvents: { actorId: "people" },
+  mealIngredients: { mealId: "meals", productId: "products" },
+  mealPlanDays: { mealId: "meals" },
 };
 /** Phase 59.1c: an event's itemId points into the table its itemType names. */
 const ITEM_TABLE: Record<string, string> = { CHORE: "taskInstances", ASSIGNMENT: "schoolAssignments", SCHOOL_TASK: "schoolTasks" };

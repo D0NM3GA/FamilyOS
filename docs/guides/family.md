@@ -369,6 +369,14 @@ trips**.
 
 <!-- screenshot: the list, the Shop view, the scanner -->
 
+
+**Meals.** **🍽️ Meals** on Groceries plans dinner for the week, Sunday to Saturday: for each day pick a
+saved meal or type a note ("Leftovers", "Out"), then **Save the week**. A saved meal has a name and
+its ingredients, one per line ("Tortillas", "2 Tomatoes": a number first is how many to buy; "12 oz
+pasta" is one pasta); each becomes a Pantry item. **Add what's missing to the list** puts the week's ingredients on the list, amounts
+added up, skipping what's already there. Today's dinner shows in **Happening today** on Home.
+Grown-ups plan; kids can see the week. Deleting a meal keeps its name on the days that had it.
+
 ## School
 
 For each kid: **Homework & tests** (tick them off when they're turned in), **Recent grades** and
