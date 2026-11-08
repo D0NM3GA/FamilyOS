@@ -1820,3 +1820,24 @@ buttons name their medicine for screen readers; Manage drops a stray separator a
 a dose; the last-dose lookup is bounded to 90 days ("Not taken lately" past that); dates past a
 week say the date; the form has bounds; the restore test round-trips an AS_NEEDED medicine.
 
+### 65b — Cars: paperwork and repairs
+
+Both reuse car work rather than new models (car work already reaches due status, reminders, Home,
+the Today strip, search, activity, export and print). `VehicleMaintenanceItem.kind`: SERVICE
+(default), PAPERWORK, REPAIRS. Paperwork has `intervalMonths` (1–60) and a `nextDueAt` (a stored
+day, in `DAY_COLUMNS`) that alone decides its due status; **Renewed** is the item's log action,
+which in the same transaction moves `nextDueAt` on by `intervalMonths` from the old due day
+(`addMonths`), and undo moves it back. A repair is a `VehicleServiceLog` with its own `title` on the
+car's one hidden REPAIRS item (made on the first repair): the history, export and activity show the
+log's title, and costs count it as service; miles default to the car's current, and higher miles
+move the odometer. The queries, search, export, reminders, Manage and the item edit page leave the
+REPAIRS item out; the log and undo actions refuse it; `deleteRepair` (asks first) only deletes
+repair logs. Paperwork reminds 14 days ahead (car work stays 7), keyed by its due day. Backups v13
+carry the kind, due day and repair titles.
+Fable's review of 65b: a renewal remembers the due day before it (`VehicleServiceLog.dueAtBefore`)
+and undo puts that back, since subtracting months doesn't undo month-end clamping (Jan 31 + 1
+month is Feb 28; back is Jan 28); the renewal locks the item's row and the first repair locks the
+car's, so taps at once can't move a due day twice or make two Repairs items; paperwork cards say
+"Renewed …" or "Not renewed yet"; the reminders line in the guide names paperwork's two weeks; the
+placeholder receipt no longer names a real chain.
+
