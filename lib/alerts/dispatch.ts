@@ -26,7 +26,8 @@ import { getVapidState, type VapidState } from "./vapid";
 
 export type Channel = "teams" | "email" | "push";
 
-export type PushPayload = { title: string; body: string; path: string };
+/** Phase 68c: `tag` lets a newer notification about the same thing replace the older on the phone. */
+export type PushPayload = { title: string; body: string; path: string; tag?: string };
 
 /** Who a Teams message goes to: their person row (for their kept chat) and Entra object id. */
 export type TeamsTo = { personId: string; aadObjectId: string };
@@ -157,6 +158,7 @@ async function sendToPerson(
   appName: string,
   senders: Senders,
   card?: TeamsCard,
+  tag?: string,
 ): Promise<Partial<Record<Channel, string | null>>> {
   const link = storeLink(path);
   const out: Partial<Record<Channel, string | null>> = {};
@@ -176,7 +178,7 @@ async function sendToPerson(
           if (!mailbox) throw new ConfigError("The alert mailbox isn't set up yet.");
           await senders.email(to, title, link, appName, card?.linkText, mailbox);
         } else {
-          await pushToDevices(r, { title: appName, body: title, path }, senders);
+          await pushToDevices(r, { title: appName, body: title, path, ...(tag ? { tag } : {}) }, senders);
         }
       } catch (err) {
         // Every sender throws fixed text only (never a URL, token or secret).
@@ -227,12 +229,17 @@ export type DeliverOptions = {
   includeEnded?: boolean;
 };
 
+/** Phase 68c: what a phone groups a notification by: its kind and where it leads (at most 64 characters). */
+export function pushTag(kind: string, href: string): string {
+  return `${kind}:${href}`.slice(0, 64);
+}
+
 /** Delivers the matching bell notifications (all from one household) on each recipient's channels. */
 export async function deliverNotifications(where: Prisma.NotificationWhereInput, opts: DeliverOptions, senders: Senders = defaultSenders): Promise<void> {
   try {
     const notes = await prisma.notification.findMany({
       where,
-      select: { householdId: true, title: true, href: true, recipient: { select: recipientSelect } },
+      select: { householdId: true, kind: true, title: true, href: true, recipient: { select: recipientSelect } },
     });
     if (notes.length === 0) return;
 
@@ -261,7 +268,7 @@ export async function deliverNotifications(where: Prisma.NotificationWhereInput,
         if (wantsEmail || (opts.alsoEmail && mailbox !== null)) channels.push("email");
         if (hasPhones && keys.ok) channels.push("push");
         if (channels.length === 0) return Promise.resolve();
-        return sendToPerson(n.recipient, channels, teamsAppId, mailbox, n.title, n.href, appName, senders, opts.card);
+        return sendToPerson(n.recipient, channels, teamsAppId, mailbox, n.title, n.href, appName, senders, opts.card, pushTag(n.kind, n.href));
       }),
     );
   } catch {
