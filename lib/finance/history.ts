@@ -54,9 +54,12 @@ export const EVENT_DATA = {
   BILL_CHANGED: z.object({ name }),
   BILL_REMOVED: z.object({ name }),
   // A spreadsheet of the jar's activity: one month, or everything (null).
-  EXPORTED: z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).nullable(), count: z.number().int().nonnegative() }),
+  // Phase 70e: or a year's summary (`year`).
+  EXPORTED: z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).nullable(), count: z.number().int().nonnegative(), year: z.number().int().optional() }),
   // Phase 34: Net worth's hand-valued things (lib/finance/holdings.ts), never a surprise. A
   // value of null: that day's value was taken off.
+  // Phase 70e: a statement account merged into a feed account.
+  ACCOUNTS_MERGED: z.object({ from: name, into: name, count: z.number().int().nonnegative() }),
   HOLDING_ADDED: z.object({ name, kind: z.enum(HOLDING_KINDS) }),
   NEW_FILED: z.object({ count: z.number().int().nonnegative() }),
   HOLDING_VALUED: z.object({ name, kind: z.enum(HOLDING_KINDS), cents: z.number().int().nonnegative().nullable(), on: z.iso.date() }),
@@ -168,7 +171,10 @@ export function describeEvent(kind: JarEventKind, raw: unknown, actor: string): 
     case "BILL_REMOVED":
       return `${actor} removed the bill ${d.name}`;
     case "EXPORTED":
+      if (typeof d.year === "number") return `${actor} downloaded ${d.year}'s summary as a spreadsheet`;
       return d.month ? `${actor} downloaded ${monthName(d.month as string)}'s activity as a spreadsheet` : `${actor} downloaded all the activity as a spreadsheet`;
+    case "ACCOUNTS_MERGED":
+      return `${actor} merged ${d.from} into ${d.into}`;
     case "HOLDING_ADDED":
       return `${actor} added ${HOLDING_KIND[d.kind as HoldingKind].emoji} ${d.name} to Net worth`;
     case "HOLDING_VALUED":

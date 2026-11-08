@@ -30,6 +30,7 @@ import { decimalToCents } from "@/lib/money";
 import { MAX_MANUAL_BILLS, addDays, anchorForEdit, dueDays, parseManualBillForm } from "@/lib/finance/manual-bills";
 import { LATE_DAYS } from "@/lib/finance/recurring";
 import * as holdings from "@/lib/finance/holdings";
+import { mergeStatementAccount } from "@/lib/finance/merge-accounts";
 
 /**
  * Phase 25: money jars. Every action re-checks the jar through requireJar (members only,
@@ -964,4 +965,18 @@ export async function markNewSeen(jarId: string, formData: FormData) {
   const { jar, viewer } = await requireJar(jarId);
   await markSeen(prisma, jar.id, viewer.id, seenAsOf(formData));
   revalidatePath(jarPath(jar.id), "layout");
+}
+
+/**
+ * Phase 70e: merge a statement account into the bank-feed account it really is (asks first, on the
+ * page): the overlap is folded as duplicates, so nothing counts twice.
+ */
+export async function mergeAccounts(jarId: string, sourceId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const { jar, viewer } = await requireJar(jarId);
+  const targetId = String(formData.get("into") ?? "").slice(0, 64);
+  const done = await mergeStatementAccount(jar.id, sourceId, targetId);
+  if (!done.ok) return { error: done.error };
+  await logJarEvent(prisma, { jarId: jar.id, actorId: viewer.id, kind: "ACCOUNTS_MERGED", data: { from: done.from.slice(0, 60), into: done.into.slice(0, 60), count: done.moved } });
+  revalidatePath(jarPath(jar.id), "layout");
+  return { ok: `Merged into ${done.into}. Rows both had are folded together.` };
 }

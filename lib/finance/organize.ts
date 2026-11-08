@@ -53,7 +53,7 @@ async function withCategoryLock<T>(db: Db, jarId: string, fn: (tx: Tx) => Promis
  * person chose (PERSON). Only rows whose answer changes are written, grouped per category. A
  * guess goes to the category with that starting key, or the one it was removed into.
  */
-export async function categorizeJar(db: Db, jarId: string): Promise<number> {
+export async function categorizeJar(db: Db, jarId: string, opts: { since?: Date } = {}): Promise<number> {
   await ensureCategories(db, jarId);
   // Rows from before Phase 26 have no merchant key yet.
   const keyless = await db.finTransaction.findMany({
@@ -68,7 +68,14 @@ export async function categorizeJar(db: Db, jarId: string): Promise<number> {
       tx.finCategory.findMany({ where: { jarId }, select: { id: true, key: true, absorbedKeys: true } }),
       tx.categoryRule.findMany({ where: { jarId }, select: { key: true, categoryId: true, matchPrefix: true } }),
       tx.finTransaction.findMany({
-        where: { jarId, state: "ACTIVE", OR: [{ categorySource: null }, { categorySource: { in: ["AUTO", "RULE"] } }] },
+        where: {
+          jarId,
+          state: "ACTIVE",
+          OR: [{ categorySource: null }, { categorySource: { in: ["AUTO", "RULE"] } }],
+          // Phase 70e: a sync or import files only its own days (and anything not filed yet); a rule
+          // change, a category edit or the page's tidy-up still files the whole jar.
+          ...(opts.since ? { AND: [{ OR: [{ postedOn: { gte: opts.since } }, { categorySource: null }] }] } : {}),
+        },
         select: { id: true, merchantKey: true, amountCents: true, categoryId: true, categorySource: true },
       }),
     ]);
@@ -176,8 +183,8 @@ export async function linkGroceries(db: Db, jarId: string, now: Date = new Date(
  * Categorize, then link trips (linking needs the Groceries category), then spread surprise
  * marks, then match order emails (Phase 29: the charge often arrives after the email).
  */
-export async function organizeJar(jarId: string, now: Date = new Date()) {
-  await categorizeJar(prisma, jarId);
+export async function organizeJar(jarId: string, now: Date = new Date(), opts: { since?: Date } = {}) {
+  await categorizeJar(prisma, jarId, opts);
   await linkGroceries(prisma, jarId, now);
   await spreadGiftMarks(prisma, jarId, now);
   await matchJarOrders(prisma, jarId, now);

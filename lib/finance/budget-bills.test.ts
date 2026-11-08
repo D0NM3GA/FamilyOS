@@ -72,7 +72,7 @@ describe("budgetMonth", () => {
       "2026-10-15",
     );
     const g = s.lines.find((l) => l.category.key === "groceries")!;
-    expect(g).toMatchObject({ spentCents: 51000, pendingCents: 2000, status: "ON_TRACK" });
+    expect(g).toMatchObject({ spentCents: 51000, pendingCents: 2000, status: "AHEAD" }); // Phase 70e: well past half by the 15th.
     expect(s.lines.find((l) => l.category.key === "dining")!.status).toBe("OVER");
     expect(s.incomeCents).toBe(250000);
     expect(s.uncategorizedOutCents).toBe(700);

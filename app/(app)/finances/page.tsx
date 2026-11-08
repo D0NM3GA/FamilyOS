@@ -6,6 +6,7 @@ import { moneyViewer } from "@/lib/finance/access";
 import { backupSignInState, requireActiveProfile } from "@/lib/active-profile";
 import { SignInAgain } from "@/components/sign-in-again";
 import { todayCivil } from "@/lib/finance/budget";
+import { jarBudgetFlags } from "@/lib/finance/budget-status";
 import { visibleIssueWhere } from "@/lib/finance/gifts";
 import { createJar } from "./actions";
 import { ActionForm, Submit } from "./forms";
@@ -46,6 +47,8 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
     },
     orderBy: { createdAt: "asc" },
   });
+  // Phase 70e: budget lines running ahead or over this month, per jar.
+  const flags = await Promise.all(jars.map((j) => jarBudgetFlags(j.id, viewer.id, todayCivil())));
 
   return (
     <div className="mx-auto max-w-3xl p-4 pb-24 sm:p-6">
@@ -55,7 +58,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
 
       {jars.length === 0 && <p className="mt-5 font-bold">No jars yet. Make one below; you can add people after.</p>}
       <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-        {jars.map((j) => (
+        {jars.map((j, i) => (
           <li key={j.id}>
             <Link
               href={`/finances/${j.id}`}
@@ -68,6 +71,11 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
               <span className="text-sm text-muted-foreground">
                 {j.members.map((m) => m.person.firstName).join(", ")} · {j._count.accounts} account{j._count.accounts === 1 ? "" : "s"}
               </span>
+              {(flags[i].over > 0 || flags[i].ahead > 0) && (
+                <span className="mt-1 w-fit rounded-md bg-sun/60 px-1.5 text-xs font-bold text-ink">
+                  {[flags[i].over > 0 ? `${flags[i].over} over budget` : null, flags[i].ahead > 0 ? `${flags[i].ahead} running ahead` : null].filter(Boolean).join(" · ")}
+                </span>
+              )}
               {j._count.issues > 0 && (
                 <span className="mt-1 w-fit -rotate-1 rounded-md bg-sun px-1.5 text-xs font-bold text-ink">
                   {j._count.issues} need{j._count.issues === 1 ? "s" : ""} a look

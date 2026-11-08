@@ -105,6 +105,10 @@ export default async function TrendsPage({ params, searchParams }: { params: Pro
   return (
     <div className="mx-auto max-w-3xl p-4 pb-24 sm:p-6">
       <JarHeader jar={jar} active="trends" />
+      {/* Phase 70e: a whole calendar year by category, for taxes. */}
+      <Link href={`/finances/${jar.id}/trends/year?year=${month.slice(0, 4)}`} className={`${btn} mt-4`}>
+        📅 The year by category
+      </Link>
 
       {shaped.length === 0 && !older && foreign === 0 ? (
         <div className="mt-6">
