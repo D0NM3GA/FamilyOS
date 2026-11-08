@@ -71,3 +71,11 @@ export function courseEnd(v: { frequencyType: string; startDate: Date; endMode: 
   if (v.endDate < v.startDate) return { error: "The last day can't be before it starts" };
   return { endDate: v.endDate };
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Nov 18", or "Jan 3, 2027" when it isn't this year (a course over New Year). */
+export function courseDay(d: Date, now: Date = new Date()): string {
+  const day = `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  return d.getFullYear() === now.getFullYear() ? day : `${day}, ${d.getFullYear()}`;
+}

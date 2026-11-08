@@ -2049,3 +2049,10 @@ keeping hidden kinds; My notifications ticks opt-in kinds from `optIn`. `listedK
 `planInstances` plans nothing after it; `endFinishedCourses` (after the dose planners each tick)
 switches a medicine off once its last day plus the missed-dose grace has passed, deleting nothing.
 Meds and Manage say "Last day". Backups v15 carry `endDate` (none in older files).
+Fable's review of 68a: turning a finished course back on takes its past end day off (the next
+tick would have switched it off again), as the guide now says; switching courses off is its own
+step in the tick, so a failure there can't lose the dose plans; whose dose is a grown-up's own goes
+by role, so an adult whose Entra access ended isn't treated as a kid; "Last day" shows only for
+scheduled medicines and says the year when it isn't this one; tests cover the window's edge, both
+doses on the last day, a course ending today, and turning one back on. Left as is: with Meds off,
+ended courses stay active until it's on again (nothing is planned past the end meanwhile).

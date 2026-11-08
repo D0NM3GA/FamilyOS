@@ -42,11 +42,21 @@ describe.skipIf(!RUN)("doses due and courses that end (database)", { timeout: 60
   test("a course switches off the night after its last day, once the missed window is past", async () => {
     const { endFinishedCourses } = await import("./run");
     const lastDay = atMidnight(new Date(2026, 10, 10));
-    await prisma.taskDefinition.update({ where: { id: ids.def }, data: { endDate: lastDay, active: true } });
+    await prisma.taskDefinition.update({ where: { id: ids.def }, data: { startDate: new Date(2026, 10, 1), endDate: lastDay, active: true } });
     // 23:30 on the last day, and 1:00 the next morning: still on (a late dose's missed reminder).
     expect(await endFinishedCourses(ids.h, new Date(2026, 10, 10, 23, 30))).toBe(0);
     expect(await endFinishedCourses(ids.h, new Date(2026, 10, 11, 1, 0))).toBe(0);
     expect(await endFinishedCourses(ids.h, new Date(2026, 10, 11, 2, 0))).toBe(1);
     expect((await prisma.taskDefinition.findUniqueOrThrow({ where: { id: ids.def } })).active).toBe(false);
+  });
+
+  test("a course ending today plans nothing after today", async () => {
+    const { ensureInstancesGenerated } = await import("@/lib/tasks/instances");
+    const today = atMidnight(new Date());
+    await prisma.taskInstance.deleteMany({ where: { definitionId: ids.def } });
+    await prisma.taskDefinition.update({ where: { id: ids.def }, data: { startDate: addDays(today, -3), endDate: today, active: true } });
+    await ensureInstancesGenerated(ids.h, addDays(today, 7), "MED");
+    expect(await prisma.taskInstance.count({ where: { definitionId: ids.def, dueDate: { gte: addDays(today, 1) } } })).toBe(0);
+    expect(await prisma.taskInstance.count({ where: { definitionId: ids.def, dueDate: { gte: today, lt: addDays(today, 1) } } })).toBe(1);
   });
 });

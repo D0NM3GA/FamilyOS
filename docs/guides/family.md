@@ -327,7 +327,8 @@ visit. Grown-ups see any; a kid sees their own.
 
 **A course of medicine** (an antibiotic for 10 days): on the medicine's form, **Ends** → **After a
 number of days** (the start day counts) or **On a date**. It shows "Last day Nov 18", makes no doses
-after that day, and switches itself off the night after (it stays on Manage, to turn on again).
+after that day, and switches itself off the night after (it stays on Manage; turning it on again
+takes the end off, so it keeps going until you edit it).
 
 **Away from home.** On a trip to another time zone, times show home's first and then where you
 are ("8:00 AM at home · 2:00 PM here"), so doses stay on their usual schedule. Days stay home's

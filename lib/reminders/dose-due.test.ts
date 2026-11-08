@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planDosesDue, type DoseRow } from "./plan";
 import { kindOff, listedKinds, nextOptIn } from "./prefs";
-import { courseEnd } from "@/lib/meds/form";
+import { courseDay, courseEnd } from "@/lib/meds/form";
 import { planInstances } from "@/lib/tasks/instances";
 
 /** Phase 68a: a dose is due (opt-in), and courses that end. */
@@ -23,6 +23,7 @@ describe("planDosesDue", () => {
   it("from 15 minutes before until the missed reminder takes over", () => {
     expect(planDosesDue([dose({ dueDate: at(8, 10) })], [{ id: "mom" }], NOW)).toHaveLength(1);
     expect(planDosesDue([dose({ dueDate: at(8, 20) })], [{ id: "mom" }], NOW)).toHaveLength(0);
+    expect(planDosesDue([dose({ dueDate: at(8, 15) })], [{ id: "mom" }], NOW)).toHaveLength(1);
     expect(planDosesDue([dose({ dueDate: at(6, 40) })], [{ id: "mom" }], NOW)).toHaveLength(1);
     expect(planDosesDue([dose({ dueDate: at(6, 30) })], [{ id: "mom" }], NOW)).toHaveLength(0);
     expect(planDosesDue([dose({ status: "DONE" }), dose({ timed: false }), dose({ active: false })], [{ id: "mom" }], NOW)).toHaveLength(0);
@@ -77,5 +78,20 @@ describe("a course of medicine", () => {
     const planned = planInstances(def, [], ["ivy"], start, new Date(2026, 10, 22));
     expect(planned.map((p) => p.dueDate.getDate())).toEqual([8, 9, 10]);
     expect(planInstances({ ...def, endDate: new Date(2026, 10, 7) }, [], ["ivy"], start, new Date(2026, 10, 22))).toEqual([]);
+  });
+
+  it("keeps every dose on the last day, and plans nothing after it", () => {
+    const def = { frequencyType: "DAILY" as const, startDate: start, interval: 1, daysOfWeek: [], timesOfDay: ["08:00", "20:00"], assignmentStrategy: "FIXED" as const, endDate: new Date(2026, 10, 9) };
+    const existing = [{ dueDate: new Date(2026, 10, 9, 8, 0), assignedToId: "ivy" }];
+    const planned = planInstances(def, existing, ["ivy"], new Date(2026, 10, 9), new Date(2026, 10, 22));
+    expect(planned.map((p) => [p.dueDate.getDate(), p.dueDate.getHours()])).toEqual([[9, 20]]);
+    // Past the end, it fills the last day as for any medicine (from the latest dose), nothing after.
+    const later = planInstances(def, existing, ["ivy"], new Date(2026, 10, 12), new Date(2026, 10, 26));
+    expect(later.every((p) => p.dueDate < new Date(2026, 10, 10))).toBe(true);
+  });
+
+  it("says the year when the last day isn't this year", () => {
+    expect(courseDay(new Date(2026, 10, 18), new Date(2026, 10, 8))).toBe("Nov 18");
+    expect(courseDay(new Date(2027, 0, 3), new Date(2026, 11, 28))).toBe("Jan 3, 2027");
   });
 });
