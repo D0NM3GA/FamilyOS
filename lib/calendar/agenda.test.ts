@@ -351,5 +351,9 @@ describe("an item for several people (Phase 70f)", () => {
     expect(itemsForPerson([item], "ivy", members)).toHaveLength(1);
     expect(itemsForPerson([item], "max", members)).toHaveLength(1);
     expect(itemsForPerson([item], "dad", members)).toHaveLength(0);
+    // One of its kids left the household: still only the other's.
+    const left = { ...item, whoIds: ["ivy", "gone"] };
+    expect(itemsForPerson([left], "ivy", members)).toHaveLength(1);
+    expect(itemsForPerson([left], "dad", members)).toHaveLength(0);
   });
 });

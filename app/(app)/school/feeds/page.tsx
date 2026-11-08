@@ -78,11 +78,11 @@ export default async function SchoolFeedsPage() {
                   <form action={setFeedWho.bind(null, f.id)} className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                     <label className="flex min-h-11 items-center gap-2 sm:min-h-9">
                       <input type="checkbox" name="family" defaultChecked={f.forFamily} className="size-4" />
-                      Whole family
+                      Whole family (everyone sees it, whoever else is ticked)
                     </label>
                     {students.map((s) => (
                       <label key={s.id} className="flex min-h-11 items-center gap-2 sm:min-h-9">
-                        <input type="checkbox" name="kid" value={s.id} defaultChecked={!f.forFamily && f.kids.some((k) => k.person.id === s.id)} className="size-4" />
+                        <input type="checkbox" name="kid" value={s.id} defaultChecked={f.kids.some((k) => k.person.id === s.id)} className="size-4" />
                         {s.firstName}
                       </label>
                     ))}

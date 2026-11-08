@@ -12,7 +12,10 @@ const keyOf = (e: FoldableEvent) => `${e.title.trim().replace(/\s+/g, " ").toLow
 export function foldFeedEvents<T extends FoldableEvent>(rows: readonly T[]): T[] {
   const out: T[] = [];
   const seen = new Map<string, T>();
-  for (const r of rows) {
+  // A family feed's copy is folded into first, so its label and key are the ones kept whatever
+  // order the rows came in; the result goes back to starting order.
+  const ordered = [...rows].sort((a, b) => Number(b.family) - Number(a.family));
+  for (const r of ordered) {
     const key = keyOf(r);
     const first = seen.get(key);
     if (!first) {
@@ -34,5 +37,5 @@ export function foldFeedEvents<T extends FoldableEvent>(rows: readonly T[]): T[]
       e.whoNames = [];
     }
   }
-  return out;
+  return out.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 }

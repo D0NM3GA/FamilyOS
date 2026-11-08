@@ -10,7 +10,8 @@ export function feedScope(studentId: string | null | undefined): Prisma.SchoolFe
 }
 
 /** What a feed row needs to say who it's for. */
-export const FEED_WHO = { forFamily: true, name: true, kids: { select: { person: { select: { id: true, firstName: true } } } } } as const;
+/** Someone who left the household drops off (their rows stay, so coming back keeps them on it). */
+export const FEED_WHO = { forFamily: true, name: true, kids: { where: { person: { isHouseholdMember: true } }, select: { person: { select: { id: true, firstName: true } } } } } as const;
 
 export type FeedWho = { forFamily: boolean; name: string; kids: { person: { id: string; firstName: string } }[] };
 

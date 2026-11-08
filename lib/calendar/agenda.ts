@@ -381,7 +381,7 @@ export function itemsForPerson(items: readonly AgendaItem[], who: string, member
   return items.filter((item) => {
     // Phase 70f: an item for several people is each one's.
     const several = (item.whoIds ?? []).filter((id) => members.has(id));
-    if (several.length > 1) return several.includes(who);
+    if (several.length > 0) return several.includes(who);
     return (itemPerson(item, members) ?? who) === who;
   });
 }

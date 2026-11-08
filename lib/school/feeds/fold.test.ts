@@ -28,6 +28,15 @@ describe("one event from two feeds", () => {
     expect(out[0]).toMatchObject({ family: true, whoIds: [], whoNames: [] });
   });
 
+  it("the family's copy is kept whichever came first", () => {
+    const out = foldFeedEvents([
+      { ...ev("Board Meeting", { whoIds: ["zoe"], whoNames: ["Zoe"] }), label: "Middle school" },
+      { ...ev("Board Meeting", { family: true }), label: "District" },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ label: "District", family: true, whoIds: [] });
+  });
+
   it("a different end, start or all-day flag is another event", () => {
     const out = foldFeedEvents([ev("Concert"), ev("Concert", { endsAt: at(13) }), ev("Concert", { allDay: false, startsAt: at(11, 18), endsAt: at(11, 19) })]);
     expect(out).toHaveLength(3);

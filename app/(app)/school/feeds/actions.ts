@@ -42,11 +42,11 @@ async function saveFeed(admin: { householdId: string }, rawName: string, rawUrl:
   const url = normalizeFeedUrl(rawUrl);
   if (!url.ok) return { error: url.error };
   if (kidPersonId) {
-    const kid = await prisma.person.findFirst({ where: { id: kidPersonId, householdId: admin.householdId, isHouseholdMember: true }, select: { id: true } });
+    const kid = await prisma.person.findFirst({ where: { id: kidPersonId, ...student(admin.householdId) }, select: { id: true } });
     if (!kid) return { error: "That family member wasn't found." };
   }
   const urlHash = feedUrlHash(url.url);
-  const existing = await prisma.schoolFeed.findUnique({ where: { householdId_urlHash: { householdId: admin.householdId, urlHash } }, select: { id: true, name: true, forFamily: true } });
+  const existing = await prisma.schoolFeed.findUnique({ where: { householdId_urlHash: { householdId: admin.householdId, urlHash } }, select: { id: true, name: true, forFamily: true, kids: { select: { personId: true } } } });
   if (existing) {
     // Phase 70f: one feed for several kids: the same calendar for another kid joins them to it.
     if (existing.forFamily) return { error: `"${existing.name}" is already added, for the whole family.` };
@@ -55,6 +55,7 @@ async function saveFeed(admin: { householdId: string }, rawName: string, rawUrl:
       revalidateFeeds();
       return { notice: `"${existing.name}" was already added; it's for the whole family now.` };
     }
+    if (existing.kids.some((k) => k.personId === kidPersonId)) return { error: `"${existing.name}" is already added for them.` };
     await prisma.schoolFeedKid.upsert({ where: { feedId_personId: { feedId: existing.id, personId: kidPersonId } }, create: { feedId: existing.id, personId: kidPersonId }, update: {} });
     revalidateFeeds();
     return { notice: `"${existing.name}" was already added; it's for them too now.` };
@@ -195,11 +196,17 @@ export async function setFeedWho(feedId: string, fd: FormData): Promise<void> {
   if (!feed) return;
   const forFamily = fd.get("family") === "on";
   const asked = fd.getAll("kid").map(String).slice(0, 20);
-  const kids = forFamily || asked.length === 0 ? [] : await prisma.person.findMany({ where: { id: { in: asked }, householdId: admin.householdId, isHouseholdMember: true }, select: { id: true } });
+  // Kids ticked alongside "Whole family" are kept, so unticking the family later leaves them on it.
+  const kids = asked.length === 0 ? [] : await prisma.person.findMany({ where: { id: { in: asked }, ...student(admin.householdId) }, select: { id: true } });
   await prisma.$transaction([
     prisma.schoolFeed.update({ where: { id: feed.id }, data: { forFamily } }),
     prisma.schoolFeedKid.deleteMany({ where: { feedId: feed.id } }),
     prisma.schoolFeedKid.createMany({ data: kids.map((k) => ({ feedId: feed.id, personId: k.id })) }),
   ]);
   revalidateFeeds();
+}
+
+/** A kid a calendar can be for: a household member who's a kid or has school details (as School lists them). */
+function student(householdId: string) {
+  return { householdId, isHouseholdMember: true, OR: [{ role: "KID" as const }, { schoolProfile: { isNot: null } }] };
 }

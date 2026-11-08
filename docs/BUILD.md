@@ -2347,3 +2347,9 @@ case and spacing, start, end and all-day flag; a family feed's copy makes it the
 loaders. Agenda items carry `whoIds`; `itemsForPerson` shows an item for several people to each
 of them, and `studentId` (link, colour) is set only when there's exactly one. School shows
 "Ivy & Max", or the feed's name for the family's. Feeds stay out of backups.
+Fable's review of 70f: the fold takes a family feed's copy first whatever order the rows come in,
+so a shared event is labelled by the family's calendar; someone who left the household drops off a
+calendar's kids (their rows stay, for coming back) and an item still for one kid stays theirs in the
+filter; a calendar is only ever for kids (or someone with school details), as School lists them;
+kids ticked with "Whole family" are kept; adding a calendar again for a kid already on it says so;
+search folds too. Tests for the actions' household scoping and the join.
