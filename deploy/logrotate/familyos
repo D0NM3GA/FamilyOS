@@ -1,0 +1,13 @@
+# Phase 67c: the host's own logs (the nightly backup, the break-glass check and the restore
+# drill, written by cron: README "Running in production"). Copy to /etc/logrotate.d/familyos.
+# copytruncate keeps each file's owner and mode as they are (cron writes as you, mode 600), so
+# this needs no user names in it.
+/var/log/familyos-*.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
