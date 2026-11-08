@@ -32,6 +32,7 @@ function fixture(): Backup {
       statementDateOrder: "DAY_FIRST",
       themeColor: "forest", rewardOne: "star", rewardMany: "stars", rewardStore: "Star Shop", mascotOn: false, mascotName: "Clover", appIcon: "LETTER",
       petCareHours: { weekday: [{ start: 420, end: 480 }, { start: 900, end: 1200 }], weekend: [{ start: 540, end: 1260 }] },
+      petNoSchoolDays: false,
     },
     people: [
       P("Mom", { email: `mom-${tag}@example.com`, role: "ADMIN", phone: "555-1", notes: "note", notesAdultsOnly: true, contactCadenceDays: 7, lastContactedAt: T2 }),
@@ -44,6 +45,7 @@ function fixture(): Backup {
       { id: "d1", personId: "Kid", type: "BIRTHDAY", label: null, month: 5, day: 3, year: 2018 },
       { id: "d2", personId: "Doc", type: "OTHER", label: "Checkup", month: 9, day: 1, year: null },
     ],
+    giftIdeas: [{ id: "g1", personId: "Kid", text: "Paint set", addedById: "Mom", givenAt: null, createdAt: T }],
     interactions: [{ id: "i1", personId: "Doc", type: "CALL", occurredAt: T, note: "hi", adultsOnly: true, loggedById: "Mom", createdAt: T }],
     relationships: [
       { id: "r1", fromId: "Mom", toId: "Kid", type: "PARENT", label: null, createdAt: T },
@@ -150,6 +152,7 @@ function fixture(): Backup {
 // Which table each reference field points at.
 const REFS: Record<string, Record<string, string>> = {
   importantDates: { personId: "people" },
+  giftIdeas: { personId: "people", addedById: "people" },
   interactions: { personId: "people", loggedById: "people" },
   relationships: { fromId: "people", toId: "people" },
   taskDefinitions: { assigneeIds: "people" },

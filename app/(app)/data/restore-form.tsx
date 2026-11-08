@@ -13,6 +13,7 @@ type Preview = {
   newMembersNeedingPin: number;
   matchedButRemoved: number;
   timeZoneNote: string | null;
+  giftNote?: string | null;
   anythingToDelete: boolean;
   sealedMoneyJars: number;
   money: { canRestore: true; counts: MoneyCounts } | { canRestore: false; reason: string } | null;
@@ -199,6 +200,7 @@ export function RestoreForm() {
         </p>
         {/* Phase 49: a backup from another zone has its days moved, not shifted. */}
         {p.timeZoneNote && <p className="text-xs text-muted-foreground">{p.timeZoneNote}</p>}
+        {p.giftNote && <p className="text-xs text-muted-foreground">{p.giftNote}</p>}
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={confirm}

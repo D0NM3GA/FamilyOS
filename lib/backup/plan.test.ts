@@ -54,9 +54,10 @@ function emptyBackup(): Backup {
     exportedAt: T,
     exportedTimeZone: "America/New_York",
     databaseMigration: null,
-    household: { name: "Our Family", timezone: null, latitude: null, longitude: null, familyGoalStickers: null, familyGoalTitle: null, appName: null, disabledApps: [], setupReviewed: [], petCareHours: null, statementDateOrder: "AUTO" as const, ...LOOK_DEFAULTS },
+    household: { name: "Our Family", timezone: null, latitude: null, longitude: null, familyGoalStickers: null, familyGoalTitle: null, appName: null, disabledApps: [], setupReviewed: [], petCareHours: null, petNoSchoolDays: true, statementDateOrder: "AUTO" as const, ...LOOK_DEFAULTS },
     people: [],
     importantDates: [],
+    giftIdeas: [],
     interactions: [],
     relationships: [],
     taskDefinitions: [],
@@ -405,6 +406,7 @@ describe("normalizeHousehold", () => {
       setupReviewed: [],
       ...LOOK_DEFAULTS,
       petCareHours: null,
+      petNoSchoolDays: true,
       statementDateOrder: "AUTO",
     });
   });

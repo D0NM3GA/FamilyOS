@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { addGiftIdea, removeGiftIdea, setGiftGiven } from "@/lib/gift-ideas";
 import { z } from "zod";
 import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -319,4 +320,27 @@ export async function logQuickContact(personId: string, type: "CALL" | "TEXT"): 
   formData.set("type", type);
   const result = await logInteraction(personId, {}, formData);
   if (result.error) throw new Error(result.error);
+}
+
+export type GiftState = { error?: string; saved?: number };
+
+/** Phase 70d: a grown-up adds a gift idea for someone else. */
+export async function addGiftIdeaAction(personId: string, _prev: GiftState, formData: FormData): Promise<GiftState> {
+  const profile = await requireActiveProfile();
+  const done = await addGiftIdea(profile, personId, String(formData.get("text") ?? ""));
+  if (!done.ok) return { error: done.error };
+  revalidatePath(`/people/${personId}`);
+  return { saved: Date.now() };
+}
+
+export async function setGiftGivenAction(personId: string, ideaId: string, given: boolean): Promise<void> {
+  const profile = await requireActiveProfile();
+  await setGiftGiven(profile, ideaId, given);
+  revalidatePath(`/people/${personId}`);
+}
+
+export async function removeGiftIdeaAction(personId: string, ideaId: string): Promise<void> {
+  const profile = await requireActiveProfile();
+  await removeGiftIdea(profile, ideaId);
+  revalidatePath(`/people/${personId}`);
 }

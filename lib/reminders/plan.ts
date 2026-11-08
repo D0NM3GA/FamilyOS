@@ -210,8 +210,12 @@ export function nextOn(d: { month: number; day: number }, now: Date): Date {
   return at < today ? onDay(today.getFullYear() + 1, d.month, d.day) : at;
 }
 
-/** A birthday or anniversary within a week: to every grown-up but the person it's about. */
-export function planDates(dates: DateRow[], grownUps: GrownUp[], now: Date): Reminder[] {
+/**
+ * A birthday or anniversary within a week: to every grown-up but the person it's about. Phase 70d: a
+ * birthday says how many gift ideas are saved for them (`giftIdeas`, by person), never the ideas
+ * themselves: the title also goes out by Teams and email, and the ideas are a tap away on their page.
+ */
+export function planDates(dates: DateRow[], grownUps: GrownUp[], now: Date, giftIdeas: ReadonlyMap<string, number> = new Map()): Reminder[] {
   const today = atMidnight(now);
   const out: Reminder[] = [];
   for (const d of dates) {
@@ -229,13 +233,15 @@ export function planDates(dates: DateRow[], grownUps: GrownUp[], now: Date): Rem
       kind: "REMINDER_DATE",
       key: `date:${d.id}:${dayKey(at)}`,
       recipients,
-      title: `${d.person.firstName}'s ${what} ${when}`,
+      title: `${d.person.firstName}'s ${what} ${when}${giftLine(d.type === "BIRTHDAY" ? (giftIdeas.get(d.person.id) ?? 0) : 0)}`,
       href: `/people/${encodeURIComponent(d.person.id)}`,
       urgent: false,
     });
   }
   return out;
 }
+
+const giftLine = (n: number) => (n === 0 ? "" : n === 1 ? " · 1 gift idea saved" : ` · ${n} gift ideas saved`);
 
 // ---- cars ----------------------------------------------------------------------------------
 

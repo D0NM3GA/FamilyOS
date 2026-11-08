@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   if (auth.response) return auth.response;
   const { viewer } = auth;
 
-  const backup = await buildBackup(viewer.householdId, new Date(), { sealMoney });
+  const backup = await buildBackup(viewer.householdId, new Date(), { sealMoney, takenBy: viewer.id });
   const text = JSON.stringify(backup, null, 2);
   const { notificationIds } = await recordBackupEvent({
     householdId: viewer.householdId,

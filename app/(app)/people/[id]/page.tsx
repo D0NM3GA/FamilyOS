@@ -28,6 +28,8 @@ import { searchRecentMail, type RecentMailResult } from "@/lib/graph/mail";
 import { LogInteractionForm } from "./log-interaction-form";
 import { InteractionList, type InteractionRow } from "./interaction-list";
 import { ImportantDates } from "./important-dates";
+import { GiftIdeas } from "./gift-ideas";
+import { canSeeGiftIdeas, listGiftIdeas } from "@/lib/gift-ideas";
 import { RelationshipsCard } from "./relationships-card";
 import { RecordTabs } from "./record-tabs";
 import { SyncFromMicrosoftButton } from "./sync-button";
@@ -391,6 +393,7 @@ export default async function PersonRecordPage({
         />
 
         <ImportantDates personId={person.id} dates={dates} canEdit={viewerIsAdult} />
+        {canSeeGiftIdeas(profile, person.id) && <GiftIdeas personId={person.id} firstName={person.firstName} ideas={await listGiftIdeas(profile, person.id)} />}
       </div>
       {itemRef && <ItemPanel itemRef={itemRef} closeHref={`/people/${person.id}`} />}
     </div>

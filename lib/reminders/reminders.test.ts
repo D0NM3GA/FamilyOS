@@ -104,6 +104,13 @@ describe("birthdays and anniversaries", () => {
     expect(nextOn({ month: 1, day: 2 }, new Date(2026, 11, 30, 9)).getFullYear()).toBe(2027);
   });
 
+  it("Phase 70d: a birthday says how many gift ideas are saved, never what they are", () => {
+    const ideas = new Map([["grandma", 2]]);
+    expect(planDates([date(11, 10)], grownUps, NOW, ideas)[0].title).toBe("Grandma's birthday is in 3 days · 2 gift ideas saved");
+    expect(planDates([date(11, 10)], grownUps, NOW, new Map([["grandma", 1]]))[0].title).toBe("Grandma's birthday is in 3 days · 1 gift idea saved");
+    expect(planDates([date(11, 7, "ANNIVERSARY")], grownUps, NOW, ideas)[0].title).toBe("Grandma's anniversary is today");
+  });
+
   it("Feb 29 falls on Feb 28 in other years; a date for a year to come waits", () => {
     const feb = new Date(2027, 1, 25, 9);
     expect(nextOn({ month: 2, day: 29 }, feb)).toEqual(new Date(2027, 1, 28));

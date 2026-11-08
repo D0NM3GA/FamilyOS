@@ -2270,3 +2270,32 @@ yet", and the export says WAITING FOR CHECK; an answer to a request that's gone 
 "lapsed". Deal, No thanks and Cancel aren't destructive (nothing is deleted, a request can be asked
 again), so they don't ask first. Left as is: two asks at the same moment can both be recorded (the
 second one's accept lapses on the guards); a request that lapsed just drops off the asker's list.
+
+### 70d — Gift ideas and the pet's no-school days
+
+**Gift ideas:** `GiftIdea` (household, person, text, added by, given), migration
+`20261205130000_gift_ideas_no_school`; `lib/gift-ideas.ts`. Grown-ups only, never the person they're
+for (`canSeeGiftIdeas`; marking and removing also refuse the viewer's own by id). The person page's
+card adds, marks **Given** (kept, crossed off) and removes (asks first). The birthday reminder adds
+"· 2 gift ideas saved" (`planDates` takes counts from `openGiftIdeaCounts`): a deviation from the
+scope's "lists up to three", because the title is what Teams and email carry; the ideas are a tap
+away on the page it links to. **Backups v18:** `giftIdeas`, leaving out the ones for whoever takes
+the file (`BackupHooks.takenBy`, set by the download and restore routes); a restore replaces them
+except the restorer's own, which no file they take can hold. The accepted versions now list every
+one up to the current (70c's bump had dropped 16; a test checks the run). **No-school days:**
+`lib/pet/no-school.ts` (`isNoSchoolTitle`: whole words, and a title naming an event at school, like
+"Holiday Concert" or "Spring Break book fair", isn't a day off; `noSchoolDays` spreads all-day
+events over their days, at most a month each). `getCareHours(householdId, personId)` reads cached
+all-day events from the family's feeds and the pet's kid's (45 days back, for a long catch-up) when
+`Household.petNoSchoolDays` is on (default); `localTime` now gives the local day, and `isCareMinute`,
+`careMinutes` and `careHoursToday` treat those days as weekends. The switch sits under Settings →
+Apps → Pet care hours, and is in backups.
+Fable's review of 70d: the no-school check now leaves school days alone when a title names the
+return, the last or first day, a short day or an event ("Return from Winter Break", "Holiday Spirit
+Week", "Early Release"), and knows more days off (public holidays by name, recess, snow days, staff
+development, "No Students", district closed); a break over a month is left out rather than cut off
+partway. The restore preview counts the gift ideas it replaces and says why the file-taker's own
+can't come back; the feed read is cached per request and day, skipped on Settings, and `getMyPet`
+passes its `now` through; idea counts are scoped to the household; `GiftIdea` gets a household
+index (migration `20261205140000_gift_idea_household_index`). Tests: a restore by someone keeps
+theirs without doubling, and the realistic titles both ways.

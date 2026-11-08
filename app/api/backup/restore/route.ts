@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   try {
     if (mode === "preview") {
-      const result = await previewRestore(viewer.householdId, parsed.backup, { previewMoney });
+      const result = await previewRestore(viewer.householdId, parsed.backup, { previewMoney, takenBy: viewer.id });
       if (!result.ok) return json({ errors: result.errors }, 400);
       return json({ preview: result.preview, fileHash });
     }
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       if (withMoney && !hold) return json({ errors: ["A bank sync is running right now. Try again in a minute."] }, 409);
       const result = await applyRestore(viewer.householdId, viewer.id, parsed.backup, {
         expectedPlanDigest: url.searchParams.get("plan") ?? "",
-        hooks: { sealMoney, restoreMoney },
+        hooks: { sealMoney, restoreMoney, takenBy: viewer.id },
         restoreMoney: withMoney,
       }).catch(async (err: unknown) => {
         await hold?.release();

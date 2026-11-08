@@ -32,6 +32,9 @@ function formatterFor(timeZone: string): Intl.DateTimeFormat {
     formatter = new Intl.DateTimeFormat("en-US", {
       timeZone,
       weekday: "short",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "numeric",
       minute: "numeric",
       hourCycle: "h23",
@@ -41,24 +44,34 @@ function formatterFor(timeZone: string): Intl.DateTimeFormat {
   return formatter;
 }
 
-/** The weekday and minute of the day for an epoch minute, in a time zone. */
-export function localTime(minute: number, timeZone: string): { weekend: boolean; minuteOfDay: number } {
+/**
+ * Phase 70d: local days ("YYYY-MM-DD") that keep weekend hours though they're weekdays: no-school
+ * days from the school calendars (lib/pet/no-school.ts).
+ */
+export type WeekendDays = ReadonlySet<string>;
+
+/** The weekday, the local date and the minute of the day for an epoch minute, in a time zone. */
+export function localTime(minute: number, timeZone: string): { weekend: boolean; day: string; minuteOfDay: number } {
   const parts = formatterFor(timeZone).formatToParts(new Date(minute * MINUTE_MS));
   const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   const weekday = get("weekday");
   return {
     weekend: weekday === "Sat" || weekday === "Sun",
+    day: `${get("year")}-${get("month")}-${get("day")}`,
     minuteOfDay: (Number(get("hour")) % 24) * 60 + Number(get("minute")),
   };
 }
 
-function awakeAt(local: { weekend: boolean; minuteOfDay: number }, careHours: CareHours): boolean {
-  const windows = local.weekend ? careHours.weekend : careHours.weekday;
+/** Weekend hours on a weekend, or on a weekday the family has off. */
+const weekendLike = (local: { weekend: boolean; day: string }, weekendDays?: WeekendDays) => local.weekend || Boolean(weekendDays?.has(local.day));
+
+function awakeAt(local: { weekend: boolean; day: string; minuteOfDay: number }, careHours: CareHours, weekendDays?: WeekendDays): boolean {
+  const windows = weekendLike(local, weekendDays) ? careHours.weekend : careHours.weekday;
   return windows.some((window) => local.minuteOfDay >= window.start && local.minuteOfDay < window.end);
 }
 
-export function isCareMinute(minute: number, careHours: CareHours, timeZone: string): boolean {
-  return awakeAt(localTime(minute, timeZone), careHours);
+export function isCareMinute(minute: number, careHours: CareHours, timeZone: string, weekendDays?: WeekendDays): boolean {
+  return awakeAt(localTime(minute, timeZone), careHours, weekendDays);
 }
 
 /**
@@ -68,12 +81,12 @@ export function isCareMinute(minute: number, careHours: CareHours, timeZone: str
  * hour: checking once per local hour, not per minute, keeps a month away cheap, and counting to
  * the local hour (not the UTC one) keeps half-hour time zones right.
  */
-export function* careMinutes(fromMinute: number, toMinute: number, careHours: CareHours, timeZone: string): Generator<number> {
+export function* careMinutes(fromMinute: number, toMinute: number, careHours: CareHours, timeZone: string, weekendDays?: WeekendDays): Generator<number> {
   let minute = fromMinute;
   while (minute < toMinute) {
     const local = localTime(minute, timeZone);
     const runEnd = Math.min(toMinute, minute + 60 - (local.minuteOfDay % 60));
-    if (awakeAt(local, careHours)) for (let m = minute; m < runEnd; m++) yield m;
+    if (awakeAt(local, careHours, weekendDays)) for (let m = minute; m < runEnd; m++) yield m;
     minute = runEnd;
   }
 }
@@ -101,7 +114,7 @@ export function careWindowsText(windows: readonly CareWindow[]): string {
 }
 
 /** Today's windows in words, in the household's time zone. */
-export function careHoursToday(careHours: CareHours, timeZone: string, nowMs: number): string {
-  const { weekend } = localTime(epochMinute(nowMs), timeZone);
-  return careWindowsText(weekend ? careHours.weekend : careHours.weekday);
+export function careHoursToday(careHours: CareHours, timeZone: string, nowMs: number, weekendDays?: WeekendDays): string {
+  const local = localTime(epochMinute(nowMs), timeZone);
+  return careWindowsText(weekendLike(local, weekendDays) ? careHours.weekend : careHours.weekday);
 }
