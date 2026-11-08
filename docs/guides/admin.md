@@ -204,7 +204,19 @@ Skip this whole section if the family signs in with passkeys only. Everything he
 6. **Later, as you want them:** the Outlook family calendar (`Calendars.ReadWrite`; once an admin
    grants it under Calendar → Outlook sync, a grown-up on their own Microsoft sign-in can also
    **+ Add event** from the Calendar page, to the Outlook calendar that page shows; README "In
-   Outlook"), alert email (section 11), receipt reading (README "Receipts").
+   Outlook"), alert email (section 11), receipt reading (README "Receipts"), and **Outlook
+   calendars** for everyone (below).
+
+**Outlook calendars** (Settings → Outlook calendars, admins): the app copies each person's own
+Outlook calendar and one family calendar every 15 minutes, so kids and a shared tablet see them
+without anyone's Microsoft sign-in. It reads with its own token, which Exchange limits to a
+mail-enabled security group of the family's mailboxes; the PowerShell is in README "Outlook
+calendars". Then on the page: pick whose mailbox holds the family calendar and which calendar it
+is, and **Copy their calendar** for each person (grown-ups on Microsoft are read by their sign-in,
+kids by the email on their People page, e.g. `ivy@example.com`). **Check access and copy now**
+tries every calendar and each says how it went. Grown-ups see every copied calendar, kids the
+family's and their own; anything marked Private shows as "Busy". Someone taken off in Entra loses
+their copy on the next background run.
 
 People who sign in with Microsoft use Microsoft only (no passkey), so Conditional Access always
 applies to them.
