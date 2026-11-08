@@ -749,6 +749,11 @@ application permission in Entra: Entra and Exchange grants add up, so it would o
    are read by their sign-in; kids and anyone else by the email on their People page. **Check
    access and copy now** tries every calendar and each one says how it went.
 
+**Who's driving** (Phase 70b): a grown-up taps a timed copied event on the calendar and picks one
+of the household's grown-ups (or nobody); everyone who sees the event sees "Driving: Dad". It's kept
+in the app by the event's immutable id, so it survives each copy, and goes once the event is gone
+and over a week past. Outlook is never written to.
+
 Someone the Microsoft access check cuts off, or who leaves the household, has their calendar's copy
 removed in the same background run; a family calendar in their mailbox switches off until an admin
 picks another. The copy isn't in backups.

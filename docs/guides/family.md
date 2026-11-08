@@ -196,6 +196,10 @@ calendars, car maintenance, and Outlook events (see Home for whose). Tap anythin
 whole month's events (chores and doses stay on the weeks). Grown-ups can pick one person with the
 name chips: each row's color shows whose it is (two people sharing a first name get their own chip). A day's doses share one row; tap it to see them.
 
+**Who's driving** (grown-ups): tap a timed Outlook event and pick who's driving, or "Nobody yet".
+Everyone who can see the event sees "Driving: Dad" on it, on the calendar, on Home and in Big buttons
+view. The app keeps it; Outlook isn't changed.
+
 **Dinners** (🍽️) from the meal plan show on each day of the week, when Groceries is on.
 
 **Bills** (💸) show on the day they're due, by name only, for the money jars you're in, when you're
