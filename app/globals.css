@@ -848,13 +848,3 @@ select:disabled {
     -webkit-print-color-adjust: exact;
   }
 }
-
-/* Phase 69a: the bar a heavy link shows while its page is on its way (components/link-pending.tsx). */
-@keyframes link-pending {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(300%);
-  }
-}

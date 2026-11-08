@@ -8,7 +8,7 @@ export function RemoveMyDevice({ deviceId }: { deviceId: string }) {
   const [error, setError] = useState<string | null>(null);
   return (
     <span className="flex items-center gap-2">
-      {error && <span className="text-xs text-destructive">{error}</span>}
+      {error && <span role="alert" className="text-xs text-destructive">{error}</span>}
       <button
         type="button"
         disabled={pending}

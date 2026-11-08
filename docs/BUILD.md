@@ -2111,9 +2111,12 @@ on Home (both views), Chores and Meds; an `everyMs` timer for the Shop view (69b
 each card's own loads go through `safe(part, load, fallback)`: a failure is captured
 (`home.card_failed`), the card gets its empty value, and a status line names what couldn't load.
 Settings, members and the apps that are on still fail the page; Big buttons Home is unchanged.
-**Link hint:** `components/link-pending.tsx` (`useLinkStatus`) inside the links to a person, a
-money jar and a car: a thin bar runs along the top while the page is on its way (reduced motion:
-a still bar). **iPhone:** `viewportFit: "cover"`; `--bottom-bar-h` adds
+**iPhone:** `viewportFit: "cover"`; `--bottom-bar-h` adds
 `env(safe-area-inset-bottom)` and the bar pads by it; the body keeps clear of a landscape notch;
 the dev shell matches. **Form errors:** every rendered action error has `role="alert"` (22 were
 plain), and `lib/form-error-guard.test.ts` covers `x.error && …` and `if (state.error) return <…>`.
+Fable's review of 69a: the link hint was dropped (`app/(app)/loading.tsx` already covers the detail
+pages, so the links are prefetched to it and the hint could never show, and a fixed bar inside a
+tilted card would have drawn inside it); the guard now catches any `error &&` (two more fixed); the
+bottom bar keeps clear of a landscape notch; a page shown again while offline refreshes once it's
+back online; the plan says Home names failed parts in one line at the top (as built).

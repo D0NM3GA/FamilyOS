@@ -23,7 +23,7 @@ describe("form errors are announced", () => {
     for (const file of [...files("app"), ...files("components")]) {
       const lines = fs.readFileSync(path.join(ROOT, file), "utf8").split("\n");
       lines.forEach((line, i) => {
-        if (!/(?<!!)\b(state|message|removed)\??\.error &&/.test(line) && !/\.error\) return </.test(line)) return;
+        if (!/(?<![!\w.])(\w+\??\.)?error &&/.test(line) && !/\.error\) return </.test(line)) return;
         const shown = [line, lines[i + 1] ?? "", lines[i + 2] ?? ""].join("\n");
         if (!/role="alert"/.test(shown)) missing.push(`${file}:${i + 1}`);
       });

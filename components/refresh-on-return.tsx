@@ -22,7 +22,8 @@ export function shouldRefresh(o: { hiddenAt: number | null; freshDay: string; no
  * Phase 69a: an installed app or a kitchen tablet reopened the next morning showed yesterday's
  * chores and doses, with no reload button to fix it. This refreshes the page's data (React keeps
  * what's on screen, typed text included) when it's shown again after a minute away, or when the day
- * has turned while it was open. `everyMs` also refreshes on a timer while it's shown (the Shop view).
+ * has turned while it was open (the device's day, which is the family's except on a trip).
+ * `everyMs` also refreshes on a timer while it's shown (the Shop view).
  */
 export function RefreshOnReturn({ everyMs }: { everyMs?: number }) {
   const router = useRouter();
@@ -41,7 +42,11 @@ export function RefreshOnReturn({ everyMs }: { everyMs?: number }) {
         return;
       }
       if (shouldRefresh({ hiddenAt: hiddenAt.current, freshDay: freshDay.current, now: new Date(), online: navigator.onLine })) refresh();
-      else hiddenAt.current = null;
+      // Shown again offline: kept, so coming back online soon after still refreshes.
+      else if (navigator.onLine) hiddenAt.current = null;
+    };
+    const onOnline = () => {
+      if (document.visibilityState === "visible" && shouldRefresh({ hiddenAt: hiddenAt.current, freshDay: freshDay.current, now: new Date(), online: true })) refresh();
     };
     // Shown all night (a tablet on the counter): the day turning refreshes too.
     const tick = () => {
@@ -53,9 +58,11 @@ export function RefreshOnReturn({ everyMs }: { everyMs?: number }) {
     };
     const timer = window.setInterval(tick, everyMs ?? AWAY_MS);
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", onOnline);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", onOnline);
     };
   }, [router, everyMs]);
 

@@ -2999,8 +2999,8 @@ Checked against the code 2026-11-08.
   `router.refresh()` when the tab becomes visible after at least a minute away, or the day has
   changed, and online. On Home (both views), Chores, Meds and the Shop view. The pet and the bell
   keep their own.
-- **One card failing doesn't take Home down.** Home's loaders are each caught: a card whose data
-  couldn't load says so in place ("Couldn't load this just now") and the rest show; the error is
+- **One card failing doesn't take Home down.** Home's loaders are each caught: a line at the top
+  says which parts couldn't load just now, and the rest show; the error is
   captured as now. The Today strip reuses the school feed events and dates Home already loaded
   instead of loading them again through the week agenda. (Streaming each card is left for later.)
 - **A tap shows it's working.** A thin progress bar at the top while a link navigates
@@ -3039,10 +3039,9 @@ Checked against the code 2026-11-08.
 
 ### Settled after Fable's scope review (2026-11-08)
 
-- **The link hint:** `useLinkStatus` only works inside a `Link` and is skipped for prefetched
-  routes, and the rail's pages already get `loading.tsx`. So a small fixed hint
-  (`components/link-pending.tsx`) is rendered inside the links that open heavy detail pages: People's
-  rows, the money jar cards, the cars and their work. No page-wide bar.
+- **The link hint: dropped.** `app/(app)/loading.tsx` already covers every page under it, detail pages
+  included, so those links are prefetched up to it and `useLinkStatus` would never show (Fable's
+  review of 69a); the loading screen is the feedback.
 - **Form errors:** no shared component; every rendered action error carries `role="alert"`, and the
   guard covers `x.error && …` and `if (state.error) return <…>` (school and Outlook forms fixed).
 - **Home's cards:** each app card's own loaders are caught with a sentinel and the card says it
