@@ -23,7 +23,7 @@ import { formatDateTime, formatEventWhen } from "@/lib/format";
 import { BunsonMoment } from "@/components/bunson-moment";
 import { MilestoneToastBoard } from "@/components/tasks/milestone-toast";
 import { TaskInstanceCard } from "@/components/tasks/task-instance-card";
-import { iconBtn } from "@/components/styles";
+import { btn, iconBtn } from "@/components/styles";
 import { logQuickContact } from "./people/[id]/actions";
 import { isAdult } from "@/lib/authz";
 import { resolveViewMode } from "@/lib/view-prefs";
@@ -33,6 +33,8 @@ import { toCardInstance } from "@/lib/tasks/card";
 import { completeInstance as completeChore, uncompleteInstance as undoChore } from "./chores/actions";
 import { completeInstance as completeMed, uncompleteInstance as undoMed, takeAsNeeded, undoAsNeeded } from "./meds/actions";
 import { getAsNeeded } from "@/lib/meds/as-needed-queries";
+import { getRunningLow } from "@/lib/groceries/queries";
+import { addItem } from "./groceries/actions";
 import { AsNeededRow } from "@/components/meds/as-needed-row";
 import { BigHome } from "./big-home";
 import { getMyWallet, getOpenOrders } from "@/lib/store/queries";
@@ -140,6 +142,8 @@ export default async function HomePage() {
   const homeZone = settings.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   // Phase 65a: as-needed medicines in the Today card: a grown-up sees everyone's, a kid their own.
   const asNeededLoad = on("meds") ? getAsNeeded(profile.householdId, isAdult(profile) ? {} : { personId: profile.id }) : Promise.resolve([]);
+  // Phase 65c: grown-ups only (the owner's call), when Groceries is on.
+  const runningLowLoad = isAdult(profile) && on("groceries") ? getRunningLow(profile.householdId) : Promise.resolve([]);
   const [upcomingDates, stale, choreBoard, medBoard, vehicleBoards, activity, schoolDue, schoolFeed, openOrders, , todayAgenda, members] = await Promise.all([
     upcomingImportantDates(profile.householdId, 30),
     staleContacts(profile.householdId, { excludeId: profile.id, limit: 5 }),
@@ -164,7 +168,7 @@ export default async function HomePage() {
     getAgendaWeek(profile, { start: today, days: 1, eventsOnly: true, timeZone: homeZone, disabledApps: disabled }),
     getHouseholdMembers(profile.householdId),
   ]);
-  const asNeeded = await asNeededLoad;
+  const [asNeeded, runningLow] = await Promise.all([asNeededLoad, runningLowLoad]);
   const { events: schoolEvents, zone } = schoolFeed;
   // Outlook joins the Today strip from the Calendar card's own fetch, shared, inside its own Suspense.
   const memberIds = new Set(members.map((m) => m.id));
@@ -180,8 +184,8 @@ export default async function HomePage() {
   // Phase 40.1b: the calendar card is Outlook's, so an install without Microsoft has none.
   const outlookCard = outlookLoad !== null;
   const showToday = on("chores") || on("meds");
-  const cards = ["today", "calendar", "school", "dates", "stale", "cars", "activity"].filter((c) =>
-    c === "today" ? showToday : c === "calendar" ? outlookCard : on(c),
+  const cards = ["today", "calendar", "school", "dates", "stale", "cars", "groceries", "activity"].filter((c) =>
+    c === "today" ? showToday : c === "calendar" ? outlookCard : c === "groceries" ? runningLow.length > 0 : on(c),
   );
   const index = (card: string) => cards.indexOf(card);
 
@@ -419,6 +423,26 @@ export default async function HomePage() {
                 ))}
               </ul>
             )}
+          </Card>
+        )}
+
+        {runningLow.length > 0 && (
+          <Card title="Probably running low" kicker="groceries" index={index("groceries")}>
+            <ul className="space-y-1 sm:space-y-2">
+              {runningLow.map((s) => (
+                <li key={s.key} className="flex min-h-11 items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold text-foreground">{s.label}</span>
+                    <span className="text-xs text-muted-foreground">{s.daysLeft <= 0 ? "probably out" : `about ${s.daysLeft} ${s.daysLeft === 1 ? "day" : "days"} left`}</span>
+                  </span>
+                  <form action={addItem.bind(null, s.productId ? { productId: s.productId } : { name: s.label })} className="shrink-0">
+                    <SubmitButton className={btn} pendingText="Adding…" aria-label={`Add ${s.label} to the list`}>
+                      + Add
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
           </Card>
         )}
 
