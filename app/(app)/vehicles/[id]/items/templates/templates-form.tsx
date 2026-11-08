@@ -38,7 +38,7 @@ export function TemplatesForm({
         ))}
       </ul>
 
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
 
       <div className="flex flex-wrap gap-2">
         <button type="submit" disabled={pending} className={btnPrimary}>

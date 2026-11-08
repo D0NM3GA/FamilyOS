@@ -63,7 +63,7 @@ export function HatchPanel({ goodbye }: { goodbye: Goodbye | null }) {
           <span className={fieldLabel}>Name it</span>
           <input name="name" required maxLength={PET_NAME_MAX} className={field} autoComplete="off" placeholder="Pip" />
         </label>
-        {state.error && <p className="text-sm font-bold text-destructive">{state.error}</p>}
+        {state.error && <p role="alert" className="text-sm font-bold text-destructive">{state.error}</p>}
         <SubmitButton className={btnPrimary} pendingText={HATCH_PENDING}>
           This one!
         </SubmitButton>

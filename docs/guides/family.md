@@ -142,6 +142,10 @@ finished folded under **✓ done** (Undo is in there). Then **This week's calend
 week**, **Upcoming dates** (birthdays and anniversaries, with how far off each is and the age a
 birthday turns; the calendar has the rest), **Vehicle maintenance**, and **Recent activity**.
 
+Home, Chores and Meds bring themselves up to date when you come back to them after a minute away,
+or when a new day starts while they're open (a tablet on the counter). If part of Home can't load
+for a moment, a line at the top says which, and the rest still shows.
+
 **Haven't talked in a while** lists people you haven't been in touch with lately, with a quick
 📞 or 💬 to log it ("Just called", "Just texted"). Teachers, school offices and a med's doctor or
 pharmacy aren't on it; for anyone else you don't want reminders about (the plumber), set their

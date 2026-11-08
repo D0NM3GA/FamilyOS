@@ -111,7 +111,7 @@ export function VehicleForm({
         required
       />
 
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
 
       <div data-covers-bottom className={formActions}>
         <button type="submit" disabled={pending} className={btnPrimary}>

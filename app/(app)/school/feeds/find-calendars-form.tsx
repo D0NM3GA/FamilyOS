@@ -47,7 +47,7 @@ export function FindCalendarsForm({
         </button>
       </form>
       <div aria-live="polite" className="space-y-3">
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
         {state.outcome === "none" && (
           <p className="text-sm">
             No calendar link on that site that the app could read. Look on its calendar page for &ldquo;Subscribe&rdquo;,
@@ -131,7 +131,7 @@ function AddFound({
       <button type="submit" disabled={pending} className={btn}>
         {pending ? "Adding…" : "Add"}
       </button>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
     </form>
   );
 }

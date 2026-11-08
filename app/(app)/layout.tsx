@@ -69,7 +69,7 @@ export default async function AppLayout({
           view={viewMode}
           volume={volume}
           className={`flex h-dvh flex-col overflow-hidden [--bottom-bar-h:0px] max-md:pb-[var(--bottom-bar-h)] ${
-            viewMode === "BIG" ? "max-md:[--bottom-bar-h:5rem]" : "max-md:[--bottom-bar-h:4.25rem]"
+            viewMode === "BIG" ? "max-md:[--bottom-bar-h:calc(5rem_+_env(safe-area-inset-bottom))]" : "max-md:[--bottom-bar-h:calc(4.25rem_+_env(safe-area-inset-bottom))]"
           }`}
         >
           {/* Phase 44.1: the first stop for a keyboard, past the top bar and the app rail. */}

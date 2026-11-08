@@ -52,7 +52,7 @@ export function StatsPanel({ pet }: { pet: ScreenPet }) {
           <span className={fieldLabel}>Rename</span>
           <input name="name" defaultValue={pet.name} maxLength={PET_NAME_MAX} className={field} autoComplete="off" />
         </label>
-        {state.error && <p className="text-sm font-bold text-destructive">{state.error}</p>}
+        {state.error && <p role="alert" className="text-sm font-bold text-destructive">{state.error}</p>}
         <SubmitButton className={btn}>Save name</SubmitButton>
       </form>
     </div>

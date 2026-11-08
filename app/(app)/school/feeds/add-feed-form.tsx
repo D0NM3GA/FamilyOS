@@ -53,7 +53,7 @@ export function AddFeedForm({
       <button type="submit" disabled={pending} className={btnPrimary}>
         {pending ? "Checking the feed…" : "Add feed"}
       </button>
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
       {state.notice && <p className="text-sm text-emerald-700 dark:text-emerald-300">{state.notice}</p>}
     </form>
   );

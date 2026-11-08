@@ -286,7 +286,7 @@ function LogServiceForm({
           Cancel
         </button>
       </div>
-      {state.error && <p className="w-full text-xs text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="w-full text-xs text-destructive">{state.error}</p>}
     </form>
   );
 }

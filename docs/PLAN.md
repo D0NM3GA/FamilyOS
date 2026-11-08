@@ -2980,6 +2980,114 @@ events in the morning summary; per-person reminder times; snoozing.
 68a doses and courses; 68b homework, chores and the summary; 68c phone notifications.
 
 
+## Phase 69 — scope (everyday friction, 2026-11-08)
+
+The fourth phase from the review of 2026-11-08: small things that get in the way every day.
+Checked against the code 2026-11-08.
+
+### The owner's answers (2026-11-08)
+
+- **Money in search: jar members, on their own sign-in.** Charges and bills from jars you're a
+  member of, only on your own sign-in (never a PIN-switched profile or a kid); surprises stay
+  hidden from who they're hidden from; names and dates, no amounts in the results.
+- **Staples: "We always have it".** A Pantry item can be marked as always in the house; the week's
+  meal list skips it. Also only days from today on count, and ticked rows count as on the list.
+
+### 69a — Fresh pages, a sturdier Home, and the app's frame
+
+- **Pages refresh when you come back.** A shared `useRefreshOnReturn()` hook (`components/`):
+  `router.refresh()` when the tab becomes visible after at least a minute away, or the day has
+  changed, and online. On Home (both views), Chores, Meds and the Shop view. The pet and the bell
+  keep their own.
+- **One card failing doesn't take Home down.** Home's loaders are each caught: a line at the top
+  says which parts couldn't load just now, and the rest show; the error is
+  captured as now. The Today strip reuses the school feed events and dates Home already loaded
+  instead of loading them again through the week agenda. (Streaming each card is left for later.)
+- **A tap shows it's working.** A thin progress bar at the top while a link navigates
+  (`useLinkStatus` in the nav rail, the bottom bar and list rows' links where they're
+  `next/link`), so a slow phone doesn't look stuck.
+- **The iPhone's home indicator.** `viewportFit: "cover"`; the bottom bar adds
+  `env(safe-area-inset-bottom)` to its height and padding, and the sides of the page keep clear of
+  a notch in landscape. The sheets that already use the inset now get a real value.
+- **Form errors are announced.** Every rendered action error carries `role="alert"`; a guard test
+  finds any left without it.
+
+### 69b — Groceries and cars
+
+- **The week's meals and the list:** "Add what's missing" counts only days from today on;
+  ticked rows (in the cart) count as on the list; `Product.alwaysHave` ("We always have it", on
+  the Pantry item's sheet and beside an ingredient in a saved meal) is skipped. Backups carry it.
+- **Running low: "Still have some".** A button beside **+ Add** on Home's card (and the Groceries
+  chips) hides the item for one usual gap (`Product.lowSnoozedUntil`); buying it clears that.
+- **The Shop view picks up changes** from other phones when it's shown again (the same hook), and
+  every 60 seconds while it's open and online.
+- **Renewing car paperwork says until when.** The **Renewed** form gets a **Good until** date,
+  filled with the next due date after today (so a lapsed one isn't still overdue); saved as given.
+
+### 69c — Money, search and the calendar
+
+- **"Always" rules for every branch.** Saving "always file this store as …" offers the store's
+  name without its town ("Joe's Pizza" for "joes pizza riverton"): a rule can match a key's start
+  at a word boundary (`MerchantRule.matchPrefix`), shown with how many charges it covers.
+- **A hand-added bill can be marked paid.** **Paid** on a bill in Coming up records that due day
+  as paid (school portal, Zelle, another jar), so it stops counting as late and leaves Safe to spend.
+- **Search finds meals and money.** Meals (by name and ingredient) open the meal plan. Money, for
+  jar members on their own sign-in: charges by merchant or words, and bills by name, with the date
+  and the jar, no amounts, surprises hidden as everywhere else; each opens in its jar.
+- **Dinners on the calendar.** The week view shows each planned dinner (the "meal" kind exists)
+  when Groceries is on.
+
+### Settled after Fable's scope review (2026-11-08)
+
+- **The link hint: dropped.** `app/(app)/loading.tsx` already covers every page under it, detail pages
+  included, so those links are prefetched up to it and `useLinkStatus` would never show (Fable's
+  review of 69a); the loading screen is the feedback.
+- **Form errors:** no shared component; every rendered action error carries `role="alert"`, and the
+  guard covers `x.error && …` and `if (state.error) return <…>` (school and Outlook forms fixed).
+- **Home's cards:** each app card's own loaders are caught with a sentinel and the card says it
+  couldn't load; a failed running-low list counts as none. Household settings, members and the
+  disabled apps still fail the page (everything needs them). The Today strip's own loads stay (the
+  car one is already cached); the re-use claim is dropped. `app/dev-preview/shell` gets the same
+  safe-area height. Refresh: the Shop view's timer skips while taps are still syncing.
+- **Snooze where both read it:** `getPantrySuggestions` (Home's card and the Groceries chips) leaves
+  out a product whose `lowSnoozedUntil` is ahead and that hasn't been bought since it was snoozed (a
+  purchase after the snooze ends it, from any path). "We always have it" lives on the Pantry item's
+  sheet only (ingredients are a text box). Backups v16 carry both Product columns.
+- **The week list:** from `max(week start, today)`; any row on the list (ticked or not) counts;
+  `alwaysHave` products skipped in `weekShopping`.
+- **Good until:** the Renewed form's date defaults to the next due after today (sent as a string;
+  the card never formats dates), is saved under the item's row lock with `dueAtBefore` for Undo as
+  now, and a paperwork item without an interval still works (no default).
+- **"Always" rules:** the model is `CategoryRule`; it gains `matchPrefix`. The three exact lookups in
+  `organize.ts` try exact keys first, then the longest prefix rule at a word boundary; forgetting a
+  rule uses the rule's key; the picker gets the rule's key.
+- **A bill paid by hand:** `ManualBill.paidDueOn` (the due day marked paid). A wrapper around the
+  `paidCheck` closure counts it for the Bills page, Safe to spend and bill alerts. The money backup
+  (sealed) goes to v4 with `matchPrefix` and `paidDueOn`.
+- **Money in search:** in `lib/finance/search.ts` (a lint exception like the calendar bills one); it
+  checks the owner's rule itself (an adult on their own sign-in, Money on) without `moneyViewer`
+  (which redirects), jar membership and surprise visibility. A charge opens its jar's activity on
+  its month; a bill opens Bills.
+- **Dinners on the calendar:** `loadMeals` in `lib/calendar/sources.ts`, only with Groceries on and not
+  for the month (events only), so Home's own dinner item doesn't double.
+
+### Tests
+
+Unit: the refresh hook's rules, `FormError` guard, the week list rules, the snooze, the rule
+prefix match, the bill-paid effect on Coming up, search's money visibility rules. DB: snooze and
+its clearing, a prefix rule filing two branches, a bill marked paid, money search refused to a
+switched profile and a kid, dinners in the agenda.
+
+### Not in this phase
+
+Everything else from the 2026-11-08 review: new capabilities (70). Streaming Home card by card;
+keyboard shortcuts.
+
+### Pull requests
+
+69a fresh pages and the frame; 69b groceries and cars; 69c money, search and the calendar.
+
+
 ## Open items
 
 ### Waiting on a decision

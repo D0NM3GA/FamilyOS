@@ -49,7 +49,7 @@ export function LogInteractionForm({ personId, today, canHide }: { personId: str
       <button type="submit" disabled={pending} className={btnPrimary}>
         {pending ? "Logging…" : logged ? "Logged ✓" : "Log it"}
       </button>
-      {state.error && <p className="w-full text-sm text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="w-full text-sm text-destructive">{state.error}</p>}
     </form>
   );
 }

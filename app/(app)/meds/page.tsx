@@ -1,4 +1,5 @@
 import { LookQuiet } from "@/components/look-voice";
+import { RefreshOnReturn } from "@/components/refresh-on-return";
 import { medicationDaysLeft } from "@/lib/reminders/stock";
 import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
@@ -58,6 +59,7 @@ export default async function MedsPage({
 
   return (
     <div className="p-4 sm:p-6">
+      <RefreshOnReturn />
       <PageHeader title="💊 Meds">
         {viewerIsAdult && (
           <Link href="/meds/new" className={btnPrimary}>

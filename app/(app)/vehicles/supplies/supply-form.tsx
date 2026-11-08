@@ -57,7 +57,7 @@ export function SupplyForm({ action, defaults, submitLabel }: { action: Action; 
         <textarea name="notes" rows={2} defaultValue={defaults?.notes ?? ""} placeholder="e.g. Fits the van only" className={box} />
       </label>
 
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
 
       <div data-covers-bottom className={formActions}>
         <button type="submit" disabled={pending} className={btnPrimary}>

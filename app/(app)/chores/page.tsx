@@ -1,4 +1,5 @@
 import { LookQuiet } from "@/components/look-voice";
+import { RefreshOnReturn } from "@/components/refresh-on-return";
 import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdmin, isAdult } from "@/lib/authz";
@@ -276,6 +277,7 @@ export default async function ChoresPage({
     // A new person on the filter is a new selection (the key resets it).
     <SelectionProvider key={`${anyone ? "anyone" : (personFilter ?? "everyone")}:${show ?? "all"}`}>
       <div className="p-4 sm:p-6">
+        <RefreshOnReturn />
         <PageHeader title="🧹 Chores">
           {selecting && <SelectToggle />}
           {viewerIsAdult && (

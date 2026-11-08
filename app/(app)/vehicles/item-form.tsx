@@ -82,7 +82,7 @@ export function MaintenanceItemForm({
           <textarea name="notes" defaultValue={defaults?.notes ?? ""} rows={2} placeholder="e.g. Policy renews online" className={`mt-1 w-full ${field}`} />
         </label>
         <p className="text-xs text-muted-foreground">It reminds two weeks before it&apos;s due. Tap <strong>Renewed</strong> when it&apos;s done and the next due day moves on.</p>
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
         <div className="flex flex-wrap gap-2">
           <button type="submit" disabled={pending} className={btnPrimary}>
             {pending ? "Saving…" : submitLabel}
@@ -130,7 +130,7 @@ export function MaintenanceItemForm({
 
       <SupplyUsesEditor options={supplyOptions} initial={defaults?.uses ?? []} />
 
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
 
       <div className="flex flex-wrap gap-2">
         <button type="submit" disabled={pending} className={btnPrimary}>
