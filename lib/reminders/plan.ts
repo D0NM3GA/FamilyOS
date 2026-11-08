@@ -1,6 +1,5 @@
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
-import { daysOfSupply } from "./supply";
-import { AS_NEEDED_LOW_DOSES, dosesLeft } from "@/lib/meds/as-needed";
+import { isMedLow } from "./supply";
 
 /**
  * Phase 62: what to remind whom about, worked out from rows. Pure (no Prisma, no clock but `now`),
@@ -27,12 +26,14 @@ export type Reminder = {
 
 export type GrownUp = { id: string };
 
+// Phase 66a: isMedLow and LOW_DAYS live in ./supply, so taking a dose (Meds) asks for a refill on
+// the same rule this reminder uses.
+export { isMedLow, LOW_DAYS } from "./supply";
+
 /** A dose this long past its time, and not marked, is missed. */
 export const DOSE_GRACE_MS = 90 * 60_000;
 /** Doses missed longer ago than this don't remind (a day's worth, at most). */
 export const DOSE_LOOKBACK_MS = 24 * 60 * 60_000;
-/** Running low at this many days of supply or fewer. */
-export const LOW_DAYS = 7;
 /** Birthdays and anniversaries this many days ahead. */
 export const DATE_AHEAD_DAYS = 7;
 
@@ -88,18 +89,6 @@ export type MedRow = {
   daysOfWeek: number[];
   timesOfDay: string[];
 };
-
-/** Low: a week of supply or less, or at the refill count when that's sooner. */
-export function isMedLow(m: MedRow): { low: boolean; days: number | null; doses: number | null } {
-  if (m.quantityOnHand == null) return { low: false, days: null, doses: null };
-  const days = daysOfSupply(m);
-  const byDays = days != null && days <= LOW_DAYS;
-  const byCount = m.refillThresholdQuantity != null && m.quantityOnHand <= m.refillThresholdQuantity;
-  // Phase 65a: an as-needed medicine is low at its refill count, or a few doses left.
-  const doses = m.frequencyType === "AS_NEEDED" ? dosesLeft(m.quantityOnHand, m.doseAmount) : null;
-  const byDoses = doses != null && doses <= AS_NEEDED_LOW_DOSES;
-  return { low: byDays || byCount || byDoses, days, doses };
-}
 
 export function planMedLow(meds: MedRow[], grownUps: GrownUp[]): { reminders: Reminder[]; notLow: string[] } {
   const reminders: Reminder[] = [];
