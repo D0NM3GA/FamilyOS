@@ -73,6 +73,11 @@ function adminTitle(kind: SignInEventKind, actor: string, subject: string, role?
   }
 }
 
+/** Phase 67a: an admin's own tile locked (a lock on their own tile, Lock my tile). */
+function ownLockTitle(actor: Who, subject: Who): string {
+  return `🔐 Your profile locked after too many wrong PINs, on ${actor.id === subject.id ? "your own" : `${actor.firstName}'s`} sign-in.`;
+}
+
 /** Grown-ups who want notices about other people's sign-ins (no prefs row means yes). */
 const wantsOthersNotices: Prisma.PersonWhereInput = { OR: [{ alertPrefs: { is: null } }, { alertPrefs: { is: { signInNotices: true } } }] };
 
@@ -119,15 +124,18 @@ export async function writeSignInNotices(tx: Tx, n: SignInNoticeInput): Promise<
         isHouseholdMember: true,
         role: "ADMIN",
         authUserId: { not: null },
-        ...(TELLS_EVERY_ADMIN.has(n.kind) ? {} : { id: { notIn: [n.actor.id, n.subject.id].filter((id): id is string => id !== null) } }),
         // Phase 40.4: never someone Entra has cut off.
         entraAccessEndedAt: null,
-        ...wantsOthersNotices,
+        // Phase 67a: a lockout reaches every admin; the switch for others' sign-ins quiets it only
+        // when it was nobody's device or tile of theirs.
+        ...(TELLS_EVERY_ADMIN.has(n.kind)
+          ? { OR: [...[n.actor.id, n.subject.id].filter((id): id is string => id !== null).map((id) => ({ id })), wantsOthersNotices] }
+          : { id: { notIn: [n.actor.id, n.subject.id].filter((id): id is string => id !== null) }, ...wantsOthersNotices }),
       },
       select: { id: true },
     });
-    const title = adminTitle(n.kind, n.actor.firstName, n.subject.firstName, n.role);
     for (const admin of admins) {
+      const title = n.kind === "PIN_LOCKED" && admin.id === n.subject.id ? ownLockTitle(n.actor, n.subject) : adminTitle(n.kind, n.actor.firstName, n.subject.firstName, n.role);
       const created = await tx.notification.create({
         data: { householdId: n.householdId, recipientId: admin.id, kind: "SIGN_IN_CHANGED", title, href: "/settings/sign-in" },
         select: { id: true },

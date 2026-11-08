@@ -1968,3 +1968,9 @@ join `disabledPaths`; `lib/auth-routes-guard.test.ts` names them with the token 
 (written in the lockout's own transaction under its advisory lock, the actor being whose sign-in
 the device was on; every admin is told, the actor and the locked person included) and
 `MEMBER_REMOVED`, each in a transaction with its change (migration `20261201120000_sign_in_log_more`).
+Fable's review of 67a: no must-fix. A lockout now reaches the admin whose device or tile it was even
+with their switch for others' sign-ins off, and an admin's own tile says "Your profile locked";
+the lockout's notices come back from its transaction instead of a closure write; "everywhere
+else" skips expired rows; tests cover every new entry's wording, a PIN-switched profile refused at
+the action, and someone else's session left alone. Left as is (dev sign-in only): the hub tile
+follows `isOwnSignIn`, so the DEV_AUTH user sees it and then the page's note.

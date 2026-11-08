@@ -39,7 +39,7 @@ export async function signOutMySession(me: Me, sessionId: string): Promise<boole
 /** Signs out every device but this one. Returns how many went. */
 export async function signOutMyOtherSessions(me: Me): Promise<number> {
   return prisma.$transaction(async (tx) => {
-    const { count } = await tx.session.deleteMany({ where: { userId: me.userId, id: { not: me.currentSessionId } } });
+    const { count } = await tx.session.deleteMany({ where: { userId: me.userId, id: { not: me.currentSessionId }, expiresAt: { gt: new Date() } } });
     if (count) await recordSignInEvent(tx, { householdId: me.person.householdId, kind: "SIGNED_OUT_ELSEWHERE", actor: me.person, subject: me.person, detail: "everywhere else" });
     return count;
   });

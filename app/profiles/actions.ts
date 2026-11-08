@@ -104,8 +104,8 @@ export async function verifyPinAndSelect(
 
   // One guess at a time per profile: the lock check, the PIN check and the count are one step
   // under an advisory lock, so a burst of parallel guesses can't all slip past the lock.
-  let lockNotices: Announced | null = null;
-  const result = await prisma.$transaction(async (tx): Promise<PinState | null> => {
+  const { result, lockNotices } = await prisma.$transaction(async (tx): Promise<{ result: PinState | null; lockNotices: Announced | null }> => {
+    const answer = (result: PinState | null, lockNotices: Announced | null = null) => ({ result, lockNotices });
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${target.id}))`;
     // The hash is read again under the lock, so a PIN changed meanwhile is the one checked
     // (and a rehash below can't put back an old one).
@@ -113,9 +113,9 @@ export async function verifyPinAndSelect(
       where: { id: target.id },
       select: { pinFailedAttempts: true, pinLockedUntil: true, pinHash: true },
     });
-    if (!now.pinHash) return { error: "That profile isn't available." };
+    if (!now.pinHash) return answer({ error: "That profile isn't available." });
     if (now.pinLockedUntil && now.pinLockedUntil > new Date()) {
-      return { error: `Too many incorrect attempts — try again in ${lockLabel(now.pinLockedUntil.getTime() - Date.now())}.` };
+      return answer({ error: `Too many incorrect attempts — try again in ${lockLabel(now.pinLockedUntil.getTime() - Date.now())}.` });
     }
 
     const check = await verifyPin(now.pinHash, pin);
@@ -131,12 +131,13 @@ export async function verifyPinAndSelect(
       });
       // Phase 67a: a lock goes in the sign-in log, and every admin hears (whose sign-in the
       // device was on is the actor).
+      let notices: Announced | null = null;
       if (lockMs) {
         const lock = { householdId: authPerson.householdId, kind: "PIN_LOCKED" as const, actor: { id: authPerson.id, firstName: authPerson.firstName }, subject: { id: target.id, firstName: target.firstName } };
         await recordSignInEvent(tx, lock);
-        lockNotices = await writeSignInNotices(tx, lock);
+        notices = await writeSignInNotices(tx, lock);
       }
-      return { error: lockMs ? `Too many incorrect attempts — try again in ${lockLabel(lockMs)}.` : "Incorrect PIN." };
+      return answer({ error: lockMs ? `Too many incorrect attempts — try again in ${lockLabel(lockMs)}.` : "Incorrect PIN." }, notices);
     }
 
     if (now.pinFailedAttempts > 0 || now.pinLockedUntil || check.rehashed) {
@@ -145,7 +146,7 @@ export async function verifyPinAndSelect(
         data: { pinFailedAttempts: 0, pinLockedUntil: null, ...(check.rehashed ? { pinHash: check.rehashed } : {}) },
       });
     }
-    return null;
+    return answer(null);
   });
   if (lockNotices) await deliverSignInNotices(lockNotices);
   if (result) return result;
