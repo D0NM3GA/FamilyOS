@@ -325,6 +325,10 @@ dose** takes back a slip.
 the last 90 days, taken (and by whom), skipped or not marked; **Print** makes a page for a doctor
 visit. Grown-ups see any; a kid sees their own.
 
+**A course of medicine** (an antibiotic for 10 days): on the medicine's form, **Ends** → **After a
+number of days** (the start day counts) or **On a date**. It shows "Last day Nov 18", makes no doses
+after that day, and switches itself off the night after (it stays on Manage, to turn on again).
+
 **Away from home.** On a trip to another time zone, times show home's first and then where you
 are ("8:00 AM at home · 2:00 PM here"), so doses stay on their usual schedule. Days stay home's
 days. Home says so at the top while you're away.
@@ -539,12 +543,16 @@ Untick any kind you don't want. **Quiet hours** (say 9:00 pm to 7:00 am) hold re
 they're over, except a missed dose, which comes straight away. A running-low medicine still goes
 on the shopping list as before.
 
+**A dose is due** is off until you tick it: then the app reminds you around a dose's time (within
+about a quarter hour), for your own medicines and the kids'. A kid gets the bell for their own
+dose either way. If your quiet hours cover the dose's time, the missed-dose reminder still comes.
+
 **Morning summary:** under the same heading, tick **In Teams** or **By email** for a message at
 7:00 am (or when your quiet hours end) with today's chores and doses, school things due today or
 tomorrow, car work and birthdays this week. Nothing on: nothing sent.
 
-Kids get notes in the bell (orders, "Not this time", and a reminder when their own dose wasn't
-marked), not on their phone.
+Kids get notes in the bell (orders, "Not this time", and a reminder when their own dose is due or
+wasn't marked), not on their phone.
 
 ## Your own settings
 

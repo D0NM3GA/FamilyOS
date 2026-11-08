@@ -12,7 +12,15 @@ import { BACKUP_HEARTBEAT, BACKUP_LATE_MS, heartbeatState, JOB_LATE_MS, type Hea
  * (ReminderSent), and the next occurrence reminds again.
  */
 
-export type ReminderKind = "REMINDER_DOSE" | "REMINDER_MED_LOW" | "REMINDER_SCHOOL" | "REMINDER_DATE" | "REMINDER_CAR" | "REMINDER_RECALL" | "REMINDER_SYSTEM";
+export type ReminderKind =
+  | "REMINDER_DOSE"
+  | "REMINDER_MED_LOW"
+  | "REMINDER_SCHOOL"
+  | "REMINDER_DATE"
+  | "REMINDER_CAR"
+  | "REMINDER_RECALL"
+  | "REMINDER_SYSTEM"
+  | "REMINDER_DOSE_DUE";
 
 export type Reminder = {
   kind: ReminderKind;
@@ -33,6 +41,8 @@ export { isMedLow, LOW_DAYS } from "./supply";
 
 /** A dose this long past its time, and not marked, is missed. */
 export const DOSE_GRACE_MS = 90 * 60_000;
+/** Phase 68a: a dose is due from this long before its time (until it's missed). */
+export const DOSE_AHEAD_MS = 15 * 60_000;
 /** Doses missed longer ago than this don't remind (a day's worth, at most). */
 export const DOSE_LOOKBACK_MS = 24 * 60 * 60_000;
 /** Birthdays and anniversaries this many days ahead. */
@@ -53,8 +63,36 @@ export type DoseRow = {
   timed: boolean;
   active: boolean;
   status: string;
-  assignedTo: { id: string; firstName: string } | null;
+  /** Phase 68a: `adult` says whose dose is a grown-up's own. */
+  assignedTo: { id: string; firstName: string; adult?: boolean } | null;
 };
+
+const doseKey = (r: DoseRow) => `${dayKey(r.dueDate)}:${String(r.dueDate.getHours()).padStart(2, "0")}${String(r.dueDate.getMinutes()).padStart(2, "0")}`;
+
+/**
+ * Phase 68a (opt-in, the owner's call): a PENDING timed dose of an active medicine, from 15 minutes
+ * before its time until the missed-dose reminder takes over. A grown-up's own dose goes to them; a
+ * kid's or nobody's to the grown-ups who switched it on (`optedIn`), and a kid always gets the bell
+ * for their own. Who opted in is checked again where it's sent (run.ts), like `off`.
+ */
+export function planDosesDue(rows: DoseRow[], optedIn: GrownUp[], now: Date): Reminder[] {
+  const grownUps = optedIn.map((g) => g.id);
+  return rows
+    .filter((r) => r.status === "PENDING" && r.timed && r.active)
+    .filter((r) => {
+      const late = now.getTime() - r.dueDate.getTime();
+      return late >= -DOSE_AHEAD_MS && late < DOSE_GRACE_MS;
+    })
+    .map((r) => ({
+      kind: "REMINDER_DOSE_DUE" as const,
+      key: `dose-due:${r.definitionId}:${doseKey(r)}`,
+      recipients: r.assignedTo?.adult ? [r.assignedTo.id] : unique([...(r.assignedTo ? [r.assignedTo.id] : []), ...grownUps]),
+      title: r.assignedTo ? `Time for ${r.assignedTo.firstName}'s ${r.timeLabel} dose of ${r.title}` : `Time for the ${r.timeLabel} dose of ${r.title}`,
+      href: "/meds",
+      urgent: false,
+    }))
+    .filter((r) => r.recipients.length > 0);
+}
 
 /** A PENDING timed dose of an active medication, 90 minutes to a day past its time. */
 export function planDoses(rows: DoseRow[], grownUps: GrownUp[], now: Date): Reminder[] {
@@ -68,7 +106,7 @@ export function planDoses(rows: DoseRow[], grownUps: GrownUp[], now: Date): Remi
       kind: "REMINDER_DOSE",
       // The definition, the day and the clock time, not the instance's id (an edit or a restore
       // makes this morning's instance again) nor the stored instant (a zone move shifts it).
-      key: `dose:${r.definitionId}:${dayKey(r.dueDate)}:${String(r.dueDate.getHours()).padStart(2, "0")}${String(r.dueDate.getMinutes()).padStart(2, "0")}`,
+      key: `dose:${r.definitionId}:${doseKey(r)}`,
       recipients: unique([...(r.assignedTo ? [r.assignedTo.id] : []), ...grownUps.map((g) => g.id)]),
       title: r.assignedTo ? `${r.assignedTo.firstName}'s ${r.timeLabel} dose of ${r.title} wasn't marked` : `The ${r.timeLabel} dose of ${r.title} wasn't marked`,
       href: "/meds",

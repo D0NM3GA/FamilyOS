@@ -8,7 +8,7 @@ import { setOthersSignInNotices } from "@/lib/sign-in-notices";
 import { z } from "zod";
 import { requireAdult } from "@/lib/authz";
 import { appOn } from "@/lib/app-switches";
-import { listedKinds, nextOff, readReminderPrefs, reminderChannels, saveReminderPrefs, REMINDER_KINDS } from "@/lib/reminders/prefs";
+import { listedKinds, nextOff, nextOptIn, readReminderPrefs, reminderChannels, saveReminderPrefs, REMINDER_KINDS } from "@/lib/reminders/prefs";
 import { parseClock } from "@/lib/reminders/quiet";
 
 const PAGE = "/settings/notifications";
@@ -33,8 +33,11 @@ const kindSchema = z.enum(REMINDER_KINDS.map((k) => k.kind) as [string, ...strin
  */
 export async function saveReminders(formData: FormData) {
   const profile = await requireAdult();
-  const [medsOn, schoolOn, carsOn] = await Promise.all([appOn(profile.householdId, "meds"), appOn(profile.householdId, "school"), appOn(profile.householdId, "cars")]);
-  const listed = listedKinds((app) => (app === "meds" ? medsOn : app === "school" ? schoolOn : carsOn), isAdmin(profile)).map((k) => k.kind);
+  const [medsOn, schoolOn, carsOn, choresOn] = await Promise.all(["meds", "school", "cars", "chores"].map((app) => appOn(profile.householdId, app)));
+  const shown = listedKinds((app) => ({ meds: medsOn, school: schoolOn, cars: carsOn, chores: choresOn })[app], isAdmin(profile));
+  // Phase 68a: opt-in kinds keep their own list (ticked means on); the rest the `off` list.
+  const listed = shown.filter((k) => !k.optIn).map((k) => k.kind);
+  const listedOptIn = shown.filter((k) => k.optIn).map((k) => k.kind);
   const ticked = new Set(formData.getAll("kind").map(String).filter((k) => kindSchema.safeParse(k).success));
 
   const fromText = String(formData.get("quietFrom") ?? "");
@@ -49,6 +52,7 @@ export async function saveReminders(formData: FormData) {
   const previous = await readReminderPrefs(profile.id);
   await saveReminderPrefs(profile.id, {
     off: nextOff(previous?.off ?? [], listed, ticked),
+    optIn: nextOptIn(previous?.optIn ?? [], listedOptIn, ticked),
     quietStart,
     quietEnd,
     teamsEnabled: channels.teams ? formData.get("teams") === "on" : undefined,

@@ -42,5 +42,32 @@ export const medFormSchema = z
   // Phase 65a, as-needed only.
   minGapHours: z.coerce.number().min(0.5, "At least half an hour between doses").max(72, "At most 72 hours between doses").optional(),
   maxPerDay: z.coerce.number().int("Doses in 24 hours is a whole number").min(1, "At least 1 dose in 24 hours").max(24, "At most 24 doses in 24 hours").optional(),
+  // Phase 68a: a course's end, scheduled medicines only.
+  endMode: z.enum(["never", "days", "date"]).default("never"),
+  endDays: z.coerce.number().int("Days is a whole number").min(1, "At least 1 day").max(365, "At most 365 days").optional(),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the last day")
+    .transform((v) => {
+      const [y, m, d] = v.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    })
+    .optional(),
   })
   .refine((v) => v.frequencyType === "AS_NEEDED" || v.timesOfDay.length > 0, { message: "Add at least one time", path: ["timesOfDay"] });
+
+/**
+ * Phase 68a: a course's last day (local midnight) from the form's end choice, or null when it
+ * keeps going (or has no schedule to end). An error when the choice is incomplete or ends
+ * before it starts.
+ */
+export function courseEnd(v: { frequencyType: string; startDate: Date; endMode: "never" | "days" | "date"; endDays?: number; endDate?: Date }): { endDate: Date | null } | { error: string } {
+  if (v.frequencyType === "AS_NEEDED" || v.frequencyType === "ONCE" || v.endMode === "never") return { endDate: null };
+  if (v.endMode === "days") {
+    if (!v.endDays) return { error: "Say for how many days" };
+    return { endDate: new Date(v.startDate.getFullYear(), v.startDate.getMonth(), v.startDate.getDate() + v.endDays - 1) };
+  }
+  if (!v.endDate) return { error: "Pick the last day" };
+  if (v.endDate < v.startDate) return { error: "The last day can't be before it starts" };
+  return { endDate: v.endDate };
+}

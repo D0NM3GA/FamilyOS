@@ -538,6 +538,7 @@ export function remapBackup(
       interval: r.interval,
       daysOfWeek: r.daysOfWeek,
       startDate: date(r.startDate),
+      endDate: dateOrNull(r.endDate),
       timesOfDay: r.timesOfDay,
       weatherSensitive: r.weatherSensitive,
       points: r.points,

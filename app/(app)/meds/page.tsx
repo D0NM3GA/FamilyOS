@@ -4,7 +4,7 @@ import Link from "next/link";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
 import { getHouseholdMembers } from "@/lib/people";
-import { formatTimeOfDay } from "@/lib/format";
+import { formatMonthDay, formatTimeOfDay } from "@/lib/format";
 import { addDays } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
 import { getBoardInstances, getPointsTally } from "@/lib/tasks/queries";
@@ -50,7 +50,9 @@ export default async function MedsPage({
   ]);
   // Phase 62c: grown-ups see about how long each medicine's stock lasts (Manage shows the count).
   const daysLeft = viewerIsAdult ? await medicationDaysLeft(profile.householdId) : new Map<string, string | null>();
-  const subtitleOf = (d: { id: string; notes: string | null }) => [d.notes, daysLeft.get(d.id)].filter(Boolean).join(" · ") || undefined;
+  // Phase 68a: a course says its last day.
+  const lastDay = (d: { endDate?: Date | null }) => (d.endDate ? `Last day ${formatMonthDay(d.endDate.getMonth() + 1, d.endDate.getDate())}` : null);
+  const subtitleOf = (d: { id: string; notes: string | null; endDate?: Date | null }) => [d.notes, lastDay(d), daysLeft.get(d.id)].filter(Boolean).join(" · ") || undefined;
 
   return (
     <div className="p-4 sm:p-6">

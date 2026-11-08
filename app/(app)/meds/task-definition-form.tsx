@@ -47,6 +47,8 @@ type Defaults = {
   interval?: number | null;
   daysOfWeek?: number[];
   startDate?: Date;
+  /** Phase 68a: a course's last day. */
+  endDate?: Date | null;
   points?: number;
   timesOfDay?: string[];
   assigneeIds?: string[];
@@ -81,6 +83,8 @@ export function TaskDefinitionForm({
   const zone = useHouseholdZone();
   const [state, formAction, pending] = useActionState<TaskFormState, FormData>(action, {});
   const [frequency, setFrequency] = useState(defaults?.frequencyType ?? "DAILY");
+  // Phase 68a: a course ends after N days or on a date; a stored end shows as its date.
+  const [endMode, setEndMode] = useState<"never" | "days" | "date">(defaults?.endDate ? "date" : "never");
   const [assigneeId, setAssigneeId] = useState<string | undefined>(defaults?.assigneeIds?.[0]);
   const [times, setTimes] = useState<string[]>(
     defaults?.timesOfDay && defaults.timesOfDay.length > 0 ? defaults.timesOfDay : ["08:00"],
@@ -347,6 +351,31 @@ export function TaskDefinitionForm({
               </label>
             ))}
           </div>
+        </fieldset>
+      )}
+
+      {frequency !== "AS_NEEDED" && frequency !== "ONCE" && (
+        <fieldset>
+          <legend className={fieldLabel}>Ends</legend>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {(
+              [
+                { value: "never", label: "Keeps going" },
+                { value: "days", label: "After a number of days" },
+                { value: "date", label: "On a date" },
+              ] as const
+            ).map((o) => (
+              <label key={o.value} className={checkChip}>
+                <input type="radio" name="endMode" value={o.value} checked={endMode === o.value} onChange={() => setEndMode(o.value)} className={checkInChip} />
+                {o.label}
+              </label>
+            ))}
+          </div>
+          {endMode === "days" && <Field label="For how many days (the start day counts)" name="endDays" type="number" min="1" max="365" defaultValue="10" />}
+          {endMode === "date" && (
+            <Field label="Last day" name="endDate" type="date" defaultValue={defaults?.endDate ? toISODate(defaults.endDate, zone) : ""} />
+          )}
+          {endMode !== "never" && <p className="text-xs text-muted-foreground">After the last day it stops making doses and switches itself off.</p>}
         </fieldset>
       )}
 
