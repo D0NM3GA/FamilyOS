@@ -136,23 +136,29 @@ export async function deleteInteraction(personId: string, interactionId: string)
  * repeated here: the sync writes the signed-in person's record, so a profile switched to with
  * a PIN must not be able to start it.
  */
-export async function syncFromMicrosoft(personId: string): Promise<void> {
+export type SyncState = { error?: string };
+
+/**
+ * Phase 66b: returns what went wrong instead of throwing, so the button can say it in place (a
+ * thrown message is hidden in production and replaces the page). The page shows the button only
+ * when the first two checks pass, so those messages are for a stale or tampered form.
+ */
+export async function syncFromMicrosoft(personId: string): Promise<SyncState> {
   const profile = await requireActiveProfile();
   if (profile.id !== personId || !(await isSessionOwner(profile))) {
-    throw new Error("You can only sync your own profile.");
+    return { error: "You can only sync your own profile." };
   }
   if ((await signInKind(profile)) !== "microsoft") {
-    throw new Error("This needs a Microsoft sign-in.");
+    return { error: "This needs a Microsoft sign-in." };
   }
 
   const result = await syncActivePersonFromEntra("overwrite");
-  if (!result.ok) {
-    throw new Error(result.error);
-  }
+  if (!result.ok) return { error: result.error };
 
   revalidatePath(`/people/${personId}`);
   revalidatePath("/profiles");
   revalidatePath("/");
+  return {};
 }
 
 const importantDateSchema = z.object({
