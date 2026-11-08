@@ -251,6 +251,17 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
   (who did what, and when). **Overdue**, **Today**, **Mine** and **Anyone's** narrow the board,
   and stay in the page's address so you can bookmark a view.
 - Outdoor chores show a rain warning when rain is likely (once an admin has set where home is).
+- **A grown-up checks it.** A chore can be set so a kid's tick waits for a grown-up (**A grown-up
+  checks it**, under More options when making or editing it). Its card says "waiting for a grown-up's
+  check" and no stickers come yet. Grown-ups see it under **Waiting for a check** on Chores (Home's
+  Today card says how many): **OK** pays the stickers, **Not yet** puts it back to do. The kid can
+  still undo their tick while it waits. A grown-up ticking it pays at once.
+- **Kids swap chores.** A kid taps **Ask to swap a chore** on Chores, picks one of theirs and who to
+  ask, and can offer to do one of that kid's chores back. The other kid sees it under **Swaps** and
+  taps **Deal** or **No thanks**; it's theirs once they say yes, no grown-up needed. If the chore is
+  done, moved or given to someone else first, the swap doesn't happen. Grown-ups see open requests
+  under **Swaps asked** and "swapped from Ivy" on a chore that changed hands, and can still give it
+  to anyone.
 - Each chore earns stickers for whoever did it.
 - The row of people under the title picks whose chores to see, and shows each person's sticker
   total. Two people with the same first name get a letter of their last name ("Max P.").

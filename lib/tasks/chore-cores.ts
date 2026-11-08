@@ -24,36 +24,88 @@ const find = (tx: Tx, viewer: ChoreViewer, instanceId: string) =>
  * Done: stickers to whoever it's assigned to (or whoever grabbed an "Anyone" one), and the
  * milestone crossed, if any. Pinned to the assignee read, so a give-to racing it does nothing.
  */
-export async function completeChore(tx: Tx, viewer: ChoreViewer, instanceId: string): Promise<CoreResult & { milestone?: number | null }> {
+export async function completeChore(tx: Tx, viewer: ChoreViewer, instanceId: string): Promise<CoreResult & { milestone?: number | null; waiting?: boolean }> {
   const instance = await find(tx, viewer, instanceId);
   if (!instance) return { ok: false, reason: "not found" };
   if (instance.status !== "PENDING") return { ok: false, reason: "already done" };
   if (!canDoChore(viewer, instance, true)) return { ok: false, reason: "not allowed" };
-  const pointsRecipient = instance.assignedToId ?? viewer.id;
-  const { count } = await tx.taskInstance.updateMany({
+  // Phase 70c: a kid's tick on a chore a grown-up checks waits for the OK: done, but no completedAt
+  // and no stickers yet (everything that pays or counts keys on completedAt).
+  if (instance.definition.needsCheck && !viewer.adult) {
+    const { count } = await tx.taskInstance.updateMany({
+      where: { id: instanceId, status: "PENDING", assignedToId: instance.assignedToId },
+      data: { status: "DONE", completedAt: null, completedById: viewer.id, awaitingCheck: true },
+    });
+    if (count === 0) return { ok: false, reason: "changed" };
+    await recordEvent(tx, { householdId: viewer.householdId, itemType: "CHORE", itemId: instanceId, actorId: viewer.id, action: "STATUS", fromValue: "PENDING", toValue: "WAITING" });
+    return { ok: true, waiting: true };
+  }
+  return pay(tx, viewer, instanceId, instance.assignedToId ?? viewer.id, instance.definition.points, instance.definition.title, {
     where: { id: instanceId, status: "PENDING", assignedToId: instance.assignedToId },
     data: { status: "DONE", completedAt: new Date(), completedById: viewer.id },
   });
+}
+
+/** Marks a chore paid (the guarded update it's given), then stickers and the milestone crossed. */
+async function pay(
+  tx: Tx,
+  viewer: ChoreViewer,
+  instanceId: string,
+  pointsRecipient: string,
+  points: number,
+  title: string,
+  update: Prisma.TaskInstanceUpdateManyArgs,
+  event: { fromValue: string; toValue: string } = { fromValue: "PENDING", toValue: "DONE" },
+): Promise<CoreResult & { milestone?: number | null }> {
+  const { count } = await tx.taskInstance.updateMany(update);
   if (count === 0) return { ok: false, reason: "changed" };
-  await recordEvent(tx, { householdId: viewer.householdId, itemType: "CHORE", itemId: instanceId, actorId: viewer.id, action: "STATUS", fromValue: "PENDING", toValue: "DONE" });
+  await recordEvent(tx, { householdId: viewer.householdId, itemType: "CHORE", itemId: instanceId, actorId: viewer.id, action: "STATUS", ...event });
   // Counted inside the transaction, so in a bulk Done each completion sees the ones before it.
   const priorCompletions = await tx.pointsLedger.count({
     where: { personId: pointsRecipient, instanceId: { not: null }, instance: { definition: { domain: "CHORE" } } },
   });
-  await tx.pointsLedger.create({
-    data: { personId: pointsRecipient, delta: instance.definition.points, reason: instance.definition.title, instanceId },
-  });
+  await tx.pointsLedger.create({ data: { personId: pointsRecipient, delta: points, reason: title, instanceId } });
   return { ok: true, milestone: milestoneCrossed(priorCompletions, priorCompletions + 1) };
 }
 
-/** Undo a Done: pinned to the completion that was seen, and its stickers go back. */
+/**
+ * Phase 70c: a grown-up's check on a chore a kid ticked. **OK** pays its stickers now (to whoever it
+ * was for, else whoever did it); **Not yet** puts it back to do, with nothing to take back. Never by
+ * a kid.
+ */
+export async function checkChore(tx: Tx, viewer: ChoreViewer, instanceId: string, ok: boolean): Promise<CoreResult & { milestone?: number | null }> {
+  if (!viewer.adult) return { ok: false, reason: "not allowed" };
+  const instance = await find(tx, viewer, instanceId);
+  if (!instance) return { ok: false, reason: "not found" };
+  if (instance.status !== "DONE" || !instance.awaitingCheck) return { ok: false, reason: "changed" };
+  const waiting = { id: instanceId, status: "DONE" as const, awaitingCheck: true, completedById: instance.completedById };
+  if (!ok) {
+    const { count } = await tx.taskInstance.updateMany({ where: waiting, data: { status: "PENDING", awaitingCheck: false, completedById: null, completedAt: null } });
+    if (count === 0) return { ok: false, reason: "changed" };
+    await recordEvent(tx, { householdId: viewer.householdId, itemType: "CHORE", itemId: instanceId, actorId: viewer.id, action: "STATUS", fromValue: "WAITING", toValue: "PENDING" });
+    return { ok: true };
+  }
+  return pay(
+    tx,
+    viewer,
+    instanceId,
+    instance.assignedToId ?? instance.completedById ?? viewer.id,
+    instance.definition.points,
+    instance.definition.title,
+    { where: waiting, data: { awaitingCheck: false, completedAt: new Date() } },
+    { fromValue: "WAITING", toValue: "CHECKED" },
+  );
+}
+
+/** Undo a Done (or a tick waiting for a check): pinned to the completion that was seen, and its stickers go back. */
 export async function uncompleteChore(tx: Tx, viewer: ChoreViewer, instanceId: string): Promise<CoreResult> {
   const instance = await find(tx, viewer, instanceId);
   if (!instance) return { ok: false, reason: "not found" };
   if (!canUndoChore(viewer, instance)) return { ok: false, reason: "not allowed" };
   const { count } = await tx.taskInstance.updateMany({
-    where: { id: instanceId, status: "DONE", completedAt: instance.completedAt },
-    data: { status: "PENDING", completedAt: null, completedById: null },
+    // A chore waiting for a check has no completedAt yet: pinned to who ticked it instead.
+    where: { id: instanceId, status: "DONE", completedAt: instance.completedAt, awaitingCheck: instance.awaitingCheck, completedById: instance.completedById },
+    data: { status: "PENDING", completedAt: null, completedById: null, awaitingCheck: false },
   });
   if (count === 0) return { ok: false, reason: "changed" };
   await tx.pointsLedger.deleteMany({ where: { instanceId } });

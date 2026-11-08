@@ -141,3 +141,8 @@ describe("backupSchema", () => {
     expect(Object.fromEntries(newer.productGroups.map((g) => [g.id, g.starterKey]))).toEqual({ g1: null, g2: "dairy", g3: null });
   });
 });
+
+test("every version up to this one still reads (a bump mustn't drop the one before)", () => {
+  const versions = backupSchema.shape.schemaVersion.def.values as readonly number[];
+  for (let v = 1; v <= BACKUP_SCHEMA_VERSION; v++) expect(versions).toContain(v);
+});

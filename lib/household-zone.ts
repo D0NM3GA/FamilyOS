@@ -78,6 +78,10 @@ export const DAY_COLUMNS = [
     column: "movedFrom",
     where: `"definitionId" IN (SELECT id FROM task_definition WHERE "householdId" = $1)`,
   },
+  // Phase 70c: the chore days a swap request saw, plain shifts like movedFrom (they're compared to
+  // the instance's dueDate, which moves too).
+  { table: "chore_swap", column: "dueDate", where: `"householdId" = $1` },
+  { table: "chore_swap", column: "giveBackDueDate", where: `"householdId" = $1` },
   // Phase 65d: a planned dinner's day.
   { table: "meal_plan_day", column: "day", where: `"householdId" = $1` },
   // Phase 65b: a renewal's due day before it (what undo puts back).

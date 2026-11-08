@@ -10,7 +10,8 @@ import { requireAdult, isAdult } from "@/lib/authz";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { markOlderMissedIds } from "@/lib/tasks/skip";
 import { scheduleChanged } from "@/lib/tasks/edit";
-import { completeChore, reassignChore, skipChore, uncompleteChore, unskipChore } from "@/lib/tasks/chore-cores";
+import { checkChore, completeChore, reassignChore, skipChore, uncompleteChore, unskipChore } from "@/lib/tasks/chore-cores";
+import { answerSwap, askSwap, cancelSwap, SWAP_LAPSED } from "@/lib/chores/swaps";
 import { deleteEventsFor, recordEvents } from "@/lib/work-items/events";
 import { moveChore, moveChoreIn, type MoveTarget } from "@/lib/tasks/move";
 import { withStoredDays } from "@/lib/household-zone";
@@ -36,6 +37,7 @@ const taskFormSchema = z.object({
   assignmentStrategy: z.enum(["FIXED", "ROUND_ROBIN", "LEAST_ASSIGNED"]),
   assigneeIds: z.array(z.string()).min(1, "Pick at least one person"),
   weatherSensitive: z.boolean(),
+  needsCheck: z.boolean(),
 });
 
 function parseTaskForm(formData: FormData) {
@@ -52,6 +54,7 @@ function parseTaskForm(formData: FormData) {
     assignmentStrategy: String(formData.get("assignmentStrategy") ?? ""),
     assigneeIds: formData.getAll("assigneeIds").map(String),
     weatherSensitive: formData.get("weatherSensitive") === "on",
+    needsCheck: formData.get("needsCheck") === "on",
   };
 
   const parsed = taskFormSchema.safeParse(raw);
@@ -187,7 +190,7 @@ export async function setDefinitionActive(definitionId: string, active: boolean)
  * snapshot read here, a reassignment that lands mid-transaction also no-ops rather than
  * crediting whoever the instance belonged to a moment ago.
  */
-export async function completeInstance(instanceId: string): Promise<{ milestone?: number | null }> {
+export async function completeInstance(instanceId: string): Promise<{ milestone?: number | null; waiting?: boolean }> {
   const profile = await requireActiveProfile();
   await assertAppOn(profile.householdId, "chores");
   const viewer = { id: profile.id, householdId: profile.householdId, adult: isAdult(profile) };
@@ -198,7 +201,7 @@ export async function completeInstance(instanceId: string): Promise<{ milestone?
   revalidatePath("/points");
   revalidatePath("/");
 
-  return result.ok ? { milestone: result.milestone } : {};
+  return result.ok ? { milestone: result.milestone, waiting: result.waiting } : {};
 }
 
 export async function uncompleteInstance(instanceId: string) {
@@ -335,4 +338,53 @@ export async function bulkChores(input: unknown): Promise<BulkResult | { error: 
   if (action === "DONE") revalidatePath("/points");
   if (action === "TOMORROW") revalidatePath("/calendar");
   return summarize(results);
+}
+
+/**
+ * Phase 70c: a grown-up's check on a chore a kid ticked: OK pays its stickers, Not yet puts it back
+ * to do. A stale tap (already checked, or undone) changes nothing.
+ */
+export async function checkInstance(instanceId: string, ok: boolean): Promise<void> {
+  const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "chores");
+  await prisma.$transaction((tx) => checkChore(tx, { id: profile.id, householdId: profile.householdId, adult: true }, instanceId, ok));
+  revalidateBoard();
+  revalidatePath("/points");
+}
+
+export type SwapState = { error?: string };
+
+/** Phase 70c: a kid asks another kid to take a chore, maybe taking one of theirs back. */
+export async function askChoreSwap(_prev: SwapState, formData: FormData): Promise<SwapState> {
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "chores");
+  const done = await askSwap(
+    profile,
+    {
+      instanceId: String(formData.get("instanceId") ?? "").slice(0, 200),
+      toId: String(formData.get("toId") ?? "").slice(0, 200),
+      giveBackId: String(formData.get("giveBackId") ?? "").slice(0, 200) || null,
+    },
+    atMidnight(new Date()),
+  );
+  if (!done.ok) return { error: done.error };
+  revalidatePath("/chores");
+  redirect("/chores?swap=asked");
+}
+
+/** Phase 70c: the asked kid says yes or no. */
+export async function answerChoreSwap(swapId: string, accept: boolean): Promise<void> {
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "chores");
+  const done = await answerSwap(profile, swapId, accept, atMidnight(new Date()));
+  revalidateBoard();
+  if (!done.ok) redirect(`/chores?swap=${done.error === SWAP_LAPSED ? "lapsed" : "gone"}`);
+}
+
+/** Phase 70c: the kid who asked takes it back. */
+export async function cancelChoreSwap(swapId: string): Promise<void> {
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "chores");
+  await cancelSwap(profile, swapId);
+  revalidatePath("/chores");
 }

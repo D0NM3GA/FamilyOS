@@ -76,6 +76,26 @@ describe.skipIf(!RUN)("moving stored days between zones (database)", () => {
     expect(await dues(med.id)).toEqual([{ due: "2026-07-01T07:00:00.000Z", status: "PENDING" }]);
   });
 
+  test("Phase 70c: an open swap's days move with its chores, so it still matches", async () => {
+    const h = await family();
+    const chore = await definition(h, at("2026-03-08T05:00:00Z"));
+    const [ivy, max] = await Promise.all(["Ivy", "Max"].map((firstName) => prisma.person.create({ data: { householdId: h, firstName, role: "KID", isHouseholdMember: true } })));
+    const mine = await prisma.taskInstance.create({ data: { definitionId: chore.id, dueDate: at("2026-03-09T05:00:00Z"), assignedToId: ivy.id } });
+    const theirs = await prisma.taskInstance.create({ data: { definitionId: chore.id, dueDate: at("2026-03-10T05:00:00Z"), assignedToId: max.id } });
+    const swap = await prisma.choreSwap.create({
+      data: { householdId: h, instanceId: mine.id, dueDate: mine.dueDate, fromId: ivy.id, toId: max.id, giveBackId: theirs.id, giveBackDueDate: theirs.dueDate },
+    });
+    await move(h, "America/New_York", "Europe/London");
+    const [m, t2, s] = await Promise.all([
+      prisma.taskInstance.findUniqueOrThrow({ where: { id: mine.id } }),
+      prisma.taskInstance.findUniqueOrThrow({ where: { id: theirs.id } }),
+      prisma.choreSwap.findUniqueOrThrow({ where: { id: swap.id } }),
+    ]);
+    expect(s.dueDate).toEqual(m.dueDate);
+    expect(s.giveBackDueDate).toEqual(t2.dueDate);
+    expect(s.dueDate).not.toEqual(at("2026-03-09T05:00:00Z"));
+  });
+
   test("a 12-hour move of morning and evening doses doesn't collide halfway", async () => {
     const h = await family();
     const med = await definition(h, at("2026-01-05T05:00:00Z"), ["08:00", "20:00"]);

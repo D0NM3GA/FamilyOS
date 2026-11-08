@@ -19,6 +19,8 @@ export const itemParam = (type: WorkItemType, id: string) => `${type}:${id}`;
 const STATUS_WORD: Record<string, string> = {
   PENDING: "to do",
   DONE: "done",
+  // Phase 70c: a kid's tick on a chore a grown-up checks, and the grown-up's OK.
+  WAITING: "done, for a grown-up to check",
   SKIPPED: "skipped",
   TODO: "to do",
   MISSING: "missing",
@@ -54,6 +56,8 @@ export function describeEvent(e: EventLike): string {
   };
   switch (e.action) {
     case "STATUS":
+      if (e.toValue === "CHECKED") return "checked it: OK";
+      if (e.fromValue === "WAITING" && e.toValue === "PENDING") return "checked it: not yet";
       return `marked it ${status(e.toValue)}`;
     case "ASSIGN":
       // A form's ASSIGN is who's handling it; a chore's is whose it is.

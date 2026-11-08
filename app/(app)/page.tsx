@@ -35,6 +35,7 @@ import { LookScene } from "@/components/look-scene";
 import { choreProgressFor, currentHour, greetingLine } from "@/lib/bunson-moments";
 import { toCardInstance } from "@/lib/tasks/card";
 import { completeInstance as completeChore, uncompleteInstance as undoChore } from "./chores/actions";
+import { waitingForCheckCount } from "@/lib/chores/checks";
 import { completeInstance as completeMed, uncompleteInstance as undoMed, takeAsNeeded, undoAsNeeded } from "./meds/actions";
 import { getAsNeeded } from "@/lib/meds/as-needed-queries";
 import { getRunningLow } from "@/lib/groceries/queries";
@@ -209,7 +210,13 @@ export default async function HomePage() {
     safe("Today at a glance", getAgendaWeek(profile, { start: today, days: 1, eventsOnly: true, timeZone: homeZone, disabledApps: disabled }), { items: [] as AgendaItem[], tasksPlannedThrough: null }),
     getHouseholdMembers(profile.householdId),
   ]);
-  const [asNeeded, runningLow, dinner] = await Promise.all([asNeededLoad, runningLowLoad, dinnerLoad]);
+  const [asNeeded, runningLow, dinner, checksWaiting] = await Promise.all([
+    asNeededLoad,
+    runningLowLoad,
+    dinnerLoad,
+    // Phase 70c: grown-ups see how many kids' chores wait for their check.
+    isAdult(profile) && on("chores") ? safe("Chores", waitingForCheckCount(profile.householdId), 0) : 0,
+  ]);
   const stripItems: AgendaItem[] = dinner
     ? [
         ...todayAgenda.items,
@@ -285,6 +292,11 @@ export default async function HomePage() {
               {on("chores") && (
                 <section>
                   <h3 className="mb-2 font-bold text-foreground">Chores</h3>
+                  {checksWaiting > 0 && (
+                    <Link href="/chores" className="mb-2 inline-flex min-h-11 items-center text-sm font-bold text-brand-text underline sm:min-h-0">
+                      {checksWaiting === 1 ? "1 chore waits" : `${checksWaiting} chores wait`} for your check →
+                    </Link>
+                  )}
                   <HomeTasks
                     board={choreBoard}
                     href="/chores"

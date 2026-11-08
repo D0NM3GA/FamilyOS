@@ -107,6 +107,7 @@ model Household {
   petItems               PetItem[]
   petMemorials           PetMemorial[]
   petGifts               PetGift[]
+  choreSwaps             ChoreSwap[]
   petDiscoveries         PetDiscovery[]
   workItemEvents         WorkItemEvent[]
 
@@ -228,6 +229,9 @@ model Person {
   assignedInstances     TaskInstance[]   @relation("AssignedInstances")
   completedInstances    TaskInstance[]   @relation("CompletedInstances")
   pointsLedger          PointsLedger[]
+  /// Phase 70c: chore swaps this kid asked for, and ones asked of them.
+  swapsFrom             ChoreSwap[]      @relation("SwapFrom")
+  swapsTo               ChoreSwap[]      @relation("SwapTo")
   /// Phase 20: orders paid from this person's stickers, and who placed/decided/closed them.
   rewardOrders          RewardOrder[]    @relation("OrderFor")
   placedOrders          RewardOrder[]    @relation("OrderPlacedBy")
@@ -458,6 +462,8 @@ model TaskDefinition {
   /// board card gets a rain-forecast flag (see lib/chores/weather-flag.ts) when
   /// Household.latitude/longitude are set. Never auto-reschedules anything.
   weatherSensitive Boolean       @default(false)
+  /// Phase 70c: chores only. A kid's tick waits for a grown-up's OK before its stickers are paid.
+  needsCheck       Boolean       @default(false)
 
   points             Int                @default(0)
   assignmentStrategy AssignmentStrategy @default(FIXED)
@@ -511,9 +517,17 @@ model TaskInstance {
   /// Null for Chores (and for a Med with no quantity tracking configured).
   quantityConsumed Float?
 
+  /// Phase 70c: a kid ticked a chore that a grown-up checks. Status is DONE with completedById set
+  /// but completedAt null until the OK, so stickers, milestones, pet presents and Activity (all
+  /// keyed on completedAt) wait for it.
+  awaitingCheck Boolean @default(false)
+
   createdAt DateTime @default(now())
 
   pointsLedger PointsLedger[]
+  /// Phase 70c: kids asking each other to take this chore, or giving it back in return.
+  swapsAsked   ChoreSwap[] @relation("SwapInstance")
+  swapsOffered ChoreSwap[] @relation("SwapGiveBack")
   /// Phase 47.4: the pet present this chore brought, if any (lib/pet/gifts.ts reads chores; the
   /// Chores code never knows).
   petGift      PetGift?
@@ -522,6 +536,43 @@ model TaskInstance {
   @@index([assignedToId, dueDate])
   @@index([completedAt])
   @@map("task_instance")
+}
+
+enum ChoreSwapStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  /// The chore was done, moved, given to someone else or its day passed before an answer.
+  LAPSED
+}
+
+/// Phase 70c: a kid asks another kid to take one of their chores, optionally taking one of theirs in
+/// return (the owner's call: the other kid accepts, no grown-up needed). Accepting checks each chore
+/// is still pending, still theirs and on the day the request saw. Passing state, not in backups.
+model ChoreSwap {
+  id               String          @id @default(cuid())
+  householdId      String
+  household        Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  instanceId       String
+  instance         TaskInstance    @relation("SwapInstance", fields: [instanceId], references: [id], onDelete: Cascade)
+  /// The chore's day when asked: a move since lapses the request.
+  dueDate          DateTime
+  fromId           String
+  from             Person          @relation("SwapFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId             String
+  to               Person          @relation("SwapTo", fields: [toId], references: [id], onDelete: Cascade)
+  giveBackId       String?
+  giveBack         TaskInstance?   @relation("SwapGiveBack", fields: [giveBackId], references: [id], onDelete: Cascade)
+  giveBackDueDate  DateTime?
+  status           ChoreSwapStatus @default(PENDING)
+  createdAt        DateTime        @default(now())
+  decidedAt        DateTime?
+
+  @@index([toId, status])
+  @@index([fromId, status])
+  @@index([instanceId])
+  @@map("chore_swap")
 }
 
 model PointsLedger {

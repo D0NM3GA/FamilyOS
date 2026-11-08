@@ -2239,3 +2239,34 @@ family copy's link wins; names come from household members only (a contact shari
 no longer renames anyone); an event that turns all-day drops its driver; Big Home adds only the
 driver, not every event's place; a driver who's no longer a grown-up stops showing and is dropped;
 kids opening the page go back to the calendar; the backup notes say drivers are left out.
+
+### 70c — Chore checks and swaps
+
+**A grown-up checks it:** `TaskDefinition.needsCheck` and `TaskInstance.awaitingCheck` (migration
+`20261205120000_chore_checks_swaps`; household backup v17 carries both, older files have them off).
+`completeChore` on such a chore by a kid sets DONE with `completedById` and `awaitingCheck`, leaving
+`completedAt` null and paying nothing, so pet presents, Activity, milestones and the ledger (all keyed
+on `completedAt` or the ledger row) wait. `checkChore` (grown-ups, never who ticked it): **OK** is
+a guarded update (still DONE and waiting, same ticker) that sets `completedAt` and pays through the
+same `pay` helper a normal Done uses; **Not yet** returns it to PENDING. Undo pins
+`awaitingCheck` and `completedById` too (a waiting tick has no `completedAt` to pin). A waiting chore
+still counts as done on the chart, Home's finished fold and the day's progress, with "waiting for a
+grown-up's check" on its card. `lib/chores/checks.ts` feeds **Waiting for a check** on Chores and
+Home's count. **Swaps:** `ChoreSwap` (instance and its day, from, to, optional chore given back and
+its day, status PENDING / ACCEPTED / DECLINED / CANCELLED / LAPSED), cascading with either instance,
+so a chore edit's dropped days take their requests along. `lib/chores/swaps.ts`: kids only, to
+another kid of the household (no pool check, as a grown-up's Give to has none); one open request
+per chore. Accepting claims the request first (so two taps can't both run it), then moves each chore
+with a guarded update (still pending, whose it was, on the day recorded); if either fails the
+transaction rolls back and the request is LAPSED. Open requests are re-checked when shown (done,
+moved, given away, past) and lapsed. Grown-ups see "swapped from Ivy" on a moved chore
+(`swappedFrom`). Least-assigned rotation counts a swapped chore for its new kid, as a Give to does.
+Fable's review of 70c: open swaps keep matching after a change of zone (their days join the stored
+days that move); a kid's tick that waits isn't celebrated as paid and says "Waiting for a grown-up's
+check" at once; grown-ups see the kids' open requests (**Swaps asked**, read only, the owner's "see
+the swap"); "swapped from" ends when a grown-up gives the chore back; each row's buttons are named
+for their chore; history says "marked it done, for a grown-up to check" and "checked it: OK" or "not
+yet", and the export says WAITING FOR CHECK; an answer to a request that's gone says so rather than
+"lapsed". Deal, No thanks and Cancel aren't destructive (nothing is deleted, a request can be asked
+again), so they don't ask first. Left as is: two asks at the same moment can both be recorded (the
+second one's accept lapses on the guards); a request that lapsed just drops off the asker's list.

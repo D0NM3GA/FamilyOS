@@ -48,7 +48,7 @@ export const CHORE_EXPORTS: Record<string, CsvExport> = {
           { header: "Due", value: (r) => csvDate(r.dueDate) },
           { header: "Chore", value: (r) => r.definition.title, freeText: true },
           { header: "Assigned to", value: (r) => r.assignedTo?.firstName, freeText: true },
-          { header: "Status", value: (r) => r.status },
+          { header: "Status", value: (r) => (r.awaitingCheck ? "WAITING FOR CHECK" : r.status) },
           { header: "Completed at", value: (r) => csvDateTime(r.completedAt) },
           { header: "Completed by", value: (r) => r.completedBy?.firstName, freeText: true },
         ],

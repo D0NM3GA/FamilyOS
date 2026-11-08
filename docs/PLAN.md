@@ -3210,8 +3210,10 @@ Outlook:
 
 Chores, gifts and the pet:
 - **A waiting chore has no `completedAt`.** The kid's tick sets `awaitingCheck` and
-  `completedById`, leaving `completedAt` null, so pet presents, Activity, Home's finished count
-  and milestones (all keyed on `completedAt`) wait for the OK for free. **OK** is a guarded
+  `completedById`, leaving `completedAt` null, so stickers, milestones, pet presents and Activity
+  (keyed on `completedAt` or the ledger) wait for the OK. Views that read the status (the chart,
+  Home's finished fold, the calendar, the day's progress) count it as done, marked waiting (settled
+  in the build). **OK** is a guarded
   update (still DONE and waiting), then stickers, milestone and the event; **Not yet** returns it
   to pending with nothing to take back. A kid can't OK their own.
 - **Swaps against everything else.** `ChoreSwap` cascades with its instance (a chore edit drops
