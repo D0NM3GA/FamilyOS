@@ -42,7 +42,7 @@ export const REMINDER_CARDS: Record<ReminderKind, TeamsCard> = {
 /** Send history older than this is forgotten. */
 export const REMINDER_MEMORY_DAYS = 400;
 
-type Person = { id: string; adult: boolean; admin: boolean; off: string[]; optIn: string[]; quietStart: number | null; quietEnd: number | null };
+type Person = { id: string; adult: boolean; grownUpRole: boolean; admin: boolean; off: string[]; optIn: string[]; quietStart: number | null; quietEnd: number | null };
 
 export async function runReminders(now: Date = new Date()): Promise<string> {
   await prisma.reminderSent.deleteMany({ where: { sentAt: { lt: new Date(now.getTime() - REMINDER_MEMORY_DAYS * 86_400_000) } } });
@@ -68,6 +68,9 @@ export async function remindHousehold(householdId: string, now: Date): Promise<n
   const kinds: [string, () => Promise<Reminder[]>][] = [];
   if (await appOn(householdId, "meds")) {
     kinds.push(["doses", () => doseReminders(householdId, people, now)]);
+    // Phase 68a: after the dose planners, on its own so a failure here can't lose their plans.
+    // Only while Meds is on; nothing is planned past an end day meanwhile anyway.
+    kinds.push(["courses", async () => (await endFinishedCourses(householdId, now), [])]);
     kinds.push(["med_low", () => medLowReminders(householdId, grownUps)]);
   }
   if (await appOn(householdId, "school")) {
@@ -143,6 +146,8 @@ async function loadPeople(householdId: string): Promise<Person[]> {
   return rows.map((p) => ({
     id: p.id,
     adult: adults.has(p.id),
+    // A grown-up by role, Entra access or not: whose dose is a grown-up's own (Phase 68a).
+    grownUpRole: p.role === "ADULT" || p.role === "ADMIN",
     admin: adults.has(p.id) && p.role === "ADMIN",
     off: p.reminderPrefs?.off ?? [],
     optIn: p.reminderPrefs?.optIn ?? [],
@@ -173,7 +178,7 @@ async function doseReminders(householdId: string, people: Person[], now: Date): 
   // day nobody looked still reminds.
   await ensureInstancesGenerated(householdId, addDays(atMidnight(now), 2), "MED");
   const grownUps = people.filter((p) => p.adult);
-  const adults = new Set(grownUps.map((g) => g.id));
+  const adults = new Set(people.filter((p) => p.grownUpRole).map((g) => g.id));
   const rows = await prisma.taskInstance.findMany({
     where: {
       status: "PENDING",
@@ -201,9 +206,7 @@ async function doseReminders(householdId: string, people: Person[], now: Date): 
     assignedTo: r.assignedTo ? { ...r.assignedTo, adult: adults.has(r.assignedTo.id) } : null,
   }));
   const optedIn = grownUps.filter((g) => g.optIn.includes("REMINDER_DOSE_DUE"));
-  const plans = [...planDoses(doses, grownUps, now), ...planDosesDue(doses, optedIn, now)];
-  await endFinishedCourses(householdId, now);
-  return plans;
+  return [...planDoses(doses, grownUps, now), ...planDosesDue(doses, optedIn, now)];
 }
 
 /**
