@@ -19,6 +19,8 @@ export type MaintenanceItem = {
   currentMileageLabel: string;
   /** What one service uses from the garage supplies (Phase 12.5), pre-formatted. */
   supplies: { label: string; onHand: string | null; low: boolean }[];
+  /** Phase 65b: paperwork is renewed, not serviced: no miles, and its due day moves on. */
+  paperwork?: boolean;
 };
 
 const sticker = "inline-block -rotate-1 rounded-md px-1.5 text-xs font-bold";
@@ -118,16 +120,20 @@ export function MaintenanceItemCard({
               onClick={() => (formOpen ? setFormOpen(false) : openForm())}
               className={item.status === "OK" ? btn : btnPrimary}
             >
-              Log service
+              {item.paperwork ? "Renewed" : "Log service"}
+              <span className="sr-only"> {item.title}</span>
             </button>
             {item.hasHistory && (
               <button
                 type="button"
-                title="Undo last logged service (does not revert the vehicle's odometer if it was bumped)"
-                aria-label={`Undo last ${item.title} service`}
+                title={item.paperwork ? "Undo the last renewal (its due day moves back)" : "Undo last logged service (does not revert the vehicle's odometer if it was bumped)"}
+                aria-label={item.paperwork ? `Undo the last ${item.title} renewal` : `Undo last ${item.title} service`}
                 disabled={undoPending}
                 onClick={() => {
-                  if (!window.confirm(`Undo the last ${item.title} service? Supplies it used go back on the shelf; the odometer stays as it is.`)) return;
+                  const question = item.paperwork
+                    ? `Undo the last ${item.title} renewal? Its due day moves back.`
+                    : `Undo the last ${item.title} service? Supplies it used go back on the shelf; the odometer stays as it is.`;
+                  if (!window.confirm(question)) return;
                   startUndoTransition(() => undoLast());
                 }}
                 className={`${iconBtn} ring-1 ring-border disabled:opacity-50`}
@@ -147,6 +153,7 @@ export function MaintenanceItemCard({
           prefill={prefill}
           currentMileageLabel={item.currentMileageLabel}
           usesSupplies={item.supplies.length > 0}
+          paperwork={item.paperwork}
           onCancel={() => setFormOpen(false)}
           onSuccess={(notice) => {
             setFormOpen(false);
@@ -169,6 +176,7 @@ function LogServiceForm({
   prefill,
   currentMileageLabel,
   usesSupplies,
+  paperwork,
   onCancel,
   onSuccess,
 }: {
@@ -177,6 +185,7 @@ function LogServiceForm({
   prefill?: { cost: string; date: string };
   currentMileageLabel: string;
   usesSupplies: boolean;
+  paperwork?: boolean;
   onCancel: () => void;
   onSuccess: (notice?: string) => void;
 }) {
@@ -216,6 +225,7 @@ function LogServiceForm({
           className={`mt-1 ${field}`}
         />
       </div>
+      {!paperwork && (
       <div>
         <label htmlFor={`${id}-mileage`} className={`block ${fieldLabel}`}>
           Mileage
@@ -228,6 +238,7 @@ function LogServiceForm({
           className={`mt-1 w-28 ${field}`}
         />
       </div>
+      )}
       <div>
         <label htmlFor={`${id}-cost`} className={`block ${fieldLabel}`}>
           Cost (optional)
@@ -250,7 +261,7 @@ function LogServiceForm({
           id={`${id}-notes`}
           type="text"
           name="notes"
-          placeholder="e.g. Jiffy Lube receipt"
+          placeholder="e.g. Parker Auto receipt"
           className={`mt-1 w-full ${field}`}
         />
       </div>

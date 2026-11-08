@@ -15,7 +15,8 @@ import { RecallsSection } from "@/components/vehicles/recalls-section";
 import { SmallActionButton } from "@/components/vehicles/small-action-button";
 import { PageHeader } from "@/components/page-header";
 import { backLink, btn, card, fieldLabel, sectionTitle } from "@/components/styles";
-import { deleteFuelLog, logFuel, logMaintenanceDone, undoLastService } from "../actions";
+import { deleteFuelLog, deleteRepair, logFuel, logMaintenanceDone, logRepair, undoLastService } from "../actions";
+import { RepairForm } from "@/components/vehicles/repair-form";
 import { toCardItem } from "../card-item";
 import { requireAppOn } from "@/lib/app-guard";
 
@@ -39,7 +40,10 @@ export default async function VehicleDetailPage({
 
   const detail = await getVehicleDetail(profile.householdId, id);
   if (!detail) notFound();
-  const { vehicle, items, serviceLogs, fuelLogs } = detail;
+  const { vehicle, items: allItems, serviceLogs, fuelLogs } = detail;
+  // Phase 65b: paperwork has its own section; the Repairs item never shows (its repairs do).
+  const items = allItems.filter(({ item }) => item.kind === "SERVICE");
+  const papers = allItems.filter(({ item }) => item.kind === "PAPERWORK");
   // A deactivated (sold/retired) vehicle is read-only history (owner's call, Phase 12) —
   // the actions re-check this server-side too.
   const canLog = vehicle.active;
@@ -153,6 +157,32 @@ export default async function VehicleDetailPage({
         )}
       </Section>
 
+      <Section title="Paperwork" id="paperwork">
+        {canLog && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Link href={`/vehicles/${vehicle.id}/items/new?kind=paperwork`} className={btn}>
+              + Add paperwork
+            </Link>
+          </div>
+        )}
+        {papers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Registration, inspection and insurance, each renewed every so many months, with a reminder two weeks before.</p>
+        ) : (
+          <ul className="space-y-2">
+            {papers.map(({ item, due }) => (
+              <MaintenanceItemCard
+                key={item.id}
+                item={toCardItem(item, due, vehicle.currentMileage)}
+                viewerIsAdult={canLog}
+                logDone={logMaintenanceDone.bind(null, item.id)}
+                undoLast={undoLastService.bind(null, item.id)}
+                todayInputValue={todayInputValue}
+              />
+            ))}
+          </ul>
+        )}
+      </Section>
+
       <Section title="Safety recalls" id="recalls">
         <Suspense fallback={<p className="text-sm text-muted-foreground">Checking NHTSA…</p>}>
           <RecallsSection vehicle={vehicle} viewerIsAdult canAcknowledge={canLog} />
@@ -201,11 +231,30 @@ export default async function VehicleDetailPage({
         )}
       </Section>
 
-      <Section title="Service history">
+      <Section title="Service and repairs" id="repairs">
+        {canLog && (
+          <div className="mb-3">
+            <RepairForm logRepair={logRepair.bind(null, vehicle.id)} todayInputValue={todayInputValue} currentMileage={vehicle.currentMileage} />
+          </div>
+        )}
         {serviceLogs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No service logged yet.</p>
+          <p className="text-sm text-muted-foreground">No service or repairs logged yet.</p>
         ) : (
-          <LogTable rows={serviceLogs} columns={serviceColumns} />
+          <LogTable
+            rows={serviceLogs}
+            columns={serviceColumns}
+            actions={(log) =>
+              log.item.kind === "REPAIRS" && canLog ? (
+                <SmallActionButton
+                  action={deleteRepair.bind(null, log.id)}
+                  label="Delete"
+                  tone="danger"
+                  confirmText="Delete this repair? This can't be undone."
+                  ariaLabel={`Delete the ${log.item.title} repair from ${formatFullDate(log.doneAt)}`}
+                />
+              ) : null
+            }
+          />
         )}
       </Section>
 

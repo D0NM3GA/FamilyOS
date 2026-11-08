@@ -12,7 +12,7 @@ export default async function ManageVehiclesPage() {
 
   const vehicles = await prisma.vehicle.findMany({
     where: { householdId: profile.householdId },
-    include: { maintenanceItems: { orderBy: [{ active: "desc" }, { title: "asc" }] } },
+    include: { maintenanceItems: { where: { kind: { not: "REPAIRS" } }, orderBy: [{ active: "desc" }, { title: "asc" }] } },
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
 
