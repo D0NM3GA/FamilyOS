@@ -1974,3 +1974,27 @@ the lockout's notices come back from its transaction instead of a closure write;
 else" skips expired rows; tests cover every new entry's wording, a PIN-switched profile refused at
 the action, and someone else's session left alone. Left as is (dev sign-in only): the hub tile
 follows `isOwnSignIn`, so the DEV_AUTH user sees it and then the page's note.
+
+### 67b — Hearing when something stopped, and calls that can't hang
+
+**System reminder:** `REMINDER_SYSTEM` (migration `20261201130000_system_reminder`). `planSystem`
+(`lib/reminders/plan.ts`) reads every heartbeat each tick and, with the System card's rules
+(`heartbeatState`, now in the database-free `lib/heartbeat-state.ts`), plans one per job that's
+failing or late and for the backup when failing or 36 hours late, to the admins (`loadPeople`
+carries the role). Key `system:<job>:<state>:<lastOkAt or never>`: the last failure moves every
+tick, the last good run doesn't, so it reminds once per problem. Never-run heartbeats don't
+remind. Not urgent; Teams card "⚙️ The app"; listed in My notifications for admins only
+(`listedKinds(isOn, admin)`); the morning summary adds "Something stopped: …". **Job timeout:**
+`withTimeout` gives each job `JOB_TIMEOUT_MS` (10 minutes); past it the tick records "timed out"
+and moves on, and the run's late answer is dropped (its rejection is swallowed). Money and the
+Entra check hold leases, reminders claim per key, the rest are idempotent. **RxTerms:** 5-second
+timeout, 60 characters. **Cleanup:** unread notifications older than 180 days go too. JOBS now
+lists reminders before cleanup, the order they run.
+Fable's review of 67b: the reminders job is left out of the plan (the reminder runs inside it, and
+right after an outage it and the jobs after it would have looked late), and cleanup now runs before
+reminders; a failing job is keyed on the day of its last good run, so a job that keeps failing and
+recovering reminds once a day, not every hour; a run that timed out and hasn't ended stops the same
+job starting again ("still running from an earlier tick"), so a job that hangs every tick can't
+pile up runs holding connections; the morning summary's line follows the reminder's switch; tests
+count by title (a dev database can hold stale heartbeats) and cover the dropped late answer. Left
+as is: the unread-notification cleanup has no index leading on readAt (family-sized table).

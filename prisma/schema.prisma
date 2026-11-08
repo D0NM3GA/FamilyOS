@@ -657,6 +657,8 @@ enum NotificationKind {
   REMINDER_DATE
   REMINDER_CAR
   REMINDER_RECALL
+  /// Phase 67b: a background job or the nightly backup stopped (admins only).
+  REMINDER_SYSTEM
 }
 
 enum BackupKind {

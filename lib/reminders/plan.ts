@@ -1,5 +1,6 @@
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { isMedLow } from "./supply";
+import { BACKUP_HEARTBEAT, BACKUP_LATE_MS, heartbeatState, JOB_LATE_MS, type HeartbeatRow } from "@/lib/heartbeat-state";
 
 /**
  * Phase 62: what to remind whom about, worked out from rows. Pure (no Prisma, no clock but `now`),
@@ -11,7 +12,7 @@ import { isMedLow } from "./supply";
  * (ReminderSent), and the next occurrence reminds again.
  */
 
-export type ReminderKind = "REMINDER_DOSE" | "REMINDER_MED_LOW" | "REMINDER_SCHOOL" | "REMINDER_DATE" | "REMINDER_CAR" | "REMINDER_RECALL";
+export type ReminderKind = "REMINDER_DOSE" | "REMINDER_MED_LOW" | "REMINDER_SCHOOL" | "REMINDER_DATE" | "REMINDER_CAR" | "REMINDER_RECALL" | "REMINDER_SYSTEM";
 
 export type Reminder = {
   kind: ReminderKind;
@@ -266,4 +267,51 @@ export function planRecalls(recalls: NewRecall[], grownUps: GrownUp[]): Reminder
       urgent: r.parkIt,
     };
   });
+}
+
+// ---- the app itself (Phase 67b) ------------------------------------------------------------
+
+/** Phase 67b: how a system reminder's title starts; the morning summary drops it. */
+export const SYSTEM_PREFIX = "⚠️ ";
+
+const sinceWords = (d: Date) => d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+/**
+ * A background job that's failing or late, or the nightly backup failing or over 36 hours late
+ * (Data's System card's own rules), to the admins. Keyed on the last good run, which holds still
+ * while it stays broken (the last failure moves every tick), so it reminds once per problem and
+ * again if it comes back after working; for a failing job, on the day of that run, so one that
+ * keeps failing and recovering (a flaky bank feed) reminds once a day, not every hour. Late and
+ * then failing are two facts and two reminders. Never-run ones don't remind (a server without its
+ * backup cron yet). The reminders job is left out: this runs inside it (so it's running, and
+ * hasn't recorded this run yet), and the jobs after it haven't run this tick; only the outside
+ * check-in can say the reminders job stopped.
+ */
+/** The reminders job itself, and the jobs that run after it in a tick. */
+const SELF_OR_AFTER = new Set(["reminders"]);
+
+export function planSystem(rows: HeartbeatRow[], jobs: readonly { name: string; label: string }[], admins: GrownUp[], now: Date): Reminder[] {
+  if (admins.length === 0) return [];
+  const byName = new Map(rows.map((r) => [r.name, r]));
+  const watched = [...jobs.filter((j) => !SELF_OR_AFTER.has(j.name)).map((j) => ({ ...j, late: JOB_LATE_MS })), { name: BACKUP_HEARTBEAT, label: "The nightly backup", late: BACKUP_LATE_MS }];
+  const out: Reminder[] = [];
+  for (const job of watched) {
+    const row = byName.get(job.name);
+    const state = heartbeatState(row, job.late, now);
+    if (state !== "failing" && state !== "late") continue;
+    const lastOk = row?.lastOkAt ?? null;
+    out.push({
+      kind: "REMINDER_SYSTEM",
+      key: `system:${job.name}:${state}:${lastOk ? (state === "failing" ? dayKey(lastOk) : lastOk.toISOString()) : "never"}`,
+      recipients: admins.map((a) => a.id),
+      // Late always has a last good run (no run at all is "never").
+      title:
+        state === "failing" || !lastOk
+          ? `${SYSTEM_PREFIX}${job.label} stopped working${lastOk ? `; it last worked ${sinceWords(lastOk)}` : ""}`
+          : `${SYSTEM_PREFIX}${job.label} hasn't run since ${sinceWords(lastOk)}`,
+      href: "/data#system",
+      urgent: false,
+    });
+  }
+  return out;
 }

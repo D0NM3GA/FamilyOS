@@ -9,7 +9,7 @@ import { captureError } from "@/lib/observability";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
 import { inQuietHours } from "./quiet";
-import type { Reminder } from "./plan";
+import { SYSTEM_PREFIX, type Reminder } from "./plan";
 
 /**
  * Phase 62c: the morning summary, opt-in per grown-up by email and/or Teams (the owner's call),
@@ -29,6 +29,8 @@ export type DigestInput = {
   school: string[];
   cars: string[];
   dates: string[];
+  /** Phase 67b: jobs or the backup that stopped, for an admin. */
+  system?: string[];
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -39,6 +41,8 @@ export function digestLines(d: DigestInput): string[] | null {
   if (d.choresAll > 0) lines.push(`Chores today: ${d.choresMine > 0 ? `${d.choresMine} for you, ` : ""}${plural(d.choresAll, "chore")} in all`);
   if (d.dosesAll > 0) lines.push(`Doses today: ${d.dosesMine > 0 ? `${d.dosesMine} for you, ` : ""}${plural(d.dosesAll, "dose")} in all`);
   lines.push(...d.school, ...d.cars, ...d.dates);
+  // Phase 67b: admins only (the planned reminders say who): something in the app stopped.
+  if (d.system?.length) lines.push(`Something stopped: ${d.system.join("; ")}`);
   return lines.length ? lines : null;
 }
 
@@ -64,6 +68,7 @@ export async function sendDigests(householdId: string, grownUpIds: string[], pla
       digestLastOn: true,
       quietStart: true,
       quietEnd: true,
+      off: true,
       person: { select: { id: true, firstName: true, email: true, authUser: { select: { email: true, accounts: MICROSOFT_ACCOUNTS } } } },
     },
   });
@@ -102,6 +107,8 @@ export async function sendDigests(householdId: string, grownUpIds: string[], pla
       cars: titles("REMINDER_CAR"),
       // Not their own birthday: the reminder for it isn't theirs either.
       dates: [...new Set(planned.filter((r) => r.kind === "REMINDER_DATE" && r.recipients.includes(p.personId)).map((r) => r.title))],
+      // Unless they switched the reminder off.
+      system: p.off.includes("REMINDER_SYSTEM") ? [] : [...new Set(planned.filter((r) => r.kind === "REMINDER_SYSTEM" && r.recipients.includes(p.personId)).map((r) => r.title.replace(SYSTEM_PREFIX, "")))],
     });
     if (!lines) continue;
     const title = `Good morning, ${p.person.firstName}: today at a glance`;

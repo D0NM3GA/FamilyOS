@@ -695,7 +695,12 @@ Every error caught and handled is a line too (`error.caught`), with or without S
 **System** (admins, at the bottom of Data & backups) shows each background job's last good run
 (**Reminders** among them, Phase 62, with how many it sent) and
 last failure, and the nightly backup's. **Late** means it hasn't run when it should have (a job
-every 30 minutes, the backup every night); **Failing** shows the short reason. For a nudge when
+every 30 minutes, the backup every night); **Failing** shows the short reason. Admins also get a
+reminder (the bell, and Teams or email if they use them for reminders) when a job starts failing
+or runs late, or the backup fails or is more than 36 hours late: once per problem, again if it
+comes back after working, and a line in the morning summary. Switch it off in My notifications.
+A job that takes more than 10 minutes is marked failed ("timed out") and the rest carry on.
+The reminder comes from the reminders job itself, so it can't tell you that job stopped. For a nudge when
 nothing is looking, set `HEALTHCHECK_PING_URL` in the settings file to a check-in URL (a
 healthchecks.io check, or your own): the app calls it after each run of the jobs, with `/fail` on
 the end when one failed, so the checker can email you when a ping is missing or failed.

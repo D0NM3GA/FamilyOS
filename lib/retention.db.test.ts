@@ -24,7 +24,7 @@ describe.skipIf(!RUN)("cleanup and heartbeats (database)", { timeout: 60_000 }, 
     await prisma.systemHeartbeat.deleteMany({ where: { name: { startsWith: `test-${t}` } } });
   });
 
-  test("only sessions long expired and notifications long read go", async () => {
+  test("only sessions long expired, notifications long read and ones long unread go", async () => {
     const now = new Date();
     await prisma.session.createMany({
       data: [
@@ -38,13 +38,15 @@ describe.skipIf(!RUN)("cleanup and heartbeats (database)", { timeout: 60_000 }, 
       data: [
         { ...base, title: "old read", readAt: new Date(now.getTime() - 100 * day) },
         { ...base, title: "recent read", readAt: new Date(now.getTime() - 10 * day) },
+        // Phase 67b: unread ones go after 180 days.
         { ...base, title: "old unread", createdAt: new Date(now.getTime() - 200 * day) },
+        { ...base, title: "recent unread", createdAt: new Date(now.getTime() - 100 * day) },
       ],
     });
     const result = await runCleanup(now);
     expect(result.sessions).toBeGreaterThanOrEqual(1);
     expect((await prisma.session.findMany({ where: { userId: ids.user }, select: { token: true } })).map((s) => s.token).sort()).toEqual([`live-${t}`, `recent-${t}`]);
-    expect((await prisma.notification.findMany({ where: { recipientId: ids.person }, select: { title: true } })).map((n) => n.title).sort()).toEqual(["old unread", "recent read"]);
+    expect((await prisma.notification.findMany({ where: { recipientId: ids.person }, select: { title: true } })).map((n) => n.title).sort()).toEqual(["recent read", "recent unread"]);
   });
 
   test("a heartbeat keeps the last good run and the last failure apart", async () => {

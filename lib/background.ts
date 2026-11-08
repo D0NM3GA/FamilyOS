@@ -48,8 +48,6 @@ function jobs(): Job[] {
       },
     },
     { name: "entra", run: async () => (await import("@/lib/entra-check")).runScheduledEntraCheck() },
-    // Phase 62: doses, meds running low, school due, birthdays (lib/reminders).
-    { name: "reminders", run: async () => (await import("@/lib/reminders/run")).runReminders() },
     {
       name: "cleanup",
       run: async () => {
@@ -57,21 +55,82 @@ function jobs(): Job[] {
         return `${sessions} old sessions, ${notifications} old notifications`;
       },
     },
+    // Phase 62 (last since Phase 67b, so its system reminder sees this tick's other jobs): doses, meds running low, school due, birthdays (lib/reminders).
+    { name: "reminders", run: async () => (await import("@/lib/reminders/run")).runReminders() },
   ];
 }
 
+/** Phase 67b: how long one job may take before the tick gives up on it and moves on. */
+export const JOB_TIMEOUT_MS = 10 * 60_000;
+
+export class JobStillRunning extends Error {
+  constructor() {
+    super("still running from an earlier tick");
+    this.name = "JobStillRunning";
+  }
+}
+
 /**
- * One tick: every job in turn, each in its own try/catch, its heartbeat recorded either way.
- * Returns whether every job succeeded. Exported for tests (`list` and `record` stand in).
+ * Runs that timed out and haven't finished yet, by job. A job that hangs every tick would
+ * otherwise pile up abandoned runs, each holding database connections, until the web pages
+ * starve; its next run waits until the last one settles.
+ */
+const abandoned = new Map<string, Promise<unknown>>();
+
+export class JobTimedOut extends Error {
+  constructor() {
+    super("timed out");
+    this.name = "JobTimedOut";
+  }
+}
+
+/**
+ * The job's answer, or JobTimedOut past `ms`. A promise can't be cancelled, so a timed-out run
+ * carries on by itself: its late answer is dropped (nothing records it), and the jobs that could
+ * clash with a second run hold leases (money, the Entra check) or claim per key (reminders); the
+ * rest are idempotent.
+ */
+export async function withTimeout<T>(run: Promise<T>, ms: number): Promise<T> {
+  // A late failure from an abandoned run mustn't become an unhandled rejection.
+  run.catch(() => {});
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new JobTimedOut()), ms);
+    timer.unref?.();
+  });
+  try {
+    return await Promise.race([run, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * One tick: every job in turn, each in its own try/catch, its heartbeat recorded either way, and
+ * (Phase 67b) each within JOB_TIMEOUT_MS, so one hung call can't hold up the jobs after it.
+ * Returns whether every job succeeded. Exported for tests (`list`, `record` and `timeoutMs` stand in).
  */
 export async function runTick(
   list: Job[] = jobs(),
   record: { ok: (name: string, detail: string | null) => Promise<void>; failed: (name: string, err: unknown) => Promise<void> } = defaultRecord,
+  timeoutMs: number = JOB_TIMEOUT_MS,
 ): Promise<boolean> {
   let allOk = true;
   for (const job of list) {
     try {
-      const detail = await job.run();
+      if (abandoned.has(job.name)) throw new JobStillRunning();
+      const run = Promise.resolve().then(() => job.run());
+      let detail: string | null | void;
+      try {
+        detail = await withTimeout(run, timeoutMs);
+      } catch (err) {
+        if (err instanceof JobTimedOut) {
+          abandoned.set(job.name, run);
+          void run.catch(() => {}).finally(() => abandoned.delete(job.name));
+          log.warn("jobs.abandoned", { job: job.name });
+        }
+        throw err;
+      }
       await record.ok(job.name, detail || null).catch((err) => log.warn("jobs.heartbeat_failed", { job: job.name, error: describeError(err) }));
     } catch (err) {
       allOk = false;

@@ -7,7 +7,8 @@ import { captureError } from "@/lib/observability";
 import { formatTimeOfDay } from "@/lib/format";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
-import { DOSE_LOOKBACK_MS, planCars, planDates, planDoses, planMedLow, planRecalls, planSchool, type NewRecall, type Reminder, type ReminderKind } from "./plan";
+import { DOSE_LOOKBACK_MS, planCars, planDates, planDoses, planMedLow, planRecalls, planSchool, planSystem, type NewRecall, type Reminder, type ReminderKind } from "./plan";
+import { JOBS } from "@/lib/heartbeat-state";
 import { computeDueStatus } from "@/lib/vehicles/due-status";
 import { daysUntilMiles, milesPerDay, MILEAGE_WINDOW_DAYS, type Reading } from "@/lib/vehicles/mileage";
 import { checkRecalls } from "@/lib/vehicles/nhtsa";
@@ -31,12 +32,13 @@ export const REMINDER_CARDS: Record<ReminderKind, TeamsCard> = {
   REMINDER_DATE: { heading: "📅 People", linkText: "Open their page" },
   REMINDER_CAR: { heading: "🚐 Cars", linkText: "Open Cars" },
   REMINDER_RECALL: { heading: "🚐 Cars", linkText: "Open Cars" },
+  REMINDER_SYSTEM: { heading: "⚙️ The app", linkText: "Open Data & backups" },
 };
 
 /** Send history older than this is forgotten. */
 export const REMINDER_MEMORY_DAYS = 400;
 
-type Person = { id: string; adult: boolean; off: string[]; quietStart: number | null; quietEnd: number | null };
+type Person = { id: string; adult: boolean; admin: boolean; off: string[]; quietStart: number | null; quietEnd: number | null };
 
 export async function runReminders(now: Date = new Date()): Promise<string> {
   await prisma.reminderSent.deleteMany({ where: { sentAt: { lt: new Date(now.getTime() - REMINDER_MEMORY_DAYS * 86_400_000) } } });
@@ -70,6 +72,8 @@ export async function remindHousehold(householdId: string, now: Date): Promise<n
     kinds.push(["recalls", () => recallReminders(householdId, grownUps, now)]);
   }
   kinds.push(["dates", () => dateReminders(householdId, grownUps, now)]);
+  // Phase 67b: a job or the nightly backup that stopped, to the admins.
+  kinds.push(["system", async () => planSystem(await prisma.systemHeartbeat.findMany(), JOBS, people.filter((p) => p.admin), now)]);
 
   for (const [name, plan] of kinds) {
     try {
@@ -130,6 +134,7 @@ async function loadPeople(householdId: string): Promise<Person[]> {
   return rows.map((p) => ({
     id: p.id,
     adult: adults.has(p.id),
+    admin: adults.has(p.id) && p.role === "ADMIN",
     off: p.reminderPrefs?.off ?? [],
     quietStart: p.reminderPrefs?.quietStart ?? null,
     quietEnd: p.reminderPrefs?.quietEnd ?? null,
