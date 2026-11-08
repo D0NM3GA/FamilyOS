@@ -54,6 +54,8 @@ export async function searchHousehold(
             domain: "MED",
             active: true,
             title: { contains: term, mode: "insensitive" },
+            // Phase 66a: a kid finds only their own medicines (none without an id to go by).
+            ...(opts.viewerIsAdult ? {} : { assignees: { some: { id: opts.viewerId ?? "" } } }),
           },
           take: RESULTS_PER_GROUP,
           orderBy: { title: "asc" },

@@ -50,7 +50,8 @@ export async function getAgendaWeek(
   }
 
   const [tasks, dates, school, events, vehicles] = await Promise.all([
-    loadTaskInstances(viewer.householdId, { domains, from: start, until: tasksUntil }),
+    // Phase 66a: someone's doses are theirs and the grown-ups', so a kid's agenda has only their own.
+    loadTaskInstances(viewer.householdId, { domains, from: start, until: tasksUntil, dosesFor: adult ? undefined : viewer.id }),
     loadImportantDates(viewer.householdId),
     on("school") ? loadSchoolDue(viewer, start, end) : [],
     on("school") ? loadSchoolEvents(viewer, start, end, timeZone) : [],
