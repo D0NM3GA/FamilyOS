@@ -124,3 +124,30 @@ describe("a job that hangs (Phase 67b)", () => {
     expect(failed).toEqual(["zone"]);
   });
 });
+
+describe("a run that times out (Phase 67b)", () => {
+  it("drops its late answer, and the next tick doesn't start it again until it ends", async () => {
+    const { runTick } = await import("./background");
+    let finish: () => void = () => {};
+    const slow = new Promise<void>((resolve) => (finish = resolve));
+    const ok: string[] = [];
+    const failed: [string, string][] = [];
+    const record = { ok: async (n: string) => void ok.push(n), failed: async (n: string, err: unknown) => void failed.push([n, (err as Error).message]) };
+    let starts = 0;
+    const job = { name: "purges" as const, run: () => (starts++, slow) };
+    await runTick([job], record, 20);
+    await runTick([job], record, 20);
+    expect(starts).toBe(1);
+    expect(failed).toEqual([
+      ["purges", "timed out"],
+      ["purges", "still running from an earlier tick"],
+    ]);
+    finish();
+    await slow;
+    await new Promise((r) => setTimeout(r, 0));
+    // The late answer was never recorded; once it ended, the job runs again.
+    expect(ok).toEqual([]);
+    await runTick([{ name: "purges", run: async () => "done" }], record, 20);
+    expect(ok).toEqual(["purges"]);
+  });
+});

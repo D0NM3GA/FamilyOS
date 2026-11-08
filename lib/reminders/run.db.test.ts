@@ -94,9 +94,11 @@ describe.skipIf(!RUN)("reminders (database)", { timeout: 60_000 }, () => {
     try {
       await remindHousehold(ids.h, now);
       await remindHousehold(ids.h, new Date(now.getTime() + 30 * 60_000));
-      expect((await bell(ids.dad)).filter((k) => k === "REMINDER_SYSTEM")).toHaveLength(1);
-      expect(await bell(ids.mom)).not.toContain("REMINDER_SYSTEM");
-      expect(await bell(ids.ivy)).not.toContain("REMINDER_SYSTEM");
+      // By its title: a dev database can hold other stale heartbeats of its own.
+      const purges = (personId: string) => prisma.notification.count({ where: { recipientId: personId, kind: "REMINDER_SYSTEM", title: { contains: "Expired sign-in links" } } });
+      expect(await purges(ids.dad)).toBe(1);
+      expect(await purges(ids.mom)).toBe(0);
+      expect(await purges(ids.ivy)).toBe(0);
     } finally {
       if (before) await prisma.systemHeartbeat.update({ where: { name: "purges" }, data: before });
       else await prisma.systemHeartbeat.delete({ where: { name: "purges" } });

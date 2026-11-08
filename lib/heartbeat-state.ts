@@ -11,8 +11,8 @@ export const JOBS: { name: JobName; label: string }[] = [
   { name: "money", label: "Money syncs and alerts" },
   { name: "purges", label: "Expired sign-in links and invites" },
   { name: "entra", label: "Microsoft access check" },
-  { name: "reminders", label: "Reminders" },
   { name: "cleanup", label: "Tidying old sessions and notifications" },
+  { name: "reminders", label: "Reminders" },
 ];
 
 /** The host's nightly backup writes this row itself (scripts/backup-prod.sh). */

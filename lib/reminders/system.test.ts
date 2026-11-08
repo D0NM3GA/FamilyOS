@@ -13,6 +13,7 @@ const jobs = [
 ];
 const row = (name: string, lastOkAt: Date | null, lastErrorAt: Date | null = null) => ({ name, lastOkAt, lastErrorAt, lastError: null, detail: null });
 const admins = [{ id: "dad" }];
+const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 describe("planSystem", () => {
   it("reminds about a failing or late job and a late backup, not a healthy or never-run one", () => {
@@ -23,13 +24,23 @@ describe("planSystem", () => {
       NOW,
     );
     expect(plans.map((p) => p.key)).toEqual([
-      `system:money:failing:${minutes(60).toISOString()}`,
+      `system:money:failing:${localDay(minutes(60))}`,
       `system:entra:late:${minutes(200).toISOString()}`,
       `system:backup:late:${minutes(40 * 60).toISOString()}`,
     ]);
     expect(plans.every((p) => p.kind === "REMINDER_SYSTEM" && p.href === "/data#system" && !p.urgent && p.recipients.join() === "dad")).toBe(true);
     expect(plans[0].title).toMatch(/^⚠️ Money syncs and alerts stopped working; it last worked /);
     expect(plans[2].title).toMatch(/^⚠️ The nightly backup hasn't run since /);
+  });
+
+  it("leaves out the reminders job, which this runs inside", () => {
+    expect(planSystem([row("reminders", minutes(500))], [...jobs, { name: "reminders", label: "Reminders" }], admins, NOW)).toEqual([]);
+  });
+
+  it("a job that keeps failing and recovering reminds once that day", () => {
+    const morning = planSystem([row("money", minutes(90), minutes(60))], jobs, admins, NOW);
+    const noon = planSystem([row("money", minutes(30), minutes(1))], jobs, admins, NOW);
+    expect(morning[0].key).toBe(noon[0].key);
   });
 
   it("keeps the same key while a job keeps failing, so it reminds once", () => {
@@ -39,7 +50,7 @@ describe("planSystem", () => {
   });
 
   it("a backup that never ran, and no admins, remind nobody", () => {
-    expect(planSystem([], jobs, admins, NOW)).toEqual([]);
+    expect(planSystem([row("money", minutes(10))], jobs, admins, NOW)).toEqual([]);
     expect(planSystem([row("money", minutes(60), minutes(5))], jobs, [], NOW)).toEqual([]);
   });
 });
