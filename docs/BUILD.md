@@ -2362,3 +2362,31 @@ On Overdue and Upcoming (Chores and Meds) a done card leaves the list, and on Ho
 and undo, and the bar stays ten seconds, held while the pointer or focus is on it. Meds gets the
 wrapper too. `MoreMenu` (the status pill, every ⋯): tapping its own button again closes it; before,
 the menu's blur closed it first and the same tap opened it again.
+
+### After Phase 70: a polish sweep (menus and feedback)
+
+The owner asked for more fixes like the Undo bar: small things that make the app feel finished.
+Three read-only sweeps (feedback that vanishes, menus, forms after a submit) found them; this
+batch takes the first two. The forms batch (errors that wipe what was typed) follows on its own.
+
+- **One Escape, one layer.** The bell, profile menu and app launcher listen for Escape in the
+  capture phase and mark it handled, so an item panel or look sheet underneath stays open. The look
+  sheet marks its own Escape handled and the item panel waits while it's open (`[data-look-sheet]`).
+- **Undo bar for more than Done.** `UndoReport` takes a `verb`: **Missed** on an overdue card
+  ("marked missed") and **Move to tomorrow** ("moved to tomorrow", undone by Move back) hand the
+  bar their undo. A refused Move back shows "Couldn't undo that".
+- **Say what happened when a row leaves.** A grown-up's OK / Not yet and a kid's Deal / No thanks
+  redirect with `?check=` / `?swap=taken|declined`, and the page says so; the check note shows even
+  with nothing left to check.
+- **Status pill keeps focus while saving.** `MoreMenu` and `StatusPill` take `busy`: the button
+  stays (aria-disabled, no popover) instead of turning into a plain label, which dropped keyboard
+  focus to the page.
+- **Picker:** a second tap on an open list closes it (a tap that focuses the box still opens it).
+- **Bell:** a fresh "Loading…" each time it opens, not last time's list, and a failed load says so
+  in the panel instead of reaching the error page.
+- **Bulk bar:** a failed bulk change keeps the ticks, so its message used to show nowhere; it shows
+  in the bar now.
+- **Smaller ones:** cancelling Sick day puts focus back on its menu button; a long ⋯ menu scrolls
+  inside itself on a phone; a failed sign-out says so; a kid's picture tile says when its add failed;
+  the grocery list's Undo bar stays ten seconds like the chores one (was six); the odometer's
+  "Saved ✓" stays four seconds and is announced, and fuel and contact-log notes stay four seconds.
