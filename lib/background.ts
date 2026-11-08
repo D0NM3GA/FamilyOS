@@ -34,6 +34,22 @@ type Job = { name: JobName; run: () => Promise<string | null | void> };
 function jobs(): Job[] {
   return [
     { name: "zone", run: async () => (await import("@/lib/household-zone")).syncServerZone() },
+    // Phase 67c: the encryption key still opens what's stored; while a change of key is under way,
+    // everything stored is re-sealed with the new one (README "Changing the encryption key").
+    {
+      name: "keys",
+      run: async () => {
+        const keys = await import("@/lib/key-check");
+        await keys.checkKey();
+        if (!keys.hasPreviousKey()) return keys.keysDetail(false, 0, 0);
+        const counts = await Promise.all([
+          keys.resealServerSecrets(),
+          (await import("@/lib/finance/reseal")).resealJarConnections(),
+          (await import("@/lib/school/feeds/reseal")).resealSchoolFeeds(),
+        ]);
+        return keys.keysDetail(true, counts.reduce((n, c) => n + c.resealed, 0), counts.reduce((n, c) => n + c.unreadable, 0));
+      },
+    },
     { name: "money", run: async () => (await import("@/lib/finance/jobs")).runMoneyJobs() },
     {
       name: "purges",

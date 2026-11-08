@@ -28,6 +28,26 @@ if (key.length !== KEY_LENGTH) {
   );
 }
 
+/**
+ * Phase 67c: the key before a change of key, set only while changing it (README "Changing the
+ * encryption key"). Anything the current key can't open is tried with this one, so old rows and
+ * old backups' money sections still open; the `keys` background job re-seals the stored ones with
+ * the current key (lib/key-check.ts). Checked at start like the current key.
+ */
+const rawPrevious = process.env.INTEGRATION_ENCRYPTION_KEY_PREVIOUS?.trim();
+const previousKey = rawPrevious ? Buffer.from(rawPrevious, "base64") : null;
+if (previousKey && previousKey.length !== KEY_LENGTH) {
+  throw new Error(`INTEGRATION_ENCRYPTION_KEY_PREVIOUS must decode (base64) to exactly ${KEY_LENGTH} bytes, got ${previousKey.length}.`);
+}
+if (previousKey && previousKey.equals(key)) {
+  throw new Error("INTEGRATION_ENCRYPTION_KEY_PREVIOUS is the same as INTEGRATION_ENCRYPTION_KEY. Set it to the old key, or remove it.");
+}
+
+/** Whether a previous key is set (a change of key is under way). */
+export function hasPreviousKey(): boolean {
+  return previousKey !== null;
+}
+
 export type EncryptedSecret = { encryptedValue: Buffer; iv: Buffer; authTag: Buffer };
 
 /**
@@ -51,26 +71,48 @@ export function encryptBytes(plaintext: Buffer, aad: string): EncryptedSecret {
   return { encryptedValue, iv, authTag: cipher.getAuthTag() };
 }
 
-export function decryptBytes(secret: EncryptedSecret, aad: string): Buffer {
-  if (secret.iv.length !== IV_LENGTH || secret.authTag.length !== AUTH_TAG_LENGTH) {
-    throw new Error("Malformed sealed data: unexpected nonce/tag length.");
-  }
-  const decipher = createDecipheriv(ALGORITHM, key, secret.iv, { authTagLength: AUTH_TAG_LENGTH });
+function openWith(k: Buffer, secret: EncryptedSecret, aad: string): Buffer {
+  // Pinning authTagLength here (rather than trusting the stored tag's own length) stops a
+  // DB-write attacker from shortening the tag to weaken forgery resistance.
+  const decipher = createDecipheriv(ALGORITHM, k, secret.iv, { authTagLength: AUTH_TAG_LENGTH });
   decipher.setAAD(Buffer.from(aad, "utf8"));
   decipher.setAuthTag(secret.authTag);
   return Buffer.concat([decipher.update(secret.encryptedValue), decipher.final()]);
 }
 
-export function decryptSecret(secret: EncryptedSecret, aad: string): string {
-  // Pinning authTagLength here (rather than trusting the stored tag's own length) stops a
-  // DB-write attacker from shortening the tag to weaken forgery resistance.
+/**
+ * Opens a seal with the current key, else (Phase 67c) the previous one, saying which. GCM's tag
+ * makes the wrong key fail cleanly, so trying both is safe. Throws when neither opens it.
+ */
+export function openSealed(secret: EncryptedSecret, aad: string): { plain: Buffer; withPrevious: boolean } {
   if (secret.iv.length !== IV_LENGTH || secret.authTag.length !== AUTH_TAG_LENGTH) {
-    throw new Error("Malformed secret: unexpected iv/authTag length.");
+    throw new Error("Malformed sealed data: unexpected nonce/tag length.");
   }
-  const decipher = createDecipheriv(ALGORITHM, key, secret.iv, { authTagLength: AUTH_TAG_LENGTH });
-  decipher.setAAD(Buffer.from(aad, "utf8"));
-  decipher.setAuthTag(secret.authTag);
-  return Buffer.concat([decipher.update(secret.encryptedValue), decipher.final()]).toString("utf8");
+  try {
+    return { plain: openWith(key, secret, aad), withPrevious: false };
+  } catch (err) {
+    if (!previousKey) throw err;
+    return { plain: openWith(previousKey, secret, aad), withPrevious: true };
+  }
+}
+
+export function decryptBytes(secret: EncryptedSecret, aad: string): Buffer {
+  return openSealed(secret, aad).plain;
+}
+
+export function decryptSecret(secret: EncryptedSecret, aad: string): string {
+  return openSealed(secret, aad).plain.toString("utf8");
+}
+
+/**
+ * Phase 67c: a seal the previous key made, made again with the current one; null when the current
+ * key already opens it. Throws when neither key does.
+ */
+export function resealIfPrevious(secret: EncryptedSecret, aad: string): { sealed: EncryptedSecret; plain: string } | null {
+  const opened = openSealed(secret, aad);
+  if (!opened.withPrevious) return null;
+  const plain = opened.plain.toString("utf8");
+  return { sealed: encryptSecret(plain, aad), plain };
 }
 
 /**
