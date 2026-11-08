@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import {
   compareAgendaItems,
   dayKey,
@@ -324,5 +324,21 @@ describe("Home's Today strip (Phase 64a)", () => {
     expect(shown.slice(0, 2).map((i) => i.key)).toEqual(["allday", "early"]);
     expect(shown).toHaveLength(8);
     expect(more).toBe(2);
+  });
+});
+
+describe("Outlook items with a driver (Phase 70b)", () => {
+  test("the driver joins the note, and a grown-up's link opens where it's set", async () => {
+    const { outlookItems } = await import("./agenda");
+    const start = new Date(2026, 10, 8);
+    const at = new Date(2026, 10, 10, 16, 30);
+    const [item] = outlookItems(
+      [{ id: "c:g", subject: "Soccer", start: at, end: new Date(at.getTime() + 3_600_000), isAllDay: false, location: "Field 3", webLink: null, driver: "Dad", driveHref: "/calendar/drive?c=c&g=g" }],
+      start,
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    );
+    expect(item.note).toBe("Driving: Dad · Field 3");
+    expect(item.href).toBe("/calendar/drive?c=c&g=g");
+    expect(item.external).toBe(false);
   });
 });

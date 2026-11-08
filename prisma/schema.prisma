@@ -216,6 +216,9 @@ model Person {
   calendarSyncs      CalendarSync[]
   /// Phase 70a: this person's own Outlook calendar (and the family one, when it's in their mailbox).
   outlookCalendars   OutlookCalendar[]
+  /// Phase 70b: the Outlook events this grown-up is driving to, and the ones they set a driver on.
+  drivingTo          EventDriver[]        @relation("EventDriverPerson")
+  driversSet         EventDriver[]        @relation("EventDriverSetBy")
   interactions       InteractionLog[]     @relation("PersonInteractions")
   loggedInteractions InteractionLog[]     @relation("LoggedInteractions")
   relationshipsFrom  PersonRelationship[] @relation("RelationshipFrom")
@@ -1616,7 +1619,8 @@ model OutlookCalendar {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  events OutlookEvent[]
+  events  OutlookEvent[]
+  drivers EventDriver[]
 
   @@unique([householdId, kind, personId])
   @@map("outlook_calendar")
@@ -1641,6 +1645,29 @@ model OutlookEvent {
   @@id([outlookCalendarId, graphId])
   @@index([outlookCalendarId, startsAt])
   @@map("outlook_event")
+}
+
+/// Phase 70b: who's driving to a copied Outlook event, set by a grown-up in the app (never written
+/// to Outlook). Keyed by the event's immutable Graph id, so it survives the copy being replaced; it
+/// goes once its event is missing from a successful copy and ended before the copy's window.
+model EventDriver {
+  id                String          @id @default(cuid())
+  outlookCalendarId String
+  outlookCalendar   OutlookCalendar @relation(fields: [outlookCalendarId], references: [id], onDelete: Cascade)
+  graphId           String
+  personId          String
+  person            Person          @relation("EventDriverPerson", fields: [personId], references: [id], onDelete: Cascade)
+  setById           String?
+  setBy             Person?         @relation("EventDriverSetBy", fields: [setById], references: [id], onDelete: SetNull)
+  /// The event's end when the driver was set, for dropping it once it's long past.
+  endsAt            DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([outlookCalendarId, graphId])
+  @@index([personId])
+  @@map("event_driver")
 }
 
 /// Calendar write-back (Phase 17): one household's dedicated Outlook calendar, created by

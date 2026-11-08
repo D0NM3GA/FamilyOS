@@ -23,9 +23,14 @@ export type CopiedRow = {
   endsAt: Date;
   allDay: boolean;
   isPrivate: boolean;
+  /** Phase 70b: who's driving, if a grown-up set it. */
+  driverId?: string | null;
 };
 
 export type Viewer = { id: string; adult: boolean };
+
+/** The page where a grown-up sets who's driving to one copied event. */
+export const driveHref = (calendarId: string, graphId: string) => `/calendar/drive?c=${encodeURIComponent(calendarId)}&g=${encodeURIComponent(graphId)}`;
 
 /** Whether this viewer may see this calendar's events at all. */
 export function canSeeCalendar(kind: CopiedRow["kind"], personId: string, viewer: Viewer): boolean {
@@ -38,7 +43,7 @@ export function canSeeCalendar(kind: CopiedRow["kind"], personId: string, viewer
  * all-day. The family copy wins (it's everyone's); otherwise the names are joined. Pure.
  */
 export function shapeCopiedEvents(rows: readonly CopiedRow[], viewer: Viewer, names: ReadonlyMap<string, string>): CalendarEvent[] {
-  type Acc = { event: CalendarEvent; family: boolean; people: string[] };
+  type Acc = { event: CalendarEvent; family: boolean; people: string[]; driverId: string | null };
   const byMeeting = new Map<string, Acc>();
   const out: Acc[] = [];
   for (const r of rows) {
@@ -49,6 +54,7 @@ export function shapeCopiedEvents(rows: readonly CopiedRow[], viewer: Viewer, na
     const key = r.iCalUId ? `${r.iCalUId}|${r.startsAt.getTime()}|${r.allDay}` : null;
     const seen = key ? byMeeting.get(key) : undefined;
     if (seen) {
+      seen.driverId ??= r.driverId ?? null;
       if (r.kind === "FAMILY") seen.family = true;
       else if (person && !seen.people.includes(person)) seen.people.push(person);
       // A private copy and a public copy of one meeting: show the title someone may see.
@@ -66,18 +72,22 @@ export function shapeCopiedEvents(rows: readonly CopiedRow[], viewer: Viewer, na
         isAllDay: r.allDay,
         location: r.isPrivate ? null : r.location,
         webLink: null,
+        // Phase 70b: grown-ups open a timed event to say who's driving.
+        driveHref: viewer.adult && !r.allDay ? driveHref(r.calendarId, r.graphId) : null,
       },
       family: r.kind === "FAMILY",
       people: person ? [person] : [],
+      driverId: r.driverId ?? null,
     };
     if (key) byMeeting.set(key, acc);
     out.push(acc);
   }
   return out
-    .map(({ event, family, people }) => {
-      if (family || people.length === 0) return { ...event, who: null, whoId: null };
+    .map(({ event, family, people, driverId }) => {
+      const driver = driverId ? (names.get(driverId) ?? null) : null;
+      if (family || people.length === 0) return { ...event, who: null, whoId: null, driver };
       const who = people.map((p) => names.get(p) ?? "").filter(Boolean).join(" & ") || null;
-      return { ...event, who, whoId: people.length === 1 ? people[0] : null };
+      return { ...event, who, whoId: people.length === 1 ? people[0] : null, driver };
     })
     .sort((a, b) => a.start.getTime() - b.start.getTime());
 }
@@ -103,20 +113,27 @@ export async function getCopiedEvents(profile: Profile, range: { start: Date; en
       person: stillHere,
       ...(viewer.adult ? {} : { OR: [{ kind: "FAMILY" as const }, { personId: viewer.id }] }),
     },
-    select: { id: true, kind: true, personId: true, person: { select: { id: true, firstName: true, lastName: true } } },
+    select: { id: true, kind: true, personId: true },
   });
   if (calendars.length === 0) return { ok: true, events: [], truncated: false };
   const byId = new Map(calendars.map((c) => [c.id, c]));
-  const rows = await prisma.outlookEvent.findMany({
-    where: { outlookCalendarId: { in: calendars.map((c) => c.id) }, startsAt: { lt: range.end }, endsAt: { gt: range.start } },
-    orderBy: { startsAt: "asc" },
-    take: VIEW_LIMIT,
-  });
-  const names = shortNames(calendars.map((c) => c.person));
+  const calendarIds = calendars.map((c) => c.id);
+  const [rows, drivers, members] = await Promise.all([
+    prisma.outlookEvent.findMany({
+      where: { outlookCalendarId: { in: calendarIds }, startsAt: { lt: range.end }, endsAt: { gt: range.start } },
+      orderBy: { startsAt: "asc" },
+      take: VIEW_LIMIT,
+    }),
+    prisma.eventDriver.findMany({ where: { outlookCalendarId: { in: calendarIds }, endsAt: { gt: range.start }, person: stillHere }, select: { outlookCalendarId: true, graphId: true, personId: true } }),
+    // Names for everyone a row can mention: calendars' people and drivers.
+    prisma.person.findMany({ where: { householdId: profile.householdId }, select: { id: true, firstName: true, lastName: true } }),
+  ]);
+  const driverOf = new Map(drivers.map((d) => [`${d.outlookCalendarId}:${d.graphId}`, d.personId]));
+  const names = shortNames(members);
   const shaped = shapeCopiedEvents(
     rows.map((r) => {
       const c = byId.get(r.outlookCalendarId)!;
-      return { calendarId: c.id, kind: c.kind, personId: c.personId, ...r };
+      return { calendarId: c.id, kind: c.kind, personId: c.personId, ...r, driverId: driverOf.get(`${c.id}:${r.graphId}`) ?? null };
     }),
     viewer,
     names,

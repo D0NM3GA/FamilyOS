@@ -341,7 +341,12 @@ export function vehicleItems(rows: readonly VehicleDueRow[]): AgendaItem[] {
 
 export function outlookItems(events: readonly CalendarEvent[], start: Date, timeZone: string, days = 7): AgendaItem[] {
   return events.flatMap((e) =>
-    eventItems({ key: `outlook:${e.id}`, title: e.subject, startsAt: e.start, endsAt: e.end, allDay: e.isAllDay, place: e.location }, start, timeZone, days).map(
+    eventItems(
+      { key: `outlook:${e.id}`, title: e.subject, startsAt: e.start, endsAt: e.end, allDay: e.isAllDay, place: [e.driver ? `Driving: ${e.driver}` : null, e.location].filter(Boolean).join(" · ") || null },
+      start,
+      timeZone,
+      days,
+    ).map(
       (at) => ({
         ...at,
         kind: "outlook" as const,
@@ -350,7 +355,7 @@ export function outlookItems(events: readonly CalendarEvent[], start: Date, time
         who: e.who ?? null,
         whoId: e.whoId ?? null,
         status: "open" as const,
-        href: e.webLink,
+        href: e.webLink ?? e.driveHref ?? null,
         external: e.webLink != null,
       }),
     ),
