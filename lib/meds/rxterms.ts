@@ -40,18 +40,23 @@ export function stripDosageForm(name: string): string {
   return name.replace(/\s*\([^)]*\)\s*$/, "").trim();
 }
 
+const MAX_QUERY = 60;
+const LOOKUP_TIMEOUT_MS = 5_000;
+
 /**
  * Suggested medication names for an autocomplete dropdown. A prefix matcher, so callers
  * should debounce and wait for at least 2 characters — fewer returns nothing useful and
  * risks a request per keystroke for no benefit.
  */
 export async function searchRxTerms(query: string, limit = 8): Promise<string[]> {
-  const term = query.trim();
+  // Phase 67b: a name is short; a longer query is cut, not sent whole.
+  const term = String(query ?? "").trim().slice(0, MAX_QUERY);
   if (term.length < 2) return [];
 
   try {
-    const params = new URLSearchParams({ terms: term, maxList: String(limit) });
-    const res = await fetch(`${BASE}?${params}`);
+    const params = new URLSearchParams({ terms: term, maxList: String(Math.min(Math.max(1, limit), 20)) });
+    // Phase 67b: a slow lookup gives up rather than holding the form's request open.
+    const res = await fetch(`${BASE}?${params}`, { signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS) });
     if (!res.ok) return [];
     return parseRxTermsResponse(await res.json());
   } catch {

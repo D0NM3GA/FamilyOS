@@ -84,3 +84,43 @@ describe("the outside check-in", () => {
     expect(seen).toEqual(["https://hc.example.com/x/fail"]);
   });
 });
+
+describe("a job that hangs (Phase 67b)", () => {
+  it("is recorded as timed out, and the jobs after it still run", async () => {
+    const { runTick } = await import("./background");
+    const ran: string[] = [];
+    const failed: [string, string][] = [];
+    const ok: string[] = [];
+    const result = await runTick(
+      [
+        { name: "entra", run: () => new Promise(() => {}) },
+        { name: "reminders", run: async () => void ran.push("reminders") },
+      ],
+      { ok: async (n) => void ok.push(n), failed: async (n, err) => void failed.push([n, err instanceof Error ? err.message : String(err)]) },
+      20,
+    );
+    expect(result).toBe(false);
+    expect(failed).toEqual([["entra", "timed out"]]);
+    expect(ran).toEqual(["reminders"]);
+    expect(ok).toEqual(["reminders"]);
+  });
+
+  it("a job that throws before its first await is still caught", async () => {
+    const { runTick } = await import("./background");
+    const failed: string[] = [];
+    const result = await runTick(
+      [
+        {
+          name: "zone",
+          run: () => {
+            throw new Error("at once");
+          },
+        },
+      ],
+      { ok: async () => {}, failed: async (n) => void failed.push(n) },
+      20,
+    );
+    expect(result).toBe(false);
+    expect(failed).toEqual(["zone"]);
+  });
+});
