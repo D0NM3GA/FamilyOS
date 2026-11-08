@@ -64,6 +64,8 @@ function jobs(): Job[] {
       },
     },
     { name: "entra", run: async () => (await import("@/lib/entra-check")).runScheduledEntraCheck() },
+    // Phase 70a: after the access check, so someone it just cut off has their calendar dropped this tick.
+    { name: "outlook", run: async () => (await import("@/lib/outlook-copy/copy")).runOutlookCopy() },
     {
       name: "cleanup",
       run: async () => {

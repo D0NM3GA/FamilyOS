@@ -11,7 +11,7 @@ import { upcomingImportantDates, staleContacts, fullName, dateWhen, turnsAge, ge
 import { getAgendaWeek } from "@/lib/calendar/queries";
 import { itemPerson, outlookItems, timeLabel, todayStrip, type AgendaItem } from "@/lib/calendar/agenda";
 import { formatRelative, formatMonthDay, formatTimeOfDay } from "@/lib/format";
-import { atMidnight } from "@/lib/tasks/schedule";
+import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
 import { getBoardInstances } from "@/lib/tasks/queries";
 import { getVehiclesWithStatus } from "@/lib/vehicles/queries";
@@ -20,6 +20,8 @@ import { getHouseholdActivity } from "@/lib/activity";
 import { scheduleAutoSync } from "@/lib/calendar-sync/auto";
 import { getSchoolDueSoon, getUpcomingSchoolEvents } from "@/lib/school/queries";
 import { scheduleFeedRefresh } from "@/lib/school/feeds/schedule";
+import { scheduleOutlookRefresh } from "@/lib/outlook-copy/schedule";
+import { getCopiedEvents, hasOutlookCopy } from "@/lib/outlook-copy/view";
 import { getHouseholdSettings, getRewardWords } from "@/lib/household-settings";
 import { formatDateTime, formatEventWhen } from "@/lib/format";
 import { BunsonMoment } from "@/components/bunson-moment";
@@ -62,6 +64,19 @@ function emptyBoard(today: Date): Board {
  * Phase 19.5 "Big buttons" Home. Fetches only what BigHome shows — none of the full
  * dashboard's Graph calendar, sync, vehicles or activity work.
  */
+/**
+ * Today's copied Outlook events, as Big Home's lines ("4:30 PM Ivy: Soccer"), through the agenda's own
+ * day rules (the household's day, several-day events), like the Today strip. Empty without a copy.
+ */
+async function bigCalendarToday(profile: Awaited<ReturnType<typeof requireActiveProfile>>, today: Date, zone: string): Promise<{ key: string; title: string }[]> {
+  if (!(await hasOutlookCopy(profile.householdId))) return [];
+  const result = await getCopiedEvents(profile, { start: addDays(today, -1), end: addDays(today, 2) }).catch(() => null);
+  if (!result?.ok) return [];
+  return outlookItems(result.events, today, zone, 1)
+    .slice(0, 8)
+    .map((item) => ({ key: item.key, title: [item.minutes === null ? null : timeLabel(item.minutes), item.who ? `${item.who}: ${item.title}` : item.title].filter(Boolean).join(" ") }));
+}
+
 async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof requireActiveProfile>>; on: AppOn }) {
   const today = atMidnight(new Date());
   await Promise.all([
@@ -87,10 +102,13 @@ async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof
   // Phase 64a: what's on at school today (their own feeds and the family's), and the family's
   // birthdays this week; and the Outlook sync, for its owner on their own Microsoft sign-in, as
   // the full Home does.
-  const [schoolToday, dates] = await Promise.all([
+  const [schoolToday, dates, , calendarToday] = await Promise.all([
     on("school") ? getUpcomingSchoolEvents(profile, { days: 0, timeZone: zone }) : [],
     upcomingImportantDates(profile.householdId, 7),
     ownsCalendar ? scheduleAutoSync(profile).catch(() => {}) : null,
+    // Phase 70a: today's events from the copied Outlook calendars (the family's and their own).
+    on("calendar") ? bigCalendarToday(profile, today, zone) : [],
+    on("calendar") ? scheduleOutlookRefresh(profile.householdId).catch(() => {}) : null,
   ]);
   const birthdays = dates
     .filter((d) => d.type === "BIRTHDAY" && d.person.isHouseholdMember)
@@ -116,6 +134,7 @@ async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof
       onUndoAsNeeded={undoAsNeeded}
       school={school}
       schoolToday={schoolToday.map((e) => ({ key: `${e.feedId}:${e.occurrenceKey}`, title: e.title }))}
+      calendarToday={calendarToday}
       birthdays={birthdays}
       onCompleteChore={completeChore}
       onUndoChore={undoChore}
@@ -140,10 +159,13 @@ export default async function HomePage() {
   // Home only shows overdue + today, so only that much needs to exist yet.
   const today = atMidnight(new Date());
   // Phase 40.1b: and only a Microsoft sign-in has an Outlook calendar (not a passkey).
-  const [showCalendar, settings] = await Promise.all([
+  const [showCalendar, settings, copied] = await Promise.all([
     Promise.all([isSessionOwner(profile), signInKind(profile)]).then(([owner, kind]) => owner && kind === "microsoft"),
     getHouseholdSettings(profile.householdId),
+    // Phase 70a: the family's copied Outlook calendars, shown to everyone (kids: the family's and their own).
+    on("calendar") ? hasOutlookCopy(profile.householdId) : false,
     on("school") ? scheduleFeedRefresh(profile.householdId).catch(() => {}) : null,
+    on("calendar") ? scheduleOutlookRefresh(profile.householdId).catch(() => {}) : null,
     on("chores") ? ensureInstancesGenerated(profile.householdId, today, "CHORE") : null,
     on("meds") ? ensureInstancesGenerated(profile.householdId, today, "MED") : null,
   ]);
@@ -202,12 +224,16 @@ export default async function HomePage() {
   // Outlook joins the Today strip from the Calendar card's own fetch, shared, inside its own Suspense.
   const memberIds = new Set(members.map((m) => m.id));
   const colors = Object.fromEntries(members.map((m) => [m.id, personColor(m).bg]));
-  const outlookLoad: Promise<ThisWeekResult> | null =
-    on("calendar") && microsoftEnabled()
-      ? showCalendar && profile.authUserId
-        ? getThisWeekEvents(profile.authUserId, profile.homeCalendarId)
-        : Promise.resolve<ThisWeekResult>({ ok: false, error: "Outlook shows here for whoever signed in with Microsoft, on their own profile." })
-      : null;
+  const weekStart = addDays(today, -today.getDay());
+  const outlookLoad: Promise<ThisWeekResult> | null = !on("calendar")
+    ? null
+    : copied
+      ? getCopiedEvents(profile, { start: weekStart, end: addDays(weekStart, 7) }, { max: 25 })
+      : microsoftEnabled()
+        ? showCalendar && profile.authUserId
+          ? getThisWeekEvents(profile.authUserId, profile.homeCalendarId)
+          : Promise.resolve<ThisWeekResult>({ ok: false, error: "Outlook shows here for whoever signed in with Microsoft, on their own profile." })
+        : null;
   // Cards stagger in by position, so a turned-off app's card leaves no gap in the rhythm.
   // The app cards are named by their app's id; the rest aren't switchable, so always on.
   // Phase 40.1b: the calendar card is Outlook's, so an install without Microsoft has none.
@@ -537,7 +563,10 @@ async function CalendarCard({ load, index }: { load: Promise<ThisWeekResult>; in
         <ul className="space-y-2">
           {result.events.map((e) => (
             <li key={e.id} className="flex justify-between gap-2 text-sm">
-              <span className="min-w-0 truncate text-foreground">{e.subject}</span>
+              <span className="min-w-0 truncate text-foreground">
+                {e.who && <span className="font-bold">{e.who}: </span>}
+                {e.subject}
+              </span>
               <span className="shrink-0 text-muted-foreground">
                 {formatEventTime(e)}
                 {!e.isAllDay && <AwayTime at={e.start} />}

@@ -96,6 +96,7 @@ model Household {
   alerts                 HouseholdAlerts?
   vehicleSupplies        VehicleSupply[]
   calendarSync           CalendarSync?
+  outlookCalendars       OutlookCalendar[]
   schoolTasks            SchoolTask[]
   schoolFeeds            SchoolFeed[]
   backupEvents           BackupEvent[]
@@ -214,6 +215,8 @@ model Person {
 
   importantDates     ImportantDate[]
   calendarSyncs      CalendarSync[]
+  /// Phase 70a: this person's own Outlook calendar (and the family one, when it's in their mailbox).
+  outlookCalendars   OutlookCalendar[]
   interactions       InteractionLog[]     @relation("PersonInteractions")
   loggedInteractions InteractionLog[]     @relation("LoggedInteractions")
   relationshipsFrom  PersonRelationship[] @relation("RelationshipFrom")
@@ -1624,6 +1627,71 @@ model SchoolFeedEvent {
   @@id([feedId, occurrenceKey])
   @@index([feedId, startsAt])
   @@map("school_feed_event")
+}
+
+enum OutlookCalendarKind {
+  /// Someone's own calendar: shown to them and to the grown-ups.
+  PERSON
+  /// The family's calendar: shown to everyone. One per household (a partial unique index).
+  FAMILY
+}
+
+/// Phase 70a: an Outlook calendar the app copies in the background with its own app-only token
+/// (Exchange "RBAC for Applications" Calendars.Read, scoped to the family's mailboxes), so kids and
+/// a shared tablet see it without anyone's sign-in. Integration state, not household data: not in
+/// backups; the next copy rebuilds it.
+model OutlookCalendar {
+  id          String              @id @default(cuid())
+  householdId String
+  household   Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  kind        OutlookCalendarKind
+  /// Whose calendar (PERSON), or whose mailbox the family calendar lives in (FAMILY): its private
+  /// events show to this person only.
+  personId    String
+  person      Person              @relation(fields: [personId], references: [id], onDelete: Cascade)
+  /// What Graph's /users/{id} takes: the Microsoft sign-in's object id, or an address an admin typed.
+  mailbox     String
+  /// Null = the mailbox's main calendar.
+  graphCalendarId String?
+  /// Display only.
+  calendarName    String?
+  active          Boolean   @default(true)
+  leaseUntil      DateTime?
+  lastFetchedAt   DateTime?
+  lastSuccessAt   DateTime?
+  /// Fixed text only.
+  lastError       String?
+  /// Graph said to wait (429).
+  retryAfterUntil DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events OutlookEvent[]
+
+  @@unique([householdId, kind, personId])
+  @@map("outlook_calendar")
+}
+
+/// Phase 70a: the copy of one calendar for a window around today, replaced on every refresh. A
+/// private event is kept without its title or place. Timed events are instants; all-day events are
+/// UTC midnight of their date, end exclusive (like SchoolFeedEvent).
+model OutlookEvent {
+  outlookCalendarId String
+  outlookCalendar   OutlookCalendar @relation(fields: [outlookCalendarId], references: [id], onDelete: Cascade)
+  /// Graph's immutable id (Prefer: IdType="ImmutableId").
+  graphId           String
+  iCalUId           String?
+  title             String?
+  location          String?
+  startsAt          DateTime
+  endsAt            DateTime
+  allDay            Boolean
+  isPrivate         Boolean
+
+  @@id([outlookCalendarId, graphId])
+  @@index([outlookCalendarId, startsAt])
+  @@map("outlook_event")
 }
 
 /// Calendar write-back (Phase 17): one household's dedicated Outlook calendar, created by

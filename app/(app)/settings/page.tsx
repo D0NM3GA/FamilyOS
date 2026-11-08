@@ -14,6 +14,7 @@ import { alertMailbox } from "@/lib/alerts/email";
 import { cleanDisabledApps } from "@/lib/apps";
 import { formatRelative } from "@/lib/format";
 import { buildHub } from "@/lib/settings-hub";
+import { COPY_ERRORS } from "@/lib/graph/app-calendar";
 import { btn } from "@/components/styles";
 import { SettingsHub } from "./hub";
 import { SetupCard } from "./setup-card";
@@ -35,7 +36,7 @@ export default async function SettingsPage() {
   const admin = isAdmin(profile);
   const none = Promise.resolve(null);
 
-  const [signIn, owner, members, household, look, invites, phones, passkeys, hasPin, alerts, alertChannels, lastBackup, outlookSync, calendarOn, setup] = await Promise.all([
+  const [signIn, owner, members, household, look, invites, phones, passkeys, hasPin, alerts, alertChannels, lastBackup, outlookSync, calendarOn, setup, outlookCopies] = await Promise.all([
     adult && profile.authUserId ? backupSignInState(profile) : none,
     isSessionOwner(profile),
     adult ? getHouseholdMembers(profile.householdId) : Promise.resolve([]),
@@ -65,6 +66,7 @@ export default async function SettingsPage() {
     appOn(profile.householdId, "calendar"),
     // Phase 45.4: what's left to set up.
     loadSetupChecklist(profile),
+    admin ? prisma.outlookCalendar.findMany({ where: { householdId: profile.householdId, active: true }, select: { lastError: true } }) : Promise.resolve(null),
   ]);
 
   const groups = buildHub({
@@ -88,6 +90,7 @@ export default async function SettingsPage() {
     alertsEmail: Boolean(await alertMailbox(profile.householdId)) && alertChannels.some((p) => p.emailEnabled),
     outlookOn: adult && calendarOn && microsoftEnabled(),
     outlookSync: outlookSync ? { error: Boolean(outlookSync.lastError) } : null,
+    outlookCopies: outlookCopies ? { count: outlookCopies.length, error: outlookCopies.some((c) => Boolean(c.lastError) && c.lastError !== COPY_ERRORS.truncated) } : null,
     lastBackup: lastBackup ? { at: lastBackup.createdAt, label: formatRelative(lastBackup.createdAt) } : null,
     now: new Date(),
   });

@@ -91,7 +91,7 @@ owner is docs/PLAN.md ("Current state" and "Open items").
 | **Roles & admin** | Admin/Adult role (from Entra app roles for Microsoft people, set in the app for everyone else), admin-only household member management |
 | **People Hub** | Contact/member records, interaction logging (backdated, editable), important dates (editable), "haven't talked in a while" with one-tap 📞/💬 on Home, Around the house (a member's stickers, list items, school), delete for plain contacts |
 | **Chores** | Generic recurring-task engine (recurrence + rotation + stickers), Today/Overdue/Upcoming board; grown-ups' Skip/Missed; overdue reaches back a week, older misses cleared in one tap; tick off on Home too; a grown-up's check before stickers on chosen chores, and kids swapping chores (Phase 70c) |
-| **Calendar** | The family's week: chores and doses, dates, homework and school calendars, car maintenance, the owner's Outlook events; open to kids (their own school things, no cars, no Outlook); Outlook sync settings at /calendar/outlook |
+| **Calendar** | The family's week: chores and doses, dates, homework and school calendars, car maintenance, Outlook events (each person's own and the family calendar, copied in the background for everyone, Phase 70a); open to kids (their own school things, of Outlook the family's and their own, no cars); Outlook sync settings at /calendar/outlook |
 | **Meds** | Same task engine, extended with multi-dose ("3x/day") recurrence; points go to whoever the dose was for |
 | **Groceries (Phase 22)** | One add box (type, pick, or scan; typed items become Pantry items), item sheet with "How it comes" sizes ("31.1 lb bag") and where we buy it, sections suggested from the name, usual amounts learned from trips, −/+ on each row, "who's it for" tags; the Pantry tidy-up page with "Needs details" and grown-up "Same as…" merge. **Shop view (Phase 23):** big rows by store and section, check-offs that work with no signal and sync later, and **the list itself opens with no signal (Phase 44)**, screen kept on, "In the cart", undo, Finish trip carries leftovers over. Kids get picture tiles that add straight to the list; grown-ups can say "Not this time" and the kid gets a kind note in their bell. Barcodes look up Open Food Facts (food, pet food, household goods) **Receipt prices (Phase 24):** snap the receipt after a trip; Azure AI Document Intelligence reads it, lines are matched to what you bought (and remembered), and grown-ups see "Last paid" on items. **Store sections (Phase 37):** grown-ups rename, reorder (the way you walk the store), add and remove sections from the Pantry page; a removed section's items move where you say, and new items are still guessed into a renamed section. |
 | **Make it yours (Phase 35)** | Each family's own app name (they type the name, the app adds OS), top bar color, reward word (stickers, stars, points, coins, gems or their own), mascot on/off and name, and Home Screen icon, in Settings → Make it yours |
@@ -707,9 +707,51 @@ served from this app).
 ## Family calendar
 
 The **Calendar** app (`/calendar`) shows the family's week in one place: chores and doses,
-birthdays and dates, homework and school calendars, car maintenance, and (for the signed-in
-account's own profile only) its Outlook events. `?view=month` shows a month of events, and grown-ups can filter by person (`?who=`). Each item links to where it lives. Kids have it too:
-they see only their own school things, no cars and no Outlook.
+birthdays and dates, homework and school calendars, car maintenance, and Outlook events.
+`?view=month` shows a month of events, and grown-ups can filter by person (`?who=`). Each item links to where it lives. Kids have it too:
+they see only their own school things, no cars, and of Outlook only the family calendar and their own.
+
+Outlook comes in one of two ways. Once an admin sets up **Outlook calendars** (below), the app
+copies them and everyone reads the copy. Until then, the grown-up signed in with
+Microsoft sees their own Outlook live, on their own profile only.
+
+### Outlook calendars (Phase 70a, once by an admin)
+
+Settings → **Outlook calendars** copies each person's own Outlook calendar and one family calendar
+into the app, so kids and a shared tablet see them without anyone's Microsoft sign-in. Grown-ups
+see every copied calendar; kids see the family calendar and their own; an event marked Private in
+Outlook shows as "Busy" (the app never stores its title). The app only reads. A calendar is
+copied again once it's 15 minutes old, when someone opens Home or Calendar or in the half-hourly
+background run.
+
+It reads with the same app-only token as alert email, limited by Exchange **RBAC for
+Applications** to a group of the family's mailboxes. Don't add the Graph `Calendars.Read`
+application permission in Entra: Entra and Exchange grants add up, so it would open every mailbox.
+
+1. Exchange admin center → **Recipients → Groups → Add a group → Mail-enabled security**, e.g.
+   `family-calendars@example.com`, with each family member's mailbox as a direct member (nested
+   groups don't count).
+2. In Exchange Online PowerShell (`Connect-ExchangeOnline`), with the group's distinguished name
+   (`Get-Group family-calendars | fl DistinguishedName`). `New-ServicePrincipal` is only needed
+   if alert email isn't set up yet:
+
+   ```powershell
+   New-ServicePrincipal -AppId <client-id> -ObjectId <enterprise-app-object-id> -DisplayName "FamilyOS"
+   New-ManagementScope -Name "Family calendars" -RecipientRestrictionFilter "MemberOfGroup -eq '<group distinguished name>'"
+   New-ManagementRoleAssignment -App <client-id> -Role "Application Calendars.Read" -CustomResourceScope "Family calendars"
+   Test-ServicePrincipalAuthorization -Identity <client-id> -Resource kid@example.com
+   ```
+
+   The test should show `Application Calendars.Read` as **InScope: True**. Changes can take 30
+   minutes to 2 hours to apply.
+3. Settings → Outlook calendars: pick whose mailbox holds the family calendar and which calendar
+   it is, and turn on **Copy their calendar** for each person. Grown-ups who sign in with Microsoft
+   are read by their sign-in; kids and anyone else by the email on their People page. **Check
+   access and copy now** tries every calendar and each one says how it went.
+
+Someone the Microsoft access check cuts off, or who leaves the household, has their calendar's copy
+removed in the same background run; a family calendar in their mailbox switches off until an admin
+picks another. The copy isn't in backups.
 
 ### In Outlook
 
