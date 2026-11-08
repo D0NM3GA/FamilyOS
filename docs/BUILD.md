@@ -1990,3 +1990,11 @@ and moves on, and the run's late answer is dropped (its rejection is swallowed).
 Entra check hold leases, reminders claim per key, the rest are idempotent. **RxTerms:** 5-second
 timeout, 60 characters. **Cleanup:** unread notifications older than 180 days go too. JOBS now
 lists reminders before cleanup, the order they run.
+Fable's review of 67b: the reminders job is left out of the plan (the reminder runs inside it, and
+right after an outage it and the jobs after it would have looked late), and cleanup now runs before
+reminders; a failing job is keyed on the day of its last good run, so a job that keeps failing and
+recovering reminds once a day, not every hour; a run that timed out and hasn't ended stops the same
+job starting again ("still running from an earlier tick"), so a job that hangs every tick can't
+pile up runs holding connections; the morning summary's line follows the reminder's switch; tests
+count by title (a dev database can hold stale heartbeats) and cover the dropped late answer. Left
+as is: the unread-notification cleanup has no index leading on readAt (family-sized table).
