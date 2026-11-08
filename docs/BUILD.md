@@ -2142,3 +2142,21 @@ day too; "That week is over" for a past week; the Good until box says what it's 
 query is skipped when nothing could be snoozed; tests cover a same-day purchase, a past day's meal,
 a backdated renewal and paperwork without a due day. Left as is: kids can say "Still have some" on
 the Groceries chips (the list is everyone's).
+
+### 69c — Money, search and the calendar
+
+**Every-branch rules:** `CategoryRule.matchPrefix` (migration `20261203130000_rule_prefix_bill_paid`).
+`lib/finance/rules.ts`: `ruleResolver` (an exact rule, else the longest prefix rule the key starts
+with at a word), `ruleCovers`, `branchKey` (the key without its last word, when that leaves three
+letters or more). `organizeJar` and the refund pairing use the resolver; `setCategory` takes a
+`branches` scope; `forgetRule` deletes whichever rule covers the charge; the picker offers
+**Always for every …**. **Paid by hand:** `ManualBill.paidDueOn`; `nextDueOn` treats that day and
+earlier as paid, so Coming up, Safe to spend and bill alerts all see it; `markManualBillPaid`
+accepts only one of the bill's due days in the window Coming up shows. The sealed money backup goes
+to v4 (`matchPrefix`, `paidDueOn`; v3 still restores). **Search:** meals by name or ingredient
+(`lib/search.ts`, Groceries on); money from `lib/finance/search.ts` (`searchMoney`: an adult household
+member on their own sign-in with Money on, their jars only, `visibleToWhere` for surprises, names,
+jar and day, no amounts; a charge opens its jar's month, a bill opens Bills), read only by the search
+page through a new lint exception like the calendar's bills one. **Dinners on the calendar:**
+`loadMeals` and `mealItems`, only with Groceries on and not for events-only reads (the month, Home's
+strip, which adds today's dinner itself).

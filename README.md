@@ -66,6 +66,12 @@ and a pick on a pending charge stays with it once it posts.
 **The security and ops safety net (67)**: where you're signed in and sign-out everywhere, a fuller
 sign-in log, admins reminded when a job or the backup stops, weekly and monthly backups, a key
 check and a way to change the encryption key, weekly vulnerability scans, and capped logs.
+**Reminders ahead of time (68)**: a dose is due (opt-in), courses of medicine that end, homework due
+tomorrow and chores open at 6 pm, a fuller morning summary, and phone notifications that keep working.
+**Everyday friction (69)**: pages that refresh on return, a Home that survives a failing card, the
+iPhone's edges, announced form errors, staples and "Still have some", a live Shop view, Good until on
+car paperwork, every-branch money rules, bills marked paid, meals and money in search, and dinners on
+the calendar.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they

@@ -121,6 +121,8 @@ Settings → Starting views.
 - **The nine dots** at the top open every app at once.
 - **Search** at the top finds people, chores, groceries and more: school calendar events and
   what's on the shopping list too, and a school form or to-do opens right in School's side panel.
+  It finds saved meals (by name or an ingredient), and, for a grown-up in a money jar on their own
+  sign-in, charges and bills in that jar by name, with the day but never an amount.
 - **The bell** shows your notifications: orders, notes from grown-ups, sign-in changes. Opening
   it marks the ones it shows as read; if there are more, the count stays. The Notifications page
   keeps the latest 100, and anything new there counts as read once you've seen it.
@@ -189,6 +191,8 @@ calendars, car maintenance, and your own Outlook events (on your own profile, if
 Microsoft). Tap anything to go where it lives. The arrows and **Today** move around, and **Month** shows the
 whole month's events (chores and doses stay on the weeks). Grown-ups can pick one person with the
 name chips: each row's color shows whose it is (two people sharing a first name get their own chip). A day's doses share one row; tap it to see them.
+
+**Dinners** (🍽️) from the meal plan show on each day of the week, when Groceries is on.
 
 **Bills** (💸) show on the day they're due, by name only, for the money jars you're in, when you're
 on your own sign-in. Nobody else sees them, and no amounts.
@@ -450,7 +454,8 @@ Inside a jar:
 
 - **📒 Activity**: every charge, a month at a time. Tap one to set its category ("always for this
   store"), link the order or grocery trip, or make it a **🎁 Surprise** (hidden from chosen people
-  until a day you pick). Money back from a store goes in the same category as your last charge
+  until a day you pick). **Always for every Joes Pizza** files that store in any town, not just
+  this one (a rule for one branch still wins). Money back from a store goes in the same category as your last charge
   there, so a return lowers that budget. A category or trip you set on a pending charge stays with it once it
   posts, and a pending charge is dated the day you made it.
   **New since you last looked** sits above the month's charges: ones that came in since your last visit (the
@@ -462,7 +467,8 @@ Inside a jar:
   spend** until payday. It counts regular shops too, like the weekly grocery run, so it stays on
   the careful side; **Not a bill** takes a store out. **🎒 School fees**: tap **Count school fees
   in this jar** (in the jar that pays them; only one should) and open fees with an amount from
-  School count in Coming up and Safe to spend until they're done in School.
+  School count in Coming up and Safe to spend until they're done in School. Paid a bill you added by
+  hand some other way (a school portal, Zelle)? **Paid** beside it in Coming up stops it counting.
 - **Log it in Cars:** a charge filed under **Gas & car** has **⛽ Fill-up** and **🔧 Service**
   buttons for each car: they open the car's page with the cost and day filled in.
 - **📈 Trends**: money out month by month, and where it went.
