@@ -3,6 +3,7 @@
 # copytruncate keeps each file's owner and mode as they are (cron writes as you, mode 600), so
 # this needs no user names in it.
 /var/log/familyos-*.log {
+    su root adm
     weekly
     rotate 8
     compress

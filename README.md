@@ -631,8 +631,9 @@ on a schedule):
    and put it in the password manager beside the old one.
 2. In `familyos.env`: `INTEGRATION_ENCRYPTION_KEY` = the new key,
    `INTEGRATION_ENCRYPTION_KEY_PREVIOUS` = the old one. Restart the app.
-3. Within half an hour, Data & backups → **System** → **Encryption key check** says "N
-   re-sealed", then "all on the current key": everything stored is on the new key.
+3. A minute after the restart (and every half hour after), Data & backups → **System** →
+   **Encryption key check** says "N re-sealed", then "all on the current key": everything
+   stored is on the new key.
 4. Remove `INTEGRATION_ENCRYPTION_KEY_PREVIOUS` and restart. Keep the old key in the password
    manager: backups made before the change need it (restore them with it set as the previous key).
 
@@ -643,6 +644,8 @@ database's fails it, and admins get the system reminder.
 own `BETTER_AUTH_SECRETS` (`2:<new>,1:<old>`, newest first), keeping `BETTER_AUTH_SECRET` set to
 the old value for tokens stored before. Every device is signed out (cookies are signed with the
 current secret only), so plan it for a quiet evening; Microsoft people sign in again as usual.
+The profile-switch cookie is keyed from the newest secret too, so profiles picked with a PIN need
+picking again.
 
 ### Testing the image
 

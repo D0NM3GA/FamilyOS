@@ -2021,3 +2021,11 @@ workflow runs `npm audit --omit=dev --audit-level=high`, and weekly (and by hand
 GHSA-mrhx-c7xc-m3w5, the one high advisory in what ships. **Logs:** every compose service uses the
 `local` driver (5 × 10 MB); `deploy/logrotate/familyos` rotates the host logs weekly with
 `copytruncate`.
+Fable's review of 67c: the off-site `rclone check` saw tonight's copy in the local weekly/ and
+monthly/ folders too and would have failed every Sunday and 1st (now `--max-depth 1`); the tier
+prunes run only on folders that are there, without hiding real errors; a pre-67c database restored
+onto a server with other keys gets no key check sealed with the wrong key (it's made only when the
+key opens the server's other secrets), and a malformed check row says so rather than "wrong key";
+the profile-switch cookie is keyed from the newest `BETTER_AUTH_SECRETS` entry while rotating;
+Trivy comes from its GHCR copy while signed in; the System card says when a weekly or monthly copy
+was made; logrotate names its `su`. Monthly copies are kept 12 × 31 days.

@@ -138,10 +138,8 @@ keep_tiers() {
   return 0
 }
 expire "$dir"
-chmod 700 "$dir"
+# Tier folders are 700 like the nightly one (made under umask 077).
 keep_tiers "$dir"
-[ ! -d "$dir/weekly" ] || chmod 700 "$dir/weekly"
-[ ! -d "$dir/monthly" ] || chmod 700 "$dir/monthly"
 size="$(du -h "$final" | cut -f1)"
 log "backed up $size (encrypted) to $final"
 copies=("this server")
@@ -169,18 +167,25 @@ if [ -n "${BACKUP_RCLONE_REMOTE:-}" ]; then
   rclone copyto "$final" "$remote/$(basename "$final")"
   rclone copyto "$counts" "$remote/$(basename "$counts")"
   # Both files arrived whole (size and hash), or it's a failure.
-  rclone check --one-way --include "familyos-$stamp.*" "$dir" "$remote"
+  # --max-depth 1: rclone filters match at any depth, and tonight's copy may also be in weekly/ or
+  # monthly/ here already, which aren't on the remote's top level.
+  rclone check --one-way --max-depth 1 --include "familyos-$stamp.*" "$dir" "$remote"
   for tier in ${tiers[@]+"${tiers[@]}"}; do
     rclone copyto "$final" "$remote/$tier/$(basename "$final")"
     rclone copyto "$counts" "$remote/$tier/$(basename "$counts")"
-    rclone check --one-way --include "familyos-$stamp.*" "$dir" "$remote/$tier"
+    rclone check --one-way --max-depth 1 --include "familyos-$stamp.*" "$dir" "$remote/$tier"
   done
   if [ "${BACKUP_RCLONE_PRUNE:-1}" != 0 ]; then
     # One day more than find's -mtime, so both ends keep the same nights. The nightly prune stays
     # in the top folder (rclone filters match at any depth), and each longer-kept folder has its own.
     rclone delete --max-depth 1 --min-age "$((keep + 1))d" --include "familyos-*" "$remote"
-    rclone delete --min-age "$((keep_weekly_days + 1))d" --include "familyos-*" "$remote/weekly" 2>/dev/null || true
-    rclone delete --min-age "$((keep_monthly_days + 1))d" --include "familyos-*" "$remote/monthly" 2>/dev/null || true
+    # Only folders that are there, so a real error (an expired sign-in, a refused delete) still fails it.
+    existing="$(rclone lsf --dirs-only --max-depth 1 "$remote")"
+    for tier in weekly monthly; do
+      if printf '%s\n' "$existing" | grep -qx "$tier/"; then
+        rclone delete --min-age "$(( $(tier_days "$tier") + 1 ))d" --include "familyos-*" "$remote/$tier"
+      fi
+    done
   fi
   log "copied to $remote"
   copies+=("off site")
@@ -188,5 +193,6 @@ fi
 
 finished=1
 detail="$size, kept on $(IFS=,; echo "${copies[*]}" | sed 's/,/, /g')"
+for tier in ${tiers[@]+"${tiers[@]}"}; do detail="$detail, $tier copy"; done
 heartbeat ok "$detail"
 ping ok

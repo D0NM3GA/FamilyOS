@@ -16,6 +16,13 @@ import { encryptSecret, hasPreviousKey, openSealed, resealIfPrevious } from "@/l
 export const KEY_CHECK_NAME = "key-check";
 const KEY_CHECK_VALUE = "this database's encryption key";
 
+export class SealedRowError extends Error {
+  constructor() {
+    super("the stored key check is malformed (its nonce or tag has the wrong length)");
+    this.name = "SealedRowError";
+  }
+}
+
 export class WrongKeyError extends Error {
   constructor() {
     super("INTEGRATION_ENCRYPTION_KEY can't open what this database stores: it isn't the key it was sealed with");
@@ -34,20 +41,31 @@ const bytes = (s: { encryptedValue: Buffer; iv: Buffer; authTag: Buffer }) => ({
   authTag: new Uint8Array(s.authTag),
 });
 
-/** Opens the check value, making it the first time. Throws WrongKeyError when no key opens it. */
+/**
+ * Opens the check value, making it the first time. Throws WrongKeyError when no key opens it.
+ * The first time, it's made only if the key opens the server's other secrets (or there are none):
+ * a database from before this check, restored onto a server with other keys, must not get a check
+ * sealed with the wrong key that then passes for ever.
+ */
 export async function checkKey(): Promise<void> {
   const stored = await prisma.serverSecret.findUnique({ where: { name: KEY_CHECK_NAME } });
   if (!stored) {
+    const others = await prisma.serverSecret.findMany({ where: { name: { not: KEY_CHECK_NAME } } });
+    if (others.length && !others.some((o) => opens(o, o.name))) throw new WrongKeyError();
     await prisma.serverSecret.createMany({ data: [{ name: KEY_CHECK_NAME, ...bytes(encryptSecret(KEY_CHECK_VALUE, KEY_CHECK_NAME)) }], skipDuplicates: true });
     return;
   }
-  let plain: string;
+  if (stored.iv.length !== 12 || stored.authTag.length !== 16) throw new SealedRowError();
+  if (!opens(stored, KEY_CHECK_NAME, KEY_CHECK_VALUE)) throw new WrongKeyError();
+}
+
+function opens(r: { encryptedValue: Uint8Array; iv: Uint8Array; authTag: Uint8Array }, aad: string, expected?: string): boolean {
   try {
-    plain = openSealed(row(stored), KEY_CHECK_NAME).plain.toString("utf8");
+    const plain = openSealed(row(r), aad).plain.toString("utf8");
+    return expected === undefined || plain === expected;
   } catch {
-    throw new WrongKeyError();
+    return false;
   }
-  if (plain !== KEY_CHECK_VALUE) throw new WrongKeyError();
 }
 
 /** Re-seals every ServerSecret row the previous key opens (each one's name is its AAD). */

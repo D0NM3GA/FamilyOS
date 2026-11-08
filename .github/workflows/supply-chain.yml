@@ -67,15 +67,17 @@ jobs:
       - name: Scan the latest published image with Trivy
         env:
           GH_TOKEN: ${{ github.token }}
-          # Trivy's own image, pinned by digest (0.76.1).
-          TRIVY: aquasec/trivy@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+          # Trivy's own image from its GHCR copy (signed in already, so no anonymous Docker Hub
+          # limits), pinned by digest (0.76.1).
+          TRIVY: ghcr.io/aquasecurity/trivy@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
         run: |
           # Registry names must be lowercase; the account name may not be.
           owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
           image="ghcr.io/$owner/familyos:main"
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
           docker pull "$image"
-          docker logout ghcr.io
+          docker pull "$TRIVY"
           # High and critical only, and only ones with a fixed version to move to.
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY" image \
             --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress "$image"

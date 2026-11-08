@@ -32,19 +32,20 @@ async function withKeys(key: string, previous?: string) {
 describe.skipIf(!RUN)("changing the encryption key (database)", { timeout: 60_000 }, () => {
   const t = Date.now();
   const ids = { h: "", jar: "", conn: "", feed: "", user: "" };
-  let priorCheck: { name: string; encryptedValue: Uint8Array; iv: Uint8Array; authTag: Uint8Array; createdAt: Date } | null = null;
+  // The server's own secrets are set aside for the test (a dev database has some, sealed with its
+  // own key) and put back after.
+  let prior: { name: string; encryptedValue: Uint8Array; iv: Uint8Array; authTag: Uint8Array; createdAt: Date }[] = [];
 
   beforeAll(async () => {
     const { prisma } = await withKeys(saved.key!);
-    priorCheck = await prisma.serverSecret.findUnique({ where: { name: "key-check" } });
-    await prisma.serverSecret.deleteMany({ where: { name: "key-check" } });
+    prior = await prisma.serverSecret.findMany();
+    await prisma.serverSecret.deleteMany({});
   });
 
   afterAll(async () => {
     const { prisma } = await withKeys(saved.key!, saved.previous);
-    await prisma.serverSecret.deleteMany({ where: { name: "key-check" } });
-    if (priorCheck) {
-      const { name, encryptedValue, iv, authTag, createdAt } = priorCheck;
+    await prisma.serverSecret.deleteMany({});
+    for (const { name, encryptedValue, iv, authTag, createdAt } of prior) {
       await prisma.serverSecret.create({ data: { name, encryptedValue: new Uint8Array(encryptedValue), iv: new Uint8Array(iv), authTag: new Uint8Array(authTag), createdAt } });
     }
     if (ids.h) await prisma.household.deleteMany({ where: { id: ids.h } });
@@ -105,6 +106,17 @@ describe.skipIf(!RUN)("changing the encryption key (database)", { timeout: 60_00
     // 4. A server started with some other key says so.
     const wrong = await withKeys(randomBytes(32).toString("base64"));
     await expect(wrong.keys.checkKey()).rejects.toThrow(wrong.keys.WrongKeyError);
+  });
+
+  test("a database whose secrets this key can't open gets no check sealed with it", async () => {
+    const other = await withKeys(randomBytes(32).toString("base64"));
+    await other.prisma.serverSecret.deleteMany({ where: { name: "key-check" } });
+    const sealed = other.crypto.encryptSecret("phone keys", "vapid-test");
+    await other.prisma.serverSecret.create({ data: { name: "vapid-test", encryptedValue: new Uint8Array(sealed.encryptedValue), iv: new Uint8Array(sealed.iv), authTag: new Uint8Array(sealed.authTag) } });
+    const wrong = await withKeys(randomBytes(32).toString("base64"));
+    await expect(wrong.keys.checkKey()).rejects.toThrow(wrong.keys.WrongKeyError);
+    expect(await wrong.prisma.serverSecret.count({ where: { name: "key-check" } })).toBe(0);
+    await wrong.prisma.serverSecret.deleteMany({ where: { name: "vapid-test" } });
   });
 
   test("what the System card says", async () => {
