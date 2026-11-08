@@ -12,6 +12,7 @@ import { inQuietHours } from "./quiet";
 import { SYSTEM_PREFIX, type Reminder } from "./plan";
 import { loadSchoolEvents } from "@/lib/calendar/sources";
 import { getTodaysDinner } from "@/lib/groceries/meals";
+import { processZone } from "@/lib/household-zone";
 
 /**
  * Phase 62c: the morning summary, opt-in per grown-up by email and/or Teams (the owner's call),
@@ -49,7 +50,8 @@ export function digestLines(d: DigestInput): string[] | null {
   if (d.schoolEvents?.length) lines.push(`At school today: ${d.schoolEvents.join("; ")}`);
   if (d.homework?.length) lines.push(`Due today: ${d.homework.join("; ")}`);
   lines.push(...d.school, ...d.cars, ...d.dates);
-  if (d.dinner) lines.push(`Dinner tonight: ${d.dinner}`);
+  // Phase 68b: dinner rides along with a summary that has something to say; alone, it isn't one.
+  if (d.dinner && lines.length) lines.push(`Dinner tonight: ${d.dinner}`);
   // Phase 67b: admins only (the planned reminders say who): something in the app stopped.
   if (d.system?.length) lines.push(`Something stopped: ${d.system.join("; ")}`);
   return lines.length ? lines : null;
@@ -137,6 +139,11 @@ export async function sendDigests(householdId: string, grownUpIds: string[], pla
   return sent;
 }
 
+/** The first `max`, then "and N more". Pure. */
+export function andMore(items: string[], max: number): string[] {
+  return items.length > max ? [...items.slice(0, max), `and ${items.length - max} more`] : items;
+}
+
 const SCHOOLWORK_WORDS: Record<string, string> = { HOMEWORK: "homework", TEST: "a test", QUIZ: "a quiz", PROJECT: "a project" };
 
 /**
@@ -148,7 +155,7 @@ const SCHOOLWORK_WORDS: Record<string, string> = { HOMEWORK: "homework", TEST: "
 async function morningExtras(householdId: string, now: Date): Promise<Pick<DigestInput, "schoolEvents" | "homework" | "dinner">> {
   const [schoolOn, groceriesOn] = await Promise.all([appOn(householdId, "school"), appOn(householdId, "groceries")]);
   const today = atMidnight(now);
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const zone = processZone();
   const [events, work, dinner] = await Promise.all([
     schoolOn ? loadSchoolEvents({ id: "", householdId, role: "ADULT" }, today, addDays(today, 1), zone) : [],
     schoolOn
@@ -156,14 +163,17 @@ async function morningExtras(householdId: string, now: Date): Promise<Pick<Diges
           where: { status: "TODO", dueDate: { gte: today, lt: addDays(today, 1) }, profile: { person: { householdId, isHouseholdMember: true, role: "KID" } } },
           select: { title: true, kind: true, profile: { select: { person: { select: { firstName: true } } } } },
           orderBy: { title: "asc" },
-          take: 10,
+          take: 21,
         })
       : [],
     groceriesOn ? getTodaysDinner(householdId, now) : null,
   ]);
   return {
-    schoolEvents: [...new Set(events.map((e) => (e.who ? `${e.title} (${e.who})` : e.title)))].slice(0, 6),
-    homework: work.map((w) => `${w.profile.person.firstName}, ${SCHOOLWORK_WORDS[w.kind] ?? "schoolwork"}: ${w.title}`),
+    schoolEvents: andMore([...new Set(events.map((e) => (e.who ? `${e.title} (${e.who})` : e.title)))], 6),
+    homework: andMore(
+      work.map((w) => `${w.profile.person.firstName}, ${SCHOOLWORK_WORDS[w.kind] ?? "schoolwork"}: ${w.title}`),
+      20,
+    ),
     dinner,
   };
 }

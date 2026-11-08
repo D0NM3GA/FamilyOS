@@ -23,6 +23,10 @@ describe.skipIf(!RUN)("homework and chores reminders (database)", { timeout: 60_
     ]);
     const profile = await prisma.schoolProfile.create({ data: { personId: max.id, schoolName: "Parker Elementary" } });
     await prisma.schoolAssignment.create({ data: { profileId: profile.id, className: "Math", title: "Fractions", kind: "QUIZ", dueDate: addDays(today, 1) } });
+    // A grown-up's own schoolwork (a class) and an "Anyone" chore aren't counted.
+    const momProfile = await prisma.schoolProfile.create({ data: { personId: mom.id, schoolName: "Night class" } });
+    await prisma.schoolAssignment.create({ data: { profileId: momProfile.id, className: "Pottery", title: "Glaze", kind: "HOMEWORK", dueDate: addDays(today, 1) } });
+    await prisma.taskDefinition.create({ data: { householdId: h.id, title: "Sweep", domain: "CHORE", frequencyType: "DAILY", interval: 1, startDate: today } });
     const chore = await prisma.taskDefinition.create({
       data: { householdId: h.id, title: "Dishes", domain: "CHORE", frequencyType: "DAILY", interval: 1, startDate: today, assignees: { connect: [{ id: max.id }] } },
     });
@@ -41,7 +45,7 @@ describe.skipIf(!RUN)("homework and chores reminders (database)", { timeout: 60_
     await remindHousehold(ids.h, at(14));
     expect(await titles(ids.max, "REMINDER_HOMEWORK")).toEqual([]);
     await remindHousehold(ids.h, at(15));
-    expect(await titles(ids.max, "REMINDER_HOMEWORK")).toEqual(["Max has a quiz due tomorrow: Fractions"]);
+    expect(await titles(ids.max, "REMINDER_HOMEWORK")).toEqual(["You have a quiz due tomorrow: Fractions"]);
     expect(await titles(ids.mom, "REMINDER_HOMEWORK")).toEqual(["Max has a quiz due tomorrow: Fractions"]);
   });
 
