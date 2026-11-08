@@ -32,7 +32,8 @@ import { withStarterKeys } from "@/lib/starting-sections";
  * SchoolFeed / SchoolFeedEvent (Phase 18.5) are left out too: an encrypted feed address and
  * a cache. Feeds are re-added after a restore.
  * OutlookCalendar / OutlookEvent (Phase 70a) are left out: which mailboxes are copied, and the
- * copy itself; Settings → Outlook calendars sets them again after a restore.
+ * copy itself; Settings → Outlook calendars sets them again after a restore. EventDriver (Phase 70b)
+ * goes with them: it points at copied events, which a restore doesn't bring back.
  * Notification (Phase 20) is left out: the bell's inbox is a stream of pings about live
  * orders, and restore clears it. Person.savingRewardId is a UI preference, also left out.
  * AlertPrefs (Phase 21) is left out: per-person alert switches, which survive a restore
