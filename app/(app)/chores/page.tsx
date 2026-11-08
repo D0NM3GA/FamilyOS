@@ -5,7 +5,7 @@ import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdmin, isAdult } from "@/lib/authz";
 import { getHouseholdMembers } from "@/lib/people";
 import { getHouseholdSettings } from "@/lib/household-settings";
-import { addDays } from "@/lib/tasks/schedule";
+import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
 import { getBoardInstances, getPointsTally } from "@/lib/tasks/queries";
 import { getDailyForecast, type ForecastPeriod } from "@/lib/weather";
@@ -36,11 +36,14 @@ import { requireAppOn } from "@/lib/app-guard";
 import { appOn } from "@/lib/app-switches";
 import { SubmitButton } from "@/components/submit";
 import { HomeLocation } from "@/components/home-location";
+import { waitingForCheck } from "@/lib/chores/checks";
+import { openSwaps, swappedFrom } from "@/lib/chores/swaps";
+import { KidSwaps, WaitingForCheck } from "./checks-and-swaps";
 
 export default async function ChoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ person?: string; all?: string; show?: string; item?: string }>;
+  searchParams: Promise<{ person?: string; all?: string; show?: string; item?: string; swap?: string }>;
 }) {
   await requireAppOn("chores");
   const profile = await requireActiveProfile();
@@ -75,6 +78,14 @@ export default async function ChoresPage({
   ]);
 
   const allInstances = [...overdue, ...dueToday, ...upcoming];
+  // Phase 70c: grown-ups' checks waiting, a kid's swaps, and which chores a swap moved.
+  const [waiting, swaps, fromSwap] = await Promise.all([
+    viewerIsAdult ? waitingForCheck(profile.householdId) : Promise.resolve([]),
+    profile.role === "KID" ? openSwaps(profile, atMidnight(new Date())) : Promise.resolve(null),
+    viewerIsAdult ? swappedFrom(profile.householdId, allInstances.map((i) => i.id)) : Promise.resolve(new Map<string, string>()),
+  ]);
+  const swapNotice = params.swap === "asked" || params.swap === "lapsed" ? params.swap : null;
+  const swapNote = (id: string) => (fromSwap.has(id) ? `swapped from ${fromSwap.get(id)}` : null);
   const hasWeatherSensitiveChore = allInstances.some((i) => i.definition.weatherSensitive);
   const forecast: ForecastPeriod[] | null = hasWeatherSensitiveChore
     ? await getDailyForecast(household.latitude, household.longitude)
@@ -141,6 +152,7 @@ export default async function ChoresPage({
             <TaskInstanceCard
               key={i.id}
               instance={toCardInstance(i)}
+              subtitle={swapNote(i.id)}
               viewerId={profile.id}
               viewerIsAdult={viewerIsAdult}
               claimable
@@ -186,6 +198,7 @@ export default async function ChoresPage({
               <TaskInstanceCard
                 key={i.id}
                 instance={toCardInstance(i)}
+                subtitle={swapNote(i.id)}
                 viewerId={profile.id}
                 viewerIsAdult={viewerIsAdult}
                 claimable
@@ -221,6 +234,7 @@ export default async function ChoresPage({
             <TaskInstanceCard
               key={i.id}
               instance={toCardInstance(i)}
+              subtitle={swapNote(i.id)}
               viewerId={profile.id}
               viewerIsAdult={viewerIsAdult}
               claimable
@@ -355,6 +369,9 @@ export default async function ChoresPage({
             others={reassignCandidates.filter((m) => m.id !== filtered.id)}
           />
         )}
+
+        <WaitingForCheck rows={waiting} zone={household.timezone ?? undefined} />
+        {swaps && <KidSwaps incoming={swaps.incoming} outgoing={swaps.outgoing} notice={swapNotice} zone={household.timezone ?? undefined} />}
 
         <MilestoneToastBoard>
           {big ? boardCards : <BoardView personId={profile.id} board="chores" cards={boardCards} list={boardList} />}

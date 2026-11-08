@@ -47,6 +47,7 @@ type Defaults = {
   assignmentStrategy?: string;
   assigneeIds?: string[];
   weatherSensitive?: boolean;
+  needsCheck?: boolean;
 };
 
 export function TaskDefinitionForm({
@@ -68,6 +69,7 @@ export function TaskDefinitionForm({
   const [strategy, setStrategy] = useState(defaults?.assignmentStrategy ?? "FIXED");
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>(defaults?.assigneeIds ?? []);
   const weatherHintId = useId();
+  const checkHintId = useId();
 
   function toggleAssignee(id: string) {
     if (strategy === "FIXED") {
@@ -206,6 +208,16 @@ export function TaskDefinitionForm({
           </label>
           <p id={weatherHintId} className="text-xs text-muted-foreground">
             Warns on its card when rain is forecast. It needs where home is, in Settings → Household.
+          </p>
+        </div>
+
+        <div>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-foreground sm:min-h-9">
+            <input type="checkbox" name="needsCheck" defaultChecked={defaults?.needsCheck ?? false} aria-describedby={checkHintId} className="size-5 shrink-0" />
+            A grown-up checks it
+          </label>
+          <p id={checkHintId} className="text-xs text-muted-foreground">
+            When a kid ticks it, it waits for a grown-up&apos;s OK before the <RewardWord /> are paid.
           </p>
         </div>
       </MoreOptions>

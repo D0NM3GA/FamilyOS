@@ -40,6 +40,8 @@ export type Instance = {
   definition: { title: string; points: number };
   assignedTo: { id: string; firstName: string; lastName: string | null } | null;
   completedBy: { id: string; firstName: string } | null;
+  /** Phase 70c: ticked, waiting for a grown-up's check before its stickers. */
+  awaitingCheck?: boolean;
 };
 
 const BURST_COLORS = [
@@ -396,6 +398,7 @@ export function TaskInstanceCard({
             {!big && optimisticStatus === "DONE" && instance.completedBy
               ? ` · done by ${instance.completedBy.firstName}`
               : ""}
+            {optimisticStatus === "DONE" && instance.awaitingCheck ? " · waiting for a grown-up's check" : ""}
             {!big && optimisticStatus === "SKIPPED" ? ` · skipped${instance.completedBy ? ` by ${instance.completedBy.firstName}` : ""}` : ""}
           </p>
           {/* Phase 49.5: a dose time away from home, home first and then where you are. */}

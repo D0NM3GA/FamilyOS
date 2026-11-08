@@ -63,6 +63,7 @@ export default async function EditChorePage({
             assignmentStrategy: definition.assignmentStrategy,
             assigneeIds: definition.assignees.map((a) => a.id),
             weatherSensitive: definition.weatherSensitive,
+            needsCheck: definition.needsCheck,
           }}
         />
       </div>
