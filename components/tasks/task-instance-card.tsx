@@ -8,7 +8,7 @@ import { btn, menuItem } from "@/components/styles";
 import { formatRelative } from "@/lib/format";
 import { useHouseholdZone } from "@/components/household-zone";
 import { AwayTime } from "@/components/away-time";
-import { useReportMilestone } from "./milestone-toast";
+import { useReportMilestone, useReportUndo } from "./milestone-toast";
 import { useRewardWords } from "@/components/family-look";
 import { rewardCount } from "@/lib/reward-words";
 import { StatusPill } from "@/components/status-pill";
@@ -112,6 +112,7 @@ export function TaskInstanceCard({
   timeLabel,
   subtitle,
   disappearsOnComplete = false,
+  foldsWhenDone = false,
   index = 0,
   size = "normal",
   completeLabel = "Done",
@@ -161,6 +162,8 @@ export function TaskInstanceCard({
   /** Optional line under the title — e.g. a medication's dosage/instructions. */
   subtitle?: string | null;
   disappearsOnComplete?: boolean;
+  /** Home's Today: a done card moves under the collapsed "✓ done", so its Undo goes with it. */
+  foldsWhenDone?: boolean;
   /** Staggers this card's entrance on page load — see docs/BUILD.md Design pass v2. */
   index?: number;
   /**
@@ -202,6 +205,7 @@ export function TaskInstanceCard({
   const waiting = optimisticStatus === "DONE" && (waitingNow || instance.awaitingCheck === true);
   const [moveRefused, setMoveRefused] = useState(false);
   const reportMilestone = useReportMilestone();
+  const reportUndo = useReportUndo();
 
   // Derived, not separate state: exiting is exactly "this board drops completed instances
   // AND we're (optimistically) done or skipped" — ties it to optimisticStatus so a failed action
@@ -247,6 +251,11 @@ export function TaskInstanceCard({
         setCelebrating(false);
         setFailed(true);
         return;
+      }
+      // A card that's about to leave the list (or fold away) hands its Undo to the board's bar,
+      // which stays long enough to reach.
+      if ((disappearsOnComplete || foldsWhenDone) && canUndoChore(who, { completedById: viewerId })) {
+        reportUndo?.({ title: instance.definition.title, undo: () => onUndo(instance.id) });
       }
       if (result && typeof result === "object" && result.waiting) {
         setWaitingNow(true);

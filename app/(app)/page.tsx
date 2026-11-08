@@ -640,6 +640,8 @@ function HomeTasks({
       timeLabel={timed ? formatTimeOfDay(i.dueDate) : null}
       completeLabel={timed ? "Taken" : "Done"}
       claimable={claimable}
+      // Done moves it under the folded "✓ done": the board's Undo bar keeps Undo in reach.
+      foldsWhenDone
       index={idx}
     />
   );
