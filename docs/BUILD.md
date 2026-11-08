@@ -1841,3 +1841,18 @@ car's, so taps at once can't move a due day twice or make two Repairs items; pap
 "Renewed …" or "Not renewed yet"; the reminders line in the guide names paperwork's two weeks; the
 placeholder receipt no longer names a real chain.
 
+### 65c — Groceries: running low on Home
+
+One heuristic, not two: `computePantrySuggestions` weighs by quantity (history rows now carry it).
+Each purchase day sums what was bought; the days each one lasted (the gap after a trip over what
+that trip bought) give a median, and the last trip's amount times it is how long the last purchase
+lasts (with one each time, exactly the old median gap). A new `aheadDays` also takes what runs out
+within that many days; `daysLeft` says how long. Groceries' chips keep `aheadDays: 0`. Home's
+**Probably running low** (`getRunningLow`: three days ahead, at most 6, soonest first, nothing on
+the list) is loaded only for grown-ups with Groceries on, and shows only when there's something;
+**+ Add** is Groceries' own `addItem`, which now also refreshes Home.
+Fable's review of 65c: the field is `lastsDays` now (how long the last purchase lasts), and the
+chip's hint says "Should last about N days"; a list item's name also excludes old history rows keyed
+by description (their Pantry item deleted), on Home and Groceries, so **+ Add** always clears it;
+Home sorts by the unrounded days left.
+
