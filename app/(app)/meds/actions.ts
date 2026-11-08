@@ -206,6 +206,14 @@ export async function setDefinitionActive(definitionId: string, active: boolean)
     where: { id: definitionId, householdId: profile.householdId, domain: "MED" },
     data: { active },
   });
+  // Phase 68a: turning a finished course back on means it goes on: its past end day goes too, or
+  // the next tick would switch it off again. A course whose end is still ahead keeps it.
+  if (active) {
+    await prisma.taskDefinition.updateMany({
+      where: { id: definitionId, householdId: profile.householdId, domain: "MED", endDate: { lt: atMidnight(new Date()) } },
+      data: { endDate: null },
+    });
+  }
 
   // Deactivating stops future roll-forward, but doesn't touch instances already on the
   // board — without this, already-generated future doses (up to 14 days out) would keep
