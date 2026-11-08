@@ -1877,3 +1877,32 @@ its name ahead of a day's note, and a day shows both ("Tacos · early") on Home 
 deleted mid-save says so instead of failing; `?week=` refuses days that don't exist; the restore
 preview counts planned dinners.
 
+## Phase 66 — The second fix-it batch
+
+The first phase from the review of 2026-11-08 (scope in docs/PLAN.md).
+
+### 66a — Meds, chores and the calendar
+
+**Kids and medicines:** a kid's Meds page is always their own (`personFilter` is `profile.id`, no
+person row), a person's Meds summary shows only to grown-ups and the person, Home's Today card
+passes the kid's id, the calendar's `loadTaskInstances` takes `dosesFor` (chores untouched), and
+search finds only a kid's own medicines. `lib/meds/kid-scope-guard.test.ts` reads all five.
+**Stock:** `lib/meds/stock.ts` (`takeStock`, `addToStock`) does the arithmetic in SQL like the
+Garage: locked row, clamped at zero, rounded to three places, the amount taken worked out from the
+locked value. A dose keeps its PENDING guard first, then takes stock, then records what it took as
+`quantityConsumed`, so Undo gives that back; a scheduled dose reads the count and dose amount in
+the transaction. `restockFromTrip` already rounded and stays in the list kernel (lint keeps it out
+of `lib/meds`). **Low:** `isMedLow` moved to `lib/reminders/supply.ts`; taking a dose asks for a
+refill on it (a week of supply, the refill count, or 5 as-needed doses), and Manage's Low badge
+uses it; `isLowStock` is gone. **Chore edit:** `scheduleChanged` (`lib/tasks/edit.ts`) compares
+schedule, times, rotation and people; when they change, waiting days from today on, not moved by
+hand, go in the edit's transaction and the planner makes new ones (hand reassignments go with
+them; a title or points edit keeps everything). **Calendar:** `eventItems` spreads a timed event to
+the day of its last minute in the household's zone: its start time on the first day, all day
+after, "until Sun 2:00 PM · place", keys `key:day`, days outside the window dropped; one ending at
+midnight stays one day. **Errors:** both boundaries use Next 16's `retry()`.
+Fable's review of 66a: Home's Today card, the calendar and search still showed a kid every dose
+(fixed, and in the guard); a scheduled dose read its stock from the page's snapshot (now inside the
+transaction); tests now check the chore edit really saved, cover as-needed stock and its undo, a
+dose that leaves plenty, and a kid's calendar doses; the refill comments say isMedLow. Left as is:
+an event from 11:50 pm to 12:10 am shows on both days.

@@ -193,7 +193,11 @@ on your own sign-in. Nobody else sees them, and no amounts.
 a day, a time if it has one, and who it's for ("Ivy: Dentist"). It goes to the Outlook calendar the
 page shows; change or delete it in Outlook.
 
-Kids see the family calendar too, with their own school things (no cars, no Outlook, no bills).
+Kids see the family calendar too, with their own school things and doses (no cars, no Outlook, no
+bills).
+
+Something that runs over several days, like a weekend trip, shows on each of its days: at its
+start time on the first, and all day after, with when it ends ("until Sun 2:00 PM").
 
 An admin can also keep a shared calendar in Outlook filled with birthdays and car due dates
 (**Outlook sync ⚙️**).
@@ -207,7 +211,8 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
 - Tick a chore off when it's done (**Done** on the board and Home, **Done!** in Big
   buttons). Made a mistake? Tap the undo arrow. Kids tick their own chores and Anyone chores.
 - **Anyone: grab it!** chores are for whoever gets there first; kids can grab them too.
-- What's after today is folded under **Next 14 days**. Tap it to look ahead.
+- What's after today is folded under **Next 14 days**. Tap it to look ahead. Change a chore's days or
+  people and those 14 days follow at once (a chore you moved by hand keeps its day).
 - Grown-ups can **Skip** a chore from its label (it's called **Missed** once it's overdue: nobody
   gets stickers for it), and **Give to** someone else from its **⋯**. The **⋯** also has **Move to
   tomorrow** for a chore due today or overdue, and **Move to today** for an overdue one, when that
@@ -298,8 +303,13 @@ Like chores, for medicine: what's due today and what's coming up in the next two
 a dose when it's taken (**Taken** on Home and the Meds page); the undo arrow if it
 wasn't. Doses under **Upcoming** can't be ticked ahead: they get their Taken on their day. Grown-ups see
 about how long a medicine's count lasts under each dose ("about 12 days left"), and on **Manage**. Doses can be several times a day. Kids can earn
-stickers for taking theirs.
-The row of people picks whose doses to see, with each person's total, like on Chores.
+stickers for taking theirs. Kids see only their own medicines, here, on Home, on the calendar and in
+search.
+The row of people picks whose doses to see, with each person's total, like on Chores (grown-ups).
+
+**Running low.** A medicine with a count is low with about a week left, at its refill count, or (as
+needed) with a few doses left. Taking a dose then puts a refill on the grocery list, and a
+grown-up gets a reminder. The count never goes below zero.
 
 Grown-ups: **+ New medication** and **Manage**. Stock, prescriber and pharmacy are under **More
 options**; people already used as a prescriber or pharmacy come first in those lists.
