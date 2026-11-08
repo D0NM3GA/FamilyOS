@@ -14,6 +14,9 @@ export type CalendarEvent = {
   location: string | null;
   /** Opens the event in Outlook on the web. Only ever an https link. */
   webLink: string | null;
+  /** Phase 70a: whose own calendar it came from (the copy), by first name and id. */
+  who?: string | null;
+  whoId?: string | null;
 };
 
 type GraphEvent = {
