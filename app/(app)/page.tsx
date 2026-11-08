@@ -73,7 +73,10 @@ async function bigCalendarToday(profile: Awaited<ReturnType<typeof requireActive
   if (!result?.ok) return [];
   return outlookItems(result.events, today, zone, 1)
     .slice(0, 8)
-    .map((item) => ({ key: item.key, title: [item.minutes === null ? null : timeLabel(item.minutes), item.who ? `${item.who}: ${item.title}` : item.title].filter(Boolean).join(" ") }));
+    .map((item) => ({
+      key: item.key,
+      title: [item.minutes === null ? null : timeLabel(item.minutes), item.who ? `${item.who}: ${item.title}` : item.title].filter(Boolean).join(" ") + (item.driver ? ` · Driving: ${item.driver}` : ""),
+    }));
 }
 
 async function BigHomePage({ profile, on }: { profile: Awaited<ReturnType<typeof requireActiveProfile>>; on: AppOn }) {
@@ -554,6 +557,7 @@ async function CalendarCard({ load, index }: { load: Promise<ThisWeekResult>; in
               <span className="min-w-0 truncate text-foreground">
                 {e.who && <span className="font-bold">{e.who}: </span>}
                 {e.subject}
+                {e.driver && <span className="text-muted-foreground"> · Driving: {e.driver}</span>}
               </span>
               <span className="shrink-0 text-muted-foreground">
                 {formatEventTime(e)}

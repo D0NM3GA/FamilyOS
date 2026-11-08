@@ -17,6 +17,9 @@ export type CalendarEvent = {
   /** Phase 70a: whose own calendar it came from (the copy), by first name and id. */
   who?: string | null;
   whoId?: string | null;
+  /** Phase 70b: who's driving (the copy), and where a grown-up sets it. */
+  driver?: string | null;
+  driveHref?: string | null;
 };
 
 type GraphEvent = {
