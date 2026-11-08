@@ -337,7 +337,9 @@ One shared list for the whole family.
 
 - **Add something…**: type what you need and pick a suggestion, or tap **Scan** to read a
   barcode with the camera (allow the camera when asked; you can always type the number instead).
-- Each row has − and + for how many, and who it's for ("For anyone", or a person).
+- Each row has − and + for how many, and who it's for ("For anyone", or a person). Two phones can
+  shop the same list: taps on − and + from both count, and the same thing added from both at once
+  becomes one row with both amounts.
 - Tap an item for its details: **How it comes** ("2 lb bag"), **Where we buy it**, its
   section, and what it **Usually** is. Grown-ups see **Last paid**.
 - Took something off by mistake? **Undo**.

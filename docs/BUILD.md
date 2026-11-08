@@ -1906,3 +1906,25 @@ Fable's review of 66a: Home's Today card, the calendar and search still showed a
 transaction); tests now check the chore edit really saved, cover as-needed stock and its undo, a
 dose that leaves plenty, and a kid's calendar doses; the refill comments say isMedLow. Left as is:
 an event from 11:50 pm to 12:10 am shows on both days.
+
+### 66b — Two phones on the list, and failures in words
+
+**Steps:** the list's −/+ call `stepQuantity(itemId, ±1)`, applied in SQL to the amount as it is
+(capped at 999), with the zero-delete in the same transaction; `setQuantity` is gone. **Gone rows:**
+`toggleItem`, `setRequestedBy` and `setItemNote` use household-scoped `updateMany`, so a row
+another phone took off does nothing; `assertOwnedItem` is gone. **One row per item:** `lockList`
+(`lib/shopping-list.ts`) takes `SELECT … FOR UPDATE` on the household's one list row; every path
+that adds a row or un-ticks one takes it first and then looks: `addProductToList`,
+`requestItemByName` (now in a transaction, its Pantry item found first since that one recovers
+from a unique-key race), `putRowBack`, `addWeekToList`, Pantry merge, and `untickRow`, which
+folds a ticked row into an unchecked twin added meanwhile (amount added; note, who it's for and a
+medicine or car source kept when the twin has none). Toggling and the Shop view's `applyChecks`
+(now given the list id) both un-tick through it. Paths that only remove or tick rows (finishing a
+trip, taking a row off) don't need the lock, so writes after a lookup go by id with
+`updateMany`/`deleteMany`. **Sync from Microsoft** returns `{ error }` and
+`SyncFromMicrosoftButton` (`useActionState`) shows it in place. Home's Called/Texted stay plain
+forms: no typed input, so nothing to say.
+Fable's review of 66b: no lock cycle (every locking path takes the list first); un-tick and add no
+longer crash when a lock-free removal beats them; the step and its zero-delete share a transaction
+(Postgres can't update and delete one row in a single statement); Pantry merge takes the lock; the
+fold keeps the note and who it's for.
