@@ -2218,6 +2218,28 @@ view about people whose access ended; per-row states are statuses, not alerts; C
 calendar Outlook asked to wait on. Left as is: a folded meeting from two people's own calendars
 shows in every person's filter until 70f.
 
+### 70b — Who's driving
+
+`EventDriver` (calendar, immutable Graph id, driver, who set it, the event's end), unique on
+(calendar, Graph id), migration `20261204130000_event_driver`. `lib/outlook-copy/drivers.ts`:
+`getDriveTarget` (a grown-up, a timed event in this household's active copy whose person is still
+here) and `setEventDriver` (a grown-up of the household who's still here, or nobody). A successful
+copy moves each driver's end with its event and drops one whose event is missing and ended before
+the copy's window, so a read that briefly misses an event loses nothing; `dropEndedCalendars` also
+drops a cut-off person's drives, and the view hides them at once. `getCopiedEvents` attaches the
+driver's name (names among the household's members, since a driver needn't own a copied
+calendar). A driver is set on every copy of the meeting (same iCalUId, start, timed) in the household,
+and in a fold the family copy's link wins, so whoever can see any copy sees it. There's no household
+column: the calendar carries it. Grown-ups get `driveHref` on timed events
+(`/calendar/drive?c=&g=`, the ids aren't personal); `outlookItems` puts "Driving: Dad" in the
+note and links there. Home's week card and Big Home's list show it too.
+Fable's review of 70b: a driver set from someone's own copy of a family meeting didn't reach the
+family copy (kids missed it, and a second driver could be set): now it goes on every copy, and the
+family copy's link wins; names come from household members only (a contact sharing a first name
+no longer renames anyone); an event that turns all-day drops its driver; Big Home adds only the
+driver, not every event's place; a driver who's no longer a grown-up stops showing and is dropped;
+kids opening the page go back to the calendar; the backup notes say drivers are left out.
+
 ### 70c — Chore checks and swaps
 
 **A grown-up checks it:** `TaskDefinition.needsCheck` and `TaskInstance.awaitingCheck` (migration
