@@ -177,6 +177,13 @@ describe("cars and recalls", () => {
     expect(planCars([item({ status: "UPCOMING", daysRemaining: 20, daysByMiles: 12 }), item({ status: "UNKNOWN" })], grownUps)).toEqual([]);
   });
 
+  it("paperwork reminds two weeks ahead, once per due day (Phase 65b)", async () => {
+    const { planCars } = await import("./plan");
+    const paper = (daysRemaining: number) => ({ itemId: "p1", title: "Registration", vehicle: { id: "v1", name: "van" }, status: "UPCOMING" as const, daysRemaining, milesRemaining: null, daysByMiles: null, cycle: "paper:2027-03-01", paperwork: true });
+    expect(planCars([paper(12)], grownUps)[0]).toMatchObject({ title: "Registration on the van is due in 12 days", key: "car:p1:paper:2027-03-01" });
+    expect(planCars([paper(15)], grownUps)).toEqual([]);
+  });
+
   it("a recall that says not to drive comes through quiet hours", async () => {
     const { planRecalls } = await import("./plan");
     const [r] = planRecalls([{ vehicle: { id: "v1", name: "van" }, campaignNumber: "26V123", component: "AIR BAGS:FRONTAL", parkIt: true }], grownUps);

@@ -80,6 +80,7 @@ export async function searchHousehold(
           where: {
             vehicle: { householdId, active: true },
             active: true,
+            kind: { not: "REPAIRS" },
             title: { contains: term, mode: "insensitive" },
           },
           include: { vehicle: { select: { id: true, name: true } } },

@@ -264,6 +264,9 @@ const maintenanceItem = z.object({
   intervalMonths: int.nullable(),
   lastDoneMileage: int.nullable(),
   lastDoneAt: nullableIso,
+  // v13 (Phase 65b): paperwork and the car's Repairs item.
+  kind: z.enum(["SERVICE", "PAPERWORK", "REPAIRS"]).default("SERVICE"),
+  nextDueAt: nullableIso.default(null),
   active: z.boolean(),
   createdAt: iso,
 });
@@ -273,6 +276,9 @@ const serviceLog = z.object({
   itemId: id,
   doneAt: iso,
   mileage: int,
+  // v13 (Phase 65b): a one-off repair's name, and a renewal's due day before it.
+  title: nullableText.default(null),
+  dueAtBefore: nullableIso.default(null),
   notes: nullableText,
   costCents: int.nullable(),
   loggedById: nullableId,
@@ -497,12 +503,13 @@ export const BACKUP_FORMAT = "familyos-household-backup";
  * digital pet (pets, their items, game payouts, chore presents, the memory book, the collection book, and the household's care
  * hours); v9 (Phase 59.1c) the history of chores, schoolwork and school forms; v10 (Phase 63a)
  * which medicine or car supply put a list item there; v11 (Phase 64c) a list item's note; v12 (Phase 65a) as-needed medicines (the AS_NEEDED
- * frequency and a medicine's minGapHours / maxPerDay, which a server before it can't read). Older
+ * frequency and a medicine's minGapHours / maxPerDay, which a server before it can't read); v13
+ * (Phase 65b) car paperwork and repairs (an item's kind and nextDueAt, a service log's title). Older
  * files still restore with the arrays they lack defaulting to empty, so restoring one
  * removes that data here (the restore preview shows those delete counts). A v1 file still restores: those arrays
  * default to empty (and the restore preview says existing supplies will be removed).
  */
-export const BACKUP_SCHEMA_VERSION = 12;
+export const BACKUP_SCHEMA_VERSION = 13;
 
 /**
  * Phase 28 (v7): the household's money jars, sealed (AES-256-GCM over gzipped JSON, see
@@ -525,7 +532,7 @@ export type SealedMoney = z.infer<typeof sealedMoneySchema>;
 export const backupSchema = z.object({
   format: z.literal(BACKUP_FORMAT),
   // Every version this file format has had: older files restore with what they lack defaulted.
-  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, BACKUP_SCHEMA_VERSION]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, BACKUP_SCHEMA_VERSION]),
   exportedAt: iso,
   /**
    * Chore/med due dates and vehicle log dates are stored as the SERVER's local midnight.

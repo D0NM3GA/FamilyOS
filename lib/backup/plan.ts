@@ -600,6 +600,7 @@ export function remapBackup(
       id: req(items, r.id),
       vehicleId: req(vehicles, r.vehicleId),
       lastDoneAt: dateOrNull(r.lastDoneAt),
+      nextDueAt: dateOrNull(r.nextDueAt),
       createdAt: date(r.createdAt),
     })),
     serviceLogs: b.serviceLogs.map((r) => ({
@@ -608,6 +609,7 @@ export function remapBackup(
       itemId: req(items, r.itemId),
       loggedById: opt(people, r.loggedById),
       doneAt: date(r.doneAt),
+      dueAtBefore: dateOrNull(r.dueAtBefore),
       createdAt: date(r.createdAt),
     })),
     fuelLogs: b.fuelLogs.map((r) => ({

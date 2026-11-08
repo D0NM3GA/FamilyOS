@@ -137,9 +137,9 @@ function fullBackup(): Backup {
   ];
   b.vehicles = [{ id: "v1", name: "Van", make: null, model: null, year: null, vin: null, currentMileage: 100, mileageUpdatedAt: T, active: true, createdAt: T }];
   b.maintenanceItems = [
-    { id: "mi1", vehicleId: "v1", title: "Oil", notes: null, intervalMiles: 5000, intervalMonths: null, lastDoneMileage: null, lastDoneAt: null, active: true, createdAt: T },
+    { id: "mi1", vehicleId: "v1", title: "Oil", notes: null, intervalMiles: 5000, intervalMonths: null, lastDoneMileage: null, lastDoneAt: null, kind: "SERVICE", nextDueAt: null, active: true, createdAt: T },
   ];
-  b.serviceLogs = [{ id: "sl1", itemId: "mi1", doneAt: T, mileage: 90, notes: null, costCents: null, loggedById: "mom", createdAt: T }];
+  b.serviceLogs = [{ id: "sl1", itemId: "mi1", doneAt: T, mileage: 90, title: null, dueAtBefore: null, notes: null, costCents: null, loggedById: "mom", createdAt: T }];
   b.fuelLogs = [
     { id: "f1", vehicleId: "v1", filledAt: T, mileage: 95, gallons: 10, costCents: null, fullTank: true, missedPrevious: false, notes: null, loggedById: "kid", createdAt: T },
   ];

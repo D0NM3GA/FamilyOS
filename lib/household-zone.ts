@@ -76,6 +76,18 @@ export const DAY_COLUMNS = [
     column: "movedFrom",
     where: `"definitionId" IN (SELECT id FROM task_definition WHERE "householdId" = $1)`,
   },
+  // Phase 65b: a renewal's due day before it (what undo puts back).
+  {
+    table: "vehicle_service_log",
+    column: "dueAtBefore",
+    where: `"itemId" IN (SELECT i.id FROM vehicle_maintenance_item i JOIN vehicle v ON v.id = i."vehicleId" WHERE v."householdId" = $1)`,
+  },
+  // Phase 65b: paperwork's due day.
+  {
+    table: "vehicle_maintenance_item",
+    column: "nextDueAt",
+    where: `"vehicleId" IN (SELECT id FROM vehicle WHERE "householdId" = $1)`,
+  },
   {
     table: "vehicle_maintenance_item",
     column: "lastDoneAt",

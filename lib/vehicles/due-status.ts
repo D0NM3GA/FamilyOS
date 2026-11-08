@@ -18,6 +18,8 @@ export type MaintenanceItemLike = {
   intervalMonths: number | null;
   lastDoneMileage: number | null;
   lastDoneAt: Date | null;
+  /** Phase 65b, paperwork: the day it's due, which then decides on its own (no miles, no last done). */
+  nextDueAt?: Date | null;
 };
 
 export type DueResult = {
@@ -57,6 +59,17 @@ export function computeDueStatus(
   currentMileage: number,
   today: Date,
 ): DueResult {
+  // Only paperwork has a nextDueAt (Phase 65b).
+  if (item.nextDueAt != null) {
+    const daysRemaining = daysBetween(atMidnight(today), atMidnight(item.nextDueAt));
+    return {
+      status: daysRemaining <= 0 ? "OVERDUE" : daysRemaining <= UPCOMING_DAYS_BAND ? "UPCOMING" : "OK",
+      dueByMileage: null,
+      dueByDate: atMidnight(item.nextDueAt),
+      milesRemaining: null,
+      daysRemaining,
+    };
+  }
   if (item.lastDoneMileage == null && item.lastDoneAt == null) {
     return NEVER_DONE;
   }
