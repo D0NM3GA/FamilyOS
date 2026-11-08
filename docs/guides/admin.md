@@ -289,7 +289,11 @@ schools' calendars), checks each one, and lists what it found with the next few 
 the right one, for the whole family or one kid. It finds one on roughly half of school sites. Some
 sites only open in a full browser; the app says so, and then you copy the site's "Subscribe" or
 "iCal" link into **Or paste its link** below, as before. It never fetches anything on a private
-or home network.
+or home network. **One calendar for several kids:** add it for one kid, then add the same calendar
+for the other (it joins them to the one already there), or open **Who it's for** under a calendar
+and tick the kids or **Whole family**. A calendar whose kids have all been removed shows to grown-ups
+only, marked "Nobody's yet", until you pick someone. The same event in two calendars (the district's
+and the school's) shows once, with every kid it's for.
 
 **Date order in statement files** (Settings → Household): when a bank or card CSV's dates could be
 read either way (03/10/2026), the app reads them the way this says. Automatic is the standard where

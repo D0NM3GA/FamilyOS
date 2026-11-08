@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { FEED_WHO, feedKids, feedScope } from "@/lib/school/feeds/scope";
+import { foldFeedEvents } from "@/lib/school/feeds/fold";
 import { itemParam } from "@/lib/work-items/history";
 import { listPeople, fullName } from "@/lib/people";
 import { searchProductsLocal } from "@/lib/groceries/queries";
@@ -288,10 +290,11 @@ export async function searchHousehold(
             feed: {
               householdId,
               active: true,
-              ...(viewerIsAdult ? {} : { OR: [{ kidPersonId: null }, ...(opts.viewerId ? [{ kidPersonId: opts.viewerId }] : [])] }),
+              // Phase 70f: a kid sees the family's feeds and the ones they're on.
+              ...(viewerIsAdult ? {} : opts.viewerId ? feedScope(opts.viewerId) : { forFamily: true }),
             },
           },
-          select: { feedId: true, occurrenceKey: true, title: true, startsAt: true, endsAt: true, allDay: true, feed: { select: { kidPersonId: true, kid: { select: { firstName: true } } } } },
+          select: { feedId: true, occurrenceKey: true, title: true, startsAt: true, endsAt: true, allDay: true, feed: { select: FEED_WHO } },
           orderBy: { startsAt: "asc" },
           take: RESULTS_PER_GROUP,
         })
@@ -306,18 +309,20 @@ export async function searchHousehold(
       : [],
   ]);
   if (schoolEvents.length > 0) {
+    // Phase 70f: one event from two feeds is one result.
+    const folded = foldFeedEvents(schoolEvents.map((e) => ({ ...e, family: e.feed.forFamily, whoIds: feedKids(e.feed).ids, whoNames: feedKids(e.feed).names })));
     groups.push({
       title: "School calendar",
-      items: schoolEvents.map((e) => {
+      items: folded.map((e) => {
         // All-day events are stored as UTC midnight of their date; timed ones are instants read in
         // the household's zone, which the server keeps (lib/household-zone.ts), as the calendar does.
         const day = e.allDay ? toISODate(e.startsAt, "UTC") : toISODate(e.startsAt);
         return {
           id: `${e.feedId}:${e.occurrenceKey}`,
           label: e.title,
-          sublabel: [formatEventWhen(e, Intl.DateTimeFormat().resolvedOptions().timeZone), e.feed.kid?.firstName].filter(Boolean).join(" · "),
+          sublabel: [formatEventWhen(e, Intl.DateTimeFormat().resolvedOptions().timeZone), e.whoNames.join(" & ")].filter(Boolean).join(" · "),
           // To the week on the calendar, or to School when Calendar is off.
-          href: on("calendar") ? `/calendar?week=${day}` : e.feed.kidPersonId ? `/school?kid=${encodeURIComponent(e.feed.kidPersonId)}` : "/school",
+          href: on("calendar") ? `/calendar?week=${day}` : schoolLink(e.whoIds),
         };
       }),
     });
@@ -343,3 +348,6 @@ export async function searchHousehold(
 
   return groups;
 }
+
+/** Phase 70f: a feed for one kid opens their School; anything else, School. */
+const schoolLink = (kids: string[]) => (kids.length === 1 ? `/school?kid=${encodeURIComponent(kids[0])}` : "/school");

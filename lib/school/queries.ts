@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { FEED_WHO, feedKids, feedScope } from "./feeds/scope";
+import { foldFeedEvents } from "./feeds/fold";
 import { isAdult } from "@/lib/authz";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { byDueDate, isOverdue } from "./rules";
@@ -158,12 +160,12 @@ export async function getUpcomingSchoolEvents(viewer: Viewer, opts: { days: numb
   const allDayUntil = new Date(allDayFrom.getTime() + (opts.days + 1) * dayMs);
   const timedFrom = wallClockToInstant(y, m, d, 0, 0, 0, opts.timeZone);
   const timedUntil = new Date(timedFrom.getTime() + (opts.days + 1) * dayMs);
-  return prisma.schoolFeedEvent.findMany({
+  const rows = await prisma.schoolFeedEvent.findMany({
     where: {
       feed: {
         householdId: viewer.householdId,
         active: true,
-        ...(studentId ? { OR: [{ kidPersonId: null }, { kidPersonId: studentId }] } : {}),
+        ...feedScope(studentId),
       },
       OR: [
         { allDay: true, endsAt: { gt: allDayFrom }, startsAt: { lt: allDayUntil } },
@@ -178,11 +180,18 @@ export async function getUpcomingSchoolEvents(viewer: Viewer, opts: { days: numb
       startsAt: true,
       endsAt: true,
       allDay: true,
-      feed: { select: { name: true, kid: { select: { firstName: true } } } },
+      feed: { select: FEED_WHO },
     },
     orderBy: { startsAt: "asc" },
     take: 60,
   });
+  // Phase 70f: one event from two feeds shows once; `who` is its kids, else the feed's name.
+  return foldFeedEvents(
+    rows.map(({ feed, ...e }) => {
+      const kids = feedKids(feed);
+      return { ...e, feedName: feed.name, family: feed.forFamily, whoIds: kids.ids, whoNames: kids.names };
+    }),
+  ).map((e) => ({ ...e, who: e.whoNames.length ? e.whoNames.join(" & ") : e.feedName }));
 }
 
 /**

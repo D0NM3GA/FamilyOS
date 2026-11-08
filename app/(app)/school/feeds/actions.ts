@@ -42,12 +42,23 @@ async function saveFeed(admin: { householdId: string }, rawName: string, rawUrl:
   const url = normalizeFeedUrl(rawUrl);
   if (!url.ok) return { error: url.error };
   if (kidPersonId) {
-    const kid = await prisma.person.findFirst({ where: { id: kidPersonId, householdId: admin.householdId, isHouseholdMember: true }, select: { id: true } });
+    const kid = await prisma.person.findFirst({ where: { id: kidPersonId, ...student(admin.householdId) }, select: { id: true } });
     if (!kid) return { error: "That family member wasn't found." };
   }
   const urlHash = feedUrlHash(url.url);
-  if (await prisma.schoolFeed.findUnique({ where: { householdId_urlHash: { householdId: admin.householdId, urlHash } } })) {
-    return { error: "That feed is already added." };
+  const existing = await prisma.schoolFeed.findUnique({ where: { householdId_urlHash: { householdId: admin.householdId, urlHash } }, select: { id: true, name: true, forFamily: true, kids: { select: { personId: true } } } });
+  if (existing) {
+    // Phase 70f: one feed for several kids: the same calendar for another kid joins them to it.
+    if (existing.forFamily) return { error: `"${existing.name}" is already added, for the whole family.` };
+    if (!kidPersonId) {
+      await prisma.schoolFeed.update({ where: { id: existing.id }, data: { forFamily: true } });
+      revalidateFeeds();
+      return { notice: `"${existing.name}" was already added; it's for the whole family now.` };
+    }
+    if (existing.kids.some((k) => k.personId === kidPersonId)) return { error: `"${existing.name}" is already added for them.` };
+    await prisma.schoolFeedKid.upsert({ where: { feedId_personId: { feedId: existing.id, personId: kidPersonId } }, create: { feedId: existing.id, personId: kidPersonId }, update: {} });
+    revalidateFeeds();
+    return { notice: `"${existing.name}" was already added; it's for them too now.` };
   }
 
   // Try it before saving, so a wrong link fails here, not silently later.
@@ -75,7 +86,8 @@ async function saveFeed(admin: { householdId: string }, rawName: string, rawUrl:
         id,
         householdId: admin.householdId,
         name: name.data,
-        kidPersonId,
+        forFamily: !kidPersonId,
+        ...(kidPersonId ? { kids: { create: [{ personId: kidPersonId }] } } : {}),
         encryptedValue: new Uint8Array(secret.encryptedValue),
         iv: new Uint8Array(secret.iv),
         authTag: new Uint8Array(secret.authTag),
@@ -171,4 +183,30 @@ export async function addFoundCalendar(_prev: FeedFormState, fd: FormData): Prom
   const entry = openFound(String(fd.get("sealed") ?? ""), Number(fd.get("index")), { householdId: admin.householdId, personId: admin.id });
   if (!entry) return { error: "That search has expired. Find the calendars again." };
   return saveFeed(admin, String(fd.get("name") ?? "") || entry.name, entry.url, String(fd.get("kidPersonId") ?? "") || null);
+}
+
+/**
+ * Phase 70f: who a feed is for: the whole family, or any of the household's kids. With nobody
+ * picked it's for grown-ups only, which the page says ("Nobody's yet").
+ */
+export async function setFeedWho(feedId: string, fd: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "school");
+  const feed = await prisma.schoolFeed.findFirst({ where: { id: feedId, householdId: admin.householdId }, select: { id: true } });
+  if (!feed) return;
+  const forFamily = fd.get("family") === "on";
+  const asked = fd.getAll("kid").map(String).slice(0, 20);
+  // Kids ticked alongside "Whole family" are kept, so unticking the family later leaves them on it.
+  const kids = asked.length === 0 ? [] : await prisma.person.findMany({ where: { id: { in: asked }, ...student(admin.householdId) }, select: { id: true } });
+  await prisma.$transaction([
+    prisma.schoolFeed.update({ where: { id: feed.id }, data: { forFamily } }),
+    prisma.schoolFeedKid.deleteMany({ where: { feedId: feed.id } }),
+    prisma.schoolFeedKid.createMany({ data: kids.map((k) => ({ feedId: feed.id, personId: k.id })) }),
+  ]);
+  revalidateFeeds();
+}
+
+/** A kid a calendar can be for: a household member who's a kid or has school details (as School lists them). */
+function student(householdId: string) {
+  return { householdId, isHouseholdMember: true, OR: [{ role: "KID" as const }, { schoolProfile: { isNot: null } }] };
 }

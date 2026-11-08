@@ -38,7 +38,7 @@ describe.skipIf(!RUN)("connections and search (database)", { timeout: 60_000 }, 
     await prisma.taskDefinition.create({ data: { householdId: h.id, title: "Old cream", domain: "MED", frequencyType: "DAILY", startDate: new Date(), active: false, medication: { create: { prescriberId: doctor.id } } } });
     const task = await prisma.schoolTask.create({ data: { householdId: h.id, title: "Picture day form", kind: "FORM", kidPersonId: ivy.id } });
     const feed = (kidPersonId: string | null, n: number) =>
-      prisma.schoolFeed.create({ data: { householdId: h.id, name: `Feed ${n}`, kidPersonId, encryptedValue: Buffer.from("x"), iv: Buffer.from("x"), authTag: Buffer.from("x"), urlHash: `hash-${n}-${t}`, host: "calendar.example.com" } });
+      prisma.schoolFeed.create({ data: { householdId: h.id, name: `Feed ${n}`, forFamily: !kidPersonId, ...(kidPersonId ? { kids: { create: [{ personId: kidPersonId }] } } : {}), encryptedValue: Buffer.from("x"), iv: Buffer.from("x"), authTag: Buffer.from("x"), urlHash: `hash-${n}-${t}`, host: "calendar.example.com" } });
     const [family, ivysFeed, maxsFeed, stopped] = await Promise.all([feed(null, 1), feed(ivy.id, 2), feed(max.id, 3), feed(null, 4)]);
     await prisma.schoolFeed.update({ where: { id: stopped.id }, data: { active: false } });
     const soon = new Date(Date.now() + 5 * 86_400_000);

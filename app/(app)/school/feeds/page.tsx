@@ -1,13 +1,14 @@
 import Link from "next/link";
+import { FEED_WHO, feedForWords } from "@/lib/school/feeds/scope";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { isAdmin } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/format";
 import { listStudents } from "@/lib/school/queries";
 import { PageHeader } from "@/components/page-header";
-import { backLink, card } from "@/components/styles";
-import { ConfirmSubmit } from "@/components/submit";
-import { addFeed, addFoundCalendar, findSchoolCalendars, refreshFeedNow, removeFeed } from "./actions";
+import { backLink, btn, card } from "@/components/styles";
+import { ConfirmSubmit, SubmitButton } from "@/components/submit";
+import { addFeed, addFoundCalendar, findSchoolCalendars, refreshFeedNow, removeFeed, setFeedWho } from "./actions";
 import { FindCalendarsForm } from "./find-calendars-form";
 import { AddFeedForm } from "./add-feed-form";
 import { RefreshButton } from "./refresh-button";
@@ -38,11 +39,10 @@ export default async function SchoolFeedsPage() {
       where: { householdId: viewer.householdId },
       select: {
         id: true,
-        name: true,
         host: true,
         lastSuccessAt: true,
         lastError: true,
-        kid: { select: { firstName: true } },
+        ...FEED_WHO,
         _count: { select: { events: true } },
       },
       orderBy: { name: "asc" },
@@ -68,10 +68,27 @@ export default async function SchoolFeedsPage() {
               <div className="min-w-0 flex-1 basis-48">
                 <p className="text-sm font-bold text-foreground">{f.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {f.host} · {f.kid ? f.kid.firstName : "Whole family"} · {f._count.events} upcoming
+                  {f.host} · {feedForWords(f)} · {f._count.events} upcoming
                   {f.lastSuccessAt && ` · updated ${formatDateTime(f.lastSuccessAt)}`}
                 </p>
                 {f.lastError && <p className="break-words text-xs text-destructive">{f.lastError}</p>}
+                {/* Phase 70f: a feed can be for several kids, or the whole family. */}
+                <details className="mt-1">
+                  <summary className="inline-flex min-h-11 cursor-pointer items-center text-xs font-bold text-muted-foreground underline sm:min-h-0">Who it&apos;s for</summary>
+                  <form action={setFeedWho.bind(null, f.id)} className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    <label className="flex min-h-11 items-center gap-2 sm:min-h-9">
+                      <input type="checkbox" name="family" defaultChecked={f.forFamily} className="size-4" />
+                      Whole family (everyone sees it, whoever else is ticked)
+                    </label>
+                    {students.map((s) => (
+                      <label key={s.id} className="flex min-h-11 items-center gap-2 sm:min-h-9">
+                        <input type="checkbox" name="kid" value={s.id} defaultChecked={f.kids.some((k) => k.person.id === s.id)} className="size-4" />
+                        {s.firstName}
+                      </label>
+                    ))}
+                    <SubmitButton className={btn}>Save</SubmitButton>
+                  </form>
+                </details>
               </div>
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 <RefreshButton action={refreshFeedNow.bind(null, f.id)} name={f.name} />
