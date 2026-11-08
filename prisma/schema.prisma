@@ -718,6 +718,16 @@ enum SignInEventKind {
   BREAK_GLASS_OFF
   /// 53: an admin set or cleared the mailbox alert email comes from (detail: the address).
   ALERT_MAILBOX_SET
+  /// 67a: someone signed one of their own devices out (detail "one device") or every other one
+  /// ("everywhere else"); an admin signed someone out on every device.
+  SIGNED_OUT_ELSEWHERE
+  SIGNED_OUT_EVERYWHERE
+  /// 67a: a PIN was set or cleared (detail "set" / "cleared"), by the person or an admin; a profile
+  /// locked after too many wrong PINs (actor: whose sign-in the device was on); someone was taken
+  /// off the household.
+  PIN_SET
+  PIN_LOCKED
+  MEMBER_REMOVED
 }
 
 /// Phase 40.4: the scheduled check of who Entra assigns to the app (lib/entra-check.ts), one per

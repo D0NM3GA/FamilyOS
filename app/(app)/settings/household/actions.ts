@@ -12,6 +12,7 @@ import { requireAdmin } from "@/lib/authz";
 import { pinError } from "@/lib/pin-rules";
 import { canonicalizeTimeZone, isValidTimeZone } from "@/lib/household-settings";
 import { canRemoveFromHousehold } from "@/lib/household-members";
+import { recordSignInEvent } from "@/lib/sign-in-events";
 
 function fail(message: string): never {
   redirect(`/settings/household?error=${encodeURIComponent(message)}`);
@@ -44,9 +45,13 @@ export async function removeHouseholdMember(personId: string) {
     fail(`${target.firstName} has their own sign-in (or will, after a restore), so they aren't removed here.`);
   }
 
-  await prisma.person.update({
-    where: { id: target.id },
-    data: { isHouseholdMember: false, role: null },
+  // Phase 67a: in the sign-in log, in the same step.
+  await prisma.$transaction(async (tx) => {
+    await tx.person.update({
+      where: { id: target.id },
+      data: { isHouseholdMember: false, role: null },
+    });
+    await recordSignInEvent(tx, { householdId: admin.householdId, kind: "MEMBER_REMOVED", actor: { id: admin.id, firstName: admin.firstName }, subject: { id: target.id, firstName: target.firstName } });
   });
   redirect("/settings/household");
 }
@@ -131,7 +136,7 @@ export async function setMemberPin(
   const target = await prisma.person.findFirst({
     // authUserId: null enforced here, not only by hiding the form (Phase 25's review).
     where: { id: personId, householdId: admin.householdId, isHouseholdMember: true, authUserId: null },
-    select: { id: true, role: true },
+    select: { id: true, role: true, firstName: true },
   });
   if (!target) return { error: "That household member wasn't found, or signs in with Microsoft." };
   // Phase 42: a PIN must never open an admin's profile. The only admin without a sign-in is one a
@@ -141,9 +146,10 @@ export async function setMemberPin(
   const problem = pinError(target.role, pin);
   if (problem) return { error: problem };
 
-  await prisma.person.update({
-    where: { id: target.id },
-    data: { pinHash: await hashPin(pin), pinFailedAttempts: 0, pinLockedUntil: null },
+  const pinHash = await hashPin(pin);
+  await prisma.$transaction(async (tx) => {
+    await tx.person.update({ where: { id: target.id }, data: { pinHash, pinFailedAttempts: 0, pinLockedUntil: null } });
+    await recordSignInEvent(tx, { householdId: admin.householdId, kind: "PIN_SET", actor: { id: admin.id, firstName: admin.firstName }, subject: { id: target.id, firstName: target.firstName }, detail: "set" });
   });
 
   revalidatePath("/settings/household");

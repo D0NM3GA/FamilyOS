@@ -28,9 +28,14 @@ export const SIGN_IN_CARD: TeamsCard = { heading: "🔐 Sign-in", linkText: "See
 const OWN_SIGN_IN_CARD: TeamsCard = { heading: "🔐 Your sign-in", linkText: "Open the app" };
 
 /** The kinds that tell the person themselves; their own, so always. */
-const TELLS_SUBJECT = new Set<SignInEventKind>(["PASSKEYS_RESET", "SIGN_IN_REMOVED", "ROLE_CHANGED", "PASSKEY_ADDED", "ENTRA_ACCESS_ENDED"]);
+const TELLS_SUBJECT = new Set<SignInEventKind>(["PASSKEYS_RESET", "SIGN_IN_REMOVED", "ROLE_CHANGED", "PASSKEY_ADDED", "ENTRA_ACCESS_ENDED", "SIGNED_OUT_EVERYWHERE"]);
 /** The kinds the other admins hear about (if their switch is on). */
-const TELLS_ADMINS = new Set<SignInEventKind>(["PASSKEYS_RESET", "SIGN_IN_REMOVED", "ROLE_CHANGED", "ENTRA_ACCESS_ENDED"]);
+const TELLS_ADMINS = new Set<SignInEventKind>(["PASSKEYS_RESET", "SIGN_IN_REMOVED", "ROLE_CHANGED", "ENTRA_ACCESS_ENDED", "SIGNED_OUT_EVERYWHERE", "PIN_LOCKED"]);
+/**
+ * Phase 67a: a lockout tells every admin, the device's grown-up and the locked person included:
+ * a kid trying Mom's tile on Dad's tablet is news to both.
+ */
+const TELLS_EVERY_ADMIN = new Set<SignInEventKind>(["PIN_LOCKED"]);
 
 const roleWords = (role: string | null | undefined) => (role === "Admin" ? "an admin" : "a grown-up without admin");
 
@@ -44,6 +49,8 @@ function subjectTitle(kind: SignInEventKind, actor: string, role?: string | null
       return `🔐 ${actor} made you ${roleWords(role)}.`;
     case "ENTRA_ACCESS_ENDED":
       return "🔐 Your access to the app was ended in Entra (Microsoft 365). If that's a mistake, ask whoever looks after it.";
+    case "SIGNED_OUT_EVERYWHERE":
+      return `🔐 ${actor} signed you out on every device. Sign in again where you use the app.`;
     default:
       return "🔐 A passkey was added to your sign-in. If that wasn't you, tell an admin.";
   }
@@ -57,6 +64,10 @@ function adminTitle(kind: SignInEventKind, actor: string, subject: string, role?
       return `🔐 ${actor} removed ${subject}'s own sign-in.`;
     case "ENTRA_ACCESS_ENDED":
       return `🔐 Entra ended ${subject}'s access to the app. Invites or links ${subject} made stopped working, and a shared tablet signed in as ${subject} needs another grown-up's sign-in.`;
+    case "SIGNED_OUT_EVERYWHERE":
+      return `🔐 ${actor} signed ${subject} out on every device.`;
+    case "PIN_LOCKED":
+      return `🔐 ${subject}'s profile locked after too many wrong PINs, on ${actor}'s sign-in.`;
     default:
       return `🔐 ${actor} made ${subject} ${roleWords(role)}.`;
   }
@@ -108,7 +119,7 @@ export async function writeSignInNotices(tx: Tx, n: SignInNoticeInput): Promise<
         isHouseholdMember: true,
         role: "ADMIN",
         authUserId: { not: null },
-        id: { notIn: [n.actor.id, n.subject.id].filter((id): id is string => id !== null) },
+        ...(TELLS_EVERY_ADMIN.has(n.kind) ? {} : { id: { notIn: [n.actor.id, n.subject.id].filter((id): id is string => id !== null) } }),
         // Phase 40.4: never someone Entra has cut off.
         entraAccessEndedAt: null,
         ...wantsOthersNotices,

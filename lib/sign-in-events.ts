@@ -91,6 +91,16 @@ export function describeSignInEvent(e: SignInEventRow, you: string): string {
       return `Emergency local access was switched on on the server${e.detail ? `, until ${e.detail}` : ""}`;
     case "BREAK_GLASS_OFF":
       return "Emergency local access went off";
+    case "SIGNED_OUT_ELSEWHERE":
+      return e.detail === "one device" ? `${actor} signed out one of ${e.actorId === you ? "your" : "their"} devices` : `${actor} signed out everywhere else`;
+    case "SIGNED_OUT_EVERYWHERE":
+      return `${actor} signed ${e.subjectId === you ? "you" : e.subjectName} out on every device`;
+    case "PIN_SET":
+      return e.detail === "cleared" ? `${actor} cleared ${whose} PIN` : `${actor} set ${whose} PIN`;
+    case "PIN_LOCKED":
+      return `${e.subjectId === you ? "Your" : `${e.subjectName}'s`} profile locked after too many wrong PINs, on ${e.actorId === you ? "your" : `${e.actorName}'s`} sign-in`;
+    case "MEMBER_REMOVED":
+      return `${actor} took ${e.subjectId === you ? "you" : e.subjectName} off the household`;
     case "ALERT_MAILBOX_SET":
       return e.detail ? `${actor} set the alert mailbox to ${e.detail}` : `${actor} cleared the alert mailbox (the server's setting applies)`;
   }

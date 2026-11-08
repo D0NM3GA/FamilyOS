@@ -8,6 +8,8 @@ import { isDevUser } from "@/lib/dev-auth";
 import { lockLabel, lockoutMs } from "@/lib/pin-lockout";
 import { verifyPin } from "@/lib/pin-hash";
 import { ownTileLocked } from "./own-tile";
+import { recordSignInEvent } from "@/lib/sign-in-events";
+import { deliverSignInNotices, writeSignInNotices, type Announced } from "@/lib/sign-in-notices";
 
 export type PinState = { error?: string };
 
@@ -102,6 +104,7 @@ export async function verifyPinAndSelect(
 
   // One guess at a time per profile: the lock check, the PIN check and the count are one step
   // under an advisory lock, so a burst of parallel guesses can't all slip past the lock.
+  let lockNotices: Announced | null = null;
   const result = await prisma.$transaction(async (tx): Promise<PinState | null> => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${target.id}))`;
     // The hash is read again under the lock, so a PIN changed meanwhile is the one checked
@@ -126,6 +129,13 @@ export async function verifyPinAndSelect(
         where: { id: target.id },
         data: { pinFailedAttempts: failed, ...(lockMs ? { pinLockedUntil: new Date(Date.now() + lockMs) } : {}) },
       });
+      // Phase 67a: a lock goes in the sign-in log, and every admin hears (whose sign-in the
+      // device was on is the actor).
+      if (lockMs) {
+        const lock = { householdId: authPerson.householdId, kind: "PIN_LOCKED" as const, actor: { id: authPerson.id, firstName: authPerson.firstName }, subject: { id: target.id, firstName: target.firstName } };
+        await recordSignInEvent(tx, lock);
+        lockNotices = await writeSignInNotices(tx, lock);
+      }
       return { error: lockMs ? `Too many incorrect attempts — try again in ${lockLabel(lockMs)}.` : "Incorrect PIN." };
     }
 
@@ -137,6 +147,7 @@ export async function verifyPinAndSelect(
     }
     return null;
   });
+  if (lockNotices) await deliverSignInNotices(lockNotices);
   if (result) return result;
 
   await setActiveProfileCookie(target.id);
