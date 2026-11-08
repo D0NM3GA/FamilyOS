@@ -21,7 +21,7 @@ describe("computePantrySuggestions", () => {
     const result = computePantrySuggestions(rows, NOW);
     expect(result).toHaveLength(1);
     expect(result[0].key).toBe("milk");
-    expect(result[0].medianIntervalDays).toBe(7);
+    expect(result[0].lastsDays).toBe(7);
     expect(result[0].daysSinceLast).toBe(7);
   });
 
@@ -30,16 +30,29 @@ describe("computePantrySuggestions", () => {
     expect(computePantrySuggestions(rows, NOW)).toEqual([]);
   });
 
-  it("collapses same-day duplicates (two trips, or the same item twice in one trip) to one data point", () => {
+  it("collapses same-day duplicates to one day, whose amounts add up (Phase 65c)", () => {
     const rows = [
+      row("eggs", 28),
       row("eggs", 21),
-      row("eggs", 21), // same day as above — must not count as its own interval
+      row("eggs", 21), // same day as above: not its own interval, but two were bought that day
       row("eggs", 14),
       row("eggs", 7),
     ];
     const result = computePantrySuggestions(rows, NOW);
     expect(result).toHaveLength(1);
-    expect(result[0].medianIntervalDays).toBe(7);
+    // Days each lasted: 7, 3.5, 7 -> median 7, times the last trip's one.
+    expect(result[0].lastsDays).toBe(7);
+  });
+
+  it("weighs by how many were bought: a bigger last trip lasts longer (Phase 65c)", () => {
+    const q = (daysAgoBought: number, quantity: number) => ({ ...row("paper towels", daysAgoBought), quantity });
+    // One pack lasts about 7 days; the last trip, 9 days ago, bought two: about 5 days left.
+    const rows = [q(30, 1), q(23, 1), q(16, 1), q(9, 2)];
+    expect(computePantrySuggestions(rows, NOW)).toEqual([]);
+    const soon = computePantrySuggestions(rows, NOW, { aheadDays: 5 });
+    expect(soon).toHaveLength(1);
+    expect(soon[0]).toMatchObject({ lastsDays: 14, daysSinceLast: 9, daysLeft: 5 });
+    expect(computePantrySuggestions(rows, NOW, { aheadDays: 4 })).toEqual([]);
   });
 
   it("uses the median, not the mean, so one long gap (vacation) doesn't skew a regular cadence", () => {
@@ -50,7 +63,7 @@ describe("computePantrySuggestions", () => {
     const rows = [row("coffee", 51), row("coffee", 44), row("coffee", 37), row("coffee", 9)];
     const result = computePantrySuggestions(rows, NOW);
     expect(result).toHaveLength(1);
-    expect(result[0].medianIntervalDays).toBe(7);
+    expect(result[0].lastsDays).toBe(7);
     expect(result[0].daysSinceLast).toBe(9);
   });
 

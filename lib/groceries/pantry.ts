@@ -18,6 +18,8 @@ export type PurchaseHistoryRow = {
   label: string;
   productId: string | null;
   purchasedAt: Date;
+  /** Phase 65c: how many were bought on that line (1 when unknown). */
+  quantity?: number;
 };
 
 export type PantrySuggestion = {
@@ -28,7 +30,10 @@ export type PantrySuggestion = {
    * Product id apart from an old history row's lowercased description. */
   productId: string | null;
   daysSinceLast: number;
-  medianIntervalDays: number;
+  /** How long the last purchase should last, in days (Phase 65c: weighted by how many were bought). */
+  lastsDays: number;
+  /** Days until it's probably out (negative once it's past). */
+  daysLeft: number;
 };
 
 export function median(nums: number[]): number {
@@ -56,25 +61,28 @@ export function dayNumber(d: Date): number | null {
 export function computePantrySuggestions(
   rows: PurchaseHistoryRow[],
   now: Date,
-  opts: { excludeKeys?: Set<string>; limit?: number } = {},
+  opts: { excludeKeys?: Set<string>; limit?: number; aheadDays?: number } = {},
 ): PantrySuggestion[] {
-  const { excludeKeys, limit = 8 } = opts;
+  // aheadDays (Phase 65c): also what runs out within that many days (Home's "running low").
+  const { excludeKeys, limit = 8, aheadDays = 0 } = opts;
   const today = dayNumber(now);
   if (today == null) return []; // an invalid `now` can't produce a meaningful "days since"
 
   // Collapse to distinct calendar days per key first — two trips in one day, or the same
   // item twice in one trip, is one data point, not two. This also structurally rules out a
   // zero-day interval rather than needing to special-case it below.
-  const byKey = new Map<string, { label: string; productId: string | null; days: Set<number> }>();
+  // Each day carries how many were bought then (summed), so a big trip lasts longer.
+  const byKey = new Map<string, { label: string; productId: string | null; days: Map<number, number> }>();
   for (const row of rows) {
     if (excludeKeys?.has(row.key)) continue;
     const day = dayNumber(row.purchasedAt);
     if (day == null) continue; // an invalid purchase date can't contribute a data point
+    const qty = row.quantity != null && row.quantity > 0 ? row.quantity : 1;
     const entry = byKey.get(row.key);
     if (entry) {
-      entry.days.add(day);
+      entry.days.set(day, (entry.days.get(day) ?? 0) + qty);
     } else {
-      byKey.set(row.key, { label: row.label, productId: row.productId, days: new Set([day]) });
+      byKey.set(row.key, { label: row.label, productId: row.productId, days: new Map([[day, qty]]) });
     }
   }
 
@@ -83,21 +91,25 @@ export function computePantrySuggestions(
   for (const [key, { label, productId, days }] of byKey) {
     if (days.size < MIN_DISTINCT_DAYS) continue;
 
-    const sortedDays = [...days].sort((a, b) => a - b);
-    const intervals: number[] = [];
-    for (let i = 1; i < sortedDays.length; i++) intervals.push(sortedDays[i] - sortedDays[i - 1]);
+    const sortedDays = [...days.keys()].sort((a, b) => a - b);
+    // Phase 65c: days each one bought lasted (the gap after a trip over what that trip bought),
+    // its median, times what the last trip bought. With one each time it's the median gap.
+    const daysPerUnit: number[] = [];
+    for (let i = 1; i < sortedDays.length; i++) daysPerUnit.push((sortedDays[i] - sortedDays[i - 1]) / days.get(sortedDays[i - 1])!);
 
-    const medianIntervalDays = median(intervals);
-    if (medianIntervalDays <= 0) continue;
+    const lastDay = sortedDays[sortedDays.length - 1];
+    const lastsDays = median(daysPerUnit) * days.get(lastDay)!;
+    if (lastsDays <= 0) continue;
 
-    const daysSinceLast = today - sortedDays[sortedDays.length - 1];
-    if (daysSinceLast < medianIntervalDays) continue;
-    if (daysSinceLast > medianIntervalDays * STALE_MULTIPLIER) continue;
+    const daysSinceLast = today - lastDay;
+    const daysLeft = Math.round(lastsDays - daysSinceLast);
+    if (lastsDays - daysSinceLast > aheadDays) continue;
+    if (daysSinceLast > lastsDays * STALE_MULTIPLIER) continue;
 
-    suggestions.push({ key, label, productId, daysSinceLast, medianIntervalDays });
+    suggestions.push({ key, label, productId, daysSinceLast, lastsDays, daysLeft });
   }
 
   return suggestions
-    .sort((a, b) => b.daysSinceLast / b.medianIntervalDays - a.daysSinceLast / a.medianIntervalDays)
+    .sort((a, b) => b.daysSinceLast / b.lastsDays - a.daysSinceLast / a.lastsDays)
     .slice(0, limit);
 }
