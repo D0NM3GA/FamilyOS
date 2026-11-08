@@ -7,7 +7,7 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { productNameKey } from "@/lib/product-name";
 import { requireAdult } from "@/lib/authz";
 import { assertAppOn } from "@/lib/app-guard";
-import { findOrCreateProductByName, getOrCreateActiveList } from "@/lib/shopping-list";
+import { findOrCreateProductByName, getOrCreateActiveList, lockList } from "@/lib/shopping-list";
 import { DAY_NOTE_MAX, MEAL_NAME_MAX, parseIngredients, weekShopping } from "@/lib/groceries/meals";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { parseLocalDate } from "@/lib/format";
@@ -137,11 +137,17 @@ export async function addWeekToList(weekStartRaw: string): Promise<MealFormState
     select: { mealId: true, meal: { select: { ingredients: { select: { productId: true, quantity: true } } } } },
   });
   const list = await getOrCreateActiveList(profile.householdId);
-  const onList = new Set((await prisma.shoppingListItem.findMany({ where: { listId: list.id, done: false }, select: { productId: true } })).map((i) => i.productId));
   const ingredients = new Map(days.map((d) => [d.mealId!, d.meal?.ingredients ?? []]));
-  const need = weekShopping(days.map((d) => d.mealId), ingredients, onList);
+  // Phase 66b: read and added under the list's lock, so an add from another phone in between
+  // can't end up as a second row of the same thing.
+  const need = await prisma.$transaction(async (tx) => {
+    await lockList(tx, list.id);
+    const onList = new Set((await tx.shoppingListItem.findMany({ where: { listId: list.id, done: false }, select: { productId: true } })).map((i) => i.productId));
+    const missing = weekShopping(days.map((d) => d.mealId), ingredients, onList);
+    if (missing.length) await tx.shoppingListItem.createMany({ data: missing.map((n) => ({ listId: list.id, productId: n.productId, quantity: n.quantity, addedById: profile.id })) });
+    return missing;
+  });
   if (need.length === 0) return { ok: days.length ? "Everything the week's meals need is already on the list." : "No saved meals planned this week." };
-  await prisma.shoppingListItem.createMany({ data: need.map((n) => ({ listId: list.id, productId: n.productId, quantity: n.quantity, addedById: profile.id })) });
   revalidatePath("/groceries");
   revalidatePath("/groceries/shop");
   revalidateMeals();

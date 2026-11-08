@@ -24,6 +24,15 @@ export async function getOrCreateActiveList(householdId: string) {
 }
 
 /**
+ * Phase 66b: holds the household's list row until the transaction ends, so two phones adding the
+ * same item at once can't both find nothing and both make a row: every path that adds a row, or
+ * un-ticks one, takes this first and then looks. One list per household, so it's one row.
+ */
+export async function lockList(tx: Tx, listId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM shopping_list WHERE id = ${listId} FOR UPDATE`;
+}
+
+/**
  * The household's Pantry item for a typed name, creating it if it's new. Race-safe on the
  * (householdId, nameKey) unique index: a concurrent create of the same name re-finds the
  * winner instead of erroring. Returns `created` so the groceries domain can suggest a
@@ -80,28 +89,33 @@ export async function requestItemByName(opts: {
   const { product } = await findOrCreateProductByName(opts.householdId, opts.name);
   const source = { medicationId: opts.source?.medicationId ?? null, vehicleSupplyId: opts.source?.vehicleSupplyId ?? null };
 
-  const existing = await prisma.shoppingListItem.findFirst({
-    where: { listId: list.id, productId: product.id },
-  });
-  if (existing) {
-    // Already asked for (by hand, say): it gains the source if it had none. Two medicines sharing
-    // a name share the Pantry item, so the first source stays.
-    if (!existing.medicationId && !existing.vehicleSupplyId && (source.medicationId || source.vehicleSupplyId)) {
-      await prisma.shoppingListItem.update({ where: { id: existing.id }, data: source });
+  // The Pantry item is found or made first, outside the transaction: its race recovery re-finds
+  // after a unique-key error, which an open Postgres transaction can't survive.
+  return prisma.$transaction(async (tx) => {
+    await lockList(tx, list.id);
+    const existing = await tx.shoppingListItem.findFirst({
+      where: { listId: list.id, productId: product.id },
+    });
+    if (existing) {
+      // Already asked for (by hand, say): it gains the source if it had none. Two medicines sharing
+      // a name share the Pantry item, so the first source stays.
+      if (!existing.medicationId && !existing.vehicleSupplyId && (source.medicationId || source.vehicleSupplyId)) {
+        await tx.shoppingListItem.update({ where: { id: existing.id }, data: source });
+      }
+      return { created: false };
     }
-    return { created: false };
-  }
 
-  await prisma.shoppingListItem.create({
-    data: {
-      listId: list.id,
-      productId: product.id,
-      addedById: opts.addedById,
-      requestedById: opts.requestedById ?? null,
-      ...source,
-    },
+    await tx.shoppingListItem.create({
+      data: {
+        listId: list.id,
+        productId: product.id,
+        addedById: opts.addedById,
+        requestedById: opts.requestedById ?? null,
+        ...source,
+      },
+    });
+    return { created: true };
   });
-  return { created: true };
 }
 
 /**

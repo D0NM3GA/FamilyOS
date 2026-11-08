@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, type Tx } from "@/lib/prisma";
+import { lockList } from "@/lib/shopping-list";
 import { notifyPerson } from "@/lib/notifications";
 import { getUsuals } from "./queries";
 import type { RemovedRow } from "./undo";
@@ -18,26 +19,57 @@ export async function addProductToList(
   productId: string,
   adder: { id: string; role: "ADULT" | "KID" | "ADMIN" | null },
 ) {
-  const existing = await prisma.shoppingListItem.findFirst({
-    where: { listId, productId, done: false },
-  });
-  if (existing) {
-    await prisma.shoppingListItem.update({
-      where: { id: existing.id },
-      data: { quantity: { increment: 1 } },
-    });
-    return;
-  }
   const usual = (await getUsuals(householdId, [productId])).get(productId);
-  await prisma.shoppingListItem.create({
-    data: {
-      listId,
-      productId,
-      addedById: adder.id,
-      quantity: usual?.quantity ?? 1,
-      ...(adder.role === "KID" ? { requestedById: adder.id, kidPick: true } : {}),
-    },
+  // Phase 66b: looked for and made under the list's lock, so two phones adding it at once make
+  // one row with two, not two rows.
+  await prisma.$transaction(async (tx) => {
+    await lockList(tx, listId);
+    const existing = await tx.shoppingListItem.findFirst({
+      where: { listId, productId, done: false },
+    });
+    if (existing) {
+      await tx.shoppingListItem.update({
+        where: { id: existing.id },
+        data: { quantity: { increment: 1 } },
+      });
+      return;
+    }
+    await tx.shoppingListItem.create({
+      data: {
+        listId,
+        productId,
+        addedById: adder.id,
+        quantity: usual?.quantity ?? 1,
+        ...(adder.role === "KID" ? { requestedById: adder.id, kidPick: true } : {}),
+      },
+    });
   });
+}
+
+/**
+ * Phase 66b: un-ticks a row. When the same item was added again meanwhile (unchecked, a row of
+ * its own), the un-ticked one folds into it, its amount added, instead of making two rows of
+ * the same thing. Call under lockList. False when the row is gone (another phone finished it).
+ */
+export async function untickRow(tx: Tx, householdId: string, itemId: string): Promise<boolean> {
+  const row = await tx.shoppingListItem.findFirst({
+    where: { id: itemId, list: { householdId } },
+    select: { id: true, listId: true, productId: true, quantity: true, done: true, medicationId: true, vehicleSupplyId: true },
+  });
+  if (!row) return false;
+  if (!row.done) return true;
+  const twin = await tx.shoppingListItem.findFirst({
+    where: { listId: row.listId, productId: row.productId, done: false, id: { not: row.id } },
+    select: { id: true, medicationId: true, vehicleSupplyId: true },
+  });
+  if (!twin) {
+    await tx.shoppingListItem.update({ where: { id: row.id }, data: { done: false } });
+    return true;
+  }
+  const source = !twin.medicationId && !twin.vehicleSupplyId && (row.medicationId || row.vehicleSupplyId) ? { medicationId: row.medicationId, vehicleSupplyId: row.vehicleSupplyId } : {};
+  await tx.shoppingListItem.update({ where: { id: twin.id }, data: { quantity: { increment: row.quantity }, ...source } });
+  await tx.shoppingListItem.delete({ where: { id: row.id } });
+  return true;
 }
 
 /**
@@ -73,29 +105,33 @@ export async function takeRowOff(householdId: string, itemId: string): Promise<{
 export async function putRowBack(householdId: string, listId: string, row: RemovedRow): Promise<"restored" | "already" | "gone"> {
   const product = await prisma.product.findFirst({ where: { id: row.productId, householdId }, select: { id: true } });
   if (!product) return "gone";
-  const already = await prisma.shoppingListItem.findFirst({
-    where: { listId, productId: product.id, done: row.done },
-    select: { id: true },
-  });
-  if (already) return "already";
-
   const wanted = [row.addedById, row.requestedById].filter((id): id is string => id != null);
   const people = wanted.length
     ? await prisma.person.findMany({ where: { id: { in: wanted }, householdId }, select: { id: true } })
     : [];
   const known = new Set(people.map((p) => p.id));
-  await prisma.shoppingListItem.create({
-    data: {
-      listId,
-      productId: product.id,
-      quantity: row.quantity,
-      done: row.done,
-      addedById: row.addedById && known.has(row.addedById) ? row.addedById : null,
-      requestedById: row.requestedById && known.has(row.requestedById) ? row.requestedById : null,
-      kidPick: row.kidPick,
-    },
+
+  // Phase 66b: under the list's lock, so a fresh add landing at the same moment can't make two.
+  return prisma.$transaction(async (tx) => {
+    await lockList(tx, listId);
+    const already = await tx.shoppingListItem.findFirst({
+      where: { listId, productId: product.id, done: row.done },
+      select: { id: true },
+    });
+    if (already) return "already" as const;
+    await tx.shoppingListItem.create({
+      data: {
+        listId,
+        productId: product.id,
+        quantity: row.quantity,
+        done: row.done,
+        addedById: row.addedById && known.has(row.addedById) ? row.addedById : null,
+        requestedById: row.requestedById && known.has(row.requestedById) ? row.requestedById : null,
+        kidPick: row.kidPick,
+      },
+    });
+    return "restored" as const;
   });
-  return "restored";
 }
 
 /**
@@ -103,14 +139,20 @@ export async function putRowBack(householdId: string, listId: string, row: Remov
  * exist (another phone finished the trip) are skipped, not errors. All or nothing, so a
  * failed send is simply retried whole. Returns how many rows changed.
  */
-export async function applyChecks(householdId: string, ops: { itemId: string; done: boolean }[]): Promise<number> {
+export async function applyChecks(householdId: string, listId: string, ops: { itemId: string; done: boolean }[]): Promise<number> {
   const last = new Map<string, boolean>();
   for (const op of ops) last.set(op.itemId, op.done);
   if (last.size === 0) return 0;
-  const results = await prisma.$transaction(
-    [...last].map(([id, done]) => prisma.shoppingListItem.updateMany({ where: { id, list: { householdId } }, data: { done } })),
-  );
-  return results.reduce((n, r) => n + r.count, 0);
+  return prisma.$transaction(async (tx) => {
+    await lockList(tx, listId);
+    let changed = 0;
+    for (const [id, done] of last) {
+      // Phase 66b: an un-tick folds into a twin added meanwhile, like the list's own tick box.
+      if (done) changed += (await tx.shoppingListItem.updateMany({ where: { id, list: { householdId } }, data: { done } })).count;
+      else if (await untickRow(tx, householdId, id)) changed += 1;
+    }
+    return changed;
+  });
 }
 
 /**
