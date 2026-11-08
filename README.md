@@ -72,6 +72,11 @@ tomorrow and chores open at 6 pm, a fuller morning summary, and phone notificati
 iPhone's edges, announced form errors, staples and "Still have some", a live Shop view, Good until on
 car paperwork, every-branch money rules, bills marked paid, meals and money in search, and dinners on
 the calendar.
+**New capabilities (70)**, the last phase from the review of 2026-11-08: each person's own Outlook
+calendar and the family's, copied for everyone (kids see the family's and their own) with who's
+driving; a grown-up's check before stickers and kids swapping chores; gift ideas on a person; the pet's
+weekend hours on no-school days; money search across months, "running ahead", the year by category
+and merging a statement account into its feed; and one school calendar for several kids.
 Since 2026-10-23 the project lives
 in this public repository, started from one clean commit (the earlier history is archived
 privately); `main` takes changes only through pull requests whose required checks pass, and they
