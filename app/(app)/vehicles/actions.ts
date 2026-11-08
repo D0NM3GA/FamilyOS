@@ -413,6 +413,11 @@ export async function logMaintenanceDone(
     return { error: "Date can't be in the future." };
   }
   const mileage = parsed.data.mileage ?? item.vehicle.currentMileage;
+  // Phase 69b: renewed paperwork says until when (a lapsed renewal, a term of another length).
+  const goodUntilRaw = item.kind === "PAPERWORK" ? String(formData.get("goodUntil") ?? "").trim() : "";
+  const goodUntil = goodUntilRaw ? parseLocalDate(goodUntilRaw) : null;
+  if (goodUntilRaw && !goodUntil) return { error: "Enter a valid Good until date." };
+  if (goodUntil && goodUntil <= doneAt) return { error: "Good until should be after the day it was renewed." };
 
   // Backdating is allowed, so this new entry only becomes the item's "latest" cache if it's
   // not older than what's already there — an invoice logged for a service done last month
@@ -445,7 +450,11 @@ export async function logMaintenanceDone(
     }
     // Phase 65b: renewing paperwork moves its due day on from the old one (not from today, so a
     // late renewal keeps the cycle).
-    if (item.kind === "PAPERWORK" && item.intervalMonths && before) {
+    // Phase 69b: or to the Good until day the form gives, under the same lock (Undo puts back
+    // `dueAtBefore` either way).
+    if (item.kind === "PAPERWORK" && goodUntil) {
+      await tx.vehicleMaintenanceItem.update({ where: { id: itemId }, data: { nextDueAt: goodUntil } });
+    } else if (item.kind === "PAPERWORK" && item.intervalMonths && before) {
       await tx.vehicleMaintenanceItem.update({ where: { id: itemId }, data: { nextDueAt: addMonths(before, item.intervalMonths) } });
     }
     // Gated on becomesLatest too: a backdated entry the code has already decided is *older*

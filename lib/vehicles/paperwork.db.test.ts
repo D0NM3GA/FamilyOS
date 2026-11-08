@@ -76,6 +76,15 @@ describe.skipIf(!RUN)("car paperwork and repairs (database)", { timeout: 60_000 
 
     await undoLastService(paper.id);
     expect(iso((await prisma.vehicleMaintenanceItem.findUniqueOrThrow({ where: { id: paper.id } })).nextDueAt!)).toBe(iso(due));
+
+    // Phase 69b: Good until wins (a six-month term), Undo still moves it back, and it must be after the renewal.
+    const sixMonths = new Date(due);
+    sixMonths.setMonth(due.getMonth() + 6);
+    expect(await logMaintenanceDone(paper.id, {}, form({ goodUntil: iso(sixMonths) }))).toEqual({});
+    expect(iso((await prisma.vehicleMaintenanceItem.findUniqueOrThrow({ where: { id: paper.id } })).nextDueAt!)).toBe(iso(sixMonths));
+    await undoLastService(paper.id);
+    expect(iso((await prisma.vehicleMaintenanceItem.findUniqueOrThrow({ where: { id: paper.id } })).nextDueAt!)).toBe(iso(due));
+    expect(await logMaintenanceDone(paper.id, {}, form({ goodUntil: "2020-01-01" }))).toEqual({ error: "Good until should be after the day it was renewed." });
   });
 
   test("a month-end renewal undoes to the same day (Jan 31, monthly)", async () => {
