@@ -205,3 +205,18 @@ export async function removeSignIn(actor: Admin, personId: string): Promise<Anno
     return writeSignInNotices(tx, { householdId: actor.householdId, kind: "SIGN_IN_REMOVED", actor, subject });
   });
 }
+
+/**
+ * Phase 67a: a lost or stolen device. Signs someone out on every device they're signed in on;
+ * their passkeys, provider account and role stay, so they sign in again as usual. Microsoft
+ * people aren't on this list (Entra's own "revoke sessions" and the access check cover them),
+ * and they can sign their own devices out in Settings → Where I'm signed in.
+ */
+export async function signOutEverywhere(actor: Admin, personId: string): Promise<Announced> {
+  return managing(actor, personId, async (tx, target) => {
+    await tx.session.deleteMany({ where: { userId: target.authUserId } });
+    const subject = { id: target.id, firstName: target.firstName };
+    await recordSignInEvent(tx, { householdId: actor.householdId, kind: "SIGNED_OUT_EVERYWHERE", actor, subject });
+    return writeSignInNotices(tx, { householdId: actor.householdId, kind: "SIGNED_OUT_EVERYWHERE", actor, subject });
+  });
+}

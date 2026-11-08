@@ -56,6 +56,9 @@ describe("the Settings hub", () => {
   test("personal tiles follow how you signed in", () => {
     expect(tile("passkeys", { passkeySignIn: false })).toBeUndefined();
     expect(tile("lock", { ownSignIn: false })).toBeUndefined();
+    // Phase 67a: any own sign-in, a passkey or not.
+    expect(tile("devices", { passkeySignIn: false })?.href).toBe("/settings/devices");
+    expect(tile("devices", { ownSignIn: false })).toBeUndefined();
     expect(tile("calendar-on-home")).toBeUndefined();
     expect(tile("calendar-on-home", { microsoftOwner: true })?.status).toEqual({ text: "Your main calendar", tone: "neutral" });
     expect(tile("calendar-on-home", { microsoftOwner: true, familyCalendarName: "Family" })?.status?.text).toBe("The family's usual one");

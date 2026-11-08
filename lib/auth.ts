@@ -206,6 +206,13 @@ export const auth = betterAuth({
     "/passkey/list-user-passkeys",
     "/passkey/update-passkey",
     "/passkey/delete-passkey",
+    // Phase 67a: Settings → Where I'm signed in does these on your own sign-in only. Left on,
+    // /list-sessions handed any cookie holder (a PIN-switched profile too) the other devices'
+    // IP addresses, and the revokes ran without the app's own checks.
+    "/list-sessions",
+    "/revoke-session",
+    "/revoke-sessions",
+    "/revoke-other-sessions",
   ],
   // Phase 40.1: a failed sign-in comes back to our own sign-in page (with ?error=<code>,
   // shown as fixed words) rather than Better Auth's built-in error page.

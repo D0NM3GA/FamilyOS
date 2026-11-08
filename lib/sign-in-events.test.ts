@@ -63,3 +63,30 @@ describe("describeSignInEvent", () => {
     expect(describeSignInEvent(row({ actorId: null, subjectId: "mom", subjectName: "Mom", kind: "SIGN_IN_REMOVED" }), "mom")).toBe("Dad removed your sign-in");
   });
 });
+
+describe("describeSignInEvent, Phase 67a's entries", () => {
+  test("devices signed out", () => {
+    const one = row({ kind: "SIGNED_OUT_ELSEWHERE", actorId: "mom", actorName: "Mom", subjectId: "mom", subjectName: "Mom", detail: "one device" });
+    expect(describeSignInEvent(one, "mom")).toBe("You signed out one of your devices");
+    expect(describeSignInEvent(one, "dad")).toBe("Mom signed out one of their devices");
+    expect(describeSignInEvent({ ...one, detail: "everywhere else" }, "mom")).toBe("You signed out everywhere else");
+    const all = row({ kind: "SIGNED_OUT_EVERYWHERE", subjectId: "mom", subjectName: "Mom" });
+    expect(describeSignInEvent(all, "mom")).toBe("Dad signed you out on every device");
+    expect(describeSignInEvent(all, "grandpa")).toBe("Dad signed Mom out on every device");
+  });
+
+  test("PINs and lockouts", () => {
+    expect(describeSignInEvent(row({ kind: "PIN_SET", subjectId: "ivy", subjectName: "Ivy", detail: "set" }), "dad")).toBe("You set Ivy's PIN");
+    expect(describeSignInEvent(row({ kind: "PIN_SET", actorId: "mom", actorName: "Mom", subjectId: "mom", subjectName: "Mom", detail: "cleared" }), "dad")).toBe("Mom cleared their PIN");
+    const lock = row({ kind: "PIN_LOCKED", subjectId: "mom", subjectName: "Mom" });
+    expect(describeSignInEvent(lock, "mom")).toBe("Your profile locked after too many wrong PINs, on Dad's sign-in");
+    expect(describeSignInEvent(lock, "dad")).toBe("Mom's profile locked after too many wrong PINs, on your sign-in");
+    expect(describeSignInEvent(lock, "grandpa")).toBe("Mom's profile locked after too many wrong PINs, on Dad's sign-in");
+  });
+
+  test("someone taken off the household", () => {
+    const removed = row({ kind: "MEMBER_REMOVED", subjectId: "ivy", subjectName: "Ivy" });
+    expect(describeSignInEvent(removed, "mom")).toBe("Dad took Ivy off the household");
+    expect(describeSignInEvent(removed, "dad")).toBe("You took Ivy off the household");
+  });
+});

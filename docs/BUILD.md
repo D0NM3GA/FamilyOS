@@ -1946,3 +1946,31 @@ rewritten once after the change and then stays put.
 Fable's review of 66c: the carry could pick a posted row that couldn't take the pick, or one another
 pending charge had just filled, and drop it (candidates now exclude both); order emails move too.
 Left as is: `feedAmountToCents` refuses ".5" like `decimalToCents`.
+
+## Phase 67 — The security and ops safety net
+
+The second phase from the review of 2026-11-08 (scope in docs/PLAN.md).
+
+### 67a — Where you're signed in, and a fuller sign-in log
+
+**Settings → Where I'm signed in** (`/settings/devices`, a hub tile on any own sign-in):
+`lib/my-sessions.ts` lists the signed-in user's unexpired sessions with `deviceLabel`
+(`lib/device-label.ts`, a rough pure parser of the sign-in's User-Agent) and when each signed in
+(sessions are never refreshed, so there's no "last active"). **Sign out** deletes one of your
+other session rows and **Sign out everywhere else** all but the current one (known by id from
+`getServerSession`), each in a transaction with a `SIGNED_OUT_ELSEWHERE` entry; a PIN-switched
+profile sees a note. It takes effect at that device's next request (`cookieCache` stays off).
+**Admins:** `signOutEverywhere` (`lib/sign-ins.ts`, through `managing`) deletes a passkey or OIDC
+person's sessions with a `SIGNED_OUT_EVERYWHERE` entry and notices (the person, other admins).
+**Routes off:** `/list-sessions`, `/revoke-session`, `/revoke-sessions`, `/revoke-other-sessions`
+join `disabledPaths`; `lib/auth-routes-guard.test.ts` names them with the token and passkey ones.
+**The log:** `PIN_SET` (an admin's `setMemberPin`, a person's own set or clear), `PIN_LOCKED`
+(written in the lockout's own transaction under its advisory lock, the actor being whose sign-in
+the device was on; every admin is told, the actor and the locked person included) and
+`MEMBER_REMOVED`, each in a transaction with its change (migration `20261201120000_sign_in_log_more`).
+Fable's review of 67a: no must-fix. A lockout now reaches the admin whose device or tile it was even
+with their switch for others' sign-ins off, and an admin's own tile says "Your profile locked";
+the lockout's notices come back from its transaction instead of a closure write; "everywhere
+else" skips expired rows; tests cover every new entry's wording, a PIN-switched profile refused at
+the action, and someone else's session left alone. Left as is (dev sign-in only): the hub tile
+follows `isOwnSignIn`, so the DEV_AUTH user sees it and then the page's note.

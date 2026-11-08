@@ -553,6 +553,9 @@ marked), not on their phone.
 - **My notifications**: phone alerts and which notices you get.
 - **My passkeys**: add a spare on another device, rename or remove one. Adding one asks you to
   sign in again first (it's a new way in).
+- **Where I'm signed in**: every phone, tablet and computer signed in as you, and when each signed
+  in. Lost a phone, or see one you don't know? **Sign out** that one, or **Sign out everywhere
+  else** (this device stays signed in). It needs your sign-in again the next time it opens the app.
 - **Lock my tile**: a PIN on your own tile, so kids on a shared tablet can't open your profile
   (or the money).
 - **Calendar on Home** (Microsoft): which of your Outlook calendars Home shows.

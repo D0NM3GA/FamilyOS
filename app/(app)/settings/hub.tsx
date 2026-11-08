@@ -12,6 +12,7 @@ import {
   KeyRound,
   LayoutGrid,
   Lock,
+  MonitorSmartphone,
   Megaphone,
   Palette,
   Search,
@@ -34,6 +35,7 @@ const ICONS: Record<HubIcon, { Icon: LucideIcon; tint: string }> = {
   alerts: { Icon: Megaphone, tint: "bg-sky-100 dark:bg-sky-500/15" },
   outlook: { Icon: CalendarSync, tint: "bg-violet-100 dark:bg-violet-500/15" },
   data: { Icon: Database, tint: "bg-slate-100 dark:bg-slate-500/15" },
+  devices: { Icon: MonitorSmartphone, tint: "bg-teal-100 dark:bg-teal-500/15" },
 };
 
 const TONE: Record<HubStatus["tone"], string> = {

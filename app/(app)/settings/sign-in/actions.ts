@@ -8,7 +8,7 @@ import { isAdmin } from "@/lib/authz";
 import { signedInRecently, signedInWithin } from "@/lib/session";
 import { NEW_WAY_IN_SECONDS } from "@/lib/fresh-sign-in";
 import { createInvite, InviteError, inviteLink, inviteSchema, revokeInvite } from "@/lib/invites";
-import { changeRole, removeSignIn, resetPasskeys, SignInAdminError, SIGN_IN_ERRORS, type Announced } from "@/lib/sign-ins";
+import { changeRole, removeSignIn, resetPasskeys, signOutEverywhere, SignInAdminError, SIGN_IN_ERRORS, type Announced } from "@/lib/sign-ins";
 import { deliverSignInNotices } from "@/lib/sign-in-notices";
 import { microsoftEnabled } from "@/lib/auth";
 import { announceEntraCheck, entraCheckNowAllowed, runEntraCheck } from "@/lib/entra-check";
@@ -126,6 +126,21 @@ export async function removeSignInAction(personId: string) {
     if (e instanceof SignInAdminError) redirect(`${PAGE}?error=${e.code}`);
     throw e;
   }
+  redirect(PAGE);
+}
+
+/** Phase 67a: signs someone out on every device (a lost phone); their sign-in stays. */
+export async function signOutEverywhereAction(personId: string) {
+  if (!isId(personId)) redirect(`${PAGE}?error=gone`);
+  const who = await managingAdmin();
+  if (!who.admin) redirect(`${PAGE}?error=${who.error}`);
+  try {
+    announce(await signOutEverywhere(who.admin, personId));
+  } catch (e) {
+    if (e instanceof SignInAdminError) redirect(`${PAGE}?error=${e.code}`);
+    throw e;
+  }
+  revalidatePath(PAGE);
   redirect(PAGE);
 }
 

@@ -8,6 +8,7 @@ import { isOwnSignIn } from "@/lib/active-profile";
 import { signedInRecently } from "@/lib/session";
 import { pinError } from "@/lib/pin-rules";
 import { hashPin } from "@/lib/pin-hash";
+import { recordSignInEvent } from "@/lib/sign-in-events";
 
 const input = z.object({ personId: z.string().min(1), mode: z.enum(["BIG", "FULL"]) });
 
@@ -42,9 +43,11 @@ export async function setMyPin(_prev: MyPinState, formData: FormData): Promise<M
   const problem = pinError(profile.role, pin);
   if (problem) return { error: problem };
   if (pin !== String(formData.get("again") ?? "")) return { error: "The two PINs don't match." };
-  await prisma.person.update({
-    where: { id: profile.id },
-    data: { pinHash: await hashPin(pin), pinFailedAttempts: 0, pinLockedUntil: null },
+  const pinHash = await hashPin(pin);
+  const me = { id: profile.id, firstName: profile.firstName };
+  await prisma.$transaction(async (tx) => {
+    await tx.person.update({ where: { id: profile.id }, data: { pinHash, pinFailedAttempts: 0, pinLockedUntil: null } });
+    await recordSignInEvent(tx, { householdId: profile.householdId, kind: "PIN_SET", actor: me, subject: me, detail: "set" });
   });
   revalidatePath("/settings", "layout");
   return { saved: Date.now() };
@@ -55,7 +58,11 @@ export async function clearMyPin(): Promise<MyPinState> {
   const profile = await requireAdult();
   if (!profile.authUserId || !(await isOwnSignIn(profile))) return { error: "Only on your own sign-in." };
   if (!(await signedInRecently())) return { error: "Sign in again first." };
-  await prisma.person.update({ where: { id: profile.id }, data: { pinHash: null, pinFailedAttempts: 0, pinLockedUntil: null } });
+  const me = { id: profile.id, firstName: profile.firstName };
+  await prisma.$transaction(async (tx) => {
+    await tx.person.update({ where: { id: profile.id }, data: { pinHash: null, pinFailedAttempts: 0, pinLockedUntil: null } });
+    await recordSignInEvent(tx, { householdId: profile.householdId, kind: "PIN_SET", actor: me, subject: me, detail: "cleared" });
+  });
   revalidatePath("/settings", "layout");
   return { saved: Date.now() };
 }
