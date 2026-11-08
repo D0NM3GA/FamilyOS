@@ -37,6 +37,8 @@ export type AgendaItem = {
   href: string | null;
   /** Opens outside the app (Outlook on the web). */
   external: boolean;
+  /** Phase 70b: who's driving to an Outlook event (also in `note`). */
+  driver?: string | null;
 };
 
 export type AgendaDay = { key: string; date: Date; isToday: boolean; isPast: boolean; items: AgendaItem[] };
@@ -354,6 +356,7 @@ export function outlookItems(events: readonly CalendarEvent[], start: Date, time
         title: e.subject,
         who: e.who ?? null,
         whoId: e.whoId ?? null,
+        driver: e.driver ?? null,
         status: "open" as const,
         href: e.webLink ?? e.driveHref ?? null,
         external: e.webLink != null,

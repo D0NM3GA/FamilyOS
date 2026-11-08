@@ -105,7 +105,9 @@ export async function refreshOutlookCalendar(id: string, deps: { reader?: Reader
       const byId = new Map(events.map((e) => [e.graphId, e]));
       for (const d of await tx.eventDriver.findMany({ where: { outlookCalendarId: id }, select: { id: true, graphId: true, endsAt: true } })) {
         const e = byId.get(d.graphId);
-        if (e && e.endsAt.getTime() !== d.endsAt.getTime()) await tx.eventDriver.update({ where: { id: d.id }, data: { endsAt: e.endsAt } });
+        // Turned all-day: drivers are for timed events, and the page to clear one wouldn't open.
+        if (e?.allDay) await tx.eventDriver.delete({ where: { id: d.id } });
+        else if (e && e.endsAt.getTime() !== d.endsAt.getTime()) await tx.eventDriver.update({ where: { id: d.id }, data: { endsAt: e.endsAt } });
         else if (!e && d.endsAt < range.start) await tx.eventDriver.delete({ where: { id: d.id } });
       }
     });
@@ -131,7 +133,7 @@ export async function dropEndedCalendars(now = new Date()): Promise<number> {
   const gone = { person: { NOT: stillHere } };
   const removed = await prisma.outlookCalendar.deleteMany({ where: { kind: "PERSON", ...gone } });
   // Phase 70b: nor are they anyone's driver any more.
-  await prisma.eventDriver.deleteMany({ where: { person: { NOT: stillHere } } });
+  await prisma.eventDriver.deleteMany({ where: { OR: [{ person: { NOT: stillHere } }, { person: { role: { notIn: ["ADULT", "ADMIN"] } } }] } });
   const families = await prisma.outlookCalendar.findMany({ where: { kind: "FAMILY", active: true, ...gone }, select: { id: true } });
   for (const { id } of families) {
     await prisma.$transaction([

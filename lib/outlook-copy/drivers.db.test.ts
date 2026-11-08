@@ -66,6 +66,48 @@ describe.skipIf(!RUN)("who's driving (database)", { timeout: 60_000 }, () => {
     expect(await prisma.eventDriver.count({ where: { outlookCalendarId: ids.cal } })).toBe(0);
   });
 
+  test("set from someone's own copy of a family meeting, a kid sees it on the family copy", async () => {
+    const { refreshOutlookCalendar } = await import("./copy");
+    const { setEventDriver } = await import("./drivers");
+    const { getCopiedEvents } = await import("./view");
+    const dadCal = await prisma.outlookCalendar.create({ data: { householdId: ids.h, kind: "PERSON", personId: ids.dad, mailbox: "dad@example.com" } });
+    const meeting = { iCalUId: "recital-1", startsAt: soon(6), endsAt: soon(7) };
+    await refreshOutlookCalendar(ids.cal, { reader: async () => ({ ok: true, events: [ev("fam-recital", meeting)], truncated: false }) });
+    await refreshOutlookCalendar(dadCal.id, { reader: async () => ({ ok: true, events: [ev("dad-recital", meeting)], truncated: false }) });
+    expect(await setEventDriver(await profile(ids.dad), dadCal.id, "dad-recital", ids.mom)).toEqual({ ok: true });
+    const r = await getCopiedEvents(await profile(ids.ivy), { start: now, end: soon(24) });
+    expect(r.ok && r.events.find((e) => e.subject === "fam-recital")?.driver).toBe("Mom");
+    // Cleared from the family copy, it's gone from both.
+    expect(await setEventDriver(await profile(ids.mom), ids.cal, "fam-recital", null)).toEqual({ ok: true });
+    expect(await prisma.eventDriver.count({ where: { graphId: { in: ["fam-recital", "dad-recital"] } } })).toBe(0);
+    await prisma.outlookCalendar.delete({ where: { id: dadCal.id } });
+  });
+
+  test("an event that turns all-day loses its driver; a private one reads Busy on the page", async () => {
+    const { refreshOutlookCalendar } = await import("./copy");
+    const { setEventDriver, getDriveTarget } = await import("./drivers");
+    await refreshOutlookCalendar(ids.cal, { reader: async () => ({ ok: true, events: [ev("practice"), ev("appointment", { isPrivate: true, title: null })], truncated: false }) });
+    expect(await setEventDriver(await profile(ids.dad), ids.cal, "practice", ids.mom)).toEqual({ ok: true });
+    expect((await getDriveTarget(await profile(ids.dad), ids.cal, "appointment"))?.title).toBe("Busy");
+    expect((await getDriveTarget(await profile(ids.mom), ids.cal, "appointment"))?.title).toBe("Private");
+    await refreshOutlookCalendar(ids.cal, { reader: async () => ({ ok: true, events: [ev("practice", { allDay: true })], truncated: false }) });
+    expect(await prisma.eventDriver.count({ where: { outlookCalendarId: ids.cal, graphId: "practice" } })).toBe(0);
+  });
+
+  test("a driver who's no longer a grown-up stops driving", async () => {
+    const { refreshOutlookCalendar, dropEndedCalendars } = await import("./copy");
+    const { setEventDriver } = await import("./drivers");
+    const { getCopiedEvents } = await import("./view");
+    const helper = await prisma.person.create({ data: { householdId: ids.h, firstName: "Grandpa", role: "ADULT", isHouseholdMember: true } });
+    await refreshOutlookCalendar(ids.cal, { reader: async () => ({ ok: true, events: [ev("swim")], truncated: false }) });
+    expect(await setEventDriver(await profile(ids.mom), ids.cal, "swim", helper.id)).toEqual({ ok: true });
+    await prisma.person.update({ where: { id: helper.id }, data: { role: "KID" } });
+    const r = await getCopiedEvents(await profile(ids.mom), { start: now, end: soon(24) });
+    expect(r.ok && r.events.find((e) => e.subject === "swim")?.driver).toBeNull();
+    await dropEndedCalendars(now);
+    expect(await prisma.eventDriver.count({ where: { personId: helper.id } })).toBe(0);
+  });
+
   test("clearing it, and a cut-off driver stops driving", async () => {
     const { refreshOutlookCalendar, dropEndedCalendars } = await import("./copy");
     const { setEventDriver } = await import("./drivers");

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { isAdult } from "@/lib/roles";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAppOn } from "@/lib/app-guard";
 import { getHouseholdSettings } from "@/lib/household-settings";
@@ -17,6 +19,7 @@ export const metadata = { title: "Who's driving" };
 export default async function DrivePage({ searchParams }: { searchParams: Promise<{ c?: string; g?: string }> }) {
   await requireAppOn("calendar");
   const profile = await requireActiveProfile();
+  if (!isAdult(profile)) redirect("/calendar");
   const { c, g } = await searchParams;
   const target = typeof c === "string" && typeof g === "string" ? await getDriveTarget(profile, c, g) : null;
   const zone = (await getHouseholdSettings(profile.householdId)).timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -35,7 +38,7 @@ export default async function DrivePage({ searchParams }: { searchParams: Promis
         <DriverForm calendarId={target.calendarId} graphId={target.graphId} week={week} driverId={target.driverId} drivers={target.drivers} />
       ) : (
         <p className="rounded-lg bg-card p-4 text-sm text-muted-foreground shadow-sm ring-1 ring-border">
-          That event isn&apos;t on the calendar anymore, or it&apos;s one only grown-ups can set a driver for.
+          That event isn&apos;t on the calendar anymore, or it&apos;s an all-day one (drivers are for events with a time).
         </p>
       )}
     </div>

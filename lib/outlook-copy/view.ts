@@ -55,7 +55,11 @@ export function shapeCopiedEvents(rows: readonly CopiedRow[], viewer: Viewer, na
     const seen = key ? byMeeting.get(key) : undefined;
     if (seen) {
       seen.driverId ??= r.driverId ?? null;
-      if (r.kind === "FAMILY") seen.family = true;
+      if (r.kind === "FAMILY") {
+        seen.family = true;
+        // The family copy is everyone's, so a driver set from it shows to everyone.
+        if (seen.event.driveHref) seen.event = { ...seen.event, driveHref: driveHref(r.calendarId, r.graphId) };
+      }
       else if (person && !seen.people.includes(person)) seen.people.push(person);
       // A private copy and a public copy of one meeting: show the title someone may see.
       if (seen.event.subject === "Busy" || seen.event.subject === "Private") {
@@ -118,16 +122,20 @@ export async function getCopiedEvents(profile: Profile, range: { start: Date; en
   if (calendars.length === 0) return { ok: true, events: [], truncated: false };
   const byId = new Map(calendars.map((c) => [c.id, c]));
   const calendarIds = calendars.map((c) => c.id);
-  const [rows, drivers, members] = await Promise.all([
+  const [rows, drivers] = await Promise.all([
     prisma.outlookEvent.findMany({
       where: { outlookCalendarId: { in: calendarIds }, startsAt: { lt: range.end }, endsAt: { gt: range.start } },
-      orderBy: { startsAt: "asc" },
+      orderBy: [{ startsAt: "asc" }, { outlookCalendarId: "asc" }, { graphId: "asc" }],
       take: VIEW_LIMIT,
     }),
-    prisma.eventDriver.findMany({ where: { outlookCalendarId: { in: calendarIds }, endsAt: { gt: range.start }, person: stillHere }, select: { outlookCalendarId: true, graphId: true, personId: true } }),
-    // Names for everyone a row can mention: calendars' people and drivers.
-    prisma.person.findMany({ where: { householdId: profile.householdId }, select: { id: true, firstName: true, lastName: true } }),
+    prisma.eventDriver.findMany({
+      where: { outlookCalendarId: { in: calendarIds }, endsAt: { gt: range.start }, person: { ...stillHere, role: { in: ["ADULT", "ADMIN"] } } },
+      select: { outlookCalendarId: true, graphId: true, personId: true },
+    }),
   ]);
+  // Names for the people a row can mention (calendars' people and drivers), told apart among the
+  // household's members, as the rest of the app does.
+  const members = await prisma.person.findMany({ where: { householdId: profile.householdId, isHouseholdMember: true }, select: { id: true, firstName: true, lastName: true } });
   const driverOf = new Map(drivers.map((d) => [`${d.outlookCalendarId}:${d.graphId}`, d.personId]));
   const names = shortNames(members);
   const shaped = shapeCopiedEvents(

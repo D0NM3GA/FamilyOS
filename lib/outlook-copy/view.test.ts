@@ -104,6 +104,11 @@ describe("who's driving (Phase 70b)", () => {
     expect(e.driver).toBe("Grandpa");
   });
 
+  test("in a fold the family copy's link wins, whichever row came first", () => {
+    const rows = [row({ personId: "dad", calendarId: "d", graphId: "own", iCalUId: "m8" }), row({ kind: "FAMILY", personId: "mom", calendarId: "f", graphId: "fam", iCalUId: "m8" })];
+    expect(shapeCopiedEvents(rows, grownUp, names)[0].driveHref).toBe("/calendar/drive?c=f&g=fam");
+  });
+
   test("only a grown-up gets the link to set it, and only on a timed event", () => {
     expect(shapeCopiedEvents([row({ kind: "FAMILY", calendarId: "f", graphId: "g1" })], grownUp, names)[0].driveHref).toBe("/calendar/drive?c=f&g=g1");
     expect(shapeCopiedEvents([row({ kind: "FAMILY", graphId: "g1" })], kid, names)[0].driveHref).toBeNull();

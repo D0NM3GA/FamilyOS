@@ -75,7 +75,7 @@ async function bigCalendarToday(profile: Awaited<ReturnType<typeof requireActive
     .slice(0, 8)
     .map((item) => ({
       key: item.key,
-      title: [item.minutes === null ? null : timeLabel(item.minutes), item.who ? `${item.who}: ${item.title}` : item.title].filter(Boolean).join(" ") + (item.note ? ` · ${item.note}` : ""),
+      title: [item.minutes === null ? null : timeLabel(item.minutes), item.who ? `${item.who}: ${item.title}` : item.title].filter(Boolean).join(" ") + (item.driver ? ` · Driving: ${item.driver}` : ""),
     }));
 }
 

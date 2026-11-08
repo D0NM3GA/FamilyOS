@@ -17,6 +17,7 @@ export type DriveTarget = {
   startsAt: Date;
   endsAt: Date;
   driverId: string | null;
+  iCalUId: string | null;
   /** The grown-ups who can drive, by the names the app shows. */
   drivers: { id: string; name: string }[];
 };
@@ -45,7 +46,7 @@ export async function getDriveTarget(profile: Profile, calendarId: string, graph
       allDay: false,
       outlookCalendar: { householdId: profile.householdId, active: true, person: stillHere },
     },
-    select: { title: true, isPrivate: true, startsAt: true, endsAt: true, outlookCalendar: { select: { personId: true } } },
+    select: { title: true, isPrivate: true, startsAt: true, endsAt: true, iCalUId: true, outlookCalendar: { select: { personId: true } } },
   });
   if (!event) return null;
   const [driver, drivers] = await Promise.all([
@@ -56,6 +57,7 @@ export async function getDriveTarget(profile: Profile, calendarId: string, graph
   return {
     calendarId,
     graphId,
+    iCalUId: event.iCalUId,
     title: event.isPrivate ? (mine ? "Private" : "Busy") : (event.title ?? "(No subject)"),
     startsAt: event.startsAt,
     endsAt: event.endsAt,
@@ -66,20 +68,38 @@ export async function getDriveTarget(profile: Profile, calendarId: string, graph
 
 export type SetDriverResult = { ok: true } | { ok: false; error: string };
 
-/** Sets (or, with no one, clears) who's driving. Checks the event and the driver itself. */
+/**
+ * Every copy of one meeting in the household's copied calendars (the family calendar and people's
+ * own share an iCalUId, start and all-day flag), so a driver set from any of them shows on all,
+ * whichever one a viewer can see.
+ */
+async function copiesOf(householdId: string, target: DriveTarget): Promise<{ outlookCalendarId: string; graphId: string }[]> {
+  if (!target.iCalUId) return [{ outlookCalendarId: target.calendarId, graphId: target.graphId }];
+  const copies = await prisma.outlookEvent.findMany({
+    where: { iCalUId: target.iCalUId, startsAt: target.startsAt, allDay: false, outlookCalendar: { householdId, active: true } },
+    select: { outlookCalendarId: true, graphId: true },
+  });
+  return copies.some((c) => c.outlookCalendarId === target.calendarId && c.graphId === target.graphId) ? copies : [...copies, { outlookCalendarId: target.calendarId, graphId: target.graphId }];
+}
+
+/** Sets (or, with no one, clears) who's driving, on every copy of the meeting. Checks the event and the driver. */
 export async function setEventDriver(profile: Profile, calendarId: string, graphId: string, driverId: string | null): Promise<SetDriverResult> {
   const target = await getDriveTarget(profile, calendarId, graphId);
   if (!target) return { ok: false, error: "That event isn't on the calendar anymore." };
-  const key = { outlookCalendarId_graphId: { outlookCalendarId: calendarId, graphId } };
-  if (!driverId) {
-    await prisma.eventDriver.deleteMany({ where: { outlookCalendarId: calendarId, graphId } });
-    return { ok: true };
-  }
-  if (!target.drivers.some((d) => d.id === driverId)) return { ok: false, error: "Pick one of the family's grown-ups." };
-  await prisma.eventDriver.upsert({
-    where: key,
-    create: { outlookCalendarId: calendarId, graphId, personId: driverId, setById: profile.id, endsAt: target.endsAt },
-    update: { personId: driverId, setById: profile.id, endsAt: target.endsAt },
+  if (driverId && !target.drivers.some((d) => d.id === driverId)) return { ok: false, error: "Pick one of the family's grown-ups." };
+  const copies = await copiesOf(profile.householdId, target);
+  await prisma.$transaction(async (tx) => {
+    for (const c of copies) {
+      if (!driverId) {
+        await tx.eventDriver.deleteMany({ where: c });
+        continue;
+      }
+      await tx.eventDriver.upsert({
+        where: { outlookCalendarId_graphId: c },
+        create: { ...c, personId: driverId, setById: profile.id, endsAt: target.endsAt },
+        update: { personId: driverId, setById: profile.id, endsAt: target.endsAt },
+      });
+    }
   });
   return { ok: true };
 }

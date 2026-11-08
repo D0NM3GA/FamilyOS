@@ -17,6 +17,7 @@ export async function chooseDriver(_prev: DriverState, formData: FormData): Prom
   const driverId = String(formData.get("driver") ?? "").slice(0, 200) || null;
   const done = await setEventDriver(profile, calendarId, graphId, driverId);
   if (!done.ok) return { error: done.error };
-  revalidatePath("/", "layout");
+  revalidatePath("/");
+  revalidatePath("/calendar");
   redirect(`/calendar?week=${String(formData.get("week") ?? "").replace(/[^0-9-]/g, "").slice(0, 10)}`);
 }
