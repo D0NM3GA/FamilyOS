@@ -33,6 +33,7 @@ export function BigHome({
   onUndoAsNeeded,
   school,
   schoolToday = [],
+  calendarToday = [],
   birthdays = [],
   onCompleteChore,
   onUndoChore,
@@ -61,6 +62,8 @@ export function BigHome({
   onUndoAsNeeded?: (instanceId: string) => Promise<void>;
   /** Phase 64a: school calendar events today (their own and the family's), and birthdays this week. */
   schoolToday?: { key: string; title: string }[];
+  /** Phase 70a: today's events from the copied Outlook calendars this person may see. */
+  calendarToday?: { key: string; title: string }[];
   birthdays?: { key: string; text: string }[];
   school: SchoolDueItem[];
   onCompleteChore: Complete;
@@ -163,10 +166,15 @@ export function BigHome({
         </section>
       )}
 
-      {(schoolToday.length > 0 || birthdays.length > 0) && (
+      {(schoolToday.length > 0 || calendarToday.length > 0 || birthdays.length > 0) && (
         <section>
           <h2 className="text-2xl font-extrabold">Today and this week</h2>
           <ul className="mt-3 space-y-2">
+            {calendarToday.map((e) => (
+              <li key={e.key} className="ui-card rounded-2xl bg-card px-4 py-3 text-lg font-bold ring-1 ring-border">
+                📆 {e.title}
+              </li>
+            ))}
             {schoolToday.map((e) => (
               <li key={e.key} className="ui-card rounded-2xl bg-card px-4 py-3 text-lg font-bold ring-1 ring-border">
                 🏫 {e.title}
