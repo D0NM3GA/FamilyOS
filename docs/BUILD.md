@@ -2056,3 +2056,23 @@ by role, so an adult whose Entra access ended isn't treated as a kid; "Last day"
 scheduled medicines and says the year when it isn't this one; tests cover the window's edge, both
 doses on the last day, a course ending today, and turning one back on. Left as is: with Meds off,
 ended courses stay active until it's on again (nothing is planned past the end meanwhile).
+
+### 68b — Homework, chores, and a fuller morning
+
+`REMINDER_HOMEWORK` and `REMINDER_CHORES` (migration `20261202130000_homework_chores_reminders`).
+**Homework:** `homeworkReminders` loads kids' TODO assignments due tomorrow (local-midnight due
+days, kids' profiles only) from 3 pm; `planHomework` sends to the kid (bell) and the grown-ups,
+key `homework:<id>:<day>`, "Max has a quiz due tomorrow: Fractions", linking to the kid's School.
+**Chores:** from the first tick at or after 18:00, `choreReminders` makes today's chores and counts
+each kid's own PENDING ones (not "Anyone", not grown-ups'); `planChores` gives each kid a bell
+("2 chores still to do today", `chores:<kid>:<day>`) and the grown-ups one line ("Still to do
+today: Ivy 2, Max 1", `chores:all:<day>`). Both listed in My notifications with their apps.
+**Summary:** `morningExtras` adds today's events from every active school feed (`loadSchoolEvents`
+as a grown-up sees them, so all-day and timed rows use the calendar's cutoffs), kids' schoolwork
+due today and tonight's dinner (`getTodaysDinner`), each with its app on. Outlook stays out (the
+tick has no Microsoft token).
+Fable's review of 68b: dinner rides along only when the summary has something else to say (a
+planned meal alone sent everyone a one-line summary); long homework and event lists end "and N
+more"; a kid's own homework bell says "You have a quiz due tomorrow" (the grown-ups' has the name,
+under its own key); the zone comes from `processZone`; tests show a grown-up's own class and an
+"Anyone" chore aren't counted. Noted: `plannedRows` takes today from the clock, not the caller.

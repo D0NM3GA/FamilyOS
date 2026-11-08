@@ -15,6 +15,9 @@ export const REMINDER_KINDS: { kind: ReminderKind; label: string; app: ReminderA
   { kind: "REMINDER_DOSE", label: "A dose wasn't marked (comes through quiet hours)", app: "meds" },
   { kind: "REMINDER_MED_LOW", label: "A medicine is running low", app: "meds" },
   { kind: "REMINDER_SCHOOL", label: "A school form, fee or to-do is due today or tomorrow", app: "school" },
+  // Phase 68b.
+  { kind: "REMINDER_HOMEWORK", label: "A kid has homework or a test due tomorrow (from 3 pm)", app: "school" },
+  { kind: "REMINDER_CHORES", label: "Kids still have chores open at 6 pm", app: "chores" },
   { kind: "REMINDER_DATE", label: "A birthday or anniversary is coming up this week", app: null },
   { kind: "REMINDER_CAR", label: "Car work is due within a week (paperwork within two), or overdue", app: "cars" },
   { kind: "REMINDER_RECALL", label: "A new safety recall is listed for one of the cars", app: "cars" },

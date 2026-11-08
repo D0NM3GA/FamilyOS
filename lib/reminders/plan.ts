@@ -20,7 +20,9 @@ export type ReminderKind =
   | "REMINDER_CAR"
   | "REMINDER_RECALL"
   | "REMINDER_SYSTEM"
-  | "REMINDER_DOSE_DUE";
+  | "REMINDER_DOSE_DUE"
+  | "REMINDER_HOMEWORK"
+  | "REMINDER_CHORES";
 
 export type Reminder = {
   kind: ReminderKind;
@@ -348,6 +350,74 @@ export function planSystem(rows: HeartbeatRow[], jobs: readonly { name: string; 
           ? `${SYSTEM_PREFIX}${job.label} stopped working${lastOk ? `; it last worked ${sinceWords(lastOk)}` : ""}`
           : `${SYSTEM_PREFIX}${job.label} hasn't run since ${sinceWords(lastOk)}`,
       href: "/data#system",
+      urgent: false,
+    });
+  }
+  return out;
+}
+
+// ---- homework and chores (Phase 68b) --------------------------------------------------------
+
+/** Homework due tomorrow reminds from this hour today. */
+export const HOMEWORK_FROM_HOUR = 15;
+/** Chores still open remind from this hour (the owner's call: 6 pm). */
+export const CHORES_FROM_HOUR = 18;
+
+export type HomeworkRow = { id: string; title: string; kind: string; className: string; dueDate: Date; status: string; kid: { id: string; firstName: string } };
+
+const WORK_WORDS: Record<string, string> = { HOMEWORK: "homework", TEST: "a test", QUIZ: "a quiz", PROJECT: "a project" };
+
+/**
+ * A kid's homework, quiz, test or project still to do and due tomorrow, from 3 pm: the kid's bell
+ * in their own words ("You have a quiz due tomorrow"), and the grown-ups' with the kid's name.
+ */
+export function planHomework(rows: HomeworkRow[], grownUps: GrownUp[], now: Date): Reminder[] {
+  if (now.getHours() < HOMEWORK_FROM_HOUR) return [];
+  const tomorrow = addDays(atMidnight(now), 1);
+  return rows
+    .filter((r) => r.status === "TODO" && atMidnight(r.dueDate).getTime() === tomorrow.getTime())
+    .flatMap((r) => {
+      const what = `${WORK_WORDS[r.kind] ?? "schoolwork"} due tomorrow: ${r.title}`;
+      const base = { kind: "REMINDER_HOMEWORK" as const, href: `/school?kid=${encodeURIComponent(r.kid.id)}`, urgent: false };
+      const kid: Reminder = { ...base, key: `homework:${r.id}:${dayKey(r.dueDate)}`, recipients: [r.kid.id], title: `You have ${what}` };
+      const adults = grownUps.filter((g) => g.id !== r.kid.id).map((g) => g.id);
+      return adults.length ? [kid, { ...base, key: `homework-for:${r.id}:${dayKey(r.dueDate)}`, recipients: adults, title: `${r.kid.firstName} has ${what}` }] : [kid];
+    });
+}
+
+export type OpenChoreRow = { kid: { id: string; firstName: string } };
+
+/**
+ * From 6 pm (the owner's call): each kid with their own chores still open today gets a bell, and
+ * the grown-ups one line naming them. "Anyone" chores and grown-ups' own aren't counted.
+ */
+export function planChores(rows: OpenChoreRow[], grownUps: GrownUp[], now: Date): Reminder[] {
+  if (now.getHours() < CHORES_FROM_HOUR) return [];
+  const day = dayKey(now);
+  const byKid = new Map<string, { firstName: string; count: number }>();
+  for (const r of rows) {
+    const k = byKid.get(r.kid.id) ?? { firstName: r.kid.firstName, count: 0 };
+    k.count++;
+    byKid.set(r.kid.id, k);
+  }
+  if (byKid.size === 0) return [];
+  const words = (n: number) => `${n} ${n === 1 ? "chore" : "chores"}`;
+  const kids = [...byKid].sort((a, b) => a[1].firstName.localeCompare(b[1].firstName));
+  const out: Reminder[] = kids.map(([id, k]) => ({
+    kind: "REMINDER_CHORES" as const,
+    key: `chores:${id}:${day}`,
+    recipients: [id],
+    title: `${words(k.count)} still to do today`,
+    href: "/chores",
+    urgent: false,
+  }));
+  if (grownUps.length) {
+    out.push({
+      kind: "REMINDER_CHORES",
+      key: `chores:all:${day}`,
+      recipients: grownUps.map((g) => g.id),
+      title: `Still to do today: ${kids.map(([, k]) => `${k.firstName} ${k.count}`).join(", ")}`,
+      href: "/chores",
       urgent: false,
     });
   }

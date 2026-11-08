@@ -228,7 +228,8 @@ describe.skipIf(!RUN)("the pet (database)", () => {
 
   test("a second look in the same minute saves nothing", async () => {
     await freshPet(who.ivy.id);
-    const now = new Date(Date.now() + MINUTE);
+    // At the start of a minute, so the look a second later can't fall in the next one.
+    const now = new Date(Math.floor((Date.now() + MINUTE) / MINUTE) * MINUTE);
     await getMyPet(who.ivy, now);
     const first = await prisma.pet.findUniqueOrThrow({ where: { personId: who.ivy.id } });
     await getMyPet(who.ivy, new Date(now.getTime() + 1000));
