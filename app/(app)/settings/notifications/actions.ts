@@ -34,7 +34,7 @@ const kindSchema = z.enum(REMINDER_KINDS.map((k) => k.kind) as [string, ...strin
 export async function saveReminders(formData: FormData) {
   const profile = await requireAdult();
   const [medsOn, schoolOn, carsOn] = await Promise.all([appOn(profile.householdId, "meds"), appOn(profile.householdId, "school"), appOn(profile.householdId, "cars")]);
-  const listed = listedKinds((app) => (app === "meds" ? medsOn : app === "school" ? schoolOn : carsOn)).map((k) => k.kind);
+  const listed = listedKinds((app) => (app === "meds" ? medsOn : app === "school" ? schoolOn : carsOn), isAdmin(profile)).map((k) => k.kind);
   const ticked = new Set(formData.getAll("kind").map(String).filter((k) => kindSchema.safeParse(k).success));
 
   const fromText = String(formData.get("quietFrom") ?? "");

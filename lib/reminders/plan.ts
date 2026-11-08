@@ -1,5 +1,6 @@
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { isMedLow } from "./supply";
+import { BACKUP_HEARTBEAT, BACKUP_LATE_MS, heartbeatState, JOB_LATE_MS, type HeartbeatRow } from "@/lib/heartbeat-state";
 
 /**
  * Phase 62: what to remind whom about, worked out from rows. Pure (no Prisma, no clock but `now`),
@@ -11,7 +12,7 @@ import { isMedLow } from "./supply";
  * (ReminderSent), and the next occurrence reminds again.
  */
 
-export type ReminderKind = "REMINDER_DOSE" | "REMINDER_MED_LOW" | "REMINDER_SCHOOL" | "REMINDER_DATE" | "REMINDER_CAR" | "REMINDER_RECALL";
+export type ReminderKind = "REMINDER_DOSE" | "REMINDER_MED_LOW" | "REMINDER_SCHOOL" | "REMINDER_DATE" | "REMINDER_CAR" | "REMINDER_RECALL" | "REMINDER_SYSTEM";
 
 export type Reminder = {
   kind: ReminderKind;
@@ -266,4 +267,40 @@ export function planRecalls(recalls: NewRecall[], grownUps: GrownUp[]): Reminder
       urgent: r.parkIt,
     };
   });
+}
+
+// ---- the app itself (Phase 67b) ------------------------------------------------------------
+
+const sinceWords = (d: Date) => d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+/**
+ * A background job that's failing or late, or the nightly backup failing or over 36 hours late
+ * (Data's System card's own rules), to the admins. Keyed on the last good run, which holds still
+ * while it stays broken (the last failure moves every tick), so it reminds once per problem and
+ * again if it comes back after working. Never-run ones don't remind (a server without its backup
+ * cron yet, a job not reached).
+ */
+export function planSystem(rows: HeartbeatRow[], jobs: readonly { name: string; label: string }[], admins: GrownUp[], now: Date): Reminder[] {
+  if (admins.length === 0) return [];
+  const byName = new Map(rows.map((r) => [r.name, r]));
+  const watched = [...jobs.map((j) => ({ ...j, late: JOB_LATE_MS })), { name: BACKUP_HEARTBEAT, label: "The nightly backup", late: BACKUP_LATE_MS }];
+  const out: Reminder[] = [];
+  for (const job of watched) {
+    const row = byName.get(job.name);
+    const state = heartbeatState(row, job.late, now);
+    if (state !== "failing" && state !== "late") continue;
+    const lastOk = row?.lastOkAt ?? null;
+    out.push({
+      kind: "REMINDER_SYSTEM",
+      key: `system:${job.name}:${state}:${lastOk ? lastOk.toISOString() : "never"}`,
+      recipients: admins.map((a) => a.id),
+      title:
+        state === "failing"
+          ? `⚠️ ${job.label} stopped working${lastOk ? `; it last worked ${sinceWords(lastOk)}` : ""}`
+          : `⚠️ ${job.label} hasn't run since ${lastOk ? sinceWords(lastOk) : "it started"}`,
+      href: "/data#system",
+      urgent: false,
+    });
+  }
+  return out;
 }

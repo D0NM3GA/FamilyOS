@@ -7,18 +7,20 @@ import type { ReminderKind } from "./plan";
  * settings rule: lists show only what can be changed), and saving leaves the others as they were.
  */
 
-export const REMINDER_KINDS: { kind: ReminderKind; label: string; app: "meds" | "school" | "cars" | null }[] = [
+export const REMINDER_KINDS: { kind: ReminderKind; label: string; app: "meds" | "school" | "cars" | null; adminOnly?: boolean }[] = [
   { kind: "REMINDER_DOSE", label: "A dose wasn't marked (comes through quiet hours)", app: "meds" },
   { kind: "REMINDER_MED_LOW", label: "A medicine is running low", app: "meds" },
   { kind: "REMINDER_SCHOOL", label: "A school form, fee or to-do is due today or tomorrow", app: "school" },
   { kind: "REMINDER_DATE", label: "A birthday or anniversary is coming up this week", app: null },
   { kind: "REMINDER_CAR", label: "Car work is due within a week (paperwork within two), or overdue", app: "cars" },
   { kind: "REMINDER_RECALL", label: "A new safety recall is listed for one of the cars", app: "cars" },
+  // Phase 67b: only admins get it, so only admins see the switch.
+  { kind: "REMINDER_SYSTEM", label: "Something in the app stopped working: a background job, or the nightly backup", app: null, adminOnly: true },
 ];
 
-/** The kinds to list, given which apps are on. */
-export function listedKinds(isOn: (app: "meds" | "school" | "cars") => boolean) {
-  return REMINDER_KINDS.filter((k) => k.app === null || isOn(k.app));
+/** The kinds to list, given which apps are on and whether the reader is an admin. */
+export function listedKinds(isOn: (app: "meds" | "school" | "cars") => boolean, admin = false) {
+  return REMINDER_KINDS.filter((k) => (k.app === null || isOn(k.app)) && (admin || !k.adminOnly));
 }
 
 /** The new `off` list: the listed kinds left unticked, plus what was off among the unlisted ones. */

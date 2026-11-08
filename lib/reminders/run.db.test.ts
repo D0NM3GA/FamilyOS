@@ -79,4 +79,27 @@ describe.skipIf(!RUN)("reminders (database)", { timeout: 60_000 }, () => {
     expect(await bell(ids.mom)).toEqual(["REMINDER_MED_LOW"]);
     expect(await bell(ids.dad)).toEqual([]);
   });
+
+  test("a stopped job reminds the admins only, once (Phase 67b)", async () => {
+    const { remindHousehold } = await import("./run");
+    await prisma.notification.deleteMany({ where: { householdId: ids.h } });
+    await prisma.reminderPrefs.deleteMany({ where: { personId: ids.dad } });
+    const lastOk = new Date(now.getTime() - 3 * 60 * 60_000);
+    const before = await prisma.systemHeartbeat.findUnique({ where: { name: "purges" } });
+    await prisma.systemHeartbeat.upsert({
+      where: { name: "purges" },
+      create: { name: "purges", lastOkAt: lastOk, lastErrorAt: new Date(now.getTime() - 60_000), lastError: "Error", updatedAt: now },
+      update: { lastOkAt: lastOk, lastErrorAt: new Date(now.getTime() - 60_000), lastError: "Error", updatedAt: now },
+    });
+    try {
+      await remindHousehold(ids.h, now);
+      await remindHousehold(ids.h, new Date(now.getTime() + 30 * 60_000));
+      expect((await bell(ids.dad)).filter((k) => k === "REMINDER_SYSTEM")).toHaveLength(1);
+      expect(await bell(ids.mom)).not.toContain("REMINDER_SYSTEM");
+      expect(await bell(ids.ivy)).not.toContain("REMINDER_SYSTEM");
+    } finally {
+      if (before) await prisma.systemHeartbeat.update({ where: { name: "purges" }, data: before });
+      else await prisma.systemHeartbeat.delete({ where: { name: "purges" } });
+    }
+  });
 });

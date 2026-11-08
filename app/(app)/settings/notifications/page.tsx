@@ -55,7 +55,7 @@ export default async function MyNotificationsPage({ searchParams }: { searchPara
     readReminderPrefs(profile.id),
     reminderChannels(profile.householdId, profile.id),
   ]);
-  const kinds = listedKinds((app) => (app === "meds" ? medsOn : app === "school" ? schoolOn : carsOn));
+  const kinds = listedKinds((app) => (app === "meds" ? medsOn : app === "school" ? schoolOn : carsOn), isAdmin(profile));
   const off = new Set(reminderPrefs?.off ?? []);
   // Phase 40.2c: an admin's notices about other people's sign-ins can be switched off.
   // Own sign-in only, as the switch's action checks (not the DEV-ONLY dev sign-in).
