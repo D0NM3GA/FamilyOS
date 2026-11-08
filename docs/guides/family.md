@@ -530,6 +530,11 @@ sign-in.
 **My phones** lists your phones; **Remove** stops one. If you blocked notifications by mistake,
 allow them in the phone's settings and reload the page.
 
+Alerts keep coming when the phone renews its own connection for them (most phones do, now and
+then; on an iPhone, if they stop, turn them on again here). A newer alert about the same thing
+replaces the older one instead of stacking up. On a computer or an iPhone with the app on its
+home screen, the app's icon shows how many notes are unread.
+
 **In Teams** (grown-ups who sign in with Microsoft): alerts an admin switched on for you arrive as
 messages from the family's Teams app, named like the app, under **Chat** in Teams. It only sends;
 there's nothing to reply to.

@@ -2071,3 +2071,17 @@ today: Ivy 2, Max 1", `chores:all:<day>`). Both listed in My notifications with 
 as a grown-up sees them, so all-day and timed rows use the calendar's cutoffs), kids' schoolwork
 due today and tonight's dinner (`getTodaysDinner`), each with its app on. Outlook stays out (the
 tick has no Microsoft token).
+
+### 68c — Phone notifications that keep working
+
+**Renewal:** `public/sw.js` handles `pushsubscriptionchange`: with the old subscription it
+subscribes again (the new one the event gives, or with the old key, or the key from
+`GET /api/push/key`, signed-in only) and posts old and new to `POST /api/push/renew`
+(`lib/alerts/renew-request.ts`: a same-origin JSON fetch from its own origin, someone signed in,
+the subscription checked with the shared `subscriptionSchema`, now in `lib/alerts/subscription.ts`);
+`renewDevice` moves the household's row to the new endpoint, keeping its person (or drops the old
+when the new is already saved; never another household's). Without the old subscription there's
+nothing to move: the 410 path removes it as before. **Tag and badge:** `deliverNotifications` reads
+each note's kind and `pushTag` (kind and link, 64 characters) rides in the payload; the service
+worker passes `tag` and `badge: /notification-badge.png` (96 × 96, white on transparent, made
+by a small script). **App badge:** the bell sets `navigator.setAppBadge(unread)` where it exists.
