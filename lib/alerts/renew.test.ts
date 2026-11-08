@@ -16,8 +16,12 @@ describe("POST /api/push/renew's checks", () => {
 });
 
 describe("pushTag", () => {
-  it("is the kind and the link, at most 64 characters", () => {
-    expect(pushTag("REMINDER_DOSE_DUE", "/meds")).toBe("REMINDER_DOSE_DUE:/meds");
-    expect(pushTag("REMINDER_DATE", `/people/${"x".repeat(80)}`)).toHaveLength(64);
+  it("tells two notes with the same link apart, and names the same one the same", () => {
+    const ivy = pushTag("REMINDER_DOSE_DUE", "/meds", "Time for Ivy's 8:00 AM dose of Amoxicillin");
+    const max = pushTag("REMINDER_DOSE_DUE", "/meds", "Time for Max's 8:00 AM dose of Vitamin D");
+    expect(ivy).not.toBe(max);
+    expect(ivy).toBe(pushTag("REMINDER_DOSE_DUE", "/meds", "Time for Ivy's 8:00 AM dose of Amoxicillin"));
+    expect(ivy.startsWith("REMINDER_DOSE_DUE:")).toBe(true);
+    expect(ivy.length).toBeLessThanOrEqual(64);
   });
 });

@@ -38,9 +38,12 @@ export async function handleRenew(request: Request): Promise<NextResponse> {
   if (Number(request.headers.get("content-length") ?? "0") > 8192) return json({ ok: false }, 413);
   const viewer = await getActiveProfile();
   if (!viewer) return json({ ok: false }, 401);
+  // Read as text with a cap: a body sent without a length is still bounded before it's parsed.
   let body: unknown;
   try {
-    body = await request.json();
+    const text = await request.text();
+    if (text.length > 8192) return json({ ok: false }, 413);
+    body = JSON.parse(text);
   } catch {
     return json({ ok: false }, 400);
   }

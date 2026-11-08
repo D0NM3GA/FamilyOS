@@ -53,6 +53,8 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
     const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
     if (!nav.setAppBadge || !nav.clearAppBadge) return;
     (unread > 0 ? nav.setAppBadge(unread) : nav.clearAppBadge()).catch(() => {});
+    // Signed out or switched away: the count isn't theirs to show any more.
+    return () => void nav.clearAppBadge?.().catch(() => {});
   }, [unread]);
 
   useEffect(() => {

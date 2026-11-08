@@ -343,7 +343,7 @@ describe("phone notifications (Phase 68c)", () => {
 
   test("shows the badge, and a tag when there is one", async () => {
     const shown = await push({ title: "The app", body: "Time for Ivy's 8:00 AM dose", path: "/meds", tag: "REMINDER_DOSE_DUE:/meds" });
-    expect(shown.options).toMatchObject({ badge: "/notification-badge.png", tag: "REMINDER_DOSE_DUE:/meds", data: { path: "/meds" } });
+    expect(shown.options).toMatchObject({ badge: "/notification-badge.png", tag: "REMINDER_DOSE_DUE:/meds", renotify: true, data: { path: "/meds" } });
     const plain = await push({ title: "The app", body: "x", path: "/" });
     expect(plain.options.tag).toBeUndefined();
   });
@@ -358,6 +358,35 @@ describe("phone notifications (Phase 68c)", () => {
     await Promise.all(waits);
     const sent = worker.fetched.find((f) => f.url === "/api/push/renew");
     expect(JSON.parse(String(sent?.init?.body))).toEqual({ oldEndpoint: "https://push.example.com/old", subscription: { endpoint: "https://push.example.com/new", keys: { used: "old-key" } } });
+  });
+
+  test("a new subscription the browser hands over is sent as it is", async () => {
+    const waits: Promise<unknown>[] = [];
+    worker.handlers.get("pushsubscriptionchange")!({
+      oldSubscription: { endpoint: "https://push.example.com/old", options: {} },
+      newSubscription: { toJSON: () => ({ endpoint: "https://push.example.com/given" }) },
+      waitUntil: (p: Promise<unknown>) => waits.push(p),
+    });
+    await Promise.all(waits);
+    const sent = worker.fetched.find((f) => f.url === "/api/push/renew");
+    expect(JSON.parse(String(sent?.init?.body)).subscription).toEqual({ endpoint: "https://push.example.com/given" });
+    expect(worker.fetched.some((f) => f.url === "/api/push/key")).toBe(false);
+  });
+
+  test("without the old key, it asks the server for its key; a refusal stops there", async () => {
+    worker.routes.set("/api/push/key", () => new Response(JSON.stringify({ key: "server-key" }), { headers: { "content-type": "application/json" } }));
+    const run = async () => {
+      const waits: Promise<unknown>[] = [];
+      worker.handlers.get("pushsubscriptionchange")!({ oldSubscription: { endpoint: "https://push.example.com/old", options: {} }, newSubscription: null, waitUntil: (p: Promise<unknown>) => waits.push(p) });
+      await Promise.all(waits);
+    };
+    await run();
+    const sent = worker.fetched.find((f) => f.url === "/api/push/renew");
+    expect(JSON.parse(String(sent?.init?.body)).subscription.keys).toEqual({ used: "server-key" });
+    worker.fetched.length = 0;
+    worker.routes.set("/api/push/key", () => new Response("Sign in", { status: 401 }));
+    await run();
+    expect(worker.fetched.some((f) => f.url === "/api/push/renew")).toBe(false);
   });
 
   test("without the old subscription there's nothing to move", async () => {

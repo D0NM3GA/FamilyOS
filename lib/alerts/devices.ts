@@ -63,6 +63,8 @@ export async function renewDevice(householdId: string, oldEndpoint: string, d: D
     const taken = await tx.pushSubscription.findUnique({ where: { endpoint: d.endpoint }, select: { id: true, person: { select: { householdId: true } } } });
     if (taken && taken.person.householdId !== householdId) return false;
     if (taken) {
+      // Saved already (alerts turned on again): fresh keys and a clean slate, and the old row goes.
+      await tx.pushSubscription.update({ where: { id: taken.id }, data: { p256dh: d.p256dh, auth: d.auth, failureCount: 0 } });
       if (taken.id !== old.id) await tx.pushSubscription.delete({ where: { id: old.id } });
       return true;
     }

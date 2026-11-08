@@ -414,6 +414,9 @@ notifications** on their own phone.
   first (the [family guide](family.md#notifications-on-your-phone) has the steps). If
   `INTEGRATION_ENCRYPTION_KEY` ever changes, the page offers an admin new keys, and every phone
   turns alerts on again. Any admin can remove a lost phone from that admin's row.
+  When a phone renews its alert connection by itself, the app follows it (no visit needed),
+  while that phone's sign-in and Cloudflare Access are still good; otherwise the old one is
+  dropped when the push service says it's gone, and alerts are turned on again on the phone.
 - **Teams:** the family's own Teams app, a notification-only bot named after the family's app,
   messages each admin in their own Teams chat with it. An admin who is also a Teams administrator
   sets it up once: an **Azure Bot** (free tier, single-tenant, on the family's app registration,

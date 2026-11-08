@@ -77,7 +77,7 @@ describe.skipIf(!RUN)("phone push delivery (database)", () => {
 
     expect(senders.push).toHaveBeenCalledTimes(2);
     const payload = (senders.push.mock.calls[0] as unknown[])[1];
-    expect(payload).toEqual({ title: "FamilyOS", body: "Ivy bought DJ in the car · 20 stickers", path: "/points#orders", tag: "ORDER_PLACED:/points#orders" });
+    expect(payload).toEqual({ title: "FamilyOS", body: "Ivy bought DJ in the car · 20 stickers", path: "/points#orders", tag: expect.stringMatching(/^ORDER_PLACED:[\w-]{16}$/) });
     expect(await prisma.pushSubscription.findUnique({ where: { id: b.id } })).toBeNull();
     expect((await prisma.pushSubscription.findUniqueOrThrow({ where: { id: a.id } })).lastSuccessAt).not.toBeNull();
     expect((await prisma.alertPrefs.findUniqueOrThrow({ where: { personId: ids.mom } })).lastSentPush).not.toBeNull();

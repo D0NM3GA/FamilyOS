@@ -259,7 +259,11 @@ self.addEventListener("push", (event) => {
   // one instead of piling up; the badge is the small one-colour icon Android shows in the bar.
   const tag = typeof data.tag === "string" && data.tag ? data.tag.slice(0, 64) : undefined;
   const options = { body, icon: "/app-icon/192", badge: "/notification-badge.png", data: { path } };
-  if (tag) options.tag = tag;
+  // renotify: a replacement still sounds (a tag only ever names the same notification again).
+  if (tag) {
+    options.tag = tag;
+    options.renotify = true;
+  }
   // Always show something: subscriptions are userVisibleOnly.
   event.waitUntil(self.registration.showNotification(title, options));
 });

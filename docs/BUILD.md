@@ -2090,3 +2090,11 @@ nothing to move: the 410 path removes it as before. **Tag and badge:** `deliverN
 each note's kind and `pushTag` (kind and link, 64 characters) rides in the payload; the service
 worker passes `tag` and `badge: /notification-badge.png` (96 × 96, white on transparent, made
 by a small script). **App badge:** the bell sets `navigator.setAppBadge(unread)` where it exists.
+Fable's review of 68c: the tag was the kind and link, so two kids' 8:00 doses (same kind, same link)
+replaced each other silently; it's now the kind and a hash of the link and words, with `renotify` so
+a genuine replacement still sounds; test pushes share one tag. The renew route reads its body as
+text with an 8 KB cap (a body without a length was unbounded). A renewal onto an address already
+saved refreshes that row's keys and count. The app badge clears when the bell goes away. Tests
+cover the route's answers, the given and fetched-key paths, and the saved-address case. Left as is:
+a renewal while the phone's sign-in or Access has lapsed isn't retried (the 410 path and turning
+alerts on again cover it, as admin.md says).

@@ -41,4 +41,11 @@ describe.skipIf(!RUN)("renewing a phone's subscription (database)", { timeout: 6
     expect(await renewDevice(ids.h, `https://push.example.com/new-${t}`, { endpoint: `https://push.example.com/theirs-${t}`, ...keys })).toBe(false);
     expect(await prisma.pushSubscription.count({ where: { personId: ids.them } })).toBe(1);
   });
+
+  test("when the new address is saved already, the old row goes and the saved one is refreshed", async () => {
+    await prisma.pushSubscription.create({ data: { personId: ids.mom, endpoint: `https://push.example.com/again-${t}`, p256dh: "q".repeat(87), auth: "b".repeat(22), failureCount: 3 } });
+    expect(await renewDevice(ids.h, `https://push.example.com/new-${t}`, { endpoint: `https://push.example.com/again-${t}`, ...keys })).toBe(true);
+    expect(await prisma.pushSubscription.count({ where: { endpoint: `https://push.example.com/new-${t}` } })).toBe(0);
+    expect(await prisma.pushSubscription.findUniqueOrThrow({ where: { endpoint: `https://push.example.com/again-${t}` } })).toMatchObject({ p256dh: keys.p256dh, failureCount: 0 });
+  });
 });

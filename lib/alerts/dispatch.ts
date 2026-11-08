@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { captureError } from "@/lib/observability";
@@ -229,9 +230,13 @@ export type DeliverOptions = {
   includeEnded?: boolean;
 };
 
-/** Phase 68c: what a phone groups a notification by: its kind and where it leads (at most 64 characters). */
-export function pushTag(kind: string, href: string): string {
-  return `${kind}:${href}`.slice(0, 64);
+/**
+ * Phase 68c: what a phone groups a notification by, so the same notification sent again replaces
+ * the old one. Its kind and a short hash of its link and words: two kids' doses at 8:00 share a
+ * kind and a link, and must not replace each other.
+ */
+export function pushTag(kind: string, href: string, title: string): string {
+  return `${kind}:${createHash("sha256").update(`${href}\n${title}`).digest("base64url").slice(0, 16)}`.slice(0, 64);
 }
 
 /** Delivers the matching bell notifications (all from one household) on each recipient's channels. */
@@ -268,7 +273,7 @@ export async function deliverNotifications(where: Prisma.NotificationWhereInput,
         if (wantsEmail || (opts.alsoEmail && mailbox !== null)) channels.push("email");
         if (hasPhones && keys.ok) channels.push("push");
         if (channels.length === 0) return Promise.resolve();
-        return sendToPerson(n.recipient, channels, teamsAppId, mailbox, n.title, n.href, appName, senders, opts.card, pushTag(n.kind, n.href));
+        return sendToPerson(n.recipient, channels, teamsAppId, mailbox, n.title, n.href, appName, senders, opts.card, pushTag(n.kind, n.href, n.title));
       }),
     );
   } catch {
@@ -282,6 +287,7 @@ export async function sendTest(householdId: string, personId: string, channel: C
   const teamsAppId = channel === "teams" ? await familyTeamsAppId(householdId) : null;
   const appName = await getAppName(householdId);
   const mailbox = channel === "email" ? await alertMailbox(householdId) : null;
-  const out = await sendToPerson(r, [channel], teamsAppId, mailbox, `Test from ${appName} — alerts are working! 🎉`, "/points#orders", appName, senders);
+  // One tag for every test, so repeated tests don't stack on the phone.
+  const out = await sendToPerson(r, [channel], teamsAppId, mailbox, `Test from ${appName} — alerts are working! 🎉`, "/points#orders", appName, senders, undefined, "TEST");
   return out[channel] ?? null;
 }
