@@ -49,3 +49,26 @@ export async function removeAdminDevice(householdId: string, deviceId: string): 
   });
   return res.count;
 }
+
+/**
+ * Phase 68c: the browser renewed a subscription (the service worker's pushsubscriptionchange): the
+ * row for the old endpoint, in this household, takes the new one and keeps its person. When the
+ * new endpoint is already saved, the old row just goes. False when the old one isn't this
+ * household's (or is gone already), or the new one is another household's.
+ */
+export async function renewDevice(householdId: string, oldEndpoint: string, d: DeviceKeys): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const old = await tx.pushSubscription.findFirst({ where: { endpoint: oldEndpoint, person: { householdId } }, select: { id: true } });
+    if (!old) return false;
+    const taken = await tx.pushSubscription.findUnique({ where: { endpoint: d.endpoint }, select: { id: true, person: { select: { householdId: true } } } });
+    if (taken && taken.person.householdId !== householdId) return false;
+    if (taken) {
+      // Saved already (alerts turned on again): fresh keys and a clean slate, and the old row goes.
+      await tx.pushSubscription.update({ where: { id: taken.id }, data: { p256dh: d.p256dh, auth: d.auth, failureCount: 0 } });
+      if (taken.id !== old.id) await tx.pushSubscription.delete({ where: { id: old.id } });
+      return true;
+    }
+    await tx.pushSubscription.update({ where: { id: old.id }, data: { endpoint: d.endpoint, p256dh: d.p256dh, auth: d.auth, failureCount: 0 } });
+    return true;
+  });
+}

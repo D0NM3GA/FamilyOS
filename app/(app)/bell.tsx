@@ -47,6 +47,16 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
     };
   }, []);
 
+  // Phase 68c: the unread count on the installed app's icon, where the browser has it (desktop,
+  // iOS home-screen apps; not Chrome on Android). Cleared at zero.
+  useEffect(() => {
+    const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+    if (!nav.setAppBadge || !nav.clearAppBadge) return;
+    (unread > 0 ? nav.setAppBadge(unread) : nav.clearAppBadge()).catch(() => {});
+    // Signed out or switched away: the count isn't theirs to show any more.
+    return () => void nav.clearAppBadge?.().catch(() => {});
+  }, [unread]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

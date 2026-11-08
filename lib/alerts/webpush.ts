@@ -168,7 +168,7 @@ export type PushTarget = { endpoint: string; p256dh: string; auth: string };
  */
 export async function sendPush(
   sub: PushTarget,
-  payload: { title: string; body: string; path: string },
+  payload: { title: string; body: string; path: string; tag?: string },
   deps: { fetchFn?: typeof fetch; vapid?: Vapid | null } = {},
 ): Promise<PushOutcome> {
   // Phase 45.2: callers pass the keys (lib/alerts/vapid.ts getVapid), which may be stored ones.

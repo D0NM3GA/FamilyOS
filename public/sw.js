@@ -255,8 +255,50 @@ self.addEventListener("push", (event) => {
   const title = typeof data.title === "string" ? data.title : "New alert";
   const body = typeof data.body === "string" ? data.body : "Something needs a look.";
   const path = typeof data.path === "string" ? data.path : "/";
+  // Phase 68c: a newer notification about the same thing (its kind and link) replaces the older
+  // one instead of piling up; the badge is the small one-colour icon Android shows in the bar.
+  const tag = typeof data.tag === "string" && data.tag ? data.tag.slice(0, 64) : undefined;
+  const options = { body, icon: "/app-icon/192", badge: "/notification-badge.png", data: { path } };
+  // renotify: a replacement still sounds (a tag only ever names the same notification again).
+  if (tag) {
+    options.tag = tag;
+    options.renotify = true;
+  }
   // Always show something: subscriptions are userVisibleOnly.
-  event.waitUntil(self.registration.showNotification(title, { body, icon: "/app-icon/192", data: { path } }));
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+/**
+ * Phase 68c: the browser renewed this device's push subscription (an expired one, or new keys at
+ * the push service). Subscribe again with the server's key and tell the server, which moves the
+ * device's row to the new address, so alerts keep coming without a visit to My notifications.
+ * Without the old subscription there's no row to move: the old one is removed when the push
+ * service says it's gone, and turning alerts on again sets it up. Safari often never sends this.
+ */
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      const old = event.oldSubscription;
+      if (!old || !old.endpoint) return;
+      let sub = event.newSubscription;
+      if (!sub) {
+        let key = old.options && old.options.applicationServerKey;
+        if (!key) {
+          const res = await fetch("/api/push/key", { credentials: "same-origin", cache: "no-store" });
+          if (!res.ok) return;
+          key = (await res.json()).key;
+        }
+        if (!key) return;
+        sub = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      }
+      await fetch("/api/push/renew", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ oldEndpoint: old.endpoint, subscription: sub.toJSON() }),
+      });
+    })().catch(() => {}),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {

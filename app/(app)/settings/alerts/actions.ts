@@ -16,7 +16,7 @@ import { alertMailbox, isMailboxAddress } from "@/lib/alerts/email";
 import { recordSignInEvent } from "@/lib/sign-in-events";
 import { recipientEmail, sendTest, teamsRecipient, type Channel } from "@/lib/alerts/dispatch";
 import { findAlertTarget } from "@/lib/alerts/targets";
-import { isAllowedPushEndpoint, isValidUaPublicKey } from "@/lib/alerts/webpush";
+import { subscriptionSchema } from "@/lib/alerts/subscription";
 import { deviceOwner, forgetDevice, registerDevice, removeAdminDevice, removeOwnDevice } from "@/lib/alerts/devices";
 import { getVapidState, replaceStoredVapid } from "@/lib/alerts/vapid";
 
@@ -174,18 +174,6 @@ export async function sendTestAlert(personId: string, ch: Channel): Promise<Aler
 
 // ---------- Phone push (Phase 21.6) ----------
 
-const b64u = (len: number) =>
-  z
-    .string()
-    .max(200)
-    .regex(/^[A-Za-z0-9_-]+=*$/)
-    .transform((s) => Buffer.from(s, "base64url"))
-    .refine((b) => b.length === len);
-
-const subscriptionSchema = z.object({
-  endpoint: z.string().max(2048).refine(isAllowedPushEndpoint),
-  keys: z.object({ p256dh: b64u(65).refine(isValidUaPublicKey), auth: b64u(16) }),
-});
 
 /**
  * "Turn on alerts on this phone": saves this browser's subscription for the active grown-up

@@ -70,6 +70,7 @@ const SHOP_HTML = `<!doctype html><link rel="stylesheet" href="/_next/static/css
 <script nonce="abc">self.__next_f.push([1,"[\\"/_next/static/chunks/shop.js\\",\\"/_next/static/chunks/\\"]"])</script><div data-shop-saveable=""><p>Eggs</p></div>`;
 
 let worker: {
+  self: { registration: { shown: { title: string; options: Record<string, unknown> }[] } };
   handlers: Map<string, Handler>;
   caches: ReturnType<typeof fakeCaches>;
   online: boolean;
@@ -81,7 +82,7 @@ let worker: {
 beforeEach(() => {
   const handlers = new Map<string, Handler>();
   const caches = fakeCaches();
-  const state = { handlers, caches, online: true, routes: new Map<string, () => Response>(), fetched: [] as { url: string; init?: RequestInit }[], now: Date.UTC(2026, 9, 22) };
+  const state = { handlers, caches, online: true, self: null as unknown as { registration: { shown: { title: string; options: Record<string, unknown> }[] } }, routes: new Map<string, () => Response>(), fetched: [] as { url: string; init?: RequestInit }[], now: Date.UTC(2026, 9, 22) };
   state.routes.set("/_next/static/css/app.css", () => served("body{font-family:x;src:url(/_next/static/media/font.woff2)}", { headers: { "content-type": "text/css" } }));
   state.routes.set("/_next/static/chunks/main.js", () => served("main()"));
   state.routes.set("/_next/static/chunks/shop.js", () => served("shop()"));
@@ -96,11 +97,22 @@ beforeEach(() => {
   };
   const self = {
     location: new URL(ORIGIN),
-    registration: { navigationPreload: null },
+    registration: {
+      navigationPreload: null,
+      shown: [] as { title: string; options: Record<string, unknown> }[],
+      showNotification(title: string, options: Record<string, unknown>) {
+        this.shown.push({ title, options });
+        return Promise.resolve();
+      },
+      pushManager: {
+        subscribe: async (o: { applicationServerKey: unknown }) => ({ toJSON: () => ({ endpoint: "https://push.example.com/new", keys: { used: o.applicationServerKey } }) }),
+      },
+    },
     clients: { claim: async () => {} },
     skipWaiting: () => {},
     addEventListener: (type: string, fn: Handler) => handlers.set(type, fn),
   };
+  state.self = self;
   vm.runInNewContext(SOURCE, {
     self,
     caches,
@@ -319,4 +331,68 @@ test("other requests are left to the browser", async () => {
     waitUntil: () => {},
   });
   expect(answered).toBe(false);
+});
+
+describe("phone notifications (Phase 68c)", () => {
+  async function push(data: unknown) {
+    const waits: Promise<unknown>[] = [];
+    worker.handlers.get("push")!({ data: { json: () => data }, waitUntil: (p: Promise<unknown>) => waits.push(p) });
+    await Promise.all(waits);
+    return worker.self.registration.shown.at(-1)!;
+  }
+
+  test("shows the badge, and a tag when there is one", async () => {
+    const shown = await push({ title: "The app", body: "Time for Ivy's 8:00 AM dose", path: "/meds", tag: "REMINDER_DOSE_DUE:/meds" });
+    expect(shown.options).toMatchObject({ badge: "/notification-badge.png", tag: "REMINDER_DOSE_DUE:/meds", renotify: true, data: { path: "/meds" } });
+    const plain = await push({ title: "The app", body: "x", path: "/" });
+    expect(plain.options.tag).toBeUndefined();
+  });
+
+  test("a renewed subscription is subscribed again with the old key and sent to the server", async () => {
+    const waits: Promise<unknown>[] = [];
+    worker.handlers.get("pushsubscriptionchange")!({
+      oldSubscription: { endpoint: "https://push.example.com/old", options: { applicationServerKey: "old-key" } },
+      newSubscription: null,
+      waitUntil: (p: Promise<unknown>) => waits.push(p),
+    });
+    await Promise.all(waits);
+    const sent = worker.fetched.find((f) => f.url === "/api/push/renew");
+    expect(JSON.parse(String(sent?.init?.body))).toEqual({ oldEndpoint: "https://push.example.com/old", subscription: { endpoint: "https://push.example.com/new", keys: { used: "old-key" } } });
+  });
+
+  test("a new subscription the browser hands over is sent as it is", async () => {
+    const waits: Promise<unknown>[] = [];
+    worker.handlers.get("pushsubscriptionchange")!({
+      oldSubscription: { endpoint: "https://push.example.com/old", options: {} },
+      newSubscription: { toJSON: () => ({ endpoint: "https://push.example.com/given" }) },
+      waitUntil: (p: Promise<unknown>) => waits.push(p),
+    });
+    await Promise.all(waits);
+    const sent = worker.fetched.find((f) => f.url === "/api/push/renew");
+    expect(JSON.parse(String(sent?.init?.body)).subscription).toEqual({ endpoint: "https://push.example.com/given" });
+    expect(worker.fetched.some((f) => f.url === "/api/push/key")).toBe(false);
+  });
+
+  test("without the old key, it asks the server for its key; a refusal stops there", async () => {
+    worker.routes.set("/api/push/key", () => new Response(JSON.stringify({ key: "server-key" }), { headers: { "content-type": "application/json" } }));
+    const run = async () => {
+      const waits: Promise<unknown>[] = [];
+      worker.handlers.get("pushsubscriptionchange")!({ oldSubscription: { endpoint: "https://push.example.com/old", options: {} }, newSubscription: null, waitUntil: (p: Promise<unknown>) => waits.push(p) });
+      await Promise.all(waits);
+    };
+    await run();
+    const sent = worker.fetched.find((f) => f.url === "/api/push/renew");
+    expect(JSON.parse(String(sent?.init?.body)).subscription.keys).toEqual({ used: "server-key" });
+    worker.fetched.length = 0;
+    worker.routes.set("/api/push/key", () => new Response("Sign in", { status: 401 }));
+    await run();
+    expect(worker.fetched.some((f) => f.url === "/api/push/renew")).toBe(false);
+  });
+
+  test("without the old subscription there's nothing to move", async () => {
+    const waits: Promise<unknown>[] = [];
+    worker.handlers.get("pushsubscriptionchange")!({ oldSubscription: null, newSubscription: null, waitUntil: (p: Promise<unknown>) => waits.push(p) });
+    await Promise.all(waits);
+    expect(worker.fetched.some((f) => f.url.startsWith("/api/push"))).toBe(false);
+  });
 });

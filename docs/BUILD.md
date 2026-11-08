@@ -2076,3 +2076,25 @@ planned meal alone sent everyone a one-line summary); long homework and event li
 more"; a kid's own homework bell says "You have a quiz due tomorrow" (the grown-ups' has the name,
 under its own key); the zone comes from `processZone`; tests show a grown-up's own class and an
 "Anyone" chore aren't counted. Noted: `plannedRows` takes today from the clock, not the caller.
+
+### 68c — Phone notifications that keep working
+
+**Renewal:** `public/sw.js` handles `pushsubscriptionchange`: with the old subscription it
+subscribes again (the new one the event gives, or with the old key, or the key from
+`GET /api/push/key`, signed-in only) and posts old and new to `POST /api/push/renew`
+(`lib/alerts/renew-request.ts`: a same-origin JSON fetch from its own origin, someone signed in,
+the subscription checked with the shared `subscriptionSchema`, now in `lib/alerts/subscription.ts`);
+`renewDevice` moves the household's row to the new endpoint, keeping its person (or drops the old
+when the new is already saved; never another household's). Without the old subscription there's
+nothing to move: the 410 path removes it as before. **Tag and badge:** `deliverNotifications` reads
+each note's kind and `pushTag` (kind and link, 64 characters) rides in the payload; the service
+worker passes `tag` and `badge: /notification-badge.png` (96 × 96, white on transparent, made
+by a small script). **App badge:** the bell sets `navigator.setAppBadge(unread)` where it exists.
+Fable's review of 68c: the tag was the kind and link, so two kids' 8:00 doses (same kind, same link)
+replaced each other silently; it's now the kind and a hash of the link and words, with `renotify` so
+a genuine replacement still sounds; test pushes share one tag. The renew route reads its body as
+text with an 8 KB cap (a body without a length was unbounded). A renewal onto an address already
+saved refreshes that row's keys and count. The app badge clears when the bell goes away. Tests
+cover the route's answers, the given and fetched-key paths, and the saved-address case. Left as is:
+a renewal while the phone's sign-in or Access has lapsed isn't retried (the 410 path and turning
+alerts on again cover it, as admin.md says).
