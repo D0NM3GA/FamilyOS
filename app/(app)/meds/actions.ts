@@ -9,6 +9,7 @@ import { requireAdult, assertOwnRecord } from "@/lib/authz";
 import { atMidnight } from "@/lib/tasks/schedule";
 import { doseConsumption, isLowStock } from "@/lib/meds/quantity";
 import { canTakeYet } from "@/lib/meds/dose-window";
+import { AS_NEEDED_LOW_DOSES, dosesLeft, nextAllowed, notYetWords, whenWords } from "@/lib/meds/as-needed";
 import { searchRxTerms } from "@/lib/meds/rxterms";
 import { medFormSchema } from "@/lib/meds/form";
 import { requestItemByName } from "@/lib/shopping-list";
@@ -43,6 +44,8 @@ function parseMedForm(formData: FormData) {
     quantityOnHand: numOrUndefined("quantityOnHand"),
     doseAmount: numOrUndefined("doseAmount"),
     refillThresholdQuantity: numOrUndefined("refillThresholdQuantity"),
+    minGapHours: numOrUndefined("minGapHours"),
+    maxPerDay: numOrUndefined("maxPerDay"),
     prescriberId: idOrUndefined("prescriberId"),
     pharmacyId: idOrUndefined("pharmacyId"),
   };
@@ -60,11 +63,15 @@ function parseMedForm(formData: FormData) {
     quantityOnHand,
     doseAmount,
     refillThresholdQuantity,
+    minGapHours,
+    maxPerDay,
     prescriberId,
     pharmacyId,
     ...rest
   } = parsed.data;
-  const dedupedTimes = Array.from(new Set(timesOfDay)).sort();
+  const asNeeded = rest.frequencyType === "AS_NEEDED";
+  // An as-needed medicine has no times; its limits mean nothing on a schedule.
+  const dedupedTimes = asNeeded ? [] : Array.from(new Set(timesOfDay)).sort();
 
   return {
     fields: { ...rest, notes: notes || null, interval: interval ?? null, timesOfDay: dedupedTimes },
@@ -73,6 +80,8 @@ function parseMedForm(formData: FormData) {
       quantityOnHand: quantityOnHand ?? null,
       doseAmount: doseAmount ?? null,
       refillThresholdQuantity: refillThresholdQuantity ?? null,
+      minGapHours: asNeeded ? (minGapHours ?? null) : null,
+      maxPerDay: asNeeded ? (maxPerDay ?? null) : null,
       prescriberId: prescriberId ?? null,
       pharmacyId: pharmacyId ?? null,
     },
@@ -167,8 +176,10 @@ export async function updateTaskDefinition(
     // change here is NOT retroactive either: past instances keep whatever
     // quantityConsumed they were completed with; only future completions use the new
     // amount.
+    // Phase 65a: switching to As needed drops every waiting dose, overdue ones too: nothing would
+    // show them or clear them again.
     prisma.taskInstance.deleteMany({
-      where: { definitionId, status: "PENDING", dueDate: { gte: atMidnight(new Date()) } },
+      where: { definitionId, status: "PENDING", ...(result.fields.frequencyType === "AS_NEEDED" ? {} : { dueDate: { gte: atMidnight(new Date()) } }) },
     }),
   ]);
 
@@ -257,6 +268,8 @@ export async function completeInstance(instanceId: string) {
   if (!instance || instance.definition.householdId !== profile.householdId || instance.definition.domain !== "MED") {
     throw new Error("Medication dose not found");
   }
+  // Phase 65a: an as-needed dose is taken and undone by its own actions (undo deletes it).
+  if (instance.definition.frequencyType === "AS_NEEDED") throw new Error("Use the as-needed actions");
   assertOwnRecord(profile, instance.assignedToId);
   // Phase 60: not ahead of its day (Upcoming hides Taken; this is for a stale page).
   if (!canTakeYet(instance.dueDate)) throw new Error("That dose isn't due yet");
@@ -304,24 +317,111 @@ export async function completeInstance(instanceId: string) {
   // quantityOnHand is raised back above the threshold (via addStock or the edit form) —
   // deliberate, not a bug, so a stale low count doesn't silently stop nagging.
   if (result.completed && result.needsRefill) {
-    try {
-      const { created } = await requestItemByName({
-        householdId: profile.householdId,
-        name: instance.definition.title,
-        addedById: profile.id,
-        requestedById: instance.assignedToId,
-        // Phase 63a: the list remembers which medicine, so finishing the trip can restock it.
-        ...(medication ? { source: { medicationId: medication.id } } : {}),
-      });
-      if (created) revalidatePath("/groceries");
-    } catch (err) {
-      captureError(err, "meds.refill_item_failed");
-    }
+    await requestRefill({ householdId: profile.householdId, title: instance.definition.title, byId: profile.id, forId: instance.assignedToId, medicationId: medication?.id ?? null });
   }
 
   revalidatePath("/meds");
   revalidatePath("/meds/manage");
   revalidatePath("/");
+}
+
+/** A "Refill <medicine>" list item, best effort: the dose itself never fails because the list did. */
+async function requestRefill(o: { householdId: string; title: string; byId: string; forId: string | null; medicationId: string | null }) {
+  try {
+    const { created } = await requestItemByName({
+      householdId: o.householdId,
+      name: o.title,
+      addedById: o.byId,
+      requestedById: o.forId,
+      // Phase 63a: the list remembers which medicine, so finishing the trip can restock it.
+      ...(o.medicationId ? { source: { medicationId: o.medicationId } } : {}),
+    });
+    if (created) revalidatePath("/groceries");
+  } catch (err) {
+    captureError(err, "meds.refill_item_failed");
+  }
+}
+
+const asNeededLow = (onHand: number | null, doseAmount: number | null) => {
+  const left = dosesLeft(onHand, doseAmount);
+  return left != null && left <= AS_NEEDED_LOW_DOSES;
+};
+
+export type DoseState = { error?: string; ok?: string };
+
+/**
+ * Phase 65a: takes a dose of an as-needed medicine now. Who may: as for a scheduled dose (the
+ * medicine's person, or a grown-up). The gap and the daily maximum are checked inside the
+ * transaction, with the medicine's row locked, so two people logging seconds apart can't both
+ * get past them. Stock, stickers and the refill item work as for a scheduled dose.
+ */
+export async function takeAsNeeded(definitionId: string): Promise<DoseState> {
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "meds");
+  if (typeof definitionId !== "string" || definitionId.length > 64) return { error: "That medicine isn't here anymore." };
+  const definition = await prisma.taskDefinition.findFirst({
+    where: { id: definitionId, householdId: profile.householdId, domain: "MED", frequencyType: "AS_NEEDED", active: true },
+    include: { medication: true, assignees: { select: { id: true } } },
+  });
+  if (!definition) return { error: "That medicine isn't here anymore." };
+  const forId = definition.assignees[0]?.id ?? null;
+  try {
+    assertOwnRecord(profile, forId);
+  } catch {
+    return { error: "Only a grown-up can log someone else's medicine." };
+  }
+  const medication = definition.medication;
+  const rules = { minGapHours: medication?.minGapHours ?? null, maxPerDay: medication?.maxPerDay ?? null };
+
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "task_definition" WHERE id = ${definition.id} FOR UPDATE`;
+    const now = new Date();
+    const recent = await tx.taskInstance.findMany({
+      where: { definitionId: definition.id, status: "DONE", completedAt: { gt: new Date(now.getTime() - 24 * 3_600_000 - Math.max(0, (rules.minGapHours ?? 0) - 24) * 3_600_000) } },
+      select: { completedAt: true },
+    });
+    const next = nextAllowed(recent.map((r) => r.completedAt!), rules, now);
+    if (!next.ok) return { error: notYetWords(next, rules, now) };
+    const fresh = medication ? await tx.medication.findUnique({ where: { id: medication.id } }) : null;
+    const consumed = doseConsumption(fresh?.quantityOnHand ?? null, fresh?.doseAmount ?? null);
+    const dose = await tx.taskInstance.create({
+      data: { definitionId: definition.id, dueDate: now, assignedToId: forId, status: "DONE", completedAt: now, completedById: profile.id, quantityConsumed: consumed },
+    });
+    await tx.pointsLedger.create({ data: { personId: forId ?? profile.id, delta: definition.points, reason: definition.title, instanceId: dose.id } });
+    let needsRefill = false;
+    if (consumed != null && medication) {
+      const updated = await tx.medication.update({ where: { id: medication.id }, data: { quantityOnHand: { decrement: consumed } } });
+      needsRefill = isLowStock(updated.quantityOnHand, medication.refillThresholdQuantity) || asNeededLow(updated.quantityOnHand, medication.doseAmount);
+    }
+    return { needsRefill, at: now };
+  });
+  if ("error" in result) return { error: result.error };
+  if (result.needsRefill) await requestRefill({ householdId: profile.householdId, title: definition.title, byId: profile.id, forId, medicationId: medication?.id ?? null });
+  revalidateBoard();
+  return { ok: `Taken at ${whenWords(result.at, result.at)}.` };
+}
+
+/**
+ * Phase 65a: undoes an as-needed dose by removing it (it was never scheduled; put back to waiting
+ * it would look like a dose to take, and a missed one). Stock and stickers go back.
+ */
+export async function undoAsNeeded(instanceId: string) {
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "meds");
+  const instance = await prisma.taskInstance.findUnique({ where: { id: instanceId }, include: { definition: { include: { medication: true } } } });
+  if (!instance || instance.definition.householdId !== profile.householdId || instance.definition.domain !== "MED" || instance.definition.frequencyType !== "AS_NEEDED") {
+    throw new Error("Medication dose not found");
+  }
+  assertOwnRecord(profile, instance.completedById);
+  const medication = instance.definition.medication;
+  await prisma.$transaction(async (tx) => {
+    await tx.pointsLedger.deleteMany({ where: { instanceId: instance.id } });
+    const { count } = await tx.taskInstance.deleteMany({ where: { id: instance.id, status: "DONE" } });
+    if (count && instance.quantityConsumed != null && medication) {
+      await tx.medication.update({ where: { id: medication.id }, data: { quantityOnHand: { increment: instance.quantityConsumed } } });
+    }
+  });
+  revalidateBoard();
 }
 
 export async function uncompleteInstance(instanceId: string) {
@@ -335,6 +435,7 @@ export async function uncompleteInstance(instanceId: string) {
   if (!instance || instance.definition.householdId !== profile.householdId || instance.definition.domain !== "MED") {
     throw new Error("Medication dose not found");
   }
+  if (instance.definition.frequencyType === "AS_NEEDED") throw new Error("Use the as-needed actions");
   assertOwnRecord(profile, instance.completedById);
 
   const medication = instance.definition.medication;
@@ -409,5 +510,7 @@ export async function markOlderMissed(personId: string | null) {
 
 function revalidateBoard() {
   revalidatePath("/meds");
+  // Manage shows the stock count a dose changes.
+  revalidatePath("/meds/manage");
   revalidatePath("/");
 }

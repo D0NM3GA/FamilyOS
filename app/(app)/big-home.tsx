@@ -1,3 +1,5 @@
+import { AsNeededRow } from "@/components/meds/as-needed-row";
+import type { AsNeededView } from "@/lib/meds/as-needed-queries";
 import Link from "next/link";
 import { AwayNote } from "@/components/away-time";
 import { BunsonMoment } from "@/components/bunson-moment";
@@ -26,6 +28,9 @@ export function BigHome({
   meds,
   medTimes,
   overdueMedIds,
+  asNeeded = [],
+  onTakeAsNeeded,
+  onUndoAsNeeded,
   school,
   schoolToday = [],
   birthdays = [],
@@ -50,6 +55,10 @@ export function BigHome({
   medTimes: Record<string, string>;
   /** Missed doses from earlier days, which also show their date ("Yesterday · 8:00 AM"). */
   overdueMedIds: string[];
+  /** Phase 65a: their own as-needed medicines, each with its take button. */
+  asNeeded?: AsNeededView[];
+  onTakeAsNeeded?: (definitionId: string) => Promise<{ error?: string; ok?: string }>;
+  onUndoAsNeeded?: (instanceId: string) => Promise<void>;
   /** Phase 64a: school calendar events today (their own and the family's), and birthdays this week. */
   schoolToday?: { key: string; title: string }[];
   birthdays?: { key: string; text: string }[];
@@ -126,7 +135,7 @@ export function BigHome({
         </section>
       )}
 
-      {meds.length > 0 && (
+      {(meds.length > 0 || asNeeded.length > 0) && (
         <section>
           <h2 className="text-2xl font-extrabold">My meds today</h2>
           <ul className="mt-3 space-y-3">
@@ -145,6 +154,11 @@ export function BigHome({
                 index={idx}
               />
             ))}
+            {onTakeAsNeeded &&
+              onUndoAsNeeded &&
+              asNeeded.map((m) => (
+                <AsNeededRow key={m.definitionId} med={m} viewerId={viewerId} viewerIsAdult={viewerIsAdult} showPerson={false} take={onTakeAsNeeded} undo={onUndoAsNeeded} />
+              ))}
           </ul>
         </section>
       )}

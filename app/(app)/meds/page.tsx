@@ -17,7 +17,9 @@ import { MOMENT_LINES } from "@/lib/bunson-moments";
 import { PersonFilterRow } from "@/components/tasks/person-filter-row";
 import { PageHeader } from "@/components/page-header";
 import { btn, btnPrimary, sectionTitle } from "@/components/styles";
-import { completeInstance, uncompleteInstance, skipInstance, unskipInstance, markOlderMissed } from "./actions";
+import { completeInstance, uncompleteInstance, skipInstance, unskipInstance, markOlderMissed, takeAsNeeded, undoAsNeeded } from "./actions";
+import { getAsNeeded } from "@/lib/meds/as-needed-queries";
+import { AsNeededRow } from "@/components/meds/as-needed-row";
 import { requireAppOn } from "@/lib/app-guard";
 import { appOn } from "@/lib/app-switches";
 import { SubmitButton } from "@/components/submit";
@@ -37,10 +39,11 @@ export default async function MedsPage({
   const horizon = addDays(new Date(), 14);
   await ensureInstancesGenerated(profile.householdId, horizon, "MED");
 
-  const [{ overdue, dueToday, upcoming, olderMissed }, tally, members] = await Promise.all([
+  const [{ overdue, dueToday, upcoming, olderMissed }, tally, members, asNeeded] = await Promise.all([
     getBoardInstances(profile.householdId, { personId: personFilter, domain: "MED" }),
     getPointsTally(profile.householdId, { domain: "MED" }),
     getHouseholdMembers(profile.householdId),
+    getAsNeeded(profile.householdId, { personId: personFilter }),
   ]);
   // Phase 62c: grown-ups see about how long each medicine's stock lasts (Manage shows the count).
   const daysLeft = viewerIsAdult ? await medicationDaysLeft(profile.householdId) : new Map<string, string | null>();
@@ -147,6 +150,14 @@ export default async function MedsPage({
             ))
           )}
         </Section>
+
+        {asNeeded.length > 0 && (
+          <Section title="As needed">
+            {asNeeded.map((m) => (
+              <AsNeededRow key={m.definitionId} med={m} viewerId={profile.id} viewerIsAdult={viewerIsAdult} take={takeAsNeeded} undo={undoAsNeeded} />
+            ))}
+          </Section>
+        )}
 
         {upcoming.length === 0 ? (
           <Section title="Upcoming">

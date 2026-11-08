@@ -18,6 +18,7 @@ const FREQUENCIES = [
   { value: "MONTHLY", label: "Monthly" },
   { value: "INTERVAL_DAYS", label: "Every few days" },
   { value: "DAYS_OF_WEEK", label: "On certain days" },
+  { value: "AS_NEEDED", label: "As needed" },
 ];
 
 const WEEKDAYS = [
@@ -52,6 +53,8 @@ type Defaults = {
   quantityOnHand?: number | null;
   doseAmount?: number | null;
   refillThresholdQuantity?: number | null;
+  minGapHours?: number | null;
+  maxPerDay?: number | null;
   prescriberId?: string | null;
   pharmacyId?: string | null;
 };
@@ -241,6 +244,7 @@ export function TaskDefinitionForm({
         />
       </label>
 
+      {frequency !== "AS_NEEDED" && (
       <fieldset>
         <legend className={fieldLabel}>Times of day</legend>
         <div className="mt-1 space-y-2">
@@ -267,6 +271,7 @@ export function TaskDefinitionForm({
           </button>
         </div>
       </fieldset>
+      )}
 
       <label className="block">
         <span className={`${fieldLabel} block`}>Repeats</span>
@@ -297,6 +302,32 @@ export function TaskDefinitionForm({
           type="number"
           defaultValue={String(defaults?.interval ?? 1)}
         />
+      )}
+
+      {frequency === "AS_NEEDED" && (
+        <fieldset>
+          <legend className={fieldLabel}>Limits (optional)</legend>
+          <div className="mt-1 grid gap-2 sm:grid-cols-2">
+            <Field
+              label="Hours between doses, at least"
+              name="minGapHours"
+              type="number"
+              step="0.5"
+              min="0.5"
+              max="72"
+              defaultValue={defaults?.minGapHours != null ? String(defaults.minGapHours) : ""}
+            />
+            <Field
+              label="Doses in 24 hours, at most"
+              name="maxPerDay"
+              type="number"
+              min="1"
+              max="24"
+              defaultValue={defaults?.maxPerDay != null ? String(defaults.maxPerDay) : ""}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Taking a dose says when the next one is allowed, and stops at the most in 24 hours.</p>
+        </fieldset>
       )}
 
       {frequency === "DAYS_OF_WEEK" && (
@@ -455,6 +486,8 @@ function Field({
   defaultValue,
   required,
   step,
+  min,
+  max,
 }: {
   label: React.ReactNode;
   name: string;
@@ -462,6 +495,8 @@ function Field({
   defaultValue?: string;
   required?: boolean;
   step?: string;
+  min?: string;
+  max?: string;
 }) {
   return (
     <label className="block min-w-0">
@@ -472,6 +507,8 @@ function Field({
         defaultValue={defaultValue}
         required={required}
         step={step}
+        min={min}
+        max={max}
         className={`${field} mt-1 w-full`}
       />
     </label>
