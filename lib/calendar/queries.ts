@@ -2,8 +2,8 @@ import { isAdult } from "@/lib/authz";
 import { isAppOn } from "@/lib/apps";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { ensureInstancesGenerated } from "@/lib/tasks/instances";
-import { importantDateItems, schoolDueItems, schoolEventItems, taskItems, vehicleItems, type AgendaItem } from "./agenda";
-import { loadImportantDates, loadSchoolDue, loadSchoolEvents, loadTaskInstances, loadVehicleDueDates } from "./sources";
+import { importantDateItems, schoolDueItems, schoolEventItems, taskItems, vehicleItems, mealItems, type AgendaItem } from "./agenda";
+import { loadImportantDates, loadSchoolDue, loadSchoolEvents, loadTaskInstances, loadVehicleDueDates, loadMeals } from "./sources";
 
 /**
  * How far ahead the agenda lists chores and doses: as far as the boards generate them
@@ -49,7 +49,7 @@ export async function getAgendaWeek(
     await Promise.all(domains.map((domain) => ensureInstancesGenerated(viewer.householdId, through, domain)));
   }
 
-  const [tasks, dates, school, events, vehicles] = await Promise.all([
+  const [tasks, dates, school, events, vehicles, meals] = await Promise.all([
     // Phase 66a: someone's doses are theirs and the grown-ups', so a kid's agenda has only their own.
     loadTaskInstances(viewer.householdId, { domains, from: start, until: tasksUntil, dosesFor: adult ? undefined : viewer.id }),
     loadImportantDates(viewer.householdId),
@@ -57,6 +57,9 @@ export async function getAgendaWeek(
     on("school") ? loadSchoolEvents(viewer, start, end, timeZone) : [],
     // Cars is a grown-ups' app (lib/apps.ts), so a kid's agenda leaves it out.
     adult && on("cars") ? loadVehicleDueDates(viewer.householdId) : [],
+    // Phase 69c: planned dinners on the week (not the month, which is events only, and not Home's
+    // strip, which asks for events only and adds today's dinner itself).
+    on("groceries") && !opts.eventsOnly ? loadMeals(viewer.householdId, start, end) : [],
   ]);
 
   return {
@@ -66,6 +69,7 @@ export async function getAgendaWeek(
       ...schoolDueItems(school),
       ...schoolEventItems(events, start, timeZone, days),
       ...vehicleItems(vehicles),
+      ...mealItems(meals),
     ],
     tasksPlannedThrough: domains.length > 0 && end > addDays(lastPlanned, 1) ? lastPlanned : null,
   };

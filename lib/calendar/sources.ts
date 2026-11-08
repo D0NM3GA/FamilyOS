@@ -248,3 +248,21 @@ export async function loadSchoolEvents(viewer: Viewer, firstDay: Date, untilDay:
     studentId: e.feed.kidPersonId,
   }));
 }
+
+export type MealRow = { day: Date; label: string };
+
+/**
+ * Phase 69c: the week's planned dinners for the calendar, from the meal plan (a meal's name and the
+ * day's note, as Home says them). Days are stored as local midnights.
+ */
+export async function loadMeals(householdId: string, from: Date, until: Date): Promise<MealRow[]> {
+  const days = await prisma.mealPlanDay.findMany({
+    where: { householdId, day: { gte: from, lt: until } },
+    select: { day: true, note: true, meal: { select: { name: true } } },
+    orderBy: { day: "asc" },
+  });
+  return days.flatMap((d) => {
+    const label = [d.meal?.name, d.note].filter(Boolean).join(" · ");
+    return label ? [{ day: d.day, label }] : [];
+  });
+}
