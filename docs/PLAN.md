@@ -2741,6 +2741,132 @@ decimals (imports report the row instead).
 66a meds, chores and calendar; 66b list and failures; 66c money.
 
 
+## Phase 67 — scope (the security and ops safety net, 2026-11-08)
+
+The second phase from the review of 2026-11-08: things that only matter once the family relies on
+the app, before they bite. Checked against the code 2026-11-08. The owner said go ("Yes, start
+67"); the defaults below follow the review's recommendations.
+
+### 67a — Where you're signed in, and a fuller sign-in log
+
+- **Settings → Where I'm signed in** (`/settings/devices`, in the hub next to My passkeys): your
+  own sign-in's sessions, each with the device and browser it signed in from and when it signed
+  in, "This device" on the current one. **Sign out** on another one,
+  and **Sign out everywhere else**. Only on your own sign-in (`isSessionOwner`; a profile switched
+  to with a PIN sees a note instead), by server actions that delete `session` rows of the
+  signed-in user only, never the current one. A lost phone no longer means an admin removing your
+  whole sign-in.
+- **Admins: Sign them out everywhere** on a member's row in Settings → Sign-in (asks first). Their
+  passkeys and role stay; every session goes.
+- **Better Auth's session routes go off:** `/list-sessions`, `/revoke-session`, `/revoke-sessions`,
+  `/revoke-other-sessions` join `disabledPaths` (nothing in the app calls them; `/list-sessions`
+  hands any cookie holder, a PIN-switched profile included, the other devices' IP addresses).
+- **The sign-in log gains:** `SIGNED_OUT_ELSEWHERE` (you signed a device out, or everywhere else),
+  `SIGNED_OUT_EVERYWHERE` (an admin did it to someone), `PIN_SET` (detail "set" or "cleared",
+  by whom), `PIN_LOCKED` (a tile locked after too many wrong PINs; admins get a bell notice) and
+  `MEMBER_REMOVED`, each recorded in the same transaction as the change. They show in the history
+  lists that already read the log.
+
+### 67b — Hearing when something stopped, and calls that can't hang
+
+- **A system reminder for admins:** `REMINDER_SYSTEM` (a new reminder kind, on by default, in
+  Settings → My notifications for admins only). Each tick plans one per background job that is
+  failing or late, and for the nightly backup once it's failing or more than 36 hours late
+  (`heartbeatState`, the same rules as Data's System card). Key `system:<job>:<state>:<lastOkAt>`, so
+  it reminds once per problem and again if it comes back. Not urgent (quiet hours apply). Links to
+  Data's System card. A backup that has never run (no server cron yet) doesn't remind. If the
+  reminders job itself is what's broken, only the outside check-in (`HEALTHCHECK_PING_URL`) can
+  tell; the README says so.
+- **Timeouts:** the RxTerms name lookup gets 5 seconds and a 60-character cap (Graph calls already
+  have 20). Each background job gets 10 minutes: past that the
+  tick records it as failed and moves on (the job's own lease keeps a slow run from doubling up).
+- **Unread notifications** older than 180 days are cleaned up too (read ones still go at 90).
+
+### 67c — Backups that outlast a bad fortnight, keys that can change, scans, logs
+
+- **Older backups kept:** besides the 14 nightly copies, Sunday's is kept 8 weeks and the 1st of
+  the month's 12 months, in `weekly/` and `monthly/` beside the nightly folder, on the server, the
+  NAS and off site alike (`find -mtime`, as now).
+- **Off site the server needn't be able to delete:** `BACKUP_RCLONE_PRUNE=0` stops the script
+  deleting anything off site, for a remote whose credentials can only add, with the provider's own
+  versioning or retention rules doing the tidying. The README shows both ways.
+- **Changing the encryption key:** `INTEGRATION_ENCRYPTION_KEY_PREVIOUS` (optional) is tried when
+  the current key can't open something, so old rows and old backups' money sections still open.
+  The `keys` job re-seals every stored secret with the current key and recomputes the
+  fingerprints made from it; once the System card says so, the previous key can go (backups made before
+  still need it: keep it in the password manager). Better Auth's own secret rotates with its
+  versioned `BETTER_AUTH_SECRETS`. README: a rotation runbook for both.
+- **A key check:** a sealed known value in the database (`key_check`), written once and opened on
+  each tick; a key that no longer opens it fails the `keys` job, which the system reminder reports.
+  So a server started with the wrong key says so within half an hour.
+- **Weekly scans:** the supply-chain workflow adds `npm audit --omit=dev --audit-level=high` and a
+  Trivy scan (HIGH, CRITICAL; fixed ones only) of the latest published image, failing the job.
+- **Logs that can't fill the disk:** every service in `docker-compose.prod.yml` uses the `local`
+  log driver with a size cap, and `deploy/logrotate/familyos` rotates the host's
+  `/var/log/familyos-*.log` weekly, keeping 8.
+
+### Settled after Fable's scope review (2026-11-08)
+
+- **No "last active":** sessions are never refreshed (`disableSessionRefresh`), so a row shows the
+  device and browser it signed in from (a new small pure parser, `lib/device-label.ts`, from
+  `Session.userAgent`) and when it signed in. Signing out is immediate: `cookieCache` stays off.
+  The current session is known by id from `getServerSession()`. The hub tile shows on any own
+  sign-in (Microsoft ones have sessions too). Both sign-outs ask first (`ConfirmSubmit`); the
+  admin one goes through `managingAdmin()` like the other sign-in actions. A guard test names the
+  four disabled session routes.
+- **PIN_SET** is recorded by both the admin's `setMemberPin` and a person's own set or clear, each
+  now in a transaction with its event. **PIN_LOCKED** and its admin bell (its own small writer, the
+  `SIGN_IN_CHANGED` notice) go in the lockout's transaction. **MEMBER_REMOVED** wraps
+  `removeHouseholdMember` in a transaction. `describeSignInEvent` and the notice text cover them.
+- **System reminder:** key `system:<job>:<state>:<lastOkAt or never>` (lastOkAt holds still while a
+  job fails or is late; lastErrorAt moves every tick). A new `NotificationKind` value (migration),
+  `REMINDER_CARDS` gains its Teams card, `REMINDER_KINDS` entries gain `adminOnly`, `listedKinds`
+  takes whether the reader is an admin, and the run carries each person's role so only admins are
+  recipients. The morning summary gets one line, "Something stopped: <jobs>".
+- **Timeouts:** Graph calls already time out at 20 seconds; only RxTerms gets one (5 s, 60
+  characters). **Job timeout:** past 10 minutes the tick records the job failed ("timed out") and
+  moves on; a late result from that run is ignored. Money and the Entra check hold leases; the rest
+  are idempotent or claim per key, so an overlap does no harm.
+- **Backups:** the off-site nightly prune is anchored to the top folder (`--max-depth 1`), and
+  weekly/ and monthly/ get their own prunes (local `-mtime +56` / `+366`, rclone `--min-age 57d` /
+  `367d` on that folder). Each kept dump takes its `.counts` with it.
+- **Re-sealing runs in the app, not a script:** the server image has no scripts or TypeScript
+  runner, so the new `keys` background job does it. It opens the key-check row (a `ServerSecret`
+  named `key-check`, no new table) and fails if the current key can't. While
+  `INTEGRATION_ENCRYPTION_KEY_PREVIOUS` is set, it also re-seals every durable secret the previous
+  key opens (bank and card connections, school feed addresses, the push keys) and recomputes the
+  connection fingerprints, reporting "N re-sealed" on the System card, then "all on the current
+  key". Decrypting tries the current key, then the previous one. The unused `keyVersion` columns
+  stay as they are. Short-lived seals (Undo, school finder) just expire. The previous key is
+  checked at start like the current one, and must differ from it.
+- **Better Auth's secret:** `BETTER_AUTH_SECRETS` rotates it, but tokens stored before still need the
+  old `BETTER_AUTH_SECRET` as the legacy secret, and every device is signed out (cookies are signed
+  with the current secret only). The runbook says so.
+- **Scans:** the Trivy job gets `packages: read` and logs in to GHCR, scanning `ghcr.io/<owner>/familyos:main`.
+- **Logs:** `local` driver with a cap on every service (db, migrate, app, tunnel, break-glass,
+  cert). The logrotate file uses `copytruncate`, so it never has to create a file as someone.
+- **Guides:** family.md (Where I'm signed in, a lost phone) and admin.md (Sign them out everywhere,
+  the lockout notice, the system reminder, backup folders, key rotation, logs) in the same PRs.
+- **Out:** the restore drill with the real keys (the server's key check covers a key mismatch after
+  a restore within half an hour).
+
+### Tests
+
+Unit: the system reminder plan (failing, late, never, keys), the job timeout, key fallback and
+reseal round trip, the retention cutoffs, the device label. DB: signing out one device and
+everywhere else (never the current, never someone else's), an admin's sign-out, the new log
+events with their transactions, a PIN lockout's admin notice. Guard: the disabled routes.
+
+### Not in this phase
+
+Everything else from the 2026-11-08 review: reminders ahead of time (68), everyday friction (69),
+new capabilities (70). A CSP report endpoint and Cloudflare settings stay out of scope.
+
+### Pull requests
+
+67a sign-ins and the log; 67b alerts and timeouts; 67c backups, keys, scans and logs.
+
+
 ## Open items
 
 ### Waiting on a decision
