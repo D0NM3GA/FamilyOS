@@ -31,7 +31,7 @@ export const VEHICLE_EXPORTS: Record<string, CsvExport> = {
     description: "Tracked maintenance items, their intervals, and when each was last done.",
     build: async (householdId) => {
       const rows = await prisma.vehicleMaintenanceItem.findMany({
-        where: { vehicle: { householdId } },
+        where: { vehicle: { householdId }, kind: { not: "REPAIRS" } },
         include: { vehicle: { select: { name: true } } },
         orderBy: [{ vehicle: { name: "asc" } }, { title: "asc" }],
       });
@@ -41,6 +41,7 @@ export const VEHICLE_EXPORTS: Record<string, CsvExport> = {
           { header: "Item", value: (r) => r.title, freeText: true },
           { header: "Every (mi)", value: (r) => r.intervalMiles },
           { header: "Every (months)", value: (r) => r.intervalMonths },
+          { header: "Next due", value: (r) => csvDate(r.nextDueAt) },
           { header: "Last done (mi)", value: (r) => r.lastDoneMileage },
           { header: "Last done", value: (r) => csvDate(r.lastDoneAt) },
           { header: "Notes", value: (r) => r.notes, freeText: true },
@@ -67,7 +68,7 @@ export const VEHICLE_EXPORTS: Record<string, CsvExport> = {
         [
           { header: "Date", value: (r) => csvDate(r.doneAt) },
           { header: "Vehicle", value: (r) => r.item.vehicle.name, freeText: true },
-          { header: "Item", value: (r) => r.item.title, freeText: true },
+          { header: "Item", value: (r) => r.title ?? r.item.title, freeText: true },
           { header: "Odometer (mi)", value: (r) => r.mileage },
           { header: "Cost", value: (r) => csvMoney(r.costCents) },
           { header: "Notes", value: (r) => r.notes, freeText: true },

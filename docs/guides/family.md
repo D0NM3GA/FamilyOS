@@ -459,13 +459,23 @@ they'd see the alerts too.
 
 ## Cars and the Garage (grown-ups)
 
-Each car's maintenance by miles and/or date (oil changes, tires, registration…), with the service
+Each car's maintenance by miles and/or date (oil changes, tires…), with the service
 history and costs, fill-ups and miles per gallon, and recall alerts. **+ New vehicle**, then **+ Add
 item** or **Start from common items**. Logging a service resets its countdown. A new item shows
 **Not logged yet** until you log when it was last done (a guess is fine); it isn't counted as
 overdue until then. Once a car has a few fill-ups, its page shows **about N miles a day**, and
 reminders use it to say when work by miles is due ("in about 4 days"). The first time reminders
 run, anything already overdue reminds once.
+
+**Paperwork.** Registration, inspection and insurance go under **Paperwork** on the car's page:
+**+ Add paperwork**, pick what it is, when it's next due, and every how many months (12 unless you
+change it). It reminds two weeks before; tap **Renewed** when it's done (with the cost, if you
+like) and the next due day moves on a full cycle from the old one, even if you renewed late. The
+undo arrow takes a renewal back. To change one, use **Manage vehicles**.
+
+**Repairs.** One-off fixes (a battery, a windshield) go in with **+ Log a repair** under **Service
+and repairs**: what was fixed, the day, the miles and the cost. They count in the car's costs; a
+wrong one can be deleted.
 
 **The VIN** (optional) is on the driver's door frame, the corner of the windshield, or the
 insurance card. Type it, or **Scan the VIN** with the phone's camera, then **Look it up**: the make,
@@ -498,7 +508,7 @@ there's nothing to reply to.
 **Reminders** (Settings → My notifications → **Reminders**): the app reminds grown-ups when a
 dose wasn't marked (about an hour and a half after its time), a medicine is running low (a week
 left, or its refill count), a school form, fee or to-do is due today or tomorrow, a birthday
-or anniversary is coming up this week (not your own), car work is due within a week (or overdue),
+or anniversary is coming up this week (not your own), car work is due within a week, or paperwork within two (or overdue),
 and a new safety recall is listed for one of the cars. Each goes once, in the bell and on your
 phones; tick **In Teams** or **By email** to get them there too, where the family has those set up.
 Untick any kind you don't want. **Quiet hours** (say 9:00 pm to 7:00 am) hold reminders until

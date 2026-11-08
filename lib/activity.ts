@@ -71,6 +71,7 @@ async function vehicleServiceEntries(householdId: string, take: number): Promise
     select: {
       id: true,
       createdAt: true,
+      title: true,
       item: { select: { title: true, vehicle: { select: { id: true, name: true } } } },
       loggedBy: { select: { firstName: true } },
     },
@@ -79,7 +80,7 @@ async function vehicleServiceEntries(householdId: string, take: number): Promise
   return logs.map((log) => ({
     id: `service-${log.id}`,
     timestamp: log.createdAt,
-    text: `${log.loggedBy?.firstName ?? "Someone"} logged "${log.item.title}" on ${log.item.vehicle.name}`,
+    text: `${log.loggedBy?.firstName ?? "Someone"} logged "${log.title ?? log.item.title}" on ${log.item.vehicle.name}`,
     // The vehicle detail page, not the edit form: it carries the full service history. A kid's
     // feed drops it with the rest of Cars (appsOffFor in lib/apps.ts).
     href: `/vehicles/${log.item.vehicle.id}`,

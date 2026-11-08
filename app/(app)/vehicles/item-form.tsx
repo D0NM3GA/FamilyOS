@@ -12,6 +12,8 @@ type Defaults = {
   notes?: string | null;
   intervalMiles?: number | null;
   intervalMonths?: number | null;
+  /** Phase 65b, paperwork: "YYYY-MM-DD". */
+  nextDueAt?: string;
   uses?: { supplyId: string; quantity: number }[];
 };
 
@@ -24,14 +26,74 @@ export function MaintenanceItemForm({
   submitLabel,
   cancelHref,
   supplyOptions,
+  paperwork = false,
 }: {
   action: Action;
   defaults?: Defaults;
   submitLabel: string;
   cancelHref: string;
   supplyOptions: SupplyOption[];
+  /** Phase 65b: registration, inspection, insurance: every N months from a due day; no miles or supplies. */
+  paperwork?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<VehicleFormState, FormData>(action, {});
+
+  if (paperwork) {
+    return (
+      <form action={formAction} className="space-y-4">
+        <input type="hidden" name="kind" value="PAPERWORK" />
+        <label className="block">
+          <span className={fieldLabel}>What</span>
+          <input
+            name="title"
+            list="paperwork-kinds"
+            defaultValue={defaults?.title}
+            placeholder="Registration, Inspection, Insurance…"
+            required
+            maxLength={60}
+            className={`mt-1 w-full ${field}`}
+          />
+          <datalist id="paperwork-kinds">
+            <option value="Registration" />
+            <option value="Inspection" />
+            <option value="Insurance" />
+          </datalist>
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className={fieldLabel}>Next due</span>
+            <input type="date" name="nextDueAt" defaultValue={defaults?.nextDueAt} required className={`mt-1 w-full ${field}`} />
+          </label>
+          <label className="block">
+            <span className={fieldLabel}>Every N months</span>
+            <input
+              type="number"
+              name="intervalMonths"
+              min={1}
+              max={60}
+              defaultValue={String(defaults?.intervalMonths ?? 12)}
+              required
+              className={`mt-1 w-full ${field}`}
+            />
+          </label>
+        </div>
+        <label className="block">
+          <span className={fieldLabel}>Notes</span>
+          <textarea name="notes" defaultValue={defaults?.notes ?? ""} rows={2} placeholder="e.g. Policy renews online" className={`mt-1 w-full ${field}`} />
+        </label>
+        <p className="text-xs text-muted-foreground">It reminds two weeks before it&apos;s due. Tap <strong>Renewed</strong> when it&apos;s done and the next due day moves on.</p>
+        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" disabled={pending} className={btnPrimary}>
+            {pending ? "Saving…" : submitLabel}
+          </button>
+          <Link href={cancelHref} className={btn}>
+            Cancel
+          </Link>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <form action={formAction} className="space-y-4">

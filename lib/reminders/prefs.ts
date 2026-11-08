@@ -12,7 +12,7 @@ export const REMINDER_KINDS: { kind: ReminderKind; label: string; app: "meds" | 
   { kind: "REMINDER_MED_LOW", label: "A medicine is running low", app: "meds" },
   { kind: "REMINDER_SCHOOL", label: "A school form, fee or to-do is due today or tomorrow", app: "school" },
   { kind: "REMINDER_DATE", label: "A birthday or anniversary is coming up this week", app: null },
-  { kind: "REMINDER_CAR", label: "Car work is due within a week, or overdue", app: "cars" },
+  { kind: "REMINDER_CAR", label: "Car work is due within a week (paperwork within two), or overdue", app: "cars" },
   { kind: "REMINDER_RECALL", label: "A new safety recall is listed for one of the cars", app: "cars" },
 ];
 

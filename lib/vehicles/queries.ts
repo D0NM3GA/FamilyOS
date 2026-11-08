@@ -23,7 +23,7 @@ export const getVehiclesWithStatus = cache(async (householdId: string) => {
   const vehicles = await prisma.vehicle.findMany({
     where: { householdId, active: true },
     include: {
-      maintenanceItems: { where: { active: true }, orderBy: { title: "asc" }, include: ITEM_SUPPLIES },
+      maintenanceItems: { where: { active: true, kind: { not: "REPAIRS" } }, orderBy: { title: "asc" }, include: ITEM_SUPPLIES },
     },
     orderBy: { name: "asc" },
   });
@@ -49,7 +49,7 @@ export async function getVehicleDetail(householdId: string, vehicleId: string) {
   const vehicle = await prisma.vehicle.findFirst({
     where: { id: vehicleId, householdId },
     include: {
-      maintenanceItems: { where: { active: true }, orderBy: { title: "asc" }, include: ITEM_SUPPLIES },
+      maintenanceItems: { where: { active: true, kind: { not: "REPAIRS" } }, orderBy: { title: "asc" }, include: ITEM_SUPPLIES },
     },
   });
   if (!vehicle) return null;
@@ -59,7 +59,7 @@ export async function getVehicleDetail(householdId: string, vehicleId: string) {
       where: { item: { vehicleId } },
       orderBy: [{ doneAt: "desc" }, { createdAt: "desc" }],
       include: {
-        item: { select: { title: true } },
+        item: { select: { title: true, kind: true } },
         loggedBy: { select: { firstName: true } },
       },
     }),
@@ -76,7 +76,9 @@ export async function getVehicleDetail(householdId: string, vehicleId: string) {
     .map((item) => ({ item, due: computeDueStatus(item, vehicle.currentMileage, today) }))
     .sort((a, b) => STATUS_RANK[a.due.status] - STATUS_RANK[b.due.status]);
 
-  return { vehicle, items, serviceLogs, fuelLogs };
+  // Phase 65b: a repair is named by its own title, not its item's ("Repairs").
+  const named = serviceLogs.map((l) => ({ ...l, item: { ...l.item, title: l.title ?? l.item.title } }));
+  return { vehicle, items, serviceLogs: named, fuelLogs };
 }
 
 export type VehicleRecalls =

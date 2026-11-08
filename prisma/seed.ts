@@ -219,7 +219,7 @@ async function main() {
   });
   await prisma.vehicleServiceLog.createMany({
     data: [
-      { itemId: oilChange.id, doneAt: midnightDaysAgo(300), mileage: 40_200, costCents: 6_999, notes: "Jiffy Lube" },
+      { itemId: oilChange.id, doneAt: midnightDaysAgo(300), mileage: 40_200, costCents: 6_999, notes: "Parker Auto" },
       { itemId: oilChange.id, doneAt: midnightDaysAgo(120), mileage: 45_100, costCents: 7_499 },
     ],
   });

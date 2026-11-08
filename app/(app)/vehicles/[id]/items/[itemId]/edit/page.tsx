@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { updateMaintenanceItem } from "../../../../actions";
 import { MaintenanceItemForm } from "../../../../item-form";
 import { requireAppOn } from "@/lib/app-guard";
+import { toISODate } from "@/lib/format";
 
 export default async function EditMaintenanceItemPage({
   params,
@@ -15,7 +16,8 @@ export default async function EditMaintenanceItemPage({
 
   const { id, itemId } = await params;
   const item = await prisma.vehicleMaintenanceItem.findFirst({
-    where: { id: itemId, vehicleId: id, vehicle: { householdId: profile.householdId } },
+    // The car's Repairs item isn't edited: its repairs are.
+    where: { id: itemId, vehicleId: id, vehicle: { householdId: profile.householdId }, kind: { not: "REPAIRS" } },
     include: { vehicle: true, supplies: true },
   });
   if (!item) notFound();
@@ -31,9 +33,11 @@ export default async function EditMaintenanceItemPage({
         <MaintenanceItemForm
           action={updateMaintenanceItem.bind(null, item.id)}
           submitLabel="Save changes"
-          cancelHref="/vehicles/manage"
+          cancelHref={item.kind === "PAPERWORK" ? `/vehicles/${item.vehicleId}#paperwork` : "/vehicles/manage"}
           supplyOptions={supplyOptions}
+          paperwork={item.kind === "PAPERWORK"}
           defaults={{
+            nextDueAt: item.nextDueAt ? toISODate(item.nextDueAt) : undefined,
             uses: item.supplies.map((s) => ({ supplyId: s.supplyId, quantity: s.quantity })),
             title: item.title,
             notes: item.notes,

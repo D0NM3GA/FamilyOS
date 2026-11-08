@@ -211,6 +211,8 @@ export function planDates(dates: DateRow[], grownUps: GrownUp[], now: Date): Rem
 
 /** Car work due within this many days (by date, or by miles at the car's usual rate). */
 export const CAR_AHEAD_DAYS = 7;
+/** Phase 65b: paperwork (registration, inspection, insurance) needs longer: two weeks. */
+export const PAPERWORK_AHEAD_DAYS = 14;
 
 export type CarItemRow = {
   itemId: string;
@@ -223,6 +225,8 @@ export type CarItemRow = {
   daysByMiles: number | null;
   /** What the last service was, so the next cycle reminds again: lastDoneAt's ISO or the mileage. */
   cycle: string;
+  /** Phase 65b: paperwork reminds two weeks ahead. */
+  paperwork?: boolean;
 };
 
 /** Overdue (once per cycle), or due within a week by date or by estimated miles. To every grown-up. */
@@ -231,7 +235,8 @@ export function planCars(items: CarItemRow[], grownUps: GrownUp[]): Reminder[] {
   for (const i of items) {
     // Never logged: there's nothing to count from (Phase 60's "Not logged yet").
     if (i.status === "UNKNOWN") continue;
-    const byDate = i.daysRemaining != null && i.daysRemaining <= CAR_AHEAD_DAYS ? i.daysRemaining : null;
+    const ahead = i.paperwork ? PAPERWORK_AHEAD_DAYS : CAR_AHEAD_DAYS;
+    const byDate = i.daysRemaining != null && i.daysRemaining <= ahead ? i.daysRemaining : null;
     const byMiles = i.daysByMiles != null && i.daysByMiles <= CAR_AHEAD_DAYS ? i.daysByMiles : null;
     const overdue = i.status === "OVERDUE";
     if (!overdue && byDate == null && byMiles == null) continue;

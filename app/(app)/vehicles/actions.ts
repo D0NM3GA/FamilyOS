@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { checkVin } from "@/lib/vin";
 import { decodeVin, type VinDecode } from "@/lib/vehicles/vpic";
 import { requireAdult } from "@/lib/authz";
-import { atMidnight } from "@/lib/tasks/schedule";
+import { addMonths, atMidnight } from "@/lib/tasks/schedule";
 import { parseLocalDate } from "@/lib/vehicles/dates";
 import { parseMoneyInput } from "@/lib/money";
 import { selectTemplates } from "@/lib/vehicles/templates";
@@ -210,6 +210,32 @@ const itemSchema = z
     path: ["intervalMiles"],
   });
 
+/**
+ * Phase 65b: paperwork (registration, inspection, insurance): a name, every N months, and the day
+ * it's next due. No miles and no supplies.
+ */
+const paperworkSchema = z.object({
+  title: z.string().trim().min(1, "Name it (say, Registration)").max(60, "That name is too long"),
+  notes: z.string().trim().max(500).optional(),
+  intervalMonths: z.coerce.number().int("Months is a whole number").min(1, "At least every month").max(60, "At most every 60 months"),
+  nextDueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick when it's next due"),
+});
+
+function parsePaperworkForm(formData: FormData) {
+  const parsed = paperworkSchema.safeParse({
+    title: String(formData.get("title") ?? ""),
+    notes: String(formData.get("notes") ?? ""),
+    intervalMonths: String(formData.get("intervalMonths") ?? "").trim() || "12",
+    nextDueAt: String(formData.get("nextDueAt") ?? "").trim(),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" } as const;
+  const nextDueAt = parseLocalDate(parsed.data.nextDueAt);
+  if (!nextDueAt) return { error: "Pick when it's next due" } as const;
+  return {
+    fields: { title: parsed.data.title, notes: parsed.data.notes || null, intervalMiles: null, intervalMonths: parsed.data.intervalMonths, nextDueAt },
+  } as const;
+}
+
 function parseItemForm(formData: FormData) {
   const milesRaw = String(formData.get("intervalMiles") ?? "").trim();
   const monthsRaw = String(formData.get("intervalMonths") ?? "").trim();
@@ -262,6 +288,15 @@ export async function createMaintenanceItem(
   });
   if (!vehicle) return { error: "Vehicle not found." };
 
+  // Phase 65b: the form says which kind it adds; only these two are ever made here.
+  if (formData.get("kind") === "PAPERWORK") {
+    const paper = parsePaperworkForm(formData);
+    if ("error" in paper) return { error: paper.error };
+    await prisma.vehicleMaintenanceItem.create({ data: { vehicleId, kind: "PAPERWORK", ...paper.fields } });
+    revalidatePath("/(app)/vehicles", "layout");
+    revalidatePath("/");
+    redirect(`/vehicles/${vehicleId}#paperwork`);
+  }
   const result = parseItemForm(formData);
   if ("error" in result) return { error: result.error };
   const uses = await parseItemUses(formData, profile.householdId);
@@ -284,9 +319,19 @@ export async function updateMaintenanceItem(
   const profile = await requireAdult();
   await assertAppOn(profile.householdId, "cars");
   const existing = await prisma.vehicleMaintenanceItem.findFirst({
-    where: { id: itemId, vehicle: { householdId: profile.householdId } },
+    where: { id: itemId, vehicle: { householdId: profile.householdId }, kind: { not: "REPAIRS" } },
   });
   if (!existing) return { error: "Maintenance item not found." };
+
+  // Phase 65b: an item keeps its kind; paperwork edits its name, months and due day.
+  if (existing.kind === "PAPERWORK") {
+    const paper = parsePaperworkForm(formData);
+    if ("error" in paper) return { error: paper.error };
+    await prisma.vehicleMaintenanceItem.update({ where: { id: itemId }, data: paper.fields });
+    revalidatePath("/(app)/vehicles", "layout");
+    revalidatePath("/");
+    redirect(`/vehicles/${existing.vehicleId}#paperwork`);
+  }
 
   const result = parseItemForm(formData);
   if ("error" in result) return { error: result.error };
@@ -310,7 +355,7 @@ export async function setMaintenanceItemActive(itemId: string, active: boolean) 
   await assertAppOn(profile.householdId, "cars");
 
   await prisma.vehicleMaintenanceItem.updateMany({
-    where: { id: itemId, vehicle: { householdId: profile.householdId } },
+    where: { id: itemId, vehicle: { householdId: profile.householdId }, kind: { not: "REPAIRS" } },
     data: { active },
   });
 
@@ -344,7 +389,7 @@ export async function logMaintenanceDone(
     where: { id: itemId, vehicle: { householdId: profile.householdId } },
     include: { vehicle: true },
   });
-  if (!item) return { error: "Maintenance item not found." };
+  if (!item || item.kind === "REPAIRS") return { error: "Maintenance item not found." };
   if (!item.vehicle.active) return { error: INACTIVE_VEHICLE_ERROR };
 
   const parsed = logSchema.safeParse({
@@ -376,11 +421,17 @@ export async function logMaintenanceDone(
 
   const takeSupplies = formData.get("takeSupplies") === "1";
   const lowSupplies = await prisma.$transaction(async (tx) => {
+    // Phase 65b: paperwork's due day, locked, so two renewals at once can't both move it from it.
+    const before =
+      item.kind === "PAPERWORK"
+        ? ((await tx.$queryRaw<{ nextDueAt: Date | null }[]>`SELECT "nextDueAt" FROM "vehicle_maintenance_item" WHERE id = ${itemId} FOR UPDATE`)[0]?.nextDueAt ?? null)
+        : null;
     const log = await tx.vehicleServiceLog.create({
       data: {
         itemId,
         doneAt,
         mileage,
+        dueAtBefore: before,
         costCents: cost.cents,
         notes: parsed.data.notes || null,
         loggedById: profile.id,
@@ -391,6 +442,11 @@ export async function logMaintenanceDone(
         where: { id: itemId },
         data: { lastDoneMileage: mileage, lastDoneAt: doneAt },
       });
+    }
+    // Phase 65b: renewing paperwork moves its due day on from the old one (not from today, so a
+    // late renewal keeps the cycle).
+    if (item.kind === "PAPERWORK" && item.intervalMonths && before) {
+      await tx.vehicleMaintenanceItem.update({ where: { id: itemId }, data: { nextDueAt: addMonths(before, item.intervalMonths) } });
     }
     // Gated on becomesLatest too: a backdated entry the code has already decided is *older*
     // than the cached latest shouldn't be able to push the vehicle's odometer forward on the
@@ -448,7 +504,7 @@ export async function undoLastService(itemId: string) {
   await assertAppOn(profile.householdId, "cars");
 
   const item = await prisma.vehicleMaintenanceItem.findFirst({
-    where: { id: itemId, vehicle: { householdId: profile.householdId } },
+    where: { id: itemId, vehicle: { householdId: profile.householdId }, kind: { not: "REPAIRS" } },
   });
   if (!item) throw new Error("Maintenance item not found");
 
@@ -458,9 +514,11 @@ export async function undoLastService(itemId: string) {
     await restoreForUndo(tx, latest.id);
     await tx.vehicleServiceLog.delete({ where: { id: latest.id } });
     const remaining = await tx.vehicleServiceLog.findFirst({ where: { itemId }, orderBy: [{ doneAt: "desc" }, { createdAt: "desc" }] });
+    // Phase 65b: undoing a renewal puts back the due day it had before.
+    const nextDueAt = item.kind === "PAPERWORK" && latest.dueAtBefore ? latest.dueAtBefore : undefined;
     await tx.vehicleMaintenanceItem.update({
       where: { id: itemId },
-      data: { lastDoneMileage: remaining?.mileage ?? null, lastDoneAt: remaining?.doneAt ?? null },
+      data: { lastDoneMileage: remaining?.mileage ?? null, lastDoneAt: remaining?.doneAt ?? null, ...(nextDueAt ? { nextDueAt } : {}) },
     });
   });
 
@@ -670,4 +728,64 @@ export async function lookUpVin(vin: string): Promise<VinDecode> {
   const profile = await requireAdult();
   await assertAppOn(profile.householdId, "cars");
   return decodeVin(typeof vin === "string" ? vin.slice(0, 40) : "");
+}
+
+const repairSchema = z.object({
+  title: z.string().trim().min(1, "Say what was fixed").max(120, "That's too long"),
+  doneAt: z.string().optional(),
+  mileage: z.coerce.number().int().min(0).max(MAX_MILEAGE, "Enter a valid mileage").optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+
+/**
+ * Phase 65b: logs a one-off repair (a new battery, a windshield) with its cost, on the car's own
+ * Repairs item (made the first time), so it's in the history, the costs, the export and the
+ * activity like any service. Miles default to the car's current, so costs per mile hold; higher
+ * miles move the odometer, as a service does.
+ */
+export async function logRepair(vehicleId: string, _prevState: VehicleFormState, formData: FormData): Promise<VehicleFormState> {
+  const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
+  const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, householdId: profile.householdId } });
+  if (!vehicle) return { error: "Vehicle not found." };
+  if (!vehicle.active) return { error: INACTIVE_VEHICLE_ERROR };
+  const parsed = repairSchema.safeParse({
+    title: String(formData.get("title") ?? ""),
+    doneAt: String(formData.get("doneAt") ?? "").trim() || undefined,
+    mileage: String(formData.get("mileage") ?? "").trim() || undefined,
+    notes: String(formData.get("notes") ?? ""),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  const cost = parseMoneyInput(String(formData.get("cost") ?? ""));
+  if (!cost.ok) return { error: cost.error };
+  const doneAt = parsed.data.doneAt ? parseLocalDate(parsed.data.doneAt) : atMidnight(new Date());
+  if (doneAt == null) return { error: "Enter a valid date." };
+  if (doneAt > atMidnight(new Date())) return { error: "Date can't be in the future." };
+  const mileage = parsed.data.mileage ?? vehicle.currentMileage;
+
+  await prisma.$transaction(async (tx) => {
+    // The car's row locked, so two first repairs at once make one Repairs item, not two.
+    await tx.$queryRaw`SELECT id FROM "vehicle" WHERE id = ${vehicleId} FOR UPDATE`;
+    const repairs =
+      (await tx.vehicleMaintenanceItem.findFirst({ where: { vehicleId, kind: "REPAIRS" }, select: { id: true } })) ??
+      (await tx.vehicleMaintenanceItem.create({ data: { vehicleId, kind: "REPAIRS", title: "Repairs" }, select: { id: true } }));
+    await tx.vehicleServiceLog.create({
+      data: { itemId: repairs.id, title: parsed.data.title, doneAt, mileage, costCents: cost.cents, notes: parsed.data.notes || null, loggedById: profile.id },
+    });
+    if (mileage > vehicle.currentMileage) {
+      await tx.vehicle.update({ where: { id: vehicleId }, data: { currentMileage: mileage, mileageUpdatedAt: new Date() } });
+    }
+  });
+  revalidatePath("/(app)/vehicles", "layout");
+  revalidatePath("/");
+  return { notice: "Repair logged ✓" };
+}
+
+/** Phase 65b: removes a logged repair (asks first, on the page). Only repairs: services undo instead. */
+export async function deleteRepair(logId: string) {
+  const profile = await requireAdult();
+  await assertAppOn(profile.householdId, "cars");
+  await prisma.vehicleServiceLog.deleteMany({ where: { id: logId, item: { kind: "REPAIRS", vehicle: { householdId: profile.householdId } } } });
+  revalidatePath("/(app)/vehicles", "layout");
+  revalidatePath("/");
 }

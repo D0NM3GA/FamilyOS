@@ -125,3 +125,11 @@ describe("computeDueStatus — whichever comes first", () => {
     expect(computeDueStatus(base, 40_100, new Date(2026, 1, 1)).status).toBe("OK");
   });
 });
+
+describe("computeDueStatus — paperwork (Phase 65b)", () => {
+  test("its due day decides alone: overdue, due soon, fine", () => {
+    expect(computeDueStatus(item({ intervalMonths: 12, nextDueAt: new Date(2026, 5, 15) }), 50_000, today)).toMatchObject({ status: "OVERDUE", daysRemaining: 0, dueByMileage: null });
+    expect(computeDueStatus(item({ intervalMonths: 12, nextDueAt: new Date(2026, 6, 1) }), 50_000, today)).toMatchObject({ status: "UPCOMING", daysRemaining: 16 });
+    expect(computeDueStatus(item({ intervalMonths: 12, nextDueAt: new Date(2026, 9, 1) }), 50_000, today).status).toBe("OK");
+  });
+});

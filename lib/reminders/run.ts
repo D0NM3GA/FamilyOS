@@ -265,10 +265,13 @@ async function carReminders(householdId: string, grownUps: { id: string }[], now
       currentMileage: true,
       mileageUpdatedAt: true,
       maintenanceItems: {
-        where: { active: true },
+        // Phase 65b: the Repairs item holds one-off repairs; it's never due.
+        where: { active: true, kind: { not: "REPAIRS" } },
         select: {
           id: true,
           title: true,
+          kind: true,
+          nextDueAt: true,
           intervalMiles: true,
           intervalMonths: true,
           lastDoneMileage: true,
@@ -292,8 +295,10 @@ async function carReminders(householdId: string, grownUps: { id: string }[], now
           daysRemaining: due.daysRemaining,
           milesRemaining: due.milesRemaining,
           daysByMiles: due.milesRemaining != null ? daysUntilMiles(due.milesRemaining, perDay) : null,
+          paperwork: item.kind === "PAPERWORK",
           // The last service and the interval: a new service, or a changed interval, starts a new cycle.
-          cycle: `${item.lastDoneAt ? item.lastDoneAt.toISOString() : String(item.lastDoneMileage ?? "never")}:${item.intervalMiles ?? ""}:${item.intervalMonths ?? ""}`,
+          // Paperwork's cycle is its due day (renewing moves it).
+          cycle: item.kind === "PAPERWORK" && item.nextDueAt ? `paper:${item.nextDueAt.toISOString()}` : `${item.lastDoneAt ? item.lastDoneAt.toISOString() : String(item.lastDoneMileage ?? "never")}:${item.intervalMiles ?? ""}:${item.intervalMonths ?? ""}`,
         };
       });
     }),

@@ -894,6 +894,12 @@ model Vehicle {
 /// months, whichever comes first"). `lastDoneMileage`/`lastDoneAt` are denormalized from
 /// the latest VehicleServiceLog row (by `doneAt`) so due-status reads don't need to join
 /// the log on every board render — see app/(app)/vehicles/actions.ts for what keeps them in sync.
+enum VehicleItemKind {
+  SERVICE
+  PAPERWORK
+  REPAIRS
+}
+
 model VehicleMaintenanceItem {
   id        String  @id @default(cuid())
   vehicleId String
@@ -910,6 +916,13 @@ model VehicleMaintenanceItem {
   /// Denormalized from the latest VehicleServiceLog row. Null means never serviced.
   lastDoneMileage Int?
   lastDoneAt      DateTime?
+
+  /// Phase 65b: SERVICE is car work by miles or months; PAPERWORK (registration, inspection,
+  /// insurance) is due on nextDueAt and renews every intervalMonths; REPAIRS is the one hidden
+  /// item per car whose logs are one-off repairs (each with its own title), never listed or due.
+  kind      VehicleItemKind @default(SERVICE)
+  /// PAPERWORK only: the day it's next due (a stored day, like lastDoneAt). Renewing moves it on.
+  nextDueAt DateTime?
 
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -932,6 +945,11 @@ model VehicleServiceLog {
 
   doneAt    DateTime
   mileage   Int
+  /// Phase 65b: a one-off repair's own name ("New battery"), on the car's Repairs item. Null otherwise.
+  title     String?
+  /// Phase 65b: a paperwork renewal's due day before it, so undo puts back exactly that (month-end
+  /// clamping makes "minus the interval" wrong: Jan 31 + 1 month is Feb 28, and back is Jan 28).
+  dueAtBefore DateTime?
   notes     String?
   /// Integer cents — the app's first money field (parsed with lib/money.ts parseMoneyInput). Null means
   /// "cost not recorded", not $0.
