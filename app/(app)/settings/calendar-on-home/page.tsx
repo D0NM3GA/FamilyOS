@@ -3,6 +3,7 @@ import { isSessionOwner, requireActiveProfile } from "@/lib/active-profile";
 import { isAdult } from "@/lib/authz";
 import { signInKind } from "@/lib/sign-in-kind";
 import { listMyCalendars } from "@/lib/graph/calendar";
+import { hasOutlookCopy } from "@/lib/outlook-copy/view";
 import { SubmitButton } from "@/components/submit";
 import { backLink, btnPrimary } from "@/components/styles";
 import { chooseHomeCalendar } from "./actions";
@@ -25,6 +26,8 @@ export default async function CalendarOnHomePage({ searchParams }: { searchParam
   const mine = isAdult(profile) && (await isSessionOwner(profile)) && (await signInKind(profile)) === "microsoft";
   const calendars = mine ? await listMyCalendars() : null;
   const fallback = process.env.FAMILY_CALENDAR_NAME?.trim();
+  // Phase 70a: once the family's calendars are copied, Home and Calendar show the copy instead.
+  const copied = await hasOutlookCopy(profile.householdId);
 
   return (
     <div className="max-w-2xl space-y-4 p-4 sm:p-6">
@@ -39,6 +42,12 @@ export default async function CalendarOnHomePage({ searchParams }: { searchParam
         </p>
       </div>
 
+      {copied && (
+        <p role="status" className="rounded-lg bg-card p-4 text-sm text-muted-foreground shadow-sm ring-1 ring-border">
+          The family&apos;s Outlook calendars are copied into the app now (Settings → Outlook calendars), so Home and Calendar show
+          those for everyone and this choice doesn&apos;t change them.
+        </p>
+      )}
       {!mine ? (
         <p className="rounded-lg bg-card p-4 text-sm text-muted-foreground shadow-sm ring-1 ring-border">
           This is for grown-ups who sign in with Microsoft, on their own profile: Outlook shows only your own calendars to you.

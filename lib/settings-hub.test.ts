@@ -23,6 +23,7 @@ const base: HubFacts = {
   alertsEmail: false,
   outlookOn: false,
   outlookSync: null,
+  outlookCopies: null,
   lastBackup: null,
   now: NOW,
 };
