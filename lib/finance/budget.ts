@@ -24,7 +24,8 @@ export type BudgetLine = {
   /** Rollover categories only: carried in from earlier months, and budget + carry. */
   carryInCents: number | null;
   availableCents: number | null;
-  status: "ON_TRACK" | "OVER" | null;
+  /** Phase 70e: AHEAD is spending faster than the month so far, before it's over. */
+  status: "ON_TRACK" | "AHEAD" | "OVER" | null;
 };
 
 export type BudgetSummary = {
@@ -75,6 +76,17 @@ function monthGone(month: string, today: string): number {
   return Number(today.slice(8, 10)) / days;
 }
 
+/**
+ * Phase 70e: spending well ahead of the month so far, while there's still time to slow down: past
+ * half the budget and more than 15 points ahead of the share of the month gone. Only during the
+ * month (a finished month is over or not). Pure.
+ */
+export function runningAhead(spentCents: number, availableCents: number, monthGone: number): boolean {
+  if (availableCents <= 0 || monthGone <= 0 || monthGone >= 1) return false;
+  const used = spentCents / availableCents;
+  return used > 0.5 && used <= 1 && used - monthGone > 0.15;
+}
+
 export function budgetMonth(rows: BudgetRow[], categories: BudgetCategory[], month: string, today: string): BudgetSummary {
   const byId = new Map(categories.map((c) => [c.id, c]));
   const spent = new Map<string, number>();
@@ -120,7 +132,7 @@ export function budgetMonth(rows: BudgetRow[], categories: BudgetCategory[], mon
         budgetCents: c.budgetCents,
         carryInCents: carry,
         availableCents: carry == null ? null : available,
-        status: available == null || gone === 0 ? null : s > Math.max(0, available) ? "OVER" : "ON_TRACK",
+        status: available == null || gone === 0 ? null : s > Math.max(0, available) ? "OVER" : runningAhead(s, available, gone) ? "AHEAD" : "ON_TRACK",
       };
     });
 

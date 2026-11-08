@@ -9,7 +9,14 @@ const TODAY = "2026-10-09";
 
 describe("Activity filters", () => {
   it("shows this month unless a past month is asked for", () => {
-    expect(activityFilters({}, TODAY)).toEqual({ month: "2026-10", account: null, category: null });
+    expect(activityFilters({}, TODAY)).toEqual({ month: "2026-10", account: null, category: null, q: null });
+    // Phase 70e: a search is 2 to 80 letters, spaces tidied.
+    expect(activityFilters({ q: "  joes   pizza " }, TODAY).q).toBe("joes pizza");
+    expect(activityFilters({ q: "j" }, TODAY).q).toBeNull();
+    expect(activityHref("j1", { month: "2026-08", q: "pizza" })).toBe("/finances/j1?q=pizza");
+    const where = activityWhere("j1", "v", TODAY, { month: "2026-08", q: "pizza" });
+    expect(where.postedOn).toBeUndefined();
+    expect(JSON.stringify(where)).toContain("pizza");
     expect(activityFilters({ month: "2026-08" }, TODAY).month).toBe("2026-08");
     // The future, junk, or a repeated parameter: this month.
     expect(activityFilters({ month: "2026-11" }, TODAY).month).toBe("2026-10");

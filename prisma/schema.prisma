@@ -2544,6 +2544,8 @@ enum JarEventKind {
   CATEGORY_ADDED
   CATEGORY_RENAMED
   CATEGORY_REMOVED
+  /// Phase 70e: a statement account merged into a bank-feed account.
+  ACCOUNTS_MERGED
 }
 
 /// Phase 30: who changed what in a jar (lib/finance/history.ts). Person actions only, never

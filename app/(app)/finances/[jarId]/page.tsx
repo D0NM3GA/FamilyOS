@@ -49,7 +49,7 @@ export default async function JarPage({
   searchParams,
 }: {
   params: Promise<{ jarId: string }>;
-  searchParams: Promise<{ account?: string | string[]; category?: string | string[]; month?: string | string[] }>;
+  searchParams: Promise<{ account?: string | string[]; category?: string | string[]; month?: string | string[]; q?: string | string[] }>;
 }) {
   await requireAppOn("money");
   const { jarId } = await params;
@@ -87,6 +87,7 @@ export default async function JarPage({
     month: asked.month,
     account: shownAccount?.id ?? null,
     category: shownCategory === "none" ? "none" : (shownCategory?.id ?? null),
+    q: asked.q,
   };
   const steps = monthSteps(filters.month, today);
 
@@ -120,7 +121,7 @@ export default async function JarPage({
     // How many rows each category has this month (under the account filter), for the chips.
     prisma.finTransaction.groupBy({
       by: ["categoryId"],
-      where: activityWhere(jar.id, viewer.id, today, { month: filters.month, account: filters.account, leftOut: true }),
+      where: activityWhere(jar.id, viewer.id, today, { month: filters.month, account: filters.account, q: filters.q, leftOut: true }),
       _count: { _all: true },
     }),
   ]);
@@ -261,6 +262,27 @@ export default async function JarPage({
 
       {accounts.length > 0 && (
         <>
+          {/* Phase 70e: look through every month by store, bank words, payee or memo. */}
+          <form role="search" method="get" action={`/finances/${jar.id}`} className="mt-5 flex flex-wrap gap-2">
+            {filters.account && <input type="hidden" name="account" value={filters.account} />}
+            {filters.category && <input type="hidden" name="category" value={filters.category} />}
+            <label htmlFor="activity-q" className="sr-only">
+              Search every month
+            </label>
+            <input id="activity-q" type="search" name="q" defaultValue={filters.q ?? ""} minLength={2} maxLength={80} placeholder="Search every month" className={`${field} min-w-0 flex-1`} />
+            <button type="submit" className={btn}>
+              Search
+            </button>
+            {filters.q && (
+              <Link href={href({ q: null })} className={btn}>
+                Clear
+              </Link>
+            )}
+          </form>
+
+          {filters.q ? (
+            <h2 className="mt-4 text-lg font-extrabold sm:text-xl">Matching &ldquo;{filters.q}&rdquo;, every month</h2>
+          ) : (
           <nav aria-label="Months" className="mt-5 flex items-center justify-between gap-2">
             {steps.older ? (
               <Link href={href({ month: steps.older })} className={monthStep} aria-label={`Older: ${monthName(steps.older)}`}>
@@ -278,6 +300,7 @@ export default async function JarPage({
               <span />
             )}
           </nav>
+          )}
 
           <CategoryFilter
             current={shownCategory === "none" ? "none" : (filters.category ?? "")}
@@ -295,13 +318,13 @@ export default async function JarPage({
 
       {accounts.length > 0 && txns.length === 0 && (
         <p className="mt-6 text-muted-foreground">
-          Nothing in {monthName(filters.month)}
+          {filters.q ? <>Nothing matches &ldquo;{filters.q}&rdquo;</> : <>Nothing in {monthName(filters.month)}</>}
           {filterWords ? ` for ${filterWords}` : ""}.
         </p>
       )}
       {more && (
         <p className="mt-3 text-xs text-muted-foreground">
-          Showing the latest {ACTIVITY_MONTH_LIMIT} this month. Pick an account or a category to see the rest.
+          Showing the latest {ACTIVITY_MONTH_LIMIT} {filters.q ? "matches" : "this month"}. Pick an account or a category {filters.q ? "or more words " : ""}to see the rest.
         </p>
       )}
       {txns.length > 0 && (
@@ -455,7 +478,7 @@ export default async function JarPage({
           })}
         </ul>
       )}
-      {accounts.length > 0 && steps.older && (
+      {accounts.length > 0 && steps.older && !filters.q && (
         <Link href={href({ month: steps.older })} className={`${btn} mt-3`}>
           ← {monthName(steps.older)}
         </Link>

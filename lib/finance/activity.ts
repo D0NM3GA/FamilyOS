@@ -23,18 +23,33 @@ export type ActivityFilters = {
   account: string | null;
   /** A category id, or "none" for uncategorized. */
   category: string | null;
+  /** Phase 70e: words to look for, through every month (then `month` is ignored). */
+  q: string | null;
 };
+
+/** A search is 2 to 80 letters, trimmed; anything else is no search. */
+export function searchTerm(v: unknown): string | null {
+  const t = typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "";
+  return t.length >= 2 && t.length <= 80 ? t : null;
+}
+
+/** Rows matching a search: the store's name, the bank's words, the payee or a memo. */
+export function matchWhere(q: string): Prisma.FinTransactionWhereInput {
+  const contains = { contains: q, mode: "insensitive" as const };
+  return { OR: [{ merchantName: contains }, { description: contains }, { payee: contains }, { merchantKey: contains }, { memo: contains }] };
+}
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const idOf = (v: unknown) => (typeof v === "string" && ID.test(v) ? v : null);
 
 /** The page's ?month=&account=&category=. The month defaults to this one; a future or junk month is this one too. */
-export function activityFilters(sp: { month?: unknown; account?: unknown; category?: unknown }, today: string): ActivityFilters {
+export function activityFilters(sp: { month?: unknown; account?: unknown; category?: unknown; q?: unknown }, today: string): ActivityFilters {
   const current = today.slice(0, 7);
   return {
     month: parseMonth(sp.month, current) ?? current,
     account: idOf(sp.account),
     category: sp.category === "none" ? "none" : idOf(sp.category),
+    q: searchTerm(sp.q),
   };
 }
 
@@ -43,7 +58,8 @@ export function activityHref(jarId: string, f: Partial<ActivityFilters>): string
   const q = new URLSearchParams();
   if (f.account) q.set("account", f.account);
   if (f.category) q.set("category", f.category);
-  if (f.month) q.set("month", f.month);
+  if (f.month && !f.q) q.set("month", f.month);
+  if (f.q) q.set("q", f.q);
   const s = q.toString();
   return `/finances/${jarId}${s ? `?${s}` : ""}`;
 }
@@ -65,7 +81,7 @@ export function activityWhere(
   jarId: string,
   viewerId: string,
   today: string,
-  f: { month: string | null; account?: string | null; category?: string | null; leftOut?: boolean },
+  f: { month: string | null; account?: string | null; category?: string | null; leftOut?: boolean; q?: string | null },
 ): Prisma.FinTransactionWhereInput {
   return {
     jarId,
@@ -73,7 +89,8 @@ export function activityWhere(
     ...visibleToWhere(viewerId, today),
     ...(f.account ? { accountId: f.account } : {}),
     ...(f.category === "none" ? { categoryId: null } : f.category ? { categoryId: f.category } : {}),
-    ...(f.month ? { postedOn: monthRange(f.month) } : {}),
+    // Phase 70e: a search looks through every month.
+    ...(f.q ? matchWhere(f.q) : f.month ? { postedOn: monthRange(f.month) } : {}),
   };
 }
 

@@ -487,8 +487,11 @@ Inside a jar:
   **New since you last looked** sits above the month's charges: ones that came in since your last visit (the
   first time, the last 30 days), each with the category the app guessed. Fix any that are off and
   tap **Save all**, or **Mark all seen** to clear them. It's yours: someone else in the jar has
-  their own.
-- **🎯 Budget**: a monthly budget per category, and saving up for lumpy costs.
+  their own. **Search every month** at the top looks through all the jar's charges by store, the
+  bank's words, payee or memo (**Clear** goes back to the month).
+- **🎯 Budget**: a monthly budget per category, and saving up for lumpy costs. **Running ahead**
+  (yellow) means a category has spent well past the share of the month that's gone, while there's
+  still time to slow down; Money's page shows how many lines are running ahead or over in each jar.
 - **🔁 Upcoming**: bills and subscriptions, what's due in the next 30 days, and **💸 Safe to
   spend** until payday. It counts regular shops too, like the weekly grocery run, so it stays on
   the careful side; **Not a bill** takes a store out. **🎒 School fees**: tap **Count school fees
@@ -498,7 +501,9 @@ Inside a jar:
   (**Undo** on the bill if that was a slip).
 - **Log it in Cars:** a charge filed under **Gas & car** has **⛽ Fill-up** and **🔧 Service**
   buttons for each car: they open the car's page with the cost and day filled in.
-- **📈 Trends**: money out month by month, and where it went.
+- **📈 Trends**: money out month by month, and where it went. **📅 The year by category** shows a
+  whole calendar year (spending per category, what isn't filed yet, surprises as a total, and
+  income) with a spreadsheet of it, handy at tax time.
 - **💎 Net worth**: what the jar has, minus what it owes.
 
 A jar's Settings connects the bank feed, imports statements and sets your own **Alerts for me**
@@ -515,7 +520,10 @@ whenever you like (then tick it again under Safe to spend if it's your checking 
 offers one, else CSV), choose it under **Import a statement**, and press **Check it**. For a CSV,
 the app shows what it understood on a few rows: check the dates, the words and whether each
 amount is money in or out, fix any dropdown that's off, then **Import**. Got it wrong? **Remove
-this import** takes the whole file back out.
+this import** takes the whole file back out. Imported into "a new account" and later connected the
+same card through the bank feed? **Merge a statement account** in the jar's Settings moves it into
+the feed's account, and the weeks both have fold together so nothing counts twice (it asks first,
+and can't be undone).
 
 **One Teams chat for the jar**: instead of a message to each of you, a jar can send its alerts
 once to a Teams group chat. In the jar's Settings, **Choose a Teams chat** lists your own group

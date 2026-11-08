@@ -117,7 +117,7 @@ export async function syncConnection(connectionId: string, deps: { fetchFn?: typ
       const { accounts, messages } = await fetchAccounts(secret, { start, end: new Date(now.getTime() + DAY) }, deps.fetchFn);
       const kept = await guardAccounts(conn.id, conn.jarId, conn.createdById, accounts);
       await applySimpleFin(conn.jarId, kept, day(start), todayCivil(now));
-      await organizeSafely(conn.jarId, now);
+      await organizeSafely(conn.jarId, now, start);
       await finish(conn.id, conn.jarId, now, { message: messages.join(" · ").slice(0, 200) || null });
     } else {
       const charges = await fetchCharges(secret, start, deps.fetchFn);
@@ -136,7 +136,7 @@ export async function syncConnection(connectionId: string, deps: { fetchFn?: typ
         }
       }
       await enrichPrivacy(prisma, conn.jarId, now);
-      await organizeSafely(conn.jarId, now);
+      await organizeSafely(conn.jarId, now, start);
       await finish(conn.id, conn.jarId, now, {});
     }
   } catch (err) {
@@ -296,7 +296,7 @@ async function applySimpleFin(jarId: string, accounts: SfAccount[], windowStartD
           // Phase 66c: a category or trip someone picked on the pending row moves to its posted one.
           await carryPendingPicks(tx, jarId, gone);
         }
-        await dedupeAccount(tx, jarId, account.id);
+        await dedupeAccount(tx, jarId, account.id, asDate(windowStartDay));
       },
       { timeout: 30_000 },
     );
@@ -304,10 +304,17 @@ async function applySimpleFin(jarId: string, accounts: SfAccount[], windowStartD
   await enrichPrivacy(prisma, jarId);
 }
 
-/** Rule 3 for one account: statement rows that are the same money as feed rows. */
-export async function dedupeAccount(tx: Tx, jarId: string, accountId: string) {
+/** How far either side of the new rows a duplicate can sit (reconcile pairs within 3 days), with room. */
+const DEDUPE_MARGIN_DAYS = 5;
+
+/**
+ * Rule 3 for one account: statement rows that are the same money as feed rows. Phase 70e: with
+ * `since` (the first day that can have new rows: a sync's window, an import's first row), only rows
+ * from a few days before it are compared, not the account's whole history.
+ */
+export async function dedupeAccount(tx: Tx, jarId: string, accountId: string, since?: Date) {
   const rows = await tx.finTransaction.findMany({
-    where: { accountId, state: "ACTIVE" },
+    where: { accountId, state: "ACTIVE", ...(since ? { postedOn: { gte: new Date(since.getTime() - DEDUPE_MARGIN_DAYS * DAY) } } : {}) },
     select: { id: true, source: true, postedOn: true, amountCents: true },
   });
   const manual = rows.filter((r) => r.source === "MANUAL").map((r) => ({ ...r, postedOn: day(r.postedOn) }));
@@ -400,13 +407,15 @@ export async function importRows(jarId: string, accountId: string, rows: Importe
         })),
         skipDuplicates: true,
       });
-      await dedupeAccount(tx, jarId, accountId);
+      // Phase 70e: only the days this file covers (and a few around them) can have new pairs.
+      const first = fresh.length ? asDate(fresh.map((r) => r.postedOn).sort()[0]) : null;
+      if (first) await dedupeAccount(tx, jarId, accountId, first);
       await enrichPrivacy(tx, jarId);
-      return { added: count, already: rows.length - count };
+      return { added: count, already: rows.length - count, first };
     },
     { timeout: 60_000 },
-  ).then(async (result) => {
-    await organizeSafely(jarId);
+  ).then(async ({ first, ...result }) => {
+    if (first) await organizeSafely(jarId, undefined, first);
     return result;
   });
 }
@@ -442,9 +451,9 @@ async function notAlreadyHere(tx: Tx, accountId: string, rows: ImportedRow[]): P
 }
 
 /** The tidy pass after money arrives: a failure there mustn't undo or misreport the arrival. */
-async function organizeSafely(jarId: string, now?: Date) {
+async function organizeSafely(jarId: string, now?: Date, since?: Date) {
   try {
-    await organizeJar(jarId, now);
+    await organizeJar(jarId, now, { since });
   } catch (err) {
     captureError(new Error(`money jar tidy failed (jar ${jarId}): ${err instanceof Error ? err.constructor.name : "unknown"}`));
   }

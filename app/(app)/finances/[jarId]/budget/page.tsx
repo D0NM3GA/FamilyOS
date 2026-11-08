@@ -188,11 +188,12 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
                   {l.budgetCents != null && <span className="font-normal text-muted-foreground"> of {money(l.budgetCents)}</span>}
                 </span>
                 {l.status === "OVER" && <span className="rounded-md bg-tomato/20 px-1.5 text-xs font-bold">Over</span>}
+                {l.status === "AHEAD" && <span className="rounded-md bg-sun px-1.5 text-xs font-bold text-ink">Running ahead</span>}
                 {l.status === "ON_TRACK" && <span className="rounded-md bg-lime/40 px-1.5 text-xs font-bold text-ink dark:bg-lime">On track</span>}
               </div>
               {l.budgetCents != null && (
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${pct}% of budget`}>
-                  <div className={`h-full ${l.status === "OVER" ? "bg-tomato" : "bg-lime"}`} style={{ width: `${pct}%` }} />
+                  <div className={`h-full ${l.status === "OVER" ? "bg-tomato" : l.status === "AHEAD" ? "bg-sun" : "bg-lime"}`} style={{ width: `${pct}%` }} />
                 </div>
               )}
               {l.pendingCents > 0 && <p className="mt-1 text-xs text-muted-foreground">incl. {money(l.pendingCents)} pending</p>}

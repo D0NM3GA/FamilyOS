@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { eligibleMemberWhere, requireJar } from "@/lib/finance/access";
-import { addMember, allowChatList, connectPrivacy, checkStatement, connectSimpleFin, deleteJar, disconnect, importStatement, removeStatementImport, removeMember, renameJar, scanOrdersNow, setCushion, setJarChat, setMyAlerts, setLeftOut, setOrderMail, setSpendingAccounts, stopJarChat, testJarChat } from "../../actions";
+import { addMember, allowChatList, connectPrivacy, checkStatement, connectSimpleFin, deleteJar, disconnect, importStatement, removeStatementImport, removeMember, mergeAccounts, renameJar, scanOrdersNow, setCushion, setJarChat, setMyAlerts, setLeftOut, setOrderMail, setSpendingAccounts, stopJarChat, testJarChat } from "../../actions";
 import { chatLabel, myGroupChats } from "@/lib/teams/jar-chat";
 import { recentImports } from "@/lib/finance/statement-import";
 import { leftOutAccountIds } from "@/lib/finance/left-out";
@@ -454,6 +454,44 @@ export default async function JarSettingsPage({
           removeImport={removeStatementImport.bind(null, jar.id)}
         />
       </section>
+
+      {/* Phase 70e: a statement account that's really a feed account, merged so nothing counts twice. */}
+      {accounts.some((a) => a.source === "MANUAL" && !leftOut.has(a.id)) && feedAccounts.some((a) => !leftOut.has(a.id)) && (
+        <section className={card}>
+          <h2 className="font-extrabold">🔗 Merge a statement account</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            An account made from a statement file that&apos;s the same account the bank feed brings: merge it into the feed&apos;s,
+            and the weeks both cover are folded together so nothing counts twice. Its imports can still be removed afterwards.
+          </p>
+          <ul className="mt-2 flex flex-col gap-3">
+            {accounts
+              .filter((a) => a.source === "MANUAL" && !leftOut.has(a.id))
+              .map((a) => (
+                <li key={a.id}>
+                  <ActionForm action={mergeAccounts.bind(null, jar.id, a.id)} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="min-w-0 font-bold break-words">{a.name}</span>
+                    <label className="flex flex-wrap items-center gap-1">
+                      <span>into</span>
+                      <select name="into" required className={field} aria-label={`Merge ${a.name} into`}>
+                        {feedAccounts
+                          .filter((f) => !leftOut.has(f.id) && f.currency === a.currency)
+                          .map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.name}
+                              {f.org ? ` · ${f.org}` : ""}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <ConfirmSubmit className={btn} question={`Merge ${a.name} into the feed account? Its rows move across and the ones both have fold together. This can't be undone.`} yes="Yes, merge">
+                      Merge
+                    </ConfirmSubmit>
+                  </ActionForm>
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
 
       <section className="rounded-2xl border-2 border-dashed border-tomato/60 p-4">
         <h2 className="font-extrabold text-tomato">Delete this jar</h2>

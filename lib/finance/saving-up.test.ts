@@ -37,7 +37,7 @@ describe("rollover carry", () => {
     // Jul +80, Aug +95 (the refund takes $5 back), Sep +100
     expect(cat.carryInCents).toBe(27500);
     const oct = budgetMonth([row("2026-10-02", -30000)], [cat], "2026-10", "2026-10-15");
-    expect(oct.lines[0]).toMatchObject({ availableCents: 37500, status: "ON_TRACK" });
+    expect(oct.lines[0]).toMatchObject({ availableCents: 37500, status: "AHEAD" }); // Phase 70e: 80% of what it has by the 15th.
     expect(oct.budgetedCents).toBe(10000);
 
     const broke = { ...school, rolloverFrom: "2026-09" };

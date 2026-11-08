@@ -2299,3 +2299,26 @@ can't come back; the feed read is cached per request and day, skipped on Setting
 passes its `now` through; idea counts are scoped to the household; `GiftIdea` gets a household
 index (migration `20261205140000_gift_idea_household_index`). Tests: a restore by someone keeps
 theirs without doubling, and the realistic titles both ways.
+
+### 70e — Money
+
+**Search every month:** `ActivityFilters.q` (`searchTerm`, 2 to 80 letters); with one, `activityWhere`
+drops the month and matches merchant name, the bank's words, payee, merchant key or memo
+(`matchWhere`), surprises hidden as ever; the page's search form keeps the account and category,
+hides the month steps and says "every month". **Running ahead:** `runningAhead` (pure, in
+`budget.ts`): this month, a budget with carry, past half and more than 15 points ahead of the share
+of the month gone, not over; a line's status AHEAD (yellow badge and bar). Money's home shows each
+jar's lines running ahead or over (`jarBudgetFlags`, the Budget page's way with carry). **The year:**
+`lib/finance/year.ts` (`yearSummary` sums Trends' months, so it agrees with Budget; `yearCsv`, a row
+per category with its months) and `year-load.ts`; Trends → **The year by category**
+(`/finances/[jar]/trends/year?year=`) and its spreadsheet route, posted from the page like the jar's
+other one and noted in the jar's history (`EXPORTED` with `year`). **Merging:**
+`mergeStatementAccount` (`lib/finance/merge-accounts.ts`), one transaction: a MANUAL account into a
+SIMPLEFIN one in the same jar, same currency, neither left out; a row the feed account already
+holds under the same id becomes its DUPLICATE (renamed so the move doesn't collide); rows, imports
+and questions move across, import layouts join, balance days go, the account is deleted, then the
+duplicate check runs. Jar history `ACCOUNTS_MERGED` (migration `20261206120000_accounts_merged`).
+**Faster syncs:** `dedupeAccount` takes `since` (a sync's window start, an import's first new row)
+and compares rows from five days before it; `categorizeJar` takes `since` too and files only rows
+from then on plus any not filed yet, while refund pairing still looks back over the whole jar. A rule
+change, a category edit, the page's tidy-up and a merge still work over everything.
