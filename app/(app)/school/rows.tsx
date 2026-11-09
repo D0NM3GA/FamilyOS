@@ -11,6 +11,7 @@ import type { WorkItem } from "@/lib/work-items/types";
 import { ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
 import { Pencil } from "lucide-react";
 import { SelectBox, useSelection } from "@/components/selection";
+import { useReportUndo } from "@/components/tasks/milestone-toast";
 import { AssignmentDetailsForm, GradeForm, TaskForm } from "./forms";
 import type { SchoolFormState } from "./actions";
 
@@ -57,12 +58,14 @@ export function KidChange({ who, title, onApprove, onPutBack }: { who: string; t
  * at once and put it back if the save fails; the server rules (lib/school/permissions.ts) decide
  * what's offered and check it again. Remove lives in the ⋯ menu and asks first, in the row.
  */
-function useStatus<S extends string>(item: WorkItem<S>, onStatus: (id: string, to: S) => Promise<void>) {
+function useStatus<S extends string>(item: WorkItem<S>, onStatus: (id: string, to: S) => Promise<void>, doneWord: string) {
   const [status, setStatus] = useOptimistic(item.status);
   const [pending, start] = useTransition();
   const [failed, setFailed] = useState<false | "save" | "remove">(false);
+  const reportUndo = useReportUndo();
   const pick = (to: S) => {
     setFailed(false);
+    const was = item.status;
     start(async () => {
       setStatus(to);
       try {
@@ -70,7 +73,11 @@ function useStatus<S extends string>(item: WorkItem<S>, onStatus: (id: string, t
       } catch (err) {
         console.error("[school-row] status change failed", err);
         setFailed("save");
+        return;
       }
+      // Done folds the row away into "Done recently", taking any way back with it. The page's
+      // Undo bar stays a few seconds instead.
+      if (to === "DONE" && was !== "DONE") reportUndo?.({ title: item.title, verb: doneWord, undo: () => onStatus(item.id, was) });
     });
   };
   return { status, pending, failed, setFailed, start, pick };
@@ -154,7 +161,7 @@ export function AssignmentRow({
   /** Phase 59.3: a tick box while the list is selecting. */
   selectable?: boolean;
 }) {
-  const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus);
+  const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus, "turned in");
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState<null | "details" | "grade">(null);
   const words = useRef<HTMLButtonElement>(null);
@@ -308,7 +315,7 @@ export function SchoolTaskRow({
   /** Phase 59.3: a tick box while the list is selecting. */
   selectable?: boolean;
 }) {
-  const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus);
+  const { status, pending, failed, setFailed, start, pick } = useStatus(item, onStatus, "done");
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
   const selection = useSelection();

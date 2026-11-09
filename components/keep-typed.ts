@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, type RefObject } from "react";
+import { useActionState, useEffect, useRef, useState, type RefObject } from "react";
 
 /**
  * `useActionState` for a form that should keep what was typed when its action says no. React
@@ -39,4 +39,14 @@ export function useKeptActionState<S extends { error?: string | null }>(
   }, initial as Awaited<S>);
 
   return [state, run, pending, ref] as const;
+}
+
+/**
+ * A form's answer ("Saved.", "Added.") only until someone starts changing the form again: after
+ * that it's about the old values, and a "Saved." next to unsaved edits says the wrong thing.
+ * Spread `onInput` on the `<form>` and show the answer while `fresh`.
+ */
+export function useFreshAnswer<S>(state: S) {
+  const [editedAfter, setEditedAfter] = useState<S | null>(null);
+  return { fresh: editedAfter !== state, onInput: () => setEditedAfter(() => state) };
 }

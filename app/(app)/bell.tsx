@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Bell as BellIcon } from "lucide-react";
 import { formatRelative } from "@/lib/format";
@@ -32,6 +32,7 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
   const [pending, start] = useTransition();
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
 
   useEffect(() => {
     const refresh = () => {
@@ -86,8 +87,9 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
       <button
         ref={buttonRef}
         type="button"
+        // A disclosure, not a menu: aria-haspopup would promise arrow-key menu items it doesn't have.
         aria-expanded={open}
-        aria-haspopup="true"
+        aria-controls={open ? panelId : undefined}
         aria-label={unread > 0 ? `Notifications, ${unread} new` : "Notifications"}
         onClick={() => {
           const next = !open;
@@ -118,6 +120,7 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
       </button>
       {open && (
         <div
+          id={panelId}
           role="region"
           aria-label="Notifications"
           className="ui-card absolute right-0 top-full z-20 mt-1 w-80 max-w-[calc(100vw-1rem)] rounded-xl border-2 border-ink bg-card p-2 text-sm text-foreground shadow-lg dark:border-white/20"

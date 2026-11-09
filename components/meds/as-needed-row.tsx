@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { SubmitButton } from "@/components/submit";
 import { btn, btnPrimary } from "@/components/styles";
 import type { AsNeededView } from "@/lib/meds/as-needed-queries";
@@ -33,6 +33,19 @@ export function AsNeededRow({
     {} as DoseState,
   );
   const [undoing, startUndo] = useTransition();
+  // What the last Undo said, and which Take answer it replaced: "Logged" stays up otherwise,
+  // saying the opposite of what just happened.
+  const [undone, setUndone] = useState<{ after: DoseState; text: string; bad?: boolean } | null>(null);
+  const message = undone && undone.after === state ? undone : state.error ? { text: state.error, bad: true } : state.ok ? { text: state.ok } : null;
+  const undoLast = (id: string) =>
+    startUndo(async () => {
+      try {
+        await undo(id);
+        setUndone({ after: state, text: "Took the last dose back." });
+      } catch {
+        setUndone({ after: state, text: "Couldn't undo that. Check your connection and try again.", bad: true });
+      }
+    });
   const mayTake = viewerIsAdult || med.person?.id === viewerId;
   const mayUndo = med.last && (viewerIsAdult || med.last.byId === viewerId);
   return (
@@ -68,14 +81,14 @@ export function AsNeededRow({
           </form>
         )}
       </div>
-      {state.error && (
+      {message?.bad && (
         <p role="alert" className="mt-1 text-sm font-semibold text-tomato">
-          {state.error}
+          {message.text}
         </p>
       )}
-      {state.ok && !state.error && (
+      {message && !message.bad && (
         <p role="status" className="mt-1 text-sm font-semibold">
-          {state.ok}
+          {message.text}
         </p>
       )}
       <div className="mt-1 flex flex-wrap items-center gap-x-4">
@@ -91,7 +104,7 @@ export function AsNeededRow({
           <button
             type="button"
             disabled={undoing}
-            onClick={() => startUndo(() => undo(med.last!.id))}
+            onClick={() => undoLast(med.last!.id)}
             className="min-h-11 text-xs font-bold text-muted-foreground underline underline-offset-2"
           >
             {undoing ? "Undoing…" : "Undo the last dose"}

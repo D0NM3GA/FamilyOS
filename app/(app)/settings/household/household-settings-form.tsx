@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
 import type { HouseholdSettingsFormState } from "./actions";
+import { useFreshAnswer } from "@/components/keep-typed";
 import { useDeviceTimeZone } from "@/components/device-time-zone";
 import { Picker, type PickerOption } from "@/components/picker";
 
@@ -37,7 +38,13 @@ export function HouseholdSettingsForm({
     action,
     {},
   );
-  const [timezone, setTimezone] = useState(defaults.timezone ?? "");
+  const { fresh, onInput } = useFreshAnswer(state);
+  const [timezone, setZone] = useState(defaults.timezone ?? "");
+  // The Picker's list and "Use this device's" change it without typing in the form.
+  const setTimezone = (zone: string) => {
+    setZone(zone);
+    onInput();
+  };
   const device = useDeviceTimeZone();
   // The saved zone stays pickable even if this server's list doesn't have it.
   const zones = useMemo(() => (timezone && !timeZones.includes(timezone) ? [timezone, ...timeZones] : timeZones), [timezone, timeZones]);
@@ -53,7 +60,7 @@ export function HouseholdSettingsForm({
   }, [zones, inBrowser]);
 
   return (
-    <form action={formAction} className="space-y-4 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+    <form action={formAction} onInput={onInput} className="space-y-4 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
       <div>
         <label htmlFor="household-name" className="block text-sm font-medium text-foreground">Household name</label>
         <input
@@ -111,7 +118,7 @@ export function HouseholdSettingsForm({
       </div>
 
       {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
-      {state.success && <p className="text-sm text-green-700 dark:text-green-400">Saved.</p>}
+      {state.success && fresh && <p role="status" className="text-sm text-green-700 dark:text-green-400">Saved.</p>}
 
       <button
         type="submit"

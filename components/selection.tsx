@@ -119,8 +119,9 @@ export function BulkBar({ actions, giveTo }: { actions: BulkAction[]; giveTo?: {
           {a.label}
         </button>
       ))}
-      {giveTo && giveTo.people.length > 0 && ids.length > 0 && !pending && (
-        <MoreMenu label="Give the selected to" face={<span className="px-1 text-sm font-bold">Give to…</span>} triggerClassName={btn}>
+      {/* Stays put while saving (busy), so the bar doesn't jump and focus isn't dropped. */}
+      {giveTo && giveTo.people.length > 0 && ids.length > 0 && (
+        <MoreMenu label="Give the selected to" busy={pending} face={<span className="px-1 text-sm font-bold">Give to…</span>} triggerClassName={`${btn} aria-disabled:opacity-60`}>
           {giveTo.people.map((p) => (
             <button key={p.id} type="button" onClick={() => go("Gave", () => giveTo.run(ids, p.id))} className={menuItem}>
               {p.firstName}

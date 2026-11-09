@@ -2411,3 +2411,23 @@ The second batch of the polish sweep: what forms do after a submit.
   the name box, so a phone keeps its keyboard for the next one.
 - **Smaller ones:** a PIN box opened again doesn't say "PIN saved." from last time; **Sync now** and
   **Send a test** say when they fail instead of taking the page to the error screen.
+
+### After Phase 70: a polish sweep (third batch)
+
+What was left from the first two batches: answers that vanish or go stale, and controls that
+look like they ignored a tap.
+
+- **A charge's answer survives leaving the list.** Picking a category while Activity shows
+  "Uncategorized" took the row and its "✓ Saved" note away together. `ActivityNotes` around the
+  list catches the note of a row that unmounts and shows it under the list for a few seconds.
+- **School's Turned in and Done get the Undo bar,** like chores: the row folds into "Done
+  recently" the moment it saves. The bar puts back the status it had.
+- **Answers about old values go away.** An as-needed medicine's "Taken at…" gives way to "Took
+  the last dose back." after Undo (and Undo says when it fails). The household "Saved." and Add
+  event's "Added" clear once someone edits the form again (`useFreshAnswer` in
+  `components/keep-typed.ts`).
+- **Busy, not gone.** A kid's picture tiles dim while an add is on its way (taps were silently
+  ignored), and the bulk bar's **Give to…** stays put, disabled, while saving instead of
+  disappearing.
+- **The bell and profile menu are disclosures,** not menus: `aria-haspopup` promised arrow-key
+  menu items they don't have, so it's gone, and the bell's button points at its panel.

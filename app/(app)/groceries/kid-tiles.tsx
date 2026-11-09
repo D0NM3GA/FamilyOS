@@ -63,7 +63,9 @@ export function KidTiles({ tiles }: { tiles: KidTile[] }) {
               <button
                 type="button"
                 onClick={() => tap(t)}
-                className="flex min-h-24 w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-ink/20 bg-background p-2 text-center text-sm font-bold transition active:scale-95 dark:border-white/20"
+                // Taps wait while one is on its way: dimmed, so it doesn't look like the tile ignored them.
+                aria-disabled={pending || undefined}
+                className="flex min-h-24 w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-ink/20 bg-background p-2 text-center text-sm font-bold transition active:scale-95 aria-disabled:opacity-50 aria-disabled:active:scale-100 dark:border-white/20"
               >
                 {t.imageUrl ? (
                   // Open Food Facts image; absolute https URL.
