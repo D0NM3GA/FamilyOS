@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
@@ -15,7 +16,7 @@ import { startAddingPasskey, type AddPasskeyState } from "./actions";
  */
 export function AddPasskey() {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState<AddPasskeyState, FormData>(startAddingPasskey, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<AddPasskeyState>(startAddingPasskey, {});
   const [making, startMaking] = useTransition();
   // The ticket last tried (or put aside), and how that went.
   const [finished, setFinished] = useState<{ ticket: string; error?: string; added?: boolean } | null>(null);
@@ -55,7 +56,7 @@ export function AddPasskey() {
   const lastTry = state.ticket === finished?.ticket ? finished : null;
   const error = lastTry ? lastTry.error : state.error;
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-2">
+    <form ref={keptForm} action={formAction} className="flex flex-wrap items-end gap-2">
       <label className="block">
         <span className={`${fieldLabel} block`}>Name (optional)</span>
         <input name="name" maxLength={40} placeholder="Work laptop" className={`${field} mt-1 w-48`} />

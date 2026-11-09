@@ -1,7 +1,8 @@
 "use client";
 
+import { useKeptActionState } from "@/components/keep-typed";
 import Link from "next/link";
-import { useActionState, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { btn, btnPrimary, field, fieldLabel, formActions } from "@/components/styles";
 import { VinScanner } from "@/components/vehicles/vin-scanner";
 import { useCameraSupported } from "@/components/camera";
@@ -32,7 +33,7 @@ export function VehicleForm({
   cancelHref: string;
   lookUpVin: (vin: string) => Promise<VinDecode>;
 }) {
-  const [state, formAction, pending] = useActionState<VehicleFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<VehicleFormState>(action, {});
   // Phase 53: a VIN fills make, model and year (each still editable), typed or scanned.
   const [vin, setVin] = useState(defaults?.vin ?? "");
   const [make, setMake] = useState(defaults?.make ?? "");
@@ -58,7 +59,7 @@ export function VehicleForm({
     });
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={keptForm} action={formAction} className="space-y-4">
       <Field label="Name" name="name" defaultValue={defaults?.name} placeholder="e.g. Mom's minivan" required />
       <div className="space-y-2">
         <label className="block min-w-0">

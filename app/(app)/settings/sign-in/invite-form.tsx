@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState, useSyncExternalStore } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useState, useSyncExternalStore } from "react";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 import { createInviteAction, type InviteFormState } from "./actions";
 
@@ -20,7 +21,7 @@ export function InviteForm({ members, microsoft, hours }: { members: Member[]; m
 }
 
 function InviteRound({ members, microsoft, hours, onDone }: { members: Member[]; microsoft: boolean; hours: number; onDone: () => void }) {
-  const [state, formAction, pending] = useActionState<InviteFormState, FormData>(createInviteAction, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<InviteFormState>(createInviteAction, {});
   const [who, setWho] = useState<"member" | "new">(members.length > 0 ? "member" : "new");
   const [personId, setPersonId] = useState(members[0]?.id ?? "");
   const [email, setEmail] = useState(members[0]?.email ?? "");
@@ -69,7 +70,7 @@ function InviteRound({ members, microsoft, hours, onDone }: { members: Member[];
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={keptForm} action={formAction} className="space-y-4">
       <fieldset className="space-y-2">
         <legend className={fieldLabel}>Who</legend>
         {members.length > 0 && (

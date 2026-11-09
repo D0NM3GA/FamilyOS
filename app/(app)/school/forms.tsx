@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useEffect, useRef, useState } from "react";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 import type { SchoolFormState } from "./actions";
 import { ASSIGNMENT_KINDS, ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
@@ -36,10 +37,10 @@ type ProfileDefaults = {
 };
 
 export function ProfileForm({ action, defaults }: { action: Action; defaults?: ProfileDefaults }) {
-  const [state, formAction, pending] = useActionState<SchoolFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
   const d = defaults ?? {};
   return (
-    <form action={formAction} className="max-w-lg space-y-3">
+    <form ref={keptForm} action={formAction} className="max-w-lg space-y-3">
       <Labeled label="School">
         <input name="schoolName" required defaultValue={d.schoolName} placeholder="e.g. Lincoln Elementary" className={box} />
       </Labeled>
@@ -72,10 +73,10 @@ export function ProfileForm({ action, defaults }: { action: Action; defaults?: P
 }
 
 export function ContactForm({ action, contacts }: { action: Action; contacts: { id: string; name: string }[] }) {
-  const [state, formAction, pending] = useActionState<SchoolFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
   const [existing, setExisting] = useState("");
   return (
-    <form action={formAction} className="max-w-lg space-y-3">
+    <form ref={keptForm} action={formAction} className="max-w-lg space-y-3">
       <Labeled label="Role">
         <input name="role" required placeholder="Homeroom teacher, Math, Front office" className={box} />
       </Labeled>
@@ -148,7 +149,7 @@ export function TaskForm({
   defaults?: TaskDefaults;
   onClose?: () => void;
 }) {
-  const [state, formAction, pending] = useActionState<SchoolFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
   const [open, setOpen] = useState(Boolean(onClose));
   useOnSaved(state, onClose);
   const d = defaults;
@@ -160,7 +161,7 @@ export function TaskForm({
     );
   }
   return (
-    <form action={formAction} className="space-y-3 rounded-xl bg-muted p-3">
+    <form ref={keptForm} action={formAction} className="space-y-3 rounded-xl bg-muted p-3">
       <Labeled label="What">
         <input name="title" required defaultValue={d?.title} placeholder="Field trip permission slip" className={box} />
       </Labeled>
@@ -241,7 +242,7 @@ export function AssignmentForm({
   startOpen?: boolean;
   submitLabel?: string;
 }) {
-  const [state, formAction, pending] = useActionState<SchoolFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
   const [open, setOpen] = useState(startOpen);
   const d = defaults ?? {};
   if (!open) {
@@ -252,7 +253,7 @@ export function AssignmentForm({
     );
   }
   return (
-    <form action={formAction} className="space-y-3 rounded-xl bg-muted p-3">
+    <form ref={keptForm} action={formAction} className="space-y-3 rounded-xl bg-muted p-3">
       <div className="grid grid-cols-2 gap-3">
         <Labeled label="Class">
           <input name="className" required defaultValue={d.className} placeholder="Math" className={box} />
@@ -317,10 +318,10 @@ type DetailsDefaults = { title: string; className: string; kind: AssignmentKindV
 
 /** Phase 59.2a: an assignment's title, class, type and due date, changed in its row. */
 export function AssignmentDetailsForm({ action, defaults, onClose }: { action: Action; defaults: DetailsDefaults; onClose: () => void }) {
-  const [state, formAction, pending] = useActionState<SchoolFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
   useOnSaved(state, onClose);
   return (
-    <form action={formAction} className="basis-full space-y-3 rounded-xl bg-muted p-3">
+    <form ref={keptForm} action={formAction} className="basis-full space-y-3 rounded-xl bg-muted p-3">
       <div className="grid grid-cols-2 gap-3">
         <Labeled label="Class">
           <input name="className" required defaultValue={defaults.className} className={box} />
@@ -351,10 +352,10 @@ export function AssignmentDetailsForm({ action, defaults, onClose }: { action: A
 
 /** Phase 59.2a: "Grade it", in the row. */
 export function GradeForm({ action, defaults, onClose }: { action: Action; defaults: { score: string; maxScore: string }; onClose: () => void }) {
-  const [state, formAction, pending] = useActionState<SchoolFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
   useOnSaved(state, onClose);
   return (
-    <form action={formAction} className="basis-full space-y-3 rounded-xl bg-muted p-3">
+    <form ref={keptForm} action={formAction} className="basis-full space-y-3 rounded-xl bg-muted p-3">
       <div className="grid max-w-xs grid-cols-2 gap-3">
         <Labeled label="Score">
           <input name="score" inputMode="decimal" defaultValue={defaults.score} autoFocus className={box} />

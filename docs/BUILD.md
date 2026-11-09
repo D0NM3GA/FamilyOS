@@ -2431,3 +2431,12 @@ look like they ignored a tap.
   disappearing.
 - **The bell and profile menu are disclosures,** not menus: `aria-haspopup` promised arrow-key
   menu items they don't have, so it's gone, and the bell's button points at its panel.
+
+### After Phase 70: the rest of the forms keep what was typed
+
+Every other form whose action can say no now uses `useKeptActionState`: calendars, driving, chore
+swaps, money accounts, grocery item details, medicines, important dates, relationships, the pet,
+stickers and shelves, school work and feeds, alerts, the look, passkeys, invites, vehicles and
+their parts, first-time setup, and the shared list editors. Left as they were, on purpose: the PIN
+boxes (a wrong PIN should clear), forms with nothing to type (Take a dose, Refresh, Sync), the
+receipt upload, and pet care hours, which never refuses.

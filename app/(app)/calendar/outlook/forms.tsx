@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { btn, btnDanger, btnPrimary, field, fieldLabel } from "@/components/styles";
 import type { CalendarFormState } from "./actions";
 
@@ -14,9 +14,9 @@ function Result({ state }: { state: CalendarFormState }) {
 
 /** Asks Microsoft for calendar write access (actions.ts grantCalendarAccess explains how). */
 export function GrantAccessButton({ action }: { action: () => Promise<CalendarFormState> }) {
-  const [state, formAction, pending] = useActionState<CalendarFormState>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<CalendarFormState>(action, {});
   return (
-    <form action={formAction} className="space-y-2">
+    <form ref={keptForm} action={formAction} className="space-y-2">
       <button type="submit" disabled={pending} className={btnPrimary}>
         {pending ? "Opening Microsoft…" : "Grant calendar access"}
       </button>
@@ -27,9 +27,9 @@ export function GrantAccessButton({ action }: { action: () => Promise<CalendarFo
 
 /** `defaultName` is the household's name, a sensible first guess for the calendar's. */
 export function ConnectForm({ action, defaultName }: { action: Action; defaultName: string }) {
-  const [state, formAction, pending] = useActionState<CalendarFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<CalendarFormState>(action, {});
   return (
-    <form action={formAction} className="space-y-3">
+    <form ref={keptForm} action={formAction} className="space-y-3">
       <label className="block">
         <span className={`${fieldLabel} block`}>Calendar name in Outlook</span>
         <input
@@ -48,9 +48,9 @@ export function ConnectForm({ action, defaultName }: { action: Action; defaultNa
 }
 
 export function SyncNowForm({ action }: { action: () => Promise<CalendarFormState> }) {
-  const [state, formAction, pending] = useActionState<CalendarFormState>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<CalendarFormState>(action, {});
   return (
-    <form action={formAction} className="space-y-2">
+    <form ref={keptForm} action={formAction} className="space-y-2">
       <button type="submit" disabled={pending} className={btnPrimary}>
         {pending ? "Syncing…" : "Sync now"}
       </button>
@@ -81,9 +81,9 @@ function Box({ name, label, hint, checked }: { name: keyof Options; label: strin
 }
 
 export function OptionsForm({ action, options }: { action: Action; options: Options }) {
-  const [state, formAction, pending] = useActionState<CalendarFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<CalendarFormState>(action, {});
   return (
-    <form action={formAction} className="space-y-2">
+    <form ref={keptForm} action={formAction} className="space-y-2">
       <Box name="includeDates" checked={options.includeDates} label="Birthdays, anniversaries and other important dates" hint="Every year, all day." />
       <Box name="includeVehicles" checked={options.includeVehicles} label="Vehicle maintenance due dates" hint="Items tracked by months. Mileage-only items have no date to show." />
       <Box name="includeChores" checked={options.includeChores} label="Chores, next two weeks" hint="With who's doing each one." />
@@ -104,9 +104,9 @@ export function OptionsForm({ action, options }: { action: Action; options: Opti
 }
 
 export function DisconnectForm({ action }: { action: Action }) {
-  const [state, formAction, pending] = useActionState<CalendarFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<CalendarFormState>(action, {});
   return (
-    <form action={formAction} className="space-y-2">
+    <form ref={keptForm} action={formAction} className="space-y-2">
       <label className="flex min-h-11 items-center gap-2 text-sm text-foreground sm:min-h-9">
         <input type="checkbox" name="confirm" />
         Delete the calendar and its events from Outlook
@@ -121,9 +121,9 @@ export function DisconnectForm({ action }: { action: Action }) {
 
 /** For admins other than the owner: stop using a calendar its owner can no longer manage. */
 export function ForgetForm({ action }: { action: Action }) {
-  const [state, formAction, pending] = useActionState<CalendarFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<CalendarFormState>(action, {});
   return (
-    <form action={formAction} className="space-y-2">
+    <form ref={keptForm} action={formAction} className="space-y-2">
       <label className="flex min-h-11 items-center gap-2 text-sm text-foreground sm:min-h-9">
         <input type="checkbox" name="confirm" />
         Stop the app updating this calendar (it stays in its owner&apos;s Outlook)

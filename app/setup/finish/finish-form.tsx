@@ -1,16 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { btnPrimary, field, fieldLabel } from "@/components/styles";
 import { completeSetup, type FinishState } from "../actions";
 import { useDeviceTimeZone } from "@/components/device-time-zone";
 
 /** Names the household (unless the first step already did) and finishes setup. */
 export function FinishForm({ kept, householdName, firstName }: { kept: boolean; householdName: string; firstName: string }) {
-  const [state, formAction, pending] = useActionState<FinishState, FormData>(completeSetup, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<FinishState>(completeSetup, {});
   const timezone = useDeviceTimeZone();
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={keptForm} action={formAction} className="space-y-4">
       {/* Phase 45.2: the household starts on this device's time zone. */}
       <input type="hidden" name="timezone" value={timezone ?? ""} />
       {kept ? (

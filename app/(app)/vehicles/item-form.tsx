@@ -1,7 +1,8 @@
 "use client";
 
+import { useKeptActionState } from "@/components/keep-typed";
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { btn, btnPrimary, field, fieldLabel, iconBtn } from "@/components/styles";
 import type { VehicleFormState } from "./actions";
 
@@ -36,11 +37,11 @@ export function MaintenanceItemForm({
   /** Phase 65b: registration, inspection, insurance: every N months from a due day; no miles or supplies. */
   paperwork?: boolean;
 }) {
-  const [state, formAction, pending] = useActionState<VehicleFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<VehicleFormState>(action, {});
 
   if (paperwork) {
     return (
-      <form action={formAction} className="space-y-4">
+      <form ref={keptForm} action={formAction} className="space-y-4">
         <input type="hidden" name="kind" value="PAPERWORK" />
         <label className="block">
           <span className={fieldLabel}>What</span>

@@ -1,8 +1,9 @@
 "use client";
 
+import { useKeptActionState } from "@/components/keep-typed";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { X } from "lucide-react";
 import { CONTAINERS, SIZE_UNITS, describeSize } from "@/lib/groceries/size";
@@ -56,7 +57,7 @@ function AddToListButton() {
  */
 export function ItemSheetForm({ product, stores, sections, usualText, lastPriceText = null, listRow, members, others, canTidy, returnTo }: Props) {
   const router = useRouter();
-  const [state, action, pending] = useActionState<SheetState, FormData>(
+  const [state, action, pending, keptForm] = useKeptActionState<SheetState>(
     saveItemDetails.bind(null, product.id, returnTo),
     {},
   );
@@ -114,7 +115,7 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
         tabIndex={-1}
         className="relative outline-none max-h-[90dvh] w-full overflow-y-auto rounded-t-3xl border-2 border-ink bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl lg:max-h-none lg:w-[26rem] lg:rounded-none lg:rounded-l-3xl dark:border-white/20"
       >
-        <form action={action} className="flex flex-col gap-5">
+        <form ref={keptForm} action={action} className="flex flex-col gap-5">
           <div className="flex items-center justify-between gap-2">
             <Link href={returnTo} replace scroll={false} className={btn}>
               <X size={16} aria-hidden /> Close

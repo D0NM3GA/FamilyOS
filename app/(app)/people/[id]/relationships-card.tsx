@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { btn, btnPrimary, field, sectionTitle } from "@/components/styles";
 import { addRelationship, removeRelationship, type FormState } from "./actions";
 import { ConfirmSubmit } from "@/components/submit";
@@ -33,13 +34,10 @@ export function RelationshipsCard({
   /** A family-tree edit is structural data — gated to adults, like updatePerson. */
   canEdit: boolean;
 }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(
-    addRelationship.bind(null, personId),
-    {},
-  );
+  const formRef = useRef<HTMLFormElement>(null);
+  const [state, formAction, pending] = useKeptActionState<FormState>(addRelationship.bind(null, personId), {}, formRef);
   const [open, setOpen] = useState(false);
   const [type, setType] = useState("SPOUSE");
-  const formRef = useRef<HTMLFormElement>(null);
   const wasPending = useRef(false);
 
   useEffect(() => {

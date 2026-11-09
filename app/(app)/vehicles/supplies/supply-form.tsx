@@ -1,7 +1,7 @@
 "use client";
 
+import { useKeptActionState } from "@/components/keep-typed";
 import Link from "next/link";
-import { useActionState } from "react";
 import { btn, btnPrimary, field, fieldLabel, formActions } from "@/components/styles";
 import type { SupplyFormState } from "./actions";
 
@@ -19,11 +19,11 @@ type Defaults = {
 const box = `mt-1 w-full ${field}`;
 
 export function SupplyForm({ action, defaults, submitLabel }: { action: Action; defaults?: Defaults; submitLabel: string }) {
-  const [state, formAction, pending] = useActionState<SupplyFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<SupplyFormState>(action, {});
   const num = (n: number | null | undefined) => (n == null ? "" : String(n));
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={keptForm} action={formAction} className="space-y-4">
       <label className="block">
         <span className={fieldLabel}>Name</span>
         <input name="name" required defaultValue={defaults?.name} placeholder="e.g. Motor oil 5W-30" className={box} />

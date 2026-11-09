@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useEffect, useRef, useState } from "react";
 import type { VehicleFormState } from "@/app/(app)/vehicles/actions";
 import { btn, btnPrimary, field } from "@/components/styles";
 
@@ -74,7 +75,7 @@ function OdometerFormInner({
   onCancel: () => void;
   onSuccess: () => void;
 }) {
-  const [state, formAction, pending] = useActionState(updateOdometer, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState(updateOdometer, {});
   const wasPending = useRef(false);
 
   useEffect(() => {
@@ -90,7 +91,7 @@ function OdometerFormInner({
   }, [pending, state.error]);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
+    <form ref={keptForm} action={formAction} className="flex flex-wrap items-center gap-2">
       <input
         type="number" inputMode="numeric"
         name="mileage"

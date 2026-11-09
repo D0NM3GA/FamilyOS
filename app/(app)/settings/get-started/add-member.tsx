@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useState } from "react";
 import { SubmitButton } from "@/components/submit";
 import { btnPrimary, chip, field, fieldLabel } from "@/components/styles";
 import { addFamilyMember, type AddMemberState } from "./actions";
@@ -13,11 +14,11 @@ const KINDS = [
 
 /** Phase 45.4: adding someone in the guided setup, with a line on what each role gets. */
 export function AddMember() {
-  const [state, formAction] = useActionState<AddMemberState, FormData>(addFamilyMember, {});
+  const [state, formAction, , keptForm] = useKeptActionState<AddMemberState>(addFamilyMember, {});
   const [kind, setKind] = useState<(typeof KINDS)[number]["id"]>("kid");
   const chosen = KINDS.find((k) => k.id === kind)!;
   return (
-    <form action={formAction} key={state.at} className="space-y-3 rounded-2xl bg-muted p-4">
+    <form ref={keptForm} action={formAction} key={state.at} className="space-y-3 rounded-2xl bg-muted p-4">
       <input type="hidden" name="kind" value={kind} />
       <div className="flex flex-wrap items-end gap-3">
         <label className="min-w-0 flex-[1_1_12rem]">

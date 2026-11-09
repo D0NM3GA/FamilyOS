@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useState, useTransition } from "react";
 import { authClient } from "@/lib/auth-client";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 import { completeSetup, startSetup, type SetupState } from "./actions";
@@ -13,7 +14,7 @@ import { ProviderSignInButton } from "@/app/sign-in/provider-button";
  * the install has Microsoft, sign in with it instead.
  */
 export function SetupForm({ microsoft, provider }: { microsoft: boolean; provider: string | null }) {
-  const [state, formAction, pending] = useActionState<SetupState, FormData>(startSetup, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<SetupState>(startSetup, {});
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
   const [finishing, startFinishing] = useTransition();
   const [microsoftPending, setMicrosoftPending] = useState(false);
@@ -65,7 +66,7 @@ export function SetupForm({ microsoft, provider }: { microsoft: boolean; provide
 
   return (
     <div className="space-y-6">
-      <form action={formAction} className="space-y-4">
+      <form ref={keptForm} action={formAction} className="space-y-4">
         <label className="block">
           <span className={`${fieldLabel} block`}>Your household&apos;s name</span>
           <input name="householdName" required maxLength={60} placeholder="The Parkers" className={`${field} mt-1 w-full`} />

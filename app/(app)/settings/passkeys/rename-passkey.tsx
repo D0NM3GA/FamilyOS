@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useState } from "react";
 import { field } from "@/components/styles";
 import type { RenamePasskeyState } from "./actions";
 
@@ -9,7 +10,7 @@ type Action = (prevState: RenamePasskeyState, formData: FormData) => Promise<Ren
 /** Inline "Rename" for one passkey (Phase 40.2a), like Settings → Household's PIN control. */
 export function RenamePasskey({ action, name }: { action: Action; name: string }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction, pending] = useActionState<RenamePasskeyState, FormData>(async (prev, formData) => {
+  const [state, formAction, pending, keptForm] = useKeptActionState<RenamePasskeyState>(async (prev, formData) => {
     const result = await action(prev, formData);
     if (result.success) setOpen(false);
     return result;
@@ -28,7 +29,7 @@ export function RenamePasskey({ action, name }: { action: Action; name: string }
   }
 
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
+    <form ref={keptForm} action={formAction} className="flex flex-wrap items-center gap-2">
       <input
         name="name"
         defaultValue={name}

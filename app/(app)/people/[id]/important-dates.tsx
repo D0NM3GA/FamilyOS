@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useEffect, useState, useTransition } from "react";
 import { btn, btnDanger, btnPrimary, field, sectionTitle } from "@/components/styles";
 import { addImportantDate, deleteImportantDate, updateImportantDate, type FormState } from "./actions";
 
@@ -99,7 +100,7 @@ function DateForm({
   onDelete?: () => Promise<void>;
   submitLabel: string;
 }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<FormState>(action, {});
   const typed = state.values ?? {};
   const [removing, startRemove] = useTransition();
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -109,7 +110,7 @@ function DateForm({
   }, [state.saved, onDone]);
 
   return (
-    <form action={formAction} className="mt-2 w-full min-w-0 space-y-2 rounded-md bg-muted p-3">
+    <form ref={keptForm} action={formAction} className="mt-2 w-full min-w-0 space-y-2 rounded-md bg-muted p-3">
       <select name="type" aria-label="Kind of date" defaultValue={typed.type ?? defaults?.type ?? "BIRTHDAY"} className={`${field} w-full min-w-0`}>
         {Object.entries(TYPE_LABEL).map(([value, label]) => (
           <option key={value} value={value}>

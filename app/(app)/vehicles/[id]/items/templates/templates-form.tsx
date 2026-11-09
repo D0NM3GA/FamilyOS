@@ -1,7 +1,7 @@
 "use client";
 
+import { useKeptActionState } from "@/components/keep-typed";
 import Link from "next/link";
-import { useActionState } from "react";
 import { btn, btnPrimary } from "@/components/styles";
 import type { VehicleFormState } from "../../../actions";
 
@@ -16,10 +16,10 @@ export function TemplatesForm({
   options: Option[];
   skipHref: string;
 }) {
-  const [state, formAction, pending] = useActionState<VehicleFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<VehicleFormState>(action, {});
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={keptForm} action={formAction} className="space-y-4">
       <ul className="space-y-1.5">
         {options.map((o) => (
           <li key={o.key}>
