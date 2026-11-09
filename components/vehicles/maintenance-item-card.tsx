@@ -246,7 +246,7 @@ function LogServiceForm({
         </label>
         <input
           id={`${id}-mileage`}
-          type="number"
+          type="number" inputMode="numeric"
           name="mileage"
           placeholder={currentMileageLabel}
           className={`mt-1 w-28 ${field}`}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import type { VehicleFormState } from "@/app/(app)/vehicles/actions";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 
@@ -64,7 +65,7 @@ function Fields({
   onCancel: () => void;
   onSaved: (notice?: string) => void;
 }) {
-  const [state, formAction, pending] = useActionState(logRepair, {});
+  const [state, formAction, pending, formRef] = useKeptActionState(logRepair, {});
   const wasPending = useRef(false);
   const id = useId();
   useEffect(() => {
@@ -80,7 +81,7 @@ function Fields({
   }, [pending, state.error]);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-2 rounded-xl bg-muted/50 p-3">
+    <form ref={formRef} action={formAction} className="flex flex-wrap items-end gap-2 rounded-xl bg-muted/50 p-3">
       <div className="min-w-[12rem] flex-1">
         <label htmlFor={`${id}-title`} className={`block ${fieldLabel}`}>
           What was fixed
@@ -97,7 +98,7 @@ function Fields({
         <label htmlFor={`${id}-mileage`} className={`block ${fieldLabel}`}>
           Mileage
         </label>
-        <input id={`${id}-mileage`} type="number" name="mileage" min={0} placeholder={String(currentMileage)} className={`mt-1 w-28 ${field}`} />
+        <input id={`${id}-mileage`} type="number" inputMode="numeric" name="mileage" min={0} placeholder={String(currentMileage)} className={`mt-1 w-28 ${field}`} />
       </div>
       <div>
         <label htmlFor={`${id}-cost`} className={`block ${fieldLabel}`}>

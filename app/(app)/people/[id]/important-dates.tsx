@@ -118,11 +118,11 @@ function DateForm({
         ))}
       </select>
       <div className="grid grid-cols-3 gap-2">
-        <input name="month" type="number" min={1} max={12} placeholder="MM" aria-label="Month" required defaultValue={typed.month ?? defaults?.month} className={`${field} w-full min-w-0`} />
-        <input name="day" type="number" min={1} max={31} placeholder="DD" aria-label="Day" required defaultValue={typed.day ?? defaults?.day} className={`${field} w-full min-w-0`} />
+        <input name="month" type="number" inputMode="numeric" min={1} max={12} placeholder="MM" aria-label="Month" required defaultValue={typed.month ?? defaults?.month} className={`${field} w-full min-w-0`} />
+        <input name="day" type="number" inputMode="numeric" min={1} max={31} placeholder="DD" aria-label="Day" required defaultValue={typed.day ?? defaults?.day} className={`${field} w-full min-w-0`} />
         <input
           name="year"
-          type="number"
+          type="number" inputMode="numeric"
           min={1900}
           max={2200}
           placeholder="YYYY"

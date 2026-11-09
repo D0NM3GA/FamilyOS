@@ -55,6 +55,9 @@ stranger about the family that runs it.
   disabled while the form is busy, so a double tap can't run the action twice. A plain
   submit button only in a form that posts to a URL, or when its own `disabled` reads the
   form's pending state (`useActionState`).
+- **A refused save keeps what was typed.** React resets a form after any action that doesn't
+  throw, so a form whose action returns `{ error }` uses `useKeptActionState`
+  (`components/keep-typed.ts`) instead of `useActionState`, with its ref on the `<form>`.
 - **Destructive actions ask first, in place** (the owner's call): `ConfirmSubmit` in a form,
   `ConfirmAction` outside one. `lib/forms-guard.test.ts` enforces both; a deliberate one-tap
   exception goes in its list with the reason.

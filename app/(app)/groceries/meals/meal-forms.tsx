@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { SubmitButton } from "@/components/submit";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 import type { MealFormState } from "./actions";
@@ -70,9 +71,9 @@ export function AddWeekButton({ action }: { action: (prev: MealFormState) => Pro
 
 /** Phase 65d: a meal's name and ingredients, one per line. */
 export function MealForm({ action, name = "", ingredients = "", submitLabel }: { action: Action; name?: string; ingredients?: string; submitLabel: string }) {
-  const [state, run] = useActionState(action, {});
+  const [state, run, , formRef] = useKeptActionState(action, {});
   return (
-    <form action={run} className="flex flex-col gap-2" key={state.ok && !name ? state.ok : undefined}>
+    <form ref={formRef} action={run} className="flex flex-col gap-2" key={state.ok && !name ? state.ok : undefined}>
       <label className="block">
         <span className={`${fieldLabel} block`}>Name</span>
         <input name="name" defaultValue={name} required maxLength={80} placeholder="e.g. Tacos" className={`${field} mt-1 w-full`} />

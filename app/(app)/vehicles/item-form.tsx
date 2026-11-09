@@ -67,7 +67,7 @@ export function MaintenanceItemForm({
           <label className="block">
             <span className={fieldLabel}>Every N months</span>
             <input
-              type="number"
+              type="number" inputMode="numeric"
               name="intervalMonths"
               min={1}
               max={60}
@@ -219,7 +219,7 @@ function SupplyUsesEditor({ options, initial }: { options: SupplyOption[]; initi
             <input
               name="useQuantity"
               aria-label="Amount per service"
-              type="number"
+              type="number" inputMode="decimal"
               step="any"
               min="0"
               defaultValue={row.quantity}

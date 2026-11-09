@@ -92,7 +92,7 @@ function OdometerFormInner({
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input
-        type="number"
+        type="number" inputMode="numeric"
         name="mileage"
         autoFocus
         defaultValue={currentMileage}

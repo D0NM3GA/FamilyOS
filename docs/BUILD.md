@@ -2390,3 +2390,24 @@ batch takes the first two. The forms batch (errors that wipe what was typed) fol
   inside itself on a phone; a failed sign-out says so; a kid's picture tile says when its add failed;
   the grocery list's Undo bar stays ten seconds like the chores one (was six); the odometer's
   "Saved ✓" stays four seconds and is announced, and fuel and contact-log notes stay four seconds.
+### After Phase 70: a polish sweep (forms)
+
+The second batch of the polish sweep: what forms do after a submit.
+
+- **A refused save keeps what was typed.** React resets an uncontrolled form after every action
+  that doesn't throw, and an action that returns `{ error }` doesn't, so a duplicate meal name
+  wiped twelve ingredient lines, a bad cost at the pump cleared the odometer and gallons, and "Take
+  some back" flipped to "Give" on the next Save. `useKeptActionState` (`components/keep-typed.ts`)
+  wraps `useActionState` and cancels the reset (a cancellable event) after a refusal; a success
+  still clears. The Picker skips a cancelled reset. On the meal, fuel, repair, chore, person,
+  contact log (new and edit), gift idea, Add event and sticker forms. AGENTS.md "Forms" says to use
+  it for new ones.
+- **The grocery box keeps a name it can't file** ("🥚" alone) and says why, instead of clearing
+  and adding nothing. `addTypedItem` returns the reason; `addItem` stays a plain form action.
+- **Number pads.** Every `type="number"` input says `inputMode` (numeric, or decimal where it
+  takes fractions), so a phone shows the number pad. A chore's "every how many" and stickers have
+  a floor.
+- **Add rows keep focus.** After **+ Add** (the lists in Settings, gift ideas) focus goes back to
+  the name box, so a phone keeps its keyboard for the next one.
+- **Smaller ones:** a PIN box opened again doesn't say "PIN saved." from last time; **Sync now** and
+  **Send a test** say when they fail instead of taking the page to the error screen.

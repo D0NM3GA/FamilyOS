@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import { Camera, Plus } from "lucide-react";
 import { btn, btnPrimary, field } from "@/components/styles";
-import { addItem, addItemByBarcode, searchProductsAutocomplete, type BarcodeAddResult } from "./actions";
+import { addItem, addItemByBarcode, addTypedItem, searchProductsAutocomplete, type BarcodeAddResult } from "./actions";
 import { BarcodeScanner } from "./barcode-scanner";
 import { useCameraSupported } from "@/components/camera";
 import { useAppName } from "@/components/family-look";
@@ -116,7 +116,13 @@ export function AddBox() {
       try {
         if (picked) await addItem({ productId: picked.id });
         else if (LOOKS_LIKE_BARCODE.test(text)) handleBarcode(await addItemByBarcode(text), text);
-        else await addItem({ name: text });
+        else {
+          const added = await addTypedItem(text);
+          if (added?.error) {
+            setQuery(text);
+            setMessage(added.error);
+          }
+        }
       } catch (err) {
         setQuery(text);
         setMessage(failure(err));

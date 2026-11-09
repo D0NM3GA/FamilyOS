@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import type { VehicleFormState } from "@/app/(app)/vehicles/actions";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 
@@ -95,7 +96,7 @@ function FuelLogFormInner({
   onCancel: () => void;
   onSuccess: (notice?: string) => void;
 }) {
-  const [state, formAction, pending] = useActionState(logFuel, {});
+  const [state, formAction, pending, formRef] = useKeptActionState(logFuel, {});
   const wasPending = useRef(false);
   const id = useId();
 
@@ -115,7 +116,7 @@ function FuelLogFormInner({
   const label = `block ${fieldLabel}`;
 
   return (
-    <form action={formAction} className="ui-card flex w-full flex-wrap items-end gap-2 rounded-xl bg-card p-3 ring-1 ring-border">
+    <form ref={formRef} action={formAction} className="ui-card flex w-full flex-wrap items-end gap-2 rounded-xl bg-card p-3 ring-1 ring-border">
       <div>
         <label htmlFor={`${id}-date`} className={label}>
           Date
@@ -128,7 +129,7 @@ function FuelLogFormInner({
         </label>
         <input
           id={`${id}-mileage`}
-          type="number"
+          type="number" inputMode="numeric"
           name="mileage"
           required
           min={0}
@@ -143,7 +144,7 @@ function FuelLogFormInner({
         <label htmlFor={`${id}-gallons`} className={label}>
           Gallons
         </label>
-        <input id={`${id}-gallons`} type="number" name="gallons" required min={0.001} max={500} step={0.001} className={`${input} w-24`} />
+        <input id={`${id}-gallons`} type="number" inputMode="decimal" name="gallons" required min={0.001} max={500} step={0.001} className={`${input} w-24`} />
       </div>
       {showCost && (
         <div>

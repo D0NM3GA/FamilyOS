@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { SubmitButton } from "@/components/submit";
 import { btn, field, fieldLabel } from "@/components/styles";
 import { addCalendarEvent, type AddEventState } from "./actions";
@@ -11,11 +11,11 @@ import { addCalendarEvent, type AddEventState } from "./actions";
  * when the page is drawn, so a retry after a timeout doesn't add it twice.
  */
 export function AddEvent({ today, members, transactionId }: { today: string; members: { id: string; name: string }[]; transactionId: string }) {
-  const [state, action] = useActionState<AddEventState, FormData>(addCalendarEvent, {});
+  const [state, action, , formRef] = useKeptActionState<AddEventState>(addCalendarEvent, {});
   return (
     <details className="mt-3 rounded-xl ring-1 ring-border">
       <summary className="cursor-pointer px-3 py-2 text-sm font-bold">+ Add event</summary>
-      <form action={action} className="flex flex-col gap-3 px-3 pb-3">
+      <form ref={formRef} action={action} className="flex flex-col gap-3 px-3 pb-3">
         <input type="hidden" name="transactionId" value={transactionId} />
         <p className="text-xs text-muted-foreground">It goes to the Outlook calendar this page shows. Change or delete it in Outlook.</p>
         <label className="flex flex-col gap-1">
