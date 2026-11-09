@@ -65,12 +65,23 @@ const addInput = z.union([
 ]);
 
 /** Adds a Pantry item by id (suggestion, chip) or by typed name, which becomes a Pantry item. */
-export async function addItem(input: { productId: string } | { name: string }) {
+export async function addItem(input: { productId: string } | { name: string }): Promise<void> {
   const profile = await requireActiveProfile();
   await assertAppOn(profile.householdId, "groceries");
+  await addToList(profile, input);
+}
+
+/** The add box's typed name: like addItem, but says why when a name can't be added. */
+export async function addTypedItem(name: string): Promise<{ error?: string }> {
+  const profile = await requireActiveProfile();
+  await assertAppOn(profile.householdId, "groceries");
+  return addToList(profile, { name });
+}
+
+async function addToList(profile: Awaited<ReturnType<typeof requireActiveProfile>>, input: { productId: string } | { name: string }): Promise<{ error?: string }> {
   // Chips built from old purchase history can carry a long description; trim, don't drop.
   const parsed = addInput.safeParse("name" in input && typeof input.name === "string" ? { name: input.name.slice(0, 120) } : input);
-  if (!parsed.success) return;
+  if (!parsed.success) return {};
   const list = await getOrCreateActiveList(profile.householdId);
 
   let productId: string;
@@ -82,7 +93,8 @@ export async function addItem(input: { productId: string } | { name: string }) {
     if (!product) throw new Error("Item not found");
     productId = product.id;
   } else {
-    if (!productNameKey(parsed.data.name)) return;
+    // "🥚" alone has nothing to file it under; say so rather than clear the box and add nothing.
+    if (!productNameKey(parsed.data.name)) return { error: "Add a word or two to the name, like \"eggs\"." };
     const { product, created } = await findOrCreateProductByName(profile.householdId, parsed.data.name);
     if (created) await suggestSection(profile.householdId, product.id, product.name);
     productId = product.id;
@@ -90,6 +102,7 @@ export async function addItem(input: { productId: string } | { name: string }) {
 
   await addProductToList(profile.householdId, list.id, productId, profile);
   revalidateGroceries();
+  return {};
 }
 
 export type BarcodeAddResult =
