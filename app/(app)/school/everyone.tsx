@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
 import { btn, card, chip, chipRow } from "@/components/styles";
+import { MilestoneToastBoard } from "@/components/tasks/milestone-toast";
 import { SelectionProvider, SelectToggle } from "@/components/selection";
 import { getEveryoneOpen } from "@/lib/school/queries";
 import { matchesShow, type SchoolShow } from "@/lib/school/rules";
@@ -67,6 +68,7 @@ export async function Everyone({
   const adults = members.filter((m) => m.role !== "KID").map((m) => ({ id: m.id, name: m.firstName }));
 
   return (
+    <MilestoneToastBoard>
     <div className="max-w-5xl p-4 sm:p-6">
       <PageHeader title="🎒 School">
         <Link href="/data#school" className={btn}>
@@ -126,5 +128,6 @@ export async function Everyone({
       </div>
       {itemRef && <ItemPanel itemRef={itemRef} closeHref={here({ item: null })} />}
     </div>
+    </MilestoneToastBoard>
   );
 }

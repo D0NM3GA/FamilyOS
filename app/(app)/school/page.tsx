@@ -19,6 +19,7 @@ import { FormRow, HomeworkRow } from "./row-items";
 import { Everyone, ShowChips } from "./everyone";
 import { ItemPanel } from "../item-panel";
 import { itemParam, parseItemRef } from "@/lib/work-items/history";
+import { MilestoneToastBoard } from "@/components/tasks/milestone-toast";
 import { SelectionProvider, SelectToggle } from "@/components/selection";
 import { FormsBulkBar, HomeworkBulkBar } from "./bulk";
 import { requireAppOn } from "@/lib/app-guard";
@@ -112,6 +113,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
     : [];
 
   return (
+    <MilestoneToastBoard>
     <div className="max-w-5xl p-4 sm:p-6">
       <PageHeader title="🎒 School">
         {adult && (
@@ -402,6 +404,7 @@ export default async function SchoolPage({ searchParams }: { searchParams: Promi
       </div>
       {itemRef && <ItemPanel itemRef={itemRef} closeHref={here({ item: null })} />}
     </div>
+    </MilestoneToastBoard>
   );
 }
 
