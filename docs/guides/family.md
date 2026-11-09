@@ -436,7 +436,7 @@ Grown-ups plan; kids can see the week. Deleting a meal keeps its name on the day
 
 ## School
 
-For each kid: **Homework & tests** (tick them off when they're turned in), **Recent grades** and
+For each kid: **Homework & tests** (tick them off when they're turned in; **Undo** on the bar at the bottom puts one back for a few seconds), **Recent grades** and
 **Averages**, **Teachers & contacts**, and the **School calendar, next two weeks**. Grown-ups also
 see **Forms & to-dos** (things to sign, pay or buy) and who's handling each.
 
