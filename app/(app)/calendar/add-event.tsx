@@ -1,6 +1,6 @@
 "use client";
 
-import { useKeptActionState } from "@/components/keep-typed";
+import { useFreshAnswer, useKeptActionState } from "@/components/keep-typed";
 import { SubmitButton } from "@/components/submit";
 import { btn, field, fieldLabel } from "@/components/styles";
 import { addCalendarEvent, type AddEventState } from "./actions";
@@ -12,10 +12,11 @@ import { addCalendarEvent, type AddEventState } from "./actions";
  */
 export function AddEvent({ today, members, transactionId }: { today: string; members: { id: string; name: string }[]; transactionId: string }) {
   const [state, action, , formRef] = useKeptActionState<AddEventState>(addCalendarEvent, {});
+  const { fresh, onInput } = useFreshAnswer(state);
   return (
     <details className="mt-3 rounded-xl ring-1 ring-border">
       <summary className="cursor-pointer px-3 py-2 text-sm font-bold">+ Add event</summary>
-      <form ref={formRef} action={action} className="flex flex-col gap-3 px-3 pb-3">
+      <form ref={formRef} action={action} onInput={onInput} className="flex flex-col gap-3 px-3 pb-3">
         <input type="hidden" name="transactionId" value={transactionId} />
         <p className="text-xs text-muted-foreground">It goes to the Outlook calendar this page shows. Change or delete it in Outlook.</p>
         <label className="flex flex-col gap-1">
@@ -54,7 +55,7 @@ export function AddEvent({ today, members, transactionId }: { today: string; mem
             {state.error}
           </p>
         )}
-        {state.ok && (
+        {state.ok && fresh && (
           <p role="status" className="text-sm font-bold text-foreground">
             {state.ok}
           </p>
