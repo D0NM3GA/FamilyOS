@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { btn, field } from "@/components/styles";
 import type { SupplyFormState } from "./actions";
 
@@ -15,9 +15,9 @@ export function StockForm({
   /** The supply's name, so each row's box and button say which supply they restock. */
   name: string;
 }) {
-  const [state, formAction, pending] = useActionState<SupplyFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<SupplyFormState>(action, {});
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
+    <form ref={keptForm} action={formAction} className="flex flex-wrap items-center gap-2">
       <input
         name="amount"
         type="number" inputMode="decimal"

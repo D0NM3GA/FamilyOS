@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useState, useTransition } from "react";
 import { btnDanger } from "@/components/styles";
 import { ConfirmAction } from "@/components/submit";
 import { allowTeamsPublishing, disconnectTeams, publishTeamsApp, removeDevice, resetPhoneAlertKeys, sendTestAlert, setAlertMailbox, setChannel, type AlertFormState } from "./actions";
@@ -79,13 +80,13 @@ export function PersonChannel({
  * Microsoft's sign-in and comes back here).
  */
 export function TeamsAppButtons({ label, askFirst }: { label: string; askFirst: boolean }) {
-  const [state, action, pending] = useActionState<AlertFormState, FormData>(() => publishTeamsApp(), {});
+  const [state, action, pending, keptForm] = useKeptActionState<AlertFormState>(() => publishTeamsApp(), {});
   const showGrant = askFirst || state.needsGrant;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
         {showGrant && <AllowPublishingButton />}
-        <form action={action}>
+        <form ref={keptForm} action={action}>
           <button
             type="submit"
             disabled={pending}
@@ -102,9 +103,9 @@ export function TeamsAppButtons({ label, askFirst }: { label: string; askFirst: 
 
 /** Leaves for Microsoft's sign-in to grant AppCatalog.ReadWrite.All, and comes back to Alerts. */
 function AllowPublishingButton() {
-  const [state, action, pending] = useActionState<AlertFormState, FormData>(() => allowTeamsPublishing(), {});
+  const [state, action, pending, keptForm] = useKeptActionState<AlertFormState>(() => allowTeamsPublishing(), {});
   return (
-    <form action={action}>
+    <form ref={keptForm} action={action}>
       <button type="submit" disabled={pending} className={btn}>
         Allow publishing (Microsoft)
       </button>
@@ -221,9 +222,9 @@ export function ResetPhoneKeysButton() {
 
 /** Phase 53: the mailbox alert email comes from. Empty uses the server's setting. */
 export function MailboxForm({ saved, fallback }: { saved: string | null; fallback: string | null }) {
-  const [state, action, pending] = useActionState<AlertFormState, FormData>(setAlertMailbox, {});
+  const [state, action, pending, keptForm] = useKeptActionState<AlertFormState>(setAlertMailbox, {});
   return (
-    <form action={action} className="space-y-2">
+    <form ref={keptForm} action={action} className="space-y-2">
       <label className="block text-sm">
         <span className="font-medium text-foreground">Send alert email from</span>
         <span className="mt-1 flex flex-wrap gap-2">

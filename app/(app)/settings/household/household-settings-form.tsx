@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { HouseholdSettingsFormState } from "./actions";
-import { useFreshAnswer } from "@/components/keep-typed";
+import { useFreshAnswer, useKeptActionState } from "@/components/keep-typed";
 import { useDeviceTimeZone } from "@/components/device-time-zone";
 import { Picker, type PickerOption } from "@/components/picker";
 
@@ -34,7 +34,7 @@ export function HouseholdSettingsForm({
   defaults: { name: string; timezone: string | null; statementDateOrder: "AUTO" | "MONTH_FIRST" | "DAY_FIRST" };
   timeZones: string[];
 }) {
-  const [state, formAction, pending] = useActionState<HouseholdSettingsFormState, FormData>(
+  const [state, formAction, pending, keptForm] = useKeptActionState<HouseholdSettingsFormState>(
     action,
     {},
   );
@@ -60,7 +60,7 @@ export function HouseholdSettingsForm({
   }, [zones, inBrowser]);
 
   return (
-    <form action={formAction} onInput={onInput} className="space-y-4 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+    <form ref={keptForm} action={formAction} onInput={onInput} className="space-y-4 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
       <div>
         <label htmlFor="household-name" className="block text-sm font-medium text-foreground">Household name</label>
         <input

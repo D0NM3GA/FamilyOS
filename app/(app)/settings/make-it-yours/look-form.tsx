@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useState } from "react";
 import { Wordmark } from "@/components/family-look";
 import { btnPrimary, card, field, fieldLabel } from "@/components/styles";
 import { APP_NAME_SUFFIX, FAMILY_NAME_MAX, appNameFromFamilyName, appNameOrDefault } from "@/lib/app-name";
@@ -26,7 +27,7 @@ const unpicked = "border-ink/15 bg-card dark:border-white/15";
 const focusRing = "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50";
 
 export function LookForm({ defaults }: { defaults: LookDefaults }) {
-  const [state, formAction, pending] = useActionState<LookFormState, FormData>(saveLook, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<LookFormState>(saveLook, {});
   const [familyName, setFamilyName] = useState(defaults.familyName);
   const [color, setColor] = useState(defaults.themeColor);
   const [reward, setReward] = useState(defaults.reward);
@@ -47,7 +48,7 @@ export function LookForm({ defaults }: { defaults: LookDefaults }) {
   const shownMascot = mascotName.trim() || DEFAULT_MASCOT_NAME;
 
   return (
-    <form action={formAction} className="max-w-3xl space-y-4">
+    <form ref={keptForm} action={formAction} className="max-w-3xl space-y-4">
       {/* What it'll look like, before saving: the top bar in the chosen color. */}
       <div aria-hidden className="flex h-14 items-center gap-3 rounded-2xl px-4 text-white shadow-sm" style={{ backgroundColor: chrome }}>
         <span className="size-8 rounded-full bg-sun" />

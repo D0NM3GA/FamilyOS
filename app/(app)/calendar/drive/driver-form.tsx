@@ -1,15 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { SubmitButton } from "@/components/submit";
 import { btnPrimary } from "@/components/styles";
 import { chooseDriver, type DriverState } from "./actions";
 
 /** Phase 70b: the grown-ups as choices, and "Nobody yet". */
 export function DriverForm({ calendarId, graphId, week, driverId, drivers }: { calendarId: string; graphId: string; week: string; driverId: string | null; drivers: { id: string; name: string }[] }) {
-  const [state, action] = useActionState<DriverState, FormData>(chooseDriver, {});
+  const [state, action, , keptForm] = useKeptActionState<DriverState>(chooseDriver, {});
   return (
-    <form action={action} className="space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
+    <form ref={keptForm} action={action} className="space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
       <input type="hidden" name="c" value={calendarId} />
       <input type="hidden" name="g" value={graphId} />
       <input type="hidden" name="week" value={week} />

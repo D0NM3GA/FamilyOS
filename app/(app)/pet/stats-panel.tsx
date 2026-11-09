@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { hearts } from "@/lib/pet/state";
 import { PET_NAME_MAX } from "@/lib/pet/words";
 import { btn, card, field, fieldLabel } from "@/components/styles";
@@ -30,7 +30,7 @@ function Meter({ label, value, icon }: { label: string; value: number; icon: str
 }
 
 export function StatsPanel({ pet }: { pet: ScreenPet }) {
-  const [state, rename] = useActionState<HatchState, FormData>(renamePet, {});
+  const [state, rename, , keptForm] = useKeptActionState<HatchState>(renamePet, {});
   return (
     <div className={`${card} mx-auto grid max-w-3xl gap-4 sm:grid-cols-2`}>
       <div className="space-y-2">
@@ -47,7 +47,7 @@ export function StatsPanel({ pet }: { pet: ScreenPet }) {
           <span className="font-bold">Age:</span> {pet.ageDays} {pet.ageDays === 1 ? "day" : "days"} · <span className="font-bold">Weight:</span> {Math.round(pet.weight)} g
         </p>
       </div>
-      <form action={rename} className="grid content-start gap-2">
+      <form ref={keptForm} action={rename} className="grid content-start gap-2">
         <label className="grid gap-1">
           <span className={fieldLabel}>Rename</span>
           <input name="name" defaultValue={pet.name} maxLength={PET_NAME_MAX} className={field} autoComplete="off" />

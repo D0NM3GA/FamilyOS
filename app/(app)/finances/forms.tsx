@@ -1,6 +1,7 @@
 "use client";
 
-import { type ReactNode, useActionState, useState, useTransition } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { type ReactNode, useState, useTransition } from "react";
 import { btnPrimary } from "@/components/styles";
 import { SubmitButton } from "@/components/submit";
 import type { FormState } from "./actions";
@@ -19,9 +20,9 @@ export function ActionForm({
   className?: string;
   resetOnSuccess?: boolean;
 }) {
-  const [state, run] = useActionState(action, {});
+  const [state, run, , keptForm] = useKeptActionState(action, {});
   return (
-    <form
+    <form ref={keptForm}
       action={run}
       className={className}
       // Secrets (setup token, API key) must not linger in the field after a successful save.

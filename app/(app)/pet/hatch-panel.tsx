@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useState } from "react";
 import type { DeathCause, Species, Stage } from "@/lib/pet/state";
 import { formName, memoryLine, PET_NAME_MAX, SPECIES_NAMES } from "@/lib/pet/words";
 import { fill, GOODBYE_AFTER, HATCH_INTRO, HATCH_PENDING } from "@/lib/pet/voice";
@@ -17,7 +18,7 @@ const SPECIES_ORDER: readonly Species[] = ["blob", "bird", "critter"];
  * gently, and a new egg is ready straight away (the owner's call).
  */
 export function HatchPanel({ goodbye }: { goodbye: Goodbye | null }) {
-  const [state, hatch] = useActionState<HatchState, FormData>(hatchPet, {});
+  const [state, hatch, , keptForm] = useKeptActionState<HatchState>(hatchPet, {});
   const [species, setSpecies] = useState<Species>("blob");
 
   return (
@@ -42,7 +43,7 @@ export function HatchPanel({ goodbye }: { goodbye: Goodbye | null }) {
         </section>
       )}
 
-      <form action={hatch} className={`${card} space-y-4`}>
+      <form ref={keptForm} action={hatch} className={`${card} space-y-4`}>
         <fieldset>
           <legend className="text-xl font-extrabold">{goodbye ? "Pick a new egg" : "Pick an egg"}</legend>
           <p className="text-sm text-muted-foreground">{HATCH_INTRO} What it grows into is up to you.</p>

@@ -1,7 +1,8 @@
 "use client";
 
+import { useKeptActionState } from "@/components/keep-typed";
 import Link from "next/link";
-import { useActionState, useState, useEffect, useId, useRef } from "react";
+import { useState, useEffect, useId, useRef } from "react";
 import { MoreOptions } from "@/components/more-options";
 import { btn, btnPrimary, chip, field, fieldLabel, formActions } from "@/components/styles";
 import { searchMedicationNames } from "./actions";
@@ -81,7 +82,7 @@ export function TaskDefinitionForm({
   cancelHref: string;
 }) {
   const zone = useHouseholdZone();
-  const [state, formAction, pending] = useActionState<TaskFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<TaskFormState>(action, {});
   const [frequency, setFrequency] = useState(defaults?.frequencyType ?? "DAILY");
   // Phase 68a: a course ends after N days or on a date; a stored end shows as its date.
   const [endMode, setEndMode] = useState<"never" | "days" | "date">(defaults?.endDate ? "date" : "never");
@@ -166,7 +167,7 @@ export function TaskDefinitionForm({
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={keptForm} action={formAction} className="space-y-4">
       <div
         className="relative"
         onBlur={(e) => {

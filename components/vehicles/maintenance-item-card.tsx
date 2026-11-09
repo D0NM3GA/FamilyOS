@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { Undo2 } from "lucide-react";
 import type { VehicleFormState } from "@/app/(app)/vehicles/actions";
 import { btn, btnPrimary, field, fieldLabel, iconBtn } from "@/components/styles";
@@ -194,7 +195,7 @@ function LogServiceForm({
   onCancel: () => void;
   onSuccess: (notice?: string) => void;
 }) {
-  const [state, formAction, pending] = useActionState(logDone, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState(logDone, {});
   // Phase 12.5 (owner's call): a service done today takes its supplies from stock; one typed
   // in from an old receipt usually didn't use today's oil. Follows the date, overridable.
   const [takeSupplies, setTakeSupplies] = useState(!prefill || prefill.date === todayInputValue);
@@ -215,7 +216,7 @@ function LogServiceForm({
   }, [pending, state.error]);
 
   return (
-    <form action={formAction} className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3">
+    <form ref={keptForm} action={formAction} className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3">
       <div>
         <label htmlFor={`${id}-date`} className={`block ${fieldLabel}`}>
           Date

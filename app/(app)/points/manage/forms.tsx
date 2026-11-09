@@ -1,17 +1,16 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type RefObject } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { btnDanger, btnPrimary, field } from "@/components/styles";
 import { deleteBucket, saveBucket, saveFamilyGoal, saveReward, type FormState } from "../actions";
 import { RewardWord } from "@/components/family-look";
 
 /** An "add" form clears itself after each successful save, ready for the next one. */
-function useResetOnAdd(isAdd: boolean, state: FormState) {
-  const ref = useRef<HTMLFormElement>(null);
+function useResetOnAdd(isAdd: boolean, state: FormState, ref: RefObject<HTMLFormElement | null>) {
   useEffect(() => {
     if (isAdd && state.ok) ref.current?.reset();
-  }, [isAdd, state]);
-  return ref;
+  }, [isAdd, state, ref]);
 }
 
 function Status({ state }: { state: FormState }) {
@@ -21,9 +20,9 @@ function Status({ state }: { state: FormState }) {
 }
 
 export function FamilyGoalForm({ stickers, title }: { stickers: number | null; title: string | null }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(saveFamilyGoal, {});
+  const [state, action, pending, keptForm] = useKeptActionState<FormState>(saveFamilyGoal, {});
   return (
-    <form action={action} className="mt-3 flex flex-wrap items-end gap-2">
+    <form ref={keptForm} action={action} className="mt-3 flex flex-wrap items-end gap-2">
       <label className="text-sm font-bold">
         <RewardWord cap />
         <input name="stickers" type="number" inputMode="numeric" min={1} defaultValue={stickers ?? ""} placeholder="200" className={`${field} mt-1 block w-28`} />
@@ -41,8 +40,8 @@ export function FamilyGoalForm({ stickers, title }: { stickers: number | null; t
 }
 
 export function BucketForm({ bucket }: { bucket: { id: string; name: string; emoji: string | null } | null }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(saveBucket.bind(null, bucket?.id ?? null), {});
-  const formRef = useResetOnAdd(!bucket, state);
+  const [state, action, pending, formRef] = useKeptActionState<FormState>(saveBucket.bind(null, bucket?.id ?? null), {});
+  useResetOnAdd(!bucket, state, formRef);
   return (
     <form ref={formRef} action={action} className="flex flex-wrap items-center gap-2">
       <label className="sr-only" htmlFor={`bucket-emoji-${bucket?.id ?? "new"}`}>
@@ -95,9 +94,9 @@ type Reward = {
 };
 
 export function RewardForm({ reward, shelves }: { reward: Reward | null; shelves: { id: string; label: string }[] }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(saveReward.bind(null, reward?.id ?? null), {});
+  const [state, action, pending, formRef] = useKeptActionState<FormState>(saveReward.bind(null, reward?.id ?? null), {});
   const key = reward?.id ?? "new";
-  const formRef = useResetOnAdd(!reward, state);
+  useResetOnAdd(!reward, state, formRef);
   return (
     <form ref={formRef} action={action} className="grid gap-2 rounded-2xl bg-muted p-3 sm:grid-cols-[4rem_1fr_6rem]">
       <label className="text-xs font-bold">

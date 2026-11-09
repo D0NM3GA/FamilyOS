@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useId } from "react";
 import { btnPrimary, field, fieldLabel } from "@/components/styles";
 import type { FeedFormState } from "./actions";
 
@@ -13,10 +14,10 @@ export function AddFeedForm({
   action: (prev: FeedFormState, fd: FormData) => Promise<FeedFormState>;
   students: { id: string; name: string }[];
 }) {
-  const [state, formAction, pending] = useActionState<FeedFormState, FormData>(action, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<FeedFormState>(action, {});
   const hintId = useId();
   return (
-    <form action={formAction} className="space-y-3">
+    <form ref={keptForm} action={formAction} className="space-y-3">
       <label className="block">
         <span className={fieldLabel}>Name</span>
         <input name="name" required placeholder="Lincoln Elementary calendar" className={box} />

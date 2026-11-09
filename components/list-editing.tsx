@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useEffect, useRef, useState } from "react";
 import { btn, btnDanger, btnPrimary, field } from "./styles";
 
 /**
@@ -28,7 +29,7 @@ function Problem({ state }: { state: EditState }) {
  * starts it fresh from what the server now has.
  */
 export function RenameFields({ action, name, emoji, label }: { action: EditAction; name: string; emoji: string | null; label: string }) {
-  const [state, run, pending] = useActionState(action, {});
+  const [state, run, pending, keptForm] = useKeptActionState(action, {});
   const [typedName, setTypedName] = useState(name);
   const [typedEmoji, setTypedEmoji] = useState(emoji ?? "");
   const changed = typedName.trim() !== name || typedEmoji.trim() !== (emoji ?? "");
@@ -40,7 +41,7 @@ export function RenameFields({ action, name, emoji, label }: { action: EditActio
   return (
     // basis-44: narrow enough to share a phone's line with a section's ↑ ↓; the count and
     // Remove wrap under it.
-    <form action={run} className="flex min-w-0 flex-1 basis-44 flex-wrap items-center gap-2">
+    <form ref={keptForm} action={run} className="flex min-w-0 flex-1 basis-44 flex-wrap items-center gap-2">
       <input
         name="emoji"
         value={typedEmoji}
@@ -99,7 +100,7 @@ export function RemoveAndMove({
 }) {
   const [asking, setAsking] = useState(false);
   const [picked, setPicked] = useState(defaultValue);
-  const [state, run, pending] = useActionState(action, {});
+  const [state, run, pending, keptForm] = useKeptActionState(action, {});
   const pickedNote = options.find((o) => o.value === picked)?.note;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const kept = useRef(false);
@@ -117,7 +118,7 @@ export function RemoveAndMove({
     );
   }
   return (
-    <form action={run} className="flex basis-full flex-col gap-2 rounded-xl bg-tomato/10 p-3">
+    <form ref={keptForm} action={run} className="flex basis-full flex-col gap-2 rounded-xl bg-tomato/10 p-3">
       <label className="flex flex-col gap-1.5 text-sm font-semibold sm:flex-row sm:flex-wrap sm:items-center">
         <span>{question}</span>
         {/* Focus moves to the choice so the question is read out with it. */}
@@ -174,7 +175,7 @@ export function AddRow({
   const [typedEmoji, setTypedEmoji] = useState("");
   const [picked, setPicked] = useState(choice?.options[0]?.value ?? "");
   const nameBox = useRef<HTMLInputElement>(null);
-  const [state, run, pending] = useActionState(async (prev: EditState, formData: FormData) => {
+  const [state, run, pending, keptForm] = useKeptActionState(async (prev: EditState, formData: FormData) => {
     const answer = await action(prev, formData);
     if (answer.ok) {
       setTypedName("");
@@ -185,7 +186,7 @@ export function AddRow({
     return answer;
   }, {});
   return (
-    <form action={run} className="flex flex-wrap items-center gap-2">
+    <form ref={keptForm} action={run} className="flex flex-wrap items-center gap-2">
       <input
         name="emoji"
         value={typedEmoji}

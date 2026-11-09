@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useId } from "react";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 import type { FeedFormState, FindState } from "./actions";
 
@@ -22,11 +23,11 @@ export function FindCalendarsForm({
   add: (prev: FeedFormState, fd: FormData) => Promise<FeedFormState>;
   students: Students;
 }) {
-  const [state, formAction, pending] = useActionState<FindState, FormData>(find, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<FindState>(find, {});
   const hintId = useId();
   return (
     <div className="space-y-3">
-      <form action={formAction} className="space-y-2">
+      <form ref={keptForm} action={formAction} className="space-y-2">
         <label className="block">
           <span className={fieldLabel}>The school&apos;s website</span>
           <input
@@ -92,12 +93,12 @@ function AddFound({
   add: (prev: FeedFormState, fd: FormData) => Promise<FeedFormState>;
   students: Students;
 }) {
-  const [state, formAction, pending] = useActionState<FeedFormState, FormData>(add, {});
+  const [state, formAction, pending, keptForm] = useKeptActionState<FeedFormState>(add, {});
   const nameId = useId();
   const forId = useId();
   if (state.notice) return <p className="text-sm text-emerald-700 dark:text-emerald-300">{state.notice}</p>;
   return (
-    <form action={formAction} className="space-y-2">
+    <form ref={keptForm} action={formAction} className="space-y-2">
       <p className="text-sm font-bold">{calendar.name}</p>
       <p className="text-xs text-muted-foreground">
         {calendar.host} · {calendar.upcoming} upcoming

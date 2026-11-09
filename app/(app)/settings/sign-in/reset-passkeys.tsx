@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
+import { useState } from "react";
 import { ConfirmSubmit } from "@/components/submit";
 import { btn, btnDanger, field } from "@/components/styles";
 import type { ResetState } from "./actions";
@@ -12,7 +13,7 @@ type Action = (prevState: ResetState, formData: FormData) => Promise<ResetState>
  * the new sign-in link comes back once, to hand over (the server keeps only a hash of it).
  */
 export function ResetPasskeys({ action, name, hours }: { action: Action; name: string; hours: number }) {
-  const [state, formAction] = useActionState<ResetState, FormData>(action, {});
+  const [state, formAction, , keptForm] = useKeptActionState<ResetState>(action, {});
   const [shownLink, setShownLink] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean | null>(null);
 
@@ -50,7 +51,7 @@ export function ResetPasskeys({ action, name, hours }: { action: Action; name: s
   }
 
   return (
-    <form action={formAction}>
+    <form ref={keptForm} action={formAction}>
       <ConfirmSubmit
         question={`Reset ${name}'s passkeys? Every passkey they have stops working and they're signed out everywhere. You get a link, good for ${hours === 1 ? "an hour" : `${hours} hours`}, to give them so they can make a new one. ${name} and the other admins are told.`}
         yes="Reset"
