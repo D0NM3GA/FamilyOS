@@ -132,8 +132,8 @@ export function ProfileMenu({
       <button
         ref={buttonRef}
         type="button"
+        // A disclosure, not a menu: aria-haspopup would promise arrow-key menu items it doesn't have.
         aria-expanded={open}
-        aria-haspopup="true"
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((v) => !v)}
         className="flex min-h-11 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-chrome-hover sm:min-h-0"
