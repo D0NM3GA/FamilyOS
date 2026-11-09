@@ -37,18 +37,22 @@ export function StatusPill<S extends string>({
   options,
   title,
   onPick,
+  busy = false,
 }: {
   look: PillLook;
   options?: StatusOption<S>[];
   title: string;
   onPick: (value: S) => void;
+  /** Saving a pick: the pill stays a button (focus stays on it) but won't open. */
+  busy?: boolean;
 }) {
   if (!options || options.length === 0) return <Pill look={look} />;
   return (
     <MoreMenu
       label={`Status of ${title}: ${look.label}. Change it`}
       face={<Pill look={look} open />}
-      triggerClassName="inline-flex min-h-11 shrink-0 items-center rounded-full px-1 sm:min-h-9"
+      triggerClassName="inline-flex min-h-11 shrink-0 items-center rounded-full px-1 sm:min-h-9 aria-disabled:opacity-60"
+      busy={busy}
     >
       {options.map((o) => (
         <button key={o.value} type="button" onClick={() => onPick(o.value)} className={menuItem}>

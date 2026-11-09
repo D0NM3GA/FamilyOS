@@ -305,7 +305,10 @@ export function TaskInstanceCard({
       } catch (err) {
         console.error("[task-card] skip failed", err);
         setFailed(true);
+        return;
       }
+      // Missed on Overdue leaves the list like Done does: the board's bar keeps its Undo.
+      if (disappearsOnComplete && onUnskip) reportUndo?.({ title: instance.definition.title, verb: "marked missed", undo: () => onUnskip(instance.id) });
     });
   }
 
@@ -336,6 +339,10 @@ export function TaskInstanceCard({
       try {
         const { moved } = await onMove!(instance.id, to);
         if (!moved) setMoveRefused(true);
+        // Tomorrow is out of sight (a closed fold, or another day): say so, with a way back.
+        else if (to === "tomorrow") reportUndo?.({ title: instance.definition.title, verb: "moved to tomorrow", undo: async () => {
+            if (!(await onMove!(instance.id, "back")).moved) throw new Error("move back refused");
+          } });
       } catch (err) {
         console.error("[task-card] move failed", err);
         setFailed(true);
@@ -441,7 +448,7 @@ export function TaskInstanceCard({
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {pill && pillLook && (
               // One change at a time: "Undo" waits until the server has the completion it undoes.
-              <StatusPill look={pillLook} options={isPending ? [] : pill.options[optimisticStatus]} title={instance.definition.title} onPick={handlePick} />
+              <StatusPill look={pillLook} options={pill.options[optimisticStatus]} busy={isPending} title={instance.definition.title} onPick={handlePick} />
             )}
             {(canReassign || skipInMenu || canMove) && (
               <MoreMenu label={`More for ${instance.definition.title}`} big={big}>

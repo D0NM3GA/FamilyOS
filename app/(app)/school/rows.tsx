@@ -200,7 +200,7 @@ export function AssignmentRow({
         </div>
       )}
       <div className="ml-auto flex items-center gap-1">
-        <StatusPill look={look} options={pending || picking ? [] : options} title={item.title} onPick={pick} />
+        <StatusPill look={look} options={picking ? [] : options} busy={pending} title={item.title} onPick={pick} />
         {!picking && (editHref || canRemove || grade || detailsHref) && (
           <MoreMenu label={`More for ${item.title}`} triggerRef={more}>
             {detailsHref && (
@@ -343,7 +343,7 @@ export function SchoolTaskRow({
         <p className={`text-xs ${late && status === "OPEN" ? "font-bold text-destructive" : "text-muted-foreground"}`}>{meta}</p>
       </div>
       <div className="ml-auto flex items-center gap-1">
-        <StatusPill look={look} options={pending || picking ? [] : item.options[status]} title={item.title} onPick={pick} />
+        <StatusPill look={look} options={picking ? [] : item.options[status]} busy={pending} title={item.title} onPick={pick} />
         {!picking && (
         <MoreMenu label={`More for ${item.title}`} triggerRef={more}>
           {detailsHref && (

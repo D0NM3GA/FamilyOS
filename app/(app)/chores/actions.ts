@@ -347,9 +347,11 @@ export async function bulkChores(input: unknown): Promise<BulkResult | { error: 
 export async function checkInstance(instanceId: string, ok: boolean): Promise<void> {
   const profile = await requireAdult();
   await assertAppOn(profile.householdId, "chores");
-  await prisma.$transaction((tx) => checkChore(tx, { id: profile.id, householdId: profile.householdId, adult: true }, instanceId, ok));
+  const done = await prisma.$transaction((tx) => checkChore(tx, { id: profile.id, householdId: profile.householdId, adult: true }, instanceId, ok));
   revalidateBoard();
   revalidatePath("/points");
+  // The row leaves the list, so the page says what happened (a stale tap says nothing).
+  if (done.ok) redirect(`/chores?check=${ok ? "ok" : "again"}`);
 }
 
 export type SwapState = { error?: string };
@@ -379,6 +381,8 @@ export async function answerChoreSwap(swapId: string, accept: boolean): Promise<
   const done = await answerSwap(profile, swapId, accept, atMidnight(new Date()));
   revalidateBoard();
   if (!done.ok) redirect(`/chores?swap=${done.error === SWAP_LAPSED ? "lapsed" : "gone"}`);
+  // The row leaves the list, so the page says what happened.
+  redirect(`/chores?swap=${accept ? "taken" : "declined"}`);
 }
 
 /** Phase 70c: the kid who asked takes it back. */

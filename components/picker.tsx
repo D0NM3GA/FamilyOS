@@ -74,6 +74,9 @@ export function Picker({
   const listRef = useRef<HTMLDivElement>(null);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPointer = useRef<{ x: number; y: number } | null>(null);
+  // Whether the list was already open when this tap began: then the tap closes it. A tap that
+  // focuses the box opens it on focus, and its click must not close it again.
+  const openAtPress = useRef(false);
   const autoId = useId();
   const inputId = id ?? `${autoId}-input`;
   const listId = `${autoId}-list`;
@@ -172,7 +175,14 @@ export function Picker({
         value={typed ? query : shownText(selected)}
         placeholder={typed && selected ? shownText(selected) : placeholder}
         onFocus={openList}
-        onClick={openList}
+        onPointerDown={() => {
+          openAtPress.current = open && !typed;
+        }}
+        onClick={() => {
+          if (openAtPress.current) close();
+          else openList();
+          openAtPress.current = false;
+        }}
         onChange={(e) => {
           if (!open) openList();
           setTyped(true);
