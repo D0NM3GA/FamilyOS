@@ -119,7 +119,7 @@ export default async function ManageMedsPage() {
                       )}
                       <form action={addStock.bind(null, def.id)} className="flex items-center gap-2">
                         <input
-                          type="number"
+                          type="number" inputMode="decimal"
                           name="amount"
                           step="any"
                           min="0"

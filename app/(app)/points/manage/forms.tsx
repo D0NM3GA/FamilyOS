@@ -26,7 +26,7 @@ export function FamilyGoalForm({ stickers, title }: { stickers: number | null; t
     <form action={action} className="mt-3 flex flex-wrap items-end gap-2">
       <label className="text-sm font-bold">
         <RewardWord cap />
-        <input name="stickers" type="number" min={1} defaultValue={stickers ?? ""} placeholder="200" className={`${field} mt-1 block w-28`} />
+        <input name="stickers" type="number" inputMode="numeric" min={1} defaultValue={stickers ?? ""} placeholder="200" className={`${field} mt-1 block w-28`} />
       </label>
       <label className="min-w-48 flex-1 text-sm font-bold">
         For
@@ -110,7 +110,7 @@ export function RewardForm({ reward, shelves }: { reward: Reward | null; shelves
       </label>
       <label className="text-xs font-bold">
         <RewardWord cap />
-        <input name="pointCost" type="number" min={1} required defaultValue={reward?.pointCost ?? ""} className={`${field} mt-1 block w-full`} />
+        <input name="pointCost" type="number" inputMode="numeric" min={1} required defaultValue={reward?.pointCost ?? ""} className={`${field} mt-1 block w-full`} />
       </label>
       <label className="text-xs font-bold">
         Shelf

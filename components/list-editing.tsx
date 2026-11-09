@@ -173,12 +173,15 @@ export function AddRow({
   const [typedName, setTypedName] = useState("");
   const [typedEmoji, setTypedEmoji] = useState("");
   const [picked, setPicked] = useState(choice?.options[0]?.value ?? "");
+  const nameBox = useRef<HTMLInputElement>(null);
   const [state, run, pending] = useActionState(async (prev: EditState, formData: FormData) => {
     const answer = await action(prev, formData);
     if (answer.ok) {
       setTypedName("");
       setTypedEmoji("");
     }
+    // Back in the name box for the next one (or to fix this one), so a phone keeps its keyboard.
+    requestAnimationFrame(() => nameBox.current?.focus());
     return answer;
   }, {});
   return (
@@ -193,6 +196,7 @@ export function AddRow({
         className={`${field} w-14 text-center`}
       />
       <input
+        ref={nameBox}
         name="name"
         value={typedName}
         onChange={(e) => setTypedName(e.target.value)}

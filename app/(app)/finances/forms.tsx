@@ -54,20 +54,32 @@ export function Submit({ children, className = btnPrimary, pendingText = "Workin
 /** "Sync now", with its answer shown inline. */
 export function SyncButton({ sync, label = "🔄 Sync now", busy = "Syncing…" }: { sync: () => Promise<FormState>; label?: string; busy?: string }) {
   const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  // A refusal or a dropped connection says so here; before, only a success showed, and a throw
+  // took the whole page to the error screen.
+  const run = () =>
+    start(async () => {
+      try {
+        const r = await sync();
+        setMsg(r.error ? { text: r.error, bad: true } : r.ok ? { text: r.ok, bad: false } : null);
+      } catch (err) {
+        console.error("[sync] failed", err);
+        setMsg({ text: "That didn't go through. Check your connection and try again.", bad: true });
+      }
+    });
   return (
     <span className="flex flex-wrap items-center gap-2">
       <button
         type="button"
         disabled={pending}
-        onClick={() => start(async () => setMsg((await sync()).ok ?? null))}
+        onClick={run}
         className="inline-flex min-h-11 items-center rounded-xl border-2 border-ink px-3 text-sm font-bold hover:bg-muted disabled:opacity-50 sm:min-h-9 dark:border-white/20"
       >
         {pending ? busy : label}
       </button>
       {msg && (
-        <span role="status" className="text-xs text-muted-foreground">
-          {msg}
+        <span role={msg.bad ? "alert" : "status"} className={`text-xs ${msg.bad ? "text-destructive" : "text-muted-foreground"}`}>
+          {msg.text}
         </span>
       )}
     </span>

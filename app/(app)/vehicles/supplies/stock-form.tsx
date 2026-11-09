@@ -20,7 +20,7 @@ export function StockForm({
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input
         name="amount"
-        type="number"
+        type="number" inputMode="decimal"
         step="any"
         min="0"
         required

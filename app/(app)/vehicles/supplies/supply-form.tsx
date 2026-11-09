@@ -41,11 +41,11 @@ export function SupplyForm({ action, defaults, submitLabel }: { action: Action; 
       <div className="grid grid-cols-2 gap-3">
         <label className="block min-w-0">
           <span className={fieldLabel}>On hand</span>
-          <input name="quantityOnHand" type="number" step="any" min="0" defaultValue={num(defaults?.quantityOnHand)} className={box} />
+          <input name="quantityOnHand" type="number" inputMode="decimal" step="any" min="0" defaultValue={num(defaults?.quantityOnHand)} className={box} />
         </label>
         <label className="block min-w-0">
           <span className={fieldLabel}>Low at</span>
-          <input name="lowThreshold" type="number" step="any" min="0" defaultValue={num(defaults?.lowThreshold)} className={box} />
+          <input name="lowThreshold" type="number" inputMode="decimal" step="any" min="0" defaultValue={num(defaults?.lowThreshold)} className={box} />
         </label>
       </div>
       <p className="text-xs text-muted-foreground">

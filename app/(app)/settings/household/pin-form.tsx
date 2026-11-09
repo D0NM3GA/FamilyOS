@@ -12,6 +12,9 @@ type Action = (prevState: PinFormState, formData: FormData) => Promise<PinFormSt
 export function PinForm({ action, hasPin, kid }: { action: Action; hasPin: boolean; kid: boolean }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<PinFormState, FormData>(action, {});
+  // The answer from before it was last opened: a fresh, empty box doesn't say "PIN saved."
+  const [shownBefore, setShownBefore] = useState<PinFormState | null>(null);
+  const fresh = state !== shownBefore;
 
   if (!open) {
     return (
@@ -19,7 +22,10 @@ export function PinForm({ action, hasPin, kid }: { action: Action; hasPin: boole
         <span className="text-xs text-muted-foreground">{hasPin || state.success ? "Set" : "Not set"}</span>
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setShownBefore(state);
+            setOpen(true);
+          }}
           className="inline-flex min-h-11 items-center text-xs font-medium text-brand-text hover:underline sm:min-h-0"
         >
           {hasPin || state.success ? "Change" : "Set PIN"}
@@ -56,10 +62,10 @@ export function PinForm({ action, hasPin, kid }: { action: Action; hasPin: boole
         onClick={() => setOpen(false)}
         className="inline-flex min-h-11 items-center text-xs text-muted-foreground hover:underline sm:min-h-0"
       >
-        {state.success ? "Done" : "Cancel"}
+        {fresh && state.success ? "Done" : "Cancel"}
       </button>
-      {state.error && <span role="alert" className="w-full text-xs text-destructive">{state.error}</span>}
-      {state.success && <span className="w-full text-xs text-emerald-600">PIN saved.</span>}
+      {fresh && state.error && <span role="alert" className="w-full text-xs text-destructive">{state.error}</span>}
+      {fresh && state.success && <span role="status" className="w-full text-xs text-emerald-600">PIN saved.</span>}
     </form>
   );
 }
