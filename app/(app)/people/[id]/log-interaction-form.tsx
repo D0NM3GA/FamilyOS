@@ -18,7 +18,7 @@ export function LogInteractionForm({ personId, today, canHide }: { personId: str
     if (!state.saved) return;
     formRef.current?.reset();
     const saved = state.saved;
-    const timer = setTimeout(() => setSeen(saved), 2500);
+    const timer = setTimeout(() => setSeen(saved), 4000);
     return () => clearTimeout(timer);
   }, [state.saved]);
 

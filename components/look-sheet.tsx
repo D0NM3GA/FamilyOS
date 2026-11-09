@@ -54,7 +54,9 @@ export function LookSheet() {
   }, [pathname]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) leaveRef.current();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      leaveRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -62,6 +64,7 @@ export function LookSheet() {
 
   return (
     <section
+      data-look-sheet
       role="dialog"
       aria-labelledby={titleId}
       className="fixed inset-x-0 bottom-0 z-40 max-h-[70dvh] space-y-4 overflow-y-auto rounded-t-3xl border-2 border-ink bg-card p-4 text-foreground shadow-2xl md:inset-x-auto md:top-16 md:right-0 md:bottom-0 md:max-h-none md:w-96 md:rounded-none md:rounded-l-3xl dark:border-white/20"

@@ -82,6 +82,7 @@ export function BulkBar({ actions, giveTo }: { actions: BulkAction[]; giveTo?: {
   const s = useSelection();
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const reportMilestone = useReportMilestone();
   // A message shows until something new is ticked.
   const shown = message && (!s || s.selected.size === 0) ? message : null;
@@ -90,10 +91,11 @@ export function BulkBar({ actions, giveTo }: { actions: BulkAction[]; giveTo?: {
 
   const go = (verb: string, run: () => Promise<BulkResult | { error: string }>) =>
     start(async () => {
+      setError(null);
       try {
         const r = await run();
         if ("error" in r) {
-          setMessage(r.error);
+          setError(r.error);
           return;
         }
         if (r.milestone) reportMilestone(r.milestone);
@@ -101,7 +103,7 @@ export function BulkBar({ actions, giveTo }: { actions: BulkAction[]; giveTo?: {
         s.setActive(false);
       } catch (err) {
         console.error("[bulk] failed", err);
-        setMessage("Couldn't save that. Check your connection and try again.");
+        setError("Couldn't save that. Check your connection and try again.");
       }
     });
 
@@ -126,7 +128,12 @@ export function BulkBar({ actions, giveTo }: { actions: BulkAction[]; giveTo?: {
           ))}
         </MoreMenu>
       )}
-      <button type="button" disabled={pending} onClick={() => s.setActive(false)} className={btn}>
+      {error && (
+        <p role="alert" className="basis-full text-sm font-bold text-destructive">
+          {error}
+        </p>
+      )}
+      <button type="button" disabled={pending} onClick={() => { setError(null); s.setActive(false); }} className={btn}>
         Cancel
       </button>
       {shown && (

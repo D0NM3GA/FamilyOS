@@ -3,7 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { takeOffList, undoTakeOff } from "./actions";
 
-const UNDO_MS = 6000;
+// As long as the chore boards' Undo bar: the row is already gone, so this is the only way back.
+const UNDO_MS = 10_000;
 
 type Note = { text: string; undo?: string };
 

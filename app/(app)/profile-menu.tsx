@@ -84,11 +84,13 @@ export function ProfileMenu({
   // Shows the new choice instantly; the layout revalidation then brings the saved value
   // (and the re-rendered page) back as the real prop.
   const [optimistic, setOptimistic] = useOptimistic(prefs);
+  const [signOutFailed, setSignOutFailed] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.preventDefault();
         setOpen(false);
         buttonRef.current?.focus();
       }
@@ -101,10 +103,11 @@ export function ProfileMenu({
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("focusin", onFocusIn);
-    document.addEventListener("keydown", onKey);
+    // Capture, and marked handled: an item panel or look sheet underneath stays open (they skip a handled Escape).
+    document.addEventListener("keydown", onKey, true);
     document.addEventListener("pointerdown", onDown);
     return () => {
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("focusin", onFocusIn);
     };
@@ -130,6 +133,7 @@ export function ProfileMenu({
         ref={buttonRef}
         type="button"
         aria-expanded={open}
+        aria-haspopup="true"
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((v) => !v)}
         className="flex min-h-11 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-chrome-hover sm:min-h-0"
@@ -191,13 +195,23 @@ export function ProfileMenu({
               onClick={async () => {
                 // A kid on the family tablet can reach this too; it signs the grown-up out.
                 if (!window.confirm(`Sign out of ${appName} on this device? You'll need to sign in again to get back in.`)) return;
-                await signOut();
-                router.push("/sign-in");
+                setSignOutFailed(false);
+                try {
+                  await signOut();
+                  router.push("/sign-in");
+                } catch (err) {
+                  console.error("[profile-menu] sign-out failed", err);
+                  captureError(err);
+                  setSignOutFailed(true);
+                }
               }}
               className="block w-full px-4 py-2 text-left hover:bg-muted"
             >
               Sign out
             </button>
+            {signOutFailed && (
+              <p role="alert" className="px-4 pb-2 text-sm text-destructive">Couldn&apos;t sign out. Check your connection and try again.</p>
+            )}
           </div>
         </div>
       )}

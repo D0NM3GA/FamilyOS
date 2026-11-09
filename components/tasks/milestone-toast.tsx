@@ -6,7 +6,8 @@ import { btn } from "@/components/styles";
 const MilestoneContext = createContext<((milestone: number) => void) | null>(null);
 
 /** What a finished card hands the board so its Undo outlives the card. */
-export type UndoReport = { title: string; undo: () => Promise<void> };
+/** `verb` finishes "✓ {title} …": "done" unless said ("marked missed", "moved to tomorrow"). */
+export type UndoReport = { title: string; verb?: string; undo: () => Promise<void> };
 const UndoContext = createContext<((report: UndoReport) => void) | null>(null);
 
 /** How long the Undo bar stays: long enough to notice and reach it. */
@@ -97,7 +98,7 @@ export function MilestoneToastBoard({ children }: { children: ReactNode }) {
               className="ui-card pointer-events-auto flex max-w-full items-center gap-3 rounded-2xl bg-card py-2 pl-4 pr-2 text-sm text-foreground shadow-lg ring-1 ring-border animate-in fade-in slide-in-from-bottom-4 duration-300"
             >
               <span className="min-w-0 truncate">
-                {undoState === "failed" ? "Couldn't undo that. Try again." : <>✓ {undo.title} done</>}
+                {undoState === "failed" ? "Couldn't undo that. Try again." : <>✓ {undo.title} {undo.verb ?? "done"}</>}
               </span>
               <button type="button" onClick={runUndo} disabled={undoState === "working"} className={`${btn} shrink-0`}>
                 {undoState === "working" ? "Undoing…" : "Undo"}

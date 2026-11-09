@@ -27,7 +27,7 @@ export function OdometerForm({
 
   useEffect(() => {
     if (!justSaved) return;
-    const t = setTimeout(() => setJustSaved(false), 2000);
+    const t = setTimeout(() => setJustSaved(false), 4000);
     return () => clearTimeout(t);
   }, [justSaved]);
 
@@ -44,7 +44,7 @@ export function OdometerForm({
         >
           Update odometer
         </button>
-        {justSaved && <span className="text-xs font-bold text-emerald-600">Saved ✓</span>}
+        <span role="status" className="text-xs font-bold text-emerald-600">{justSaved ? "Saved ✓" : ""}</span>
       </div>
     );
   }

@@ -15,6 +15,7 @@ export function MoreMenu({
   face,
   triggerClassName,
   triggerRef,
+  busy = false,
   children,
 }: {
   label: string;
@@ -24,6 +25,8 @@ export function MoreMenu({
   triggerClassName?: string;
   /** For a caller that needs to hand focus back to the ⋯ (a question it showed after the menu closed). */
   triggerRef?: RefObject<HTMLButtonElement | null>;
+  /** Saving: the button stays (and keeps focus) but doesn't open. Not `disabled`, which drops focus. */
+  busy?: boolean;
   children: ReactNode;
 }) {
   const id = useId();
@@ -66,7 +69,8 @@ export function MoreMenu({
       <button
         ref={trigger}
         type="button"
-        popoverTarget={id}
+        popoverTarget={busy ? undefined : id}
+        aria-disabled={busy || undefined}
         aria-label={label}
         title={label}
         className={triggerClassName ?? `${btn} inline-flex shrink-0 items-center justify-center ${big ? "size-14" : "min-w-11"}`}
@@ -90,7 +94,7 @@ export function MoreMenu({
         onClick={(event) => {
           if ((event.target as Element).closest("a, button")) panel.current?.hidePopover();
         }}
-        className="ui-menu fixed inset-auto m-0 min-w-44 max-w-[calc(100vw-1rem)] rounded-xl bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-ink/15 dark:ring-white/20"
+        className="ui-menu fixed inset-auto m-0 max-h-[calc(100dvh-1rem)] min-w-44 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-ink/15 dark:ring-white/20"
       >
         {children}
       </div>

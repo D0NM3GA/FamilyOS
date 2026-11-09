@@ -28,6 +28,7 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
   }
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Item[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [pending, start] = useTransition();
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -61,6 +62,7 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.preventDefault();
         setOpen(false);
         buttonRef.current?.focus();
       }
@@ -68,11 +70,12 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
     const outside = (e: Event) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("keydown", onKey);
+    // Capture, and marked handled: an item panel or look sheet underneath stays open (they skip a handled Escape).
+    document.addEventListener("keydown", onKey, true);
     document.addEventListener("pointerdown", outside);
     document.addEventListener("focusin", outside);
     return () => {
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("pointerdown", outside);
       document.removeEventListener("focusin", outside);
     };
@@ -84,16 +87,25 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
         ref={buttonRef}
         type="button"
         aria-expanded={open}
+        aria-haspopup="true"
         aria-label={unread > 0 ? `Notifications, ${unread} new` : "Notifications"}
         onClick={() => {
           const next = !open;
           setOpen(next);
-          if (next)
-            start(async () => {
+          if (!next) return;
+          // Last time's list would show old "unread" rows until the new one comes.
+          setItems(null);
+          setFailed(false);
+          start(async () => {
+            try {
               const r = await openBell();
               setItems(r.items);
               setUnread(r.unread);
-            });
+            } catch (err) {
+              console.error("[bell] loading notifications failed", err);
+              setFailed(true);
+            }
+          });
         }}
         className="relative grid size-11 place-items-center rounded-md text-on-chrome/80 hover:bg-chrome-hover hover:text-on-chrome sm:size-9"
       >
@@ -111,7 +123,9 @@ export function Bell({ unread: initialUnread }: { unread: number }) {
           className="ui-card absolute right-0 top-full z-20 mt-1 w-80 max-w-[calc(100vw-1rem)] rounded-xl border-2 border-ink bg-card p-2 text-sm text-foreground shadow-lg dark:border-white/20"
         >
           <p className="px-2 py-1 font-heading font-bold">Notifications</p>
-          {pending && !items ? (
+          {failed ? (
+            <p role="alert" className="px-2 py-3 text-sm text-destructive">Couldn&apos;t load these. Close and try again.</p>
+          ) : pending || !items ? (
             <p className="px-2 py-3 text-muted-foreground">Loading…</p>
           ) : items && items.length > 0 ? (
             <ul>

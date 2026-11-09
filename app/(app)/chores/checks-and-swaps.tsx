@@ -10,13 +10,21 @@ import { answerChoreSwap, cancelChoreSwap, checkInstance } from "./actions";
  * Phase 70c: chores a kid ticked that wait for a grown-up's OK (grown-ups' board). OK pays the
  * stickers; Not yet puts it back to do.
  */
-export function WaitingForCheck({ rows, zone }: { rows: Awaited<ReturnType<typeof waitingForCheck>>; zone?: string }) {
-  if (rows.length === 0) return null;
+export function WaitingForCheck({ rows, notice, zone }: { rows: Awaited<ReturnType<typeof waitingForCheck>>; notice: "ok" | "again" | null; zone?: string }) {
+  const said =
+    notice === "ok" ? (
+      <p role="status" className="mt-2 text-sm text-green-700 dark:text-green-400">Checked and done. Any stickers are paid.</p>
+    ) : notice === "again" ? (
+      <p role="status" className="mt-2 text-sm text-muted-foreground">Sent back to do.</p>
+    ) : null;
+  // The last one checked still says so, even with nothing left to check.
+  if (rows.length === 0) return said ? <div className="mt-6">{said}</div> : null;
   return (
     <section aria-labelledby="waiting-check" className="mt-6">
       <h2 id="waiting-check" className={sectionTitle}>
         Waiting for a check
       </h2>
+      {said}
       <ul className="mt-2 space-y-2">
         {rows.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg bg-card p-3 shadow-sm ring-1 ring-border">
@@ -49,7 +57,7 @@ export function WaitingForCheck({ rows, zone }: { rows: Awaited<ReturnType<typeo
 const whenWord = (d: Date, zone?: string) => formatRelative(d, zone).toLowerCase();
 
 /** Phase 70c: a kid's swaps: ones asked of them (Accept or No thanks), and their own (Cancel). */
-export function KidSwaps({ incoming, outgoing, notice, zone }: { incoming: SwapView[]; outgoing: SwapView[]; notice: "asked" | "lapsed" | "gone" | null; zone?: string }) {
+export function KidSwaps({ incoming, outgoing, notice, zone }: { incoming: SwapView[]; outgoing: SwapView[]; notice: "asked" | "lapsed" | "gone" | "taken" | "declined" | null; zone?: string }) {
   return (
     <section aria-labelledby="swaps" className="mt-6 space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -61,6 +69,8 @@ export function KidSwaps({ incoming, outgoing, notice, zone }: { incoming: SwapV
         </Link>
       </div>
       {notice === "asked" && <p role="status" className="text-sm text-green-700 dark:text-green-400">Asked. It&apos;s theirs once they say yes.</p>}
+      {notice === "taken" && <p role="status" className="text-sm text-green-700 dark:text-green-400">Deal. It&apos;s yours now.</p>}
+      {notice === "declined" && <p role="status" className="text-sm text-muted-foreground">Said no thanks. They&apos;ll keep it.</p>}
       {notice === "lapsed" && <p role="status" className="text-sm text-muted-foreground">That swap can&apos;t happen now: a chore was done, moved or given to someone else.</p>}
       {notice === "gone" && <p role="status" className="text-sm text-muted-foreground">That swap isn&apos;t waiting for you anymore.</p>}
       <ul className="space-y-2">

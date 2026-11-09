@@ -14,15 +14,17 @@ export type KidTile = { id: string; name: string; imageUrl: string | null; emoji
 export function KidTiles({ tiles }: { tiles: KidTile[] }) {
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [last, setLast] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const shown = tiles.filter((t) => !added.has(t.id));
-  if (shown.length === 0 && !last) return null;
+  if (shown.length === 0 && !last && !failed) return null;
 
   function tap(t: KidTile) {
     if (pending) return;
     setAdded((s) => new Set(s).add(t.id));
     setLast(t.name);
+    setFailed(null);
     startTransition(async () => {
       try {
         await addItem({ productId: t.id });
@@ -33,6 +35,8 @@ export function KidTiles({ tiles }: { tiles: KidTile[] }) {
           return next;
         });
         setLast(null);
+        // The tile comes back; say why, or it looks like the tap did nothing.
+        setFailed(t.name);
       }
     });
   }
@@ -45,6 +49,11 @@ export function KidTiles({ tiles }: { tiles: KidTile[] }) {
       {last && (
         <p role="status" className="mt-1 text-sm font-bold">
           On the list: {last}. Added for you!
+        </p>
+      )}
+      {failed && (
+        <p role="alert" className="mt-1 text-sm font-bold text-destructive">
+          Couldn&apos;t add {failed}. Try again.
         </p>
       )}
       {shown.length > 0 && (

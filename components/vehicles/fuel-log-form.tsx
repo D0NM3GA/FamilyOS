@@ -37,7 +37,7 @@ export function FuelLogForm({
 
   useEffect(() => {
     if (!justSaved) return;
-    const t = setTimeout(() => setJustSaved(false), 2500);
+    const t = setTimeout(() => setJustSaved(false), 4000);
     return () => clearTimeout(t);
   }, [justSaved]);
 

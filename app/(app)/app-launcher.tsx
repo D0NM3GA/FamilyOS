@@ -51,7 +51,10 @@ function LauncherPanel() {
     if (window.matchMedia("(min-width: 768px)").matches) searchRef.current?.focus();
     else panelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLauncherOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setLauncherOpen(false);
+      }
     };
     const onDown = (e: PointerEvent) => {
       const target = e.target as Element;
@@ -60,10 +63,11 @@ function LauncherPanel() {
       if (target.closest?.("[data-launcher-toggle]")) return;
       setLauncherOpen(false);
     };
-    document.addEventListener("keydown", onKey);
+    // Capture, and marked handled: an item panel or look sheet underneath stays open (they skip a handled Escape).
+    document.addEventListener("keydown", onKey, true);
     document.addEventListener("pointerdown", onDown);
     return () => {
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("pointerdown", onDown);
       const active = document.activeElement;
       if (opener?.isConnected && (!active || active === document.body || panel?.contains(active))) {
