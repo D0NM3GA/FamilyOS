@@ -21,7 +21,7 @@ import { fileNewSince, linkOrder, linkTrip, markGift, markNewSeen, markOrderGift
 import { ActionForm, Submit } from "../forms";
 import { JarHeader } from "./jar-header";
 import { CategoryPicker } from "./category-picker";
-import { TxnSheet } from "./txn-sheet";
+import { ActivityNotes, TxnSheet } from "./txn-sheet";
 import { HistoryList } from "./history";
 import { requireAppOn } from "@/lib/app-guard";
 import { newSince } from "@/lib/finance/new-since";
@@ -327,6 +327,7 @@ export default async function JarPage({
           Showing the latest {ACTIVITY_MONTH_LIMIT} {filters.q ? "matches" : "this month"}. Pick an account or a category {filters.q ? "or more words " : ""}to see the rest.
         </p>
       )}
+      <ActivityNotes>
       {txns.length > 0 && (
         <ul className="ui-card mt-3 divide-y-2 divide-dashed divide-ink/10 overflow-hidden rounded-2xl border-2 border-ink bg-card dark:divide-white/10 dark:border-white/20">
           {txns.map((t) => {
@@ -478,6 +479,7 @@ export default async function JarPage({
           })}
         </ul>
       )}
+      </ActivityNotes>
       {accounts.length > 0 && steps.older && !filters.q && (
         <Link href={href({ month: steps.older })} className={`${btn} mt-3`}>
           ← {monthName(steps.older)}

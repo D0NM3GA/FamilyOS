@@ -5,6 +5,10 @@ import { iconBtn } from "@/components/styles";
 
 type Sheet = { close: (note?: string) => void };
 const SheetContext = createContext<Sheet | null>(null);
+/** Where a row's answer goes when the row itself leaves the list (see ActivityNotes). */
+const HandoffContext = createContext<((note: string) => void) | null>(null);
+
+const NOTE_MS = 5000;
 
 /** The open row's sheet, for a control inside it that's done (null outside a sheet). */
 export const useSheet = () => useContext(SheetContext);
@@ -28,9 +32,23 @@ export function TxnSheet({ summary, label, title, children }: { summary: ReactNo
 
   useEffect(() => {
     if (!note) return;
-    const t = setTimeout(() => setNote(null), 5000);
+    const t = setTimeout(() => setNote(null), NOTE_MS);
     return () => clearTimeout(t);
   }, [note]);
+
+  // A save can take the row out of a filtered list (a category picked while showing
+  // "Uncategorized"), and its answer would go with it. Hand a fresh one to the list.
+  const handoff = useContext(HandoffContext);
+  const live = useRef<string | null>(null);
+  useEffect(() => {
+    live.current = note;
+  }, [note]);
+  useEffect(
+    () => () => {
+      if (live.current) handoff?.(live.current);
+    },
+    [handoff],
+  );
 
   const close = useCallback((n?: string) => {
     ref.current?.close();
@@ -82,5 +100,27 @@ export function TxnSheet({ summary, label, title, children }: { summary: ReactNo
         <div className="flex flex-col gap-5 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{opened && children}</div>
       </dialog>
     </SheetContext.Provider>
+  );
+}
+
+/**
+ * Around the Activity list: shows the answer of a row that left the list as it saved (and the
+ * list itself, when that was the last row), so it doesn't vanish with the row.
+ */
+export function ActivityNotes({ children }: { children: ReactNode }) {
+  const [note, setNote] = useState<{ text: string; at: number } | null>(null);
+  const handoff = useCallback((text: string) => setNote({ text, at: Date.now() }), []);
+  useEffect(() => {
+    if (!note) return;
+    const t = setTimeout(() => setNote(null), NOTE_MS);
+    return () => clearTimeout(t);
+  }, [note]);
+  return (
+    <HandoffContext.Provider value={handoff}>
+      {children}
+      <p role="status" className={note ? "ui-card mt-3 rounded-2xl bg-card px-4 py-2 text-sm font-bold text-brand-text ring-1 ring-border" : "sr-only"}>
+        {note ? `✓ ${note.text} It's not in this view anymore.` : ""}
+      </p>
+    </HandoffContext.Provider>
   );
 }
