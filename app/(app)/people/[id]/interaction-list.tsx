@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { Home as HomeIcon, Mail, MessageSquare, Phone, StickyNote } from "lucide-react";
 import { btn, btnDanger, btnPrimary, field } from "@/components/styles";
 import { deleteInteraction, updateInteraction, type FormState } from "./actions";
@@ -96,7 +97,7 @@ function EditInteraction({
   canHide: boolean;
   onDone: () => void;
 }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(updateInteraction.bind(null, personId, log.id), {});
+  const [state, formAction, pending, formRef] = useKeptActionState<FormState>(updateInteraction.bind(null, personId, log.id), {});
   const [deleting, startDelete] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
   useEffect(() => {
@@ -104,7 +105,7 @@ function EditInteraction({
   }, [state.saved, onDone]);
 
   return (
-    <form action={formAction} className="space-y-2 rounded-md bg-muted p-3">
+    <form ref={formRef} action={formAction} className="space-y-2 rounded-md bg-muted p-3">
       <div className="flex flex-wrap gap-2">
         <select name="type" aria-label="Kind of contact" defaultValue={log.type} className={field}>
           {INTERACTION_TYPES.map((t) => (

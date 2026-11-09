@@ -130,7 +130,8 @@ export function Picker({
   useEffect(() => {
     const form = inputRef.current?.form;
     if (!form || controlled) return;
-    const onReset = () => {
+    const onReset = (event: Event) => {
+      if (event.defaultPrevented) return;
       setInner(defaultValue);
       setQuery("");
     };

@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { btnPrimary, field, fieldLabel } from "@/components/styles";
 import { adjustStickersAction, type AdjustState } from "../actions";
 
 /** A grown-up's bonus or take-back for one person. */
 export function AdjustForm({ personId, firstName }: { personId: string; firstName: string }) {
-  const [state, formAction, pending] = useActionState<AdjustState, FormData>(adjustStickersAction.bind(null, personId), {});
   const formRef = useRef<HTMLFormElement>(null);
+  const [state, formAction, pending] = useKeptActionState<AdjustState>(adjustStickersAction.bind(null, personId), {}, formRef);
   useEffect(() => {
     if (state.saved) formRef.current?.reset();
   }, [state.saved]);

@@ -1,14 +1,15 @@
 "use client";
 
-import { useActionState, useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { btnPrimary, field } from "@/components/styles";
 import { logInteraction, type FormState } from "./actions";
 import { INTERACTION_TYPES } from "./interaction-list";
 
 /** `today` comes from the server ("YYYY-MM-DD"), so the date box starts on the same day it checks against. */
 export function LogInteractionForm({ personId, today, canHide }: { personId: string; today: string; canHide: boolean }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(logInteraction.bind(null, personId), {});
   const formRef = useRef<HTMLFormElement>(null);
+  const [state, formAction, pending] = useKeptActionState<FormState>(logInteraction.bind(null, personId), {}, formRef);
   // "Logged ✓" shows for the latest save until its timer marks it seen.
   const [seen, setSeen] = useState<number | undefined>(undefined);
   const logged = state.saved !== undefined && state.saved !== seen;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { ConfirmSubmit, SubmitButton } from "@/components/submit";
 import { btn, btnPrimary, field, sectionTitle } from "@/components/styles";
 import type { GiftIdeaRow } from "@/lib/gift-ideas";
@@ -11,10 +12,13 @@ import { addGiftIdeaAction, removeGiftIdeaAction, setGiftGivenAction, type GiftS
  * The open ones go in their birthday reminder; a given one stays, crossed off.
  */
 export function GiftIdeas({ personId, firstName, ideas }: { personId: string; firstName: string; ideas: GiftIdeaRow[] }) {
-  const [state, action] = useActionState<GiftState, FormData>(addGiftIdeaAction.bind(null, personId), {});
   const form = useRef<HTMLFormElement>(null);
+  const [state, action] = useKeptActionState<GiftState>(addGiftIdeaAction.bind(null, personId), {}, form);
   useEffect(() => {
-    if (state.saved) form.current?.reset();
+    if (!state.saved) return;
+    form.current?.reset();
+    // Ready for the next idea, keyboard still up on a phone.
+    form.current?.querySelector<HTMLInputElement>("input[name=text]")?.focus();
   }, [state.saved]);
   return (
     <div className="min-w-0 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">

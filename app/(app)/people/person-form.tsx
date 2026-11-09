@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import type { PersonFormState } from "./actions";
 import type { PersonColor } from "@/app/generated/prisma/enums";
 import { PERSON_COLORS, PERSON_COLOR_KEYS } from "@/lib/person-color";
@@ -42,11 +43,11 @@ export function PersonForm({
   submitLabel: string;
   cancelHref: string;
 }) {
-  const [state, formAction, pending] = useActionState<PersonFormState, FormData>(action, {});
+  const [state, formAction, pending, formRef] = useKeptActionState<PersonFormState>(action, {});
   const [isMember, setIsMember] = useState(defaults?.isHouseholdMember ?? false);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} action={formAction} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <Field label="First name" name="firstName" defaultValue={defaults?.firstName} required />
         <Field label="Last name" name="lastName" defaultValue={defaults?.lastName ?? ""} />
@@ -138,7 +139,7 @@ export function PersonForm({
           <label className="block">
             <span className={`${fieldLabel} block`}>Check-in reminder (days)</span>
             <input
-              type="number"
+              type="number" inputMode="numeric"
               name="contactCadenceDays"
               min={0}
               max={3650}

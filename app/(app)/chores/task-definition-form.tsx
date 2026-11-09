@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useId, useState } from "react";
+import { useId, useState } from "react";
+import { useKeptActionState } from "@/components/keep-typed";
 import { MoreOptions } from "@/components/more-options";
 import { btn, btnPrimary, chip, field, fieldLabel, formActions } from "@/components/styles";
 import type { TaskFormState } from "./actions";
@@ -64,7 +65,7 @@ export function TaskDefinitionForm({
   cancelHref: string;
 }) {
   const zone = useHouseholdZone();
-  const [state, formAction, pending] = useActionState<TaskFormState, FormData>(action, {});
+  const [state, formAction, pending, formRef] = useKeptActionState<TaskFormState>(action, {});
   const [frequency, setFrequency] = useState(defaults?.frequencyType ?? "DAILY");
   const [strategy, setStrategy] = useState(defaults?.assignmentStrategy ?? "FIXED");
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>(defaults?.assigneeIds ?? []);
@@ -82,7 +83,7 @@ export function TaskDefinitionForm({
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} action={formAction} className="space-y-4">
       <Field label="Title" name="title" defaultValue={defaults?.title} required autoFocus={!defaults} />
 
       <label className="block">
@@ -151,6 +152,7 @@ export function TaskDefinitionForm({
           }
           name="interval"
           type="number"
+          min={1}
           defaultValue={String(defaults?.interval ?? 1)}
         />
       )}
@@ -193,7 +195,7 @@ export function TaskDefinitionForm({
           defaultValue={toISODate(defaults?.startDate ?? new Date(), zone)}
         />
   
-        <Field label={<><RewardWord cap /> ⭐</>} name="points" type="number" defaultValue={String(defaults?.points ?? 0)} />
+        <Field label={<><RewardWord cap /> ⭐</>} name="points" type="number" min={0} defaultValue={String(defaults?.points ?? 0)} />
   
         <div>
           <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-foreground sm:min-h-9">
@@ -247,6 +249,7 @@ function Field({
   defaultValue,
   required,
   autoFocus,
+  min,
 }: {
   label: React.ReactNode;
   name: string;
@@ -254,6 +257,7 @@ function Field({
   defaultValue?: string;
   required?: boolean;
   autoFocus?: boolean;
+  min?: number;
 }) {
   return (
     <label className="block">
@@ -264,6 +268,9 @@ function Field({
         defaultValue={defaultValue}
         required={required}
         autoFocus={autoFocus}
+        min={min}
+        // The number pad on a phone, not the punctuation keyboard.
+        inputMode={type === "number" ? "numeric" : undefined}
         className={`${field} mt-1 w-full`}
       />
     </label>
