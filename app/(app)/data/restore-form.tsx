@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RewardWord } from "@/components/family-look";
 
 type Preview = {
@@ -73,9 +73,19 @@ export function RestoreForm() {
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const [confirm, setConfirm] = useState("");
   const [withMoney, setWithMoney] = useState(false);
+  // Each step replaces the last one whole, taking the focused control with it: focus moves to the
+  // start of the new step (what it says, or the file box again) instead of the top of the page.
+  // Not on first load: only once someone has started.
+  const lead = useRef<HTMLElement>(null);
+  const started = useRef(false);
+  useEffect(() => {
+    if (step.kind === "working" || !started.current) return;
+    lead.current?.focus();
+  }, [step.kind]);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
+    started.current = true;
     setStep({ kind: "working", label: "Checking the file…" });
     const text = await file.text();
     const { ok, body } = await post(text, "mode=preview");
@@ -105,7 +115,9 @@ export function RestoreForm() {
     const previousBackup = step.previousBackup;
     return (
       <div className="mt-3 space-y-2 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/30">
-        <p className="font-medium">Restore complete.</p>
+        <p ref={(el) => void (lead.current = el)} tabIndex={-1} className="font-medium outline-none">
+          Restore complete.
+        </p>
         {step.moneyRestored && (
           <p>
             {step.moneyRestored.jars} money jar{step.moneyRestored.jars === 1 ? " is" : "s are"} back. Each jar&apos;s members reconnect its bank
@@ -135,7 +147,9 @@ export function RestoreForm() {
     const canApply = confirm === "REPLACE";
     return (
       <div className="mt-3 space-y-3 text-sm">
-        <p className="font-medium text-foreground">This will replace the household&apos;s data with the backup&apos;s.</p>
+        <p ref={(el) => void (lead.current = el)} tabIndex={-1} className="font-medium text-foreground outline-none">
+          This will replace the household&apos;s data with the backup&apos;s.
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <CountList title="Deleted now" counts={p.deletes} />
           <CountList title="Restored from the file" counts={p.inserts} />
@@ -232,6 +246,7 @@ export function RestoreForm() {
   return (
     <div className="mt-3 space-y-2">
       <input
+        ref={(el) => void (lead.current = el)}
         type="file"
         accept="application/json,.json"
         onChange={(e) => onFile(e.target.files?.[0])}
@@ -240,7 +255,7 @@ export function RestoreForm() {
       />
       <p className="text-xs text-muted-foreground">You&apos;ll see exactly what changes before anything happens.</p>
       {step.kind === "errors" && (
-        <ul className="rounded-md bg-red-50 p-2 text-xs text-red-700 ring-1 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30">
+        <ul role="alert" className="rounded-md bg-red-50 p-2 text-xs text-red-700 ring-1 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30">
           {step.errors.map((e, i) => (
             <li key={i}>{e}</li>
           ))}
