@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getAuthPerson } from "@/lib/active-profile";
+import { backupSignInState, getAuthPerson } from "@/lib/active-profile";
+import { SignInAgain } from "@/components/sign-in-again";
 import { syncActivePersonFromEntra } from "@/lib/entra-sync";
 import { devSelectProfile, selectOwnProfile } from "./actions";
 import { getServerSession } from "@/lib/session";
@@ -8,7 +9,7 @@ import { isDevUser } from "@/lib/dev-auth";
 import { ProfileGrid } from "./profile-grid";
 import { personColor } from "@/lib/person-color";
 import { SignOutButton } from "./sign-out-button";
-import { ownTileLocked } from "./own-tile";
+import { ownTileAsks } from "./own-tile";
 import { getAppName } from "@/lib/household-settings";
 import { microsoftLinkedUserIds, signInKindOf } from "@/lib/sign-in-kind";
 import { SubmitButton } from "@/components/submit";
@@ -28,7 +29,8 @@ export default async function ProfilesPage() {
   }
 
   const devSession = isDevUser((await getServerSession())?.user);
-  const selfLocked = await ownTileLocked(authPerson.id);
+  const selfAsks = await ownTileAsks(authPerson.id);
+  const signIn = selfAsks === "signIn" ? await backupSignInState(authPerson) : null;
 
   const [household, withPin, appName] = await Promise.all([
     prisma.person.findMany({
@@ -88,14 +90,20 @@ export default async function ProfilesPage() {
           hasPhoto: authPerson.photoContentType !== null,
           color: personColor(authPerson),
           action: selectOwnProfile.bind(null, authPerson.id),
-          locked: selfLocked,
+          asks: selfAsks,
         }}
         people={others}
+        signInAgain={
+          signIn && (
+            <SignInAgain callbackURL="/profiles" loginHint={signIn.email} dev={signIn.dev} microsoft={signIn.microsoft} passkey={signIn.passkey} oidc={signIn.oidc} />
+          )
+        }
       />
 
       {!hasPin.has(authPerson.id) && others.some((p) => p.role === "KID") && (
         <p className="max-w-md text-center text-sm text-muted-foreground">
-          🔒 Kids can open your tile too. Lock it with a PIN in Settings → Lock my tile.
+          🔒 Lock your tile with a PIN in Settings → Lock my tile. Without one, switching back to you after someone
+          else asks you to sign in again.
         </p>
       )}
 
