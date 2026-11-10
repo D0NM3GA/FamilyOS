@@ -68,6 +68,16 @@ export function parseForecastPeriods(json: unknown): ForecastPeriod[] {
 const NEGATIVE_CACHE_MS = 10 * 60 * 1000;
 let lastFailureAt: number | null = null;
 
+/** Whether a link from the weather service's answer points back at it (https, its own host). */
+export function isWeatherServiceUrl(link: string): boolean {
+  try {
+    const url = new URL(link);
+    return url.protocol === "https:" && url.hostname === "api.weather.gov" && url.port === "";
+  } catch {
+    return false;
+  }
+}
+
 async function fetchJson(url: string, revalidateSeconds: number): Promise<unknown | null> {
   try {
     const res = await fetch(url, {
@@ -99,7 +109,8 @@ export async function getDailyForecast(
 
   const points = await fetchJson(`https://api.weather.gov/points/${lat},${lon}`, POINTS_REVALIDATE_S);
   const forecastUrl = (points as { properties?: { forecast?: unknown } })?.properties?.forecast;
-  if (typeof forecastUrl !== "string") {
+  // The next address comes from the answer, so it's only followed back to the weather service.
+  if (typeof forecastUrl !== "string" || !isWeatherServiceUrl(forecastUrl)) {
     lastFailureAt = Date.now();
     return null;
   }
