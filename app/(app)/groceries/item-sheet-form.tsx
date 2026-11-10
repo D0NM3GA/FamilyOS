@@ -10,7 +10,7 @@ import { CONTAINERS, SIZE_UNITS, describeSize } from "@/lib/groceries/size";
 import { addItem, deletePantryItem, mergeIntoItem, saveItemDetails, setItemNote, type SheetReturn, type SheetState } from "./actions";
 import { btn, btnDanger, btnPrimary, chip, field, fieldLabel } from "@/components/styles";
 import { RequesterSelect } from "./requester-select";
-import { SubmitButton } from "@/components/submit";
+import { ConfirmSubmit, SubmitButton } from "@/components/submit";
 import { Picker } from "@/components/picker";
 
 type Props = {
@@ -66,6 +66,8 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
   const [container, setContainer] = useState(product.container ?? "");
   const [storeId, setStoreId] = useState(product.defaultStoreId ?? "");
   const [addingStore, setAddingStore] = useState(false);
+  const [mergeId, setMergeId] = useState("");
+  const mergeName = others.find((o) => o.id === mergeId)?.name;
 
   const dialogRef = useRef<HTMLElement>(null);
 
@@ -293,16 +295,7 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
         {canTidy && (
           <div className="mt-5 flex flex-col gap-3 border-t-2 border-dashed border-ink/15 pt-4">
             {others.length > 0 && (
-              <form
-                action={mergeIntoItem.bind(null, product.id, returnTo)}
-                onSubmit={(e) => {
-                  const picked = others.find((o) => o.id === new FormData(e.currentTarget).get("mergeId"));
-                  if (!picked || !confirm(`Fold “${picked.name}” into “${product.name}”? Its trips and list rows move here and “${picked.name}” is removed.`)) {
-                    e.preventDefault();
-                  }
-                }}
-                className="flex flex-wrap items-center gap-2"
-              >
+              <form action={mergeIntoItem.bind(null, product.id, returnTo)} className="flex flex-wrap items-center gap-2">
                 <label htmlFor="merge-pick" className="text-sm font-bold">
                   Same as…
                 </label>
@@ -313,22 +306,27 @@ export function ItemSheetForm({ product, stores, sections, usualText, lastPriceT
                   options={others.map((o) => ({ value: o.id, label: o.name }))}
                   placeholder="Type the duplicate's name"
                   requiredMessage="Pick the duplicate from the list."
+                  onChange={setMergeId}
                   className="min-w-0 flex-1"
                 />
-                <SubmitButton className={btn}>
+                <ConfirmSubmit
+                  className={btn}
+                  yesClassName={btnDanger}
+                  question={
+                    mergeName
+                      ? `Fold “${mergeName}” into “${product.name}”? Its trips and list rows move here and “${mergeName}” is removed.`
+                      : `Fold the duplicate into “${product.name}”? Its trips and list rows move here and it's removed.`
+                  }
+                  yes="Merge them"
+                >
                   Merge into this
-                </SubmitButton>
+                </ConfirmSubmit>
               </form>
             )}
-            <form
-              action={deletePantryItem.bind(null, product.id, returnTo)}
-              onSubmit={(e) => {
-                if (!confirm(`Remove ${product.name} from the Pantry and the list? Past trips keep its name.`)) e.preventDefault();
-              }}
-            >
-              <SubmitButton className={btnDanger}>
+            <form action={deletePantryItem.bind(null, product.id, returnTo)}>
+              <ConfirmSubmit question={`Remove ${product.name} from the Pantry and the list? Past trips keep its name.`} yes="Remove it">
                 Remove from the Pantry
-              </SubmitButton>
+              </ConfirmSubmit>
             </form>
           </div>
         )}

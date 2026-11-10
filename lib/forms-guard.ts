@@ -6,9 +6,9 @@
  *    would run the action twice. SubmitButton / ConfirmSubmit (components/submit.tsx), or a
  *    button whose own `disabled` reads a pending flag. Plain buttons are fine in forms that post
  *    to a URL (a download, a GET search), which the browser handles itself.
- * 2. A destructive action asks first: ConfirmSubmit, ConfirmButton or RemoveAndMove in its form,
- *    a component that asks before running it, or ConfirmAction / window.confirm right before a
- *    handler calls it.
+ * 2. A destructive action asks first, in place: ConfirmSubmit or RemoveAndMove in its form, a
+ *    component that asks before running it, or ConfirmAction right before a handler calls it.
+ *    The browser's own confirm() popup doesn't count (the owner's call: ask in place).
  *
  * Regexes over source, not a parser: good enough for this codebase's JSX, and the tests below
  * pin down what they catch.
@@ -65,14 +65,22 @@ export function plainSubmits(file: string, text: string): string[] {
   });
 }
 
-const ASKS_IN_FORM = /<(ConfirmSubmit|ConfirmButton|RemoveAndMove)\b|confirm\(/;
-const ASKS_IN_HANDLER = /<ConfirmAction\b|confirm\(/;
+const ASKS_IN_FORM = /<(ConfirmSubmit|RemoveAndMove)\b/;
+const ASKS_IN_HANDLER = /<ConfirmAction\b/;
+
+/** Calls to the browser's confirm() popup: questions go in place (ConfirmSubmit / ConfirmAction). */
+export function browserPopups(file: string, text: string): string[] {
+  // A question is a string; a local function that happens to be called confirm takes anything else.
+  return [...text.matchAll(/(?<![\w.])(?:window\.)?confirm\(\s*[`"\x27]/g)].map((m) => `${file}:${lineOf(text, m.index)}`);
+}
 // Components that take the action as a prop and ask before running it.
 const ASKING_COMPONENTS: Record<string, (tag: string) => boolean> = {
   RemoveAndMove: () => true,
   // Phase 40.2c: asks with ConfirmSubmit, then shows the reset's link once.
   ResetPasskeys: () => true,
   SmallActionButton: (tag) => /\bconfirmText=/.test(tag),
+  // A person's important dates: the edit form asks deleteQuestion with ConfirmAction before onDelete.
+  DateForm: (tag) => /\bdeleteQuestion=/.test(tag),
   // Phase 52: "Remove this import" asks with ConfirmAction before it runs.
   StatementImport: () => true,
   // Phase 59.1a: School's rows put Remove in the ⋯ menu and ask with ConfirmAction in the row.
