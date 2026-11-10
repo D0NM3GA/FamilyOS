@@ -2469,3 +2469,45 @@ focus to the next thing to do instead of the top of the page:
   a guess in the CSV table leaves focus where it is.
 - **Restore from a backup:** each step's opening line (the preview's "This will replace…", "Restore
   complete.") or the file box again takes focus, and a refused file's reasons are an alert.
+
+### After Phase 70: fixes from a security review
+
+A read-only review of the whole codebase (sign-in and sessions, every server action and route,
+data handling and deployment) found nothing critical or high. What it did find, now fixed:
+
+- **Cloudflare Access fails closed.** A production server with either `CF_ACCESS_*` value missing
+  refuses every request but the health check, as a malformed one already did, instead of quietly
+  serving with only the app's own sign-in in front (and, before setup, handing Admin to whoever
+  opened /setup first). `CF_ACCESS_DISABLED=1` runs without Access on purpose (the browser tests'
+  servers do), and the log says so at start. `next build` is left alone.
+- **`BETTER_AUTH_URL` must be https in production** (lib/security/app-url.ts), or the server
+  won't start: Better Auth marks its cookies Secure from it. `localhost` may be http, where
+  browsers allow passkeys, for the browser tests.
+- **Only an admin changes who lives in the household, or their role, on People** (the owner's
+  call): any adult could promote a PIN kid to adult there (opening every adults-only app), demote
+  an adult or take someone off, unlogged, while Settings → Household already needed an admin.
+  Other grown-ups still edit everything else; the form shows membership and role fixed for them.
+- **A PIN-less grown-up's own tile asks for a fresh sign-in after someone else's turn** (the
+  owner's call): it was the one way from a kid's profile into a grown-up's without proving
+  anything. It doesn't ask on a fresh sign-in or when nobody else had the tablet; a PIN still
+  makes it a few digits.
+- **Chore and medicine assignees must live in the household**, checked on the server: the
+  picker only lists them, but the ids come back from the browser.
+- **Bunson counts only a kid's own doses to them**, and no school forms (the household's, for
+  grown-ups to sort), matching what Meds and School show them.
+- **Settings → Outlook calendars checks Calendar is on**, and lib/action-guard.test.ts now maps
+  Settings action files that work on a switchable app's data (`SETTINGS_FOR_APP`).
+- **Smaller hardening:** Outlook mail links reach an href only if https (like calendar links);
+  the weather forecast address from the weather service's answer is followed only back to it; a
+  restore upload is read as it arrives and stopped at 20 MB, so one without a Content-Length
+  can't be buffered whole; the school feed blocklist adds IPv4-compatible IPv6, NAT64's local
+  range and Teredo; the dev-preview pages open only in development, not "anything but
+  production"; the invite cookie is keyed by the newest auth secret during a rotation, like the
+  profile cookie (lib/auth-secret.ts).
+
+Left as they are: the household backup stays plain JSON apart from its sealed money jars (the
+admin guide now says to keep it in the password manager or an encrypted drive). Tying the money
+seal to the household id would stop a backup restoring onto a new server, which is the point of
+it. `npm audit` lists six moderate advisories in build and dev tooling only (Sentry's bundler
+plugin, Prisma's local dev server); `@sentry/nextjs` 11.11.0 clears most of them once it's past
+the 7-day install cooldown (11.10.0 doesn't).

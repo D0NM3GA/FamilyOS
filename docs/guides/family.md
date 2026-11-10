@@ -182,6 +182,7 @@ The family's address book: everyone in the house, plus grandparents, friends, te
 - **Connected to** (grown-ups) shows what a contact is to the family: the medicines a doctor
   prescribes or a pharmacy fills, and whose school contact a teacher is.
 - Grown-ups can mark a note "grown-ups only" so kids don't see it.
+- Who lives in the house, and whether they're a grown-up or a kid, is an admin's to change.
 - **🎁 Gift ideas** (grown-ups): jot down an idea on someone's page ("Paint set"), mark it **Given**
   when it's done (it stays, crossed off, so nobody buys it twice) or **Remove** it. The person never
   sees ideas for themselves, not even in a backup they take. Their birthday reminder says how many
@@ -634,7 +635,8 @@ phone.
   in. Lost a phone, or see one you don't know? **Sign out** that one, or **Sign out everywhere
   else** (this device stays signed in). It needs your sign-in again the next time it opens the app.
 - **Lock my tile**: a PIN on your own tile, so kids on a shared tablet can't open your profile
-  (or the money).
+  (or the money). Without one, coming back to your tile after someone else used the app asks you
+  to sign in again; the PIN makes that a few digits instead.
 - **Calendar on Home** (Microsoft): which of your Outlook calendars Home shows.
 
 Grown-ups also see **Data & backups**: download any section as a spreadsheet for Excel.

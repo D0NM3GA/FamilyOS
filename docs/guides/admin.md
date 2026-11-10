@@ -114,6 +114,7 @@ image.
 | `CONTACT_EMAIL` | An address for whoever runs the server | Push services, the US Weather Service, Open Food Facts and Let's Encrypt ask for one. Without it, phone alerts use the app's `https://` address instead |
 | `CF_ACCESS_TEAM_DOMAIN` | `<team>.cloudflareaccess.com` | From Cloudflare (section 5). Anything else stops the app with a 503 until fixed |
 | `CF_ACCESS_AUD` | The Access application's Application Audience (AUD) tag | From Cloudflare (section 5) |
+| `CF_ACCESS_DISABLED` | Leave empty | Without both Access values the app refuses every request (its log says why), so a lost value can't leave it open. `1` runs it without Access on purpose |
 | `BREAK_GLASS_LAN_IP` | The VM's home-network address | Section 14 |
 | `MICROSOFT_CLIENT_ID`, `_SECRET`, `_TENANT_ID` | From the Entra app registration | Optional; all three or none (a partial set stops the app at start) |
 | `OIDC_DISCOVERY_URL`, `_CLIENT_ID`, `_CLIENT_SECRET`, `_NAME` (and optional `OIDC_SCOPES`) | Your own identity provider | Optional; all four or none. Redirect address `<BETTER_AUTH_URL>/api/auth/callback/oidc` |
@@ -357,7 +358,10 @@ on Settings → Sign-in goes straight to the right page, and changes show here a
   has no sign-in (after a restore onto a new server, say) shows **Send an invite** instead of a PIN:
   invite them again.
 - **Lock my tile:** each grown-up with their own sign-in can put a PIN on their own tile, so kids
-  on a shared tablet can't open it.
+  on a shared tablet can't open it. Without one, switching back to their tile after someone else
+  used the app asks them to sign in again (unless they signed in a few minutes ago).
+- **Who lives in the household, and their role:** only an admin changes these, here or on a
+  person's People page (other grown-ups see them there, fixed).
 - Five wrong PINs in a row lock that tile for 15 minutes, doubling each time after (up to a day).
   Each lock is in the sign-in log, and every admin gets a notice saying whose tile and on whose
   sign-in it happened.
@@ -521,7 +525,9 @@ LUKS inside the VM) and the NAS share on an encrypted volume. Check with `lsblk 
 **Settings → Data & backups** (`/data`). Any grown-up can download a spreadsheet (CSV) of a
 section. Admins can download a **whole-household backup** (`.json`): everything that lives only in
 the app, without PINs, sign-in links, photos or stored connection secrets. It holds meds,
-contacts, notes and the household's location, so store it like the settings file. It also carries
+contacts, notes and the household's location in plain text (only the money jars are encrypted),
+so store it like the settings file: in the password manager or an encrypted drive, never a shared
+folder or an email. It also carries
 the history of chores, homework and school forms (who marked what done, gave it to whom, changed
 a due date or a grade). A note's text never goes into that history, only that it changed.
 

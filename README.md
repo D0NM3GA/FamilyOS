@@ -170,7 +170,7 @@ machine too; what matters is in docs/PLAN.md and docs/BUILD.md.
 | `MIGRATE_DATABASE_URL` | The owner from `docker-compose.yml`: migrations, seeds and test databases run as it. Leave it out (and use the owner in `DATABASE_URL`) to keep one login |
 | `POSTGRES_PASSWORD` | Overrides the dev Postgres password — only takes effect on a fresh Docker volume (see `.env.example`). Keep in sync with `MIGRATE_DATABASE_URL` by hand. |
 | `BETTER_AUTH_SECRET` | Session/cookie signing secret (`npx @better-auth/cli secret`) |
-| `BETTER_AUTH_URL` | Base URL, `http://localhost:3000` in dev |
+| `BETTER_AUTH_URL` | Base URL, `http://localhost:3000` in dev. In production it must be set and `https://` (only `localhost` may be http), or the server won't start |
 | `MICROSOFT_CLIENT_ID` / `_SECRET` / `_TENANT_ID` | Optional: from the Entra app registration, for Microsoft sign-in and the Microsoft 365 features. All three or none (a partial set stops the app at start) |
 | `TZ` | Optional: the time zone used until the household has one. Since Phase 49 the app keeps the household's time zone (Settings → Household) itself, whatever this says |
 | `FAMILY_CALENDAR_NAME` | Optional default: the exact name of the calendar Home shows, e.g. a synced Google Calendar, for anyone who hasn't picked one in Settings → Calendar on Home (each Microsoft grown-up can). Unset → their main Outlook calendar |
@@ -527,7 +527,10 @@ With `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` in `familyos.env` (Zero Trust �
 Applications → your app: the team domain, and the Application Audience tag), the app itself
 checks Cloudflare's signed token on every request and refuses anything else, so nothing reaches it
 except through Access, even from inside the house. If Cloudflare is down, nothing gets in: that's
-what break-glass is for.
+what break-glass is for. A production server with either value missing refuses every request too
+(the log says so at start), so a lost settings file can't leave the app open with only its own
+sign-in in front; `CF_ACCESS_DISABLED=1` runs it without Access on purpose. `BETTER_AUTH_URL`
+must be `https://` in production (or the server won't start), except on `localhost`.
 
 Pages also carry a strict script policy, and sign-in rate limits are kept in the database. A
 sign-in lasts 30 days, then each grown-up signs in again.
