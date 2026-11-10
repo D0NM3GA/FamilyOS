@@ -85,6 +85,8 @@ const env = {
   BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || randomBytes(32).toString("base64url"),
   INTEGRATION_ENCRYPTION_KEY: process.env.INTEGRATION_ENCRYPTION_KEY || randomBytes(32).toString("base64"),
   DEV_AUTH: "",
+  // A test server on localhost, not behind Cloudflare: said on purpose (lib/security/cf-access.ts).
+  CF_ACCESS_DISABLED: "1",
   BACKGROUND_JOBS: "0",
   MICROSOFT_CLIENT_ID: "",
   MICROSOFT_CLIENT_SECRET: "",

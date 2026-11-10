@@ -29,6 +29,16 @@ describe("Cloudflare Access settings", () => {
     expect(accessConfigFrom({ CF_ACCESS_TEAM_DOMAIN: "https://parkers.cloudflareaccess.com/", CF_ACCESS_AUD: "x" })?.issuer).toBe("https://parkers.cloudflareaccess.com");
     expect(() => accessConfigFrom({ CF_ACCESS_TEAM_DOMAIN: "evil.example", CF_ACCESS_AUD: "x" })).toThrow();
   });
+
+  test("production refuses to run without them unless that's said on purpose", () => {
+    expect(() => accessConfigFrom({ NODE_ENV: "production" })).toThrow(/CF_ACCESS_DISABLED/);
+    expect(() => accessConfigFrom({ NODE_ENV: "production", CF_ACCESS_TEAM_DOMAIN: "parkers.cloudflareaccess.com" })).toThrow();
+    expect(() => accessConfigFrom({ NODE_ENV: "production", CF_ACCESS_DISABLED: "true" })).toThrow();
+    expect(accessConfigFrom({ NODE_ENV: "production", CF_ACCESS_DISABLED: "1" })).toBeNull();
+    // `next build` runs as production with no settings at all.
+    expect(accessConfigFrom({ NODE_ENV: "production", NEXT_PHASE: "phase-production-build" })).toBeNull();
+    expect(accessConfigFrom({ NODE_ENV: "development" })).toBeNull();
+  });
 });
 
 describe("the Access token", () => {
