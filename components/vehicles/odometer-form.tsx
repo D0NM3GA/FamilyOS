@@ -1,6 +1,7 @@
 "use client";
 
 import { useKeptActionState } from "@/components/keep-typed";
+import { closeOnEscape, useInlineForm } from "@/components/inline-form";
 import { useEffect, useRef, useState } from "react";
 import type { VehicleFormState } from "@/app/(app)/vehicles/actions";
 import { btn, btnPrimary, field } from "@/components/styles";
@@ -20,7 +21,7 @@ export function OdometerForm({
   currentMileage: number;
   updateOdometer: UpdateOdometerAction;
 }) {
-  const [open, setOpen] = useState(false);
+  const { open, show, close, opener } = useInlineForm();
   // Bumped each time the form re-opens, and used as its key — a fresh mount per open means
   // a fresh useActionState, so a previous attempt's error can't linger into the next one.
   const [formInstance, setFormInstance] = useState(0);
@@ -36,10 +37,11 @@ export function OdometerForm({
     return (
       <div className="flex items-center gap-2">
         <button
+          ref={opener}
           type="button"
           onClick={() => {
             setFormInstance((n) => n + 1);
-            setOpen(true);
+            show();
           }}
           className={btn}
         >
@@ -55,9 +57,9 @@ export function OdometerForm({
       key={formInstance}
       currentMileage={currentMileage}
       updateOdometer={updateOdometer}
-      onCancel={() => setOpen(false)}
+      onCancel={close}
       onSuccess={() => {
-        setOpen(false);
+        close();
         setJustSaved(true);
       }}
     />
@@ -91,7 +93,7 @@ function OdometerFormInner({
   }, [pending, state.error]);
 
   return (
-    <form ref={keptForm} action={formAction} className="flex flex-wrap items-center gap-2">
+    <form ref={keptForm} action={formAction} onKeyDown={closeOnEscape(onCancel)} className="flex flex-wrap items-center gap-2">
       <input
         type="number" inputMode="numeric"
         name="mileage"

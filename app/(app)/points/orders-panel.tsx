@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { closeOnEscape } from "@/components/inline-form";
 import { formatRelative } from "@/lib/format";
 import { useHouseholdZone } from "@/components/household-zone";
 import type { OrderAction } from "@/lib/store/rules";
@@ -45,6 +46,12 @@ function OrderRow({ order }: { order: OpenOrder }) {
   const [error, setError] = useState<string | null>(null);
   const [noteFor, setNoteFor] = useState<OrderAction | null>(null);
   const [note, setNote] = useState("");
+  // Not now or Refund, whichever this order shows: Cancel puts focus back on it.
+  const noteButton = useRef<HTMLButtonElement>(null);
+  const cancelNote = () => {
+    setNoteFor(null);
+    noteButton.current?.focus();
+  };
 
   function act(action: OrderAction, withNote?: string) {
     setError(null);
@@ -78,7 +85,7 @@ function OrderRow({ order }: { order: OpenOrder }) {
               <button type="button" disabled={pending} onClick={() => act("approve")} className={okBtn}>
                 OK
               </button>
-              <button type="button" disabled={pending} onClick={() => setNoteFor("decline")} className={btn}>
+              <button ref={noteButton} type="button" disabled={pending} onClick={() => setNoteFor("decline")} className={btn}>
                 Not now
               </button>
             </>
@@ -87,7 +94,7 @@ function OrderRow({ order }: { order: OpenOrder }) {
               <button type="button" disabled={pending} onClick={() => act("deliver")} className={okBtn}>
                 Delivered
               </button>
-              <button type="button" disabled={pending} onClick={() => setNoteFor("refund")} className={btn}>
+              <button ref={noteButton} type="button" disabled={pending} onClick={() => setNoteFor("refund")} className={btn}>
                 Refund
               </button>
             </>
@@ -97,6 +104,7 @@ function OrderRow({ order }: { order: OpenOrder }) {
       {noteFor && (
         <form
           className="mt-3 flex flex-wrap gap-2"
+          onKeyDown={(e) => closeOnEscape(cancelNote)(e)}
           onSubmit={(e) => {
             e.preventDefault();
             act(noteFor, note);
@@ -116,7 +124,7 @@ function OrderRow({ order }: { order: OpenOrder }) {
           <button type="submit" disabled={pending} className={btnPrimary}>
             {noteFor === "decline" ? <>Give <RewardWord /> back</> : <>Refund <RewardWord /></>}
           </button>
-          <button type="button" onClick={() => setNoteFor(null)} className={btn}>
+          <button type="button" onClick={cancelNote} className={btn}>
             Cancel
           </button>
         </form>

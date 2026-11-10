@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { ConfirmAction } from "@/components/submit";
 import { clearMyPin, setMyPin, type MyPinState } from "./actions";
 
 const field =
@@ -25,12 +26,12 @@ export function MyPin({ hasPin }: { hasPin: boolean }) {
         <button type="button" className={button} onClick={() => setOpen(true)}>
           Change it
         </button>
-        <button
-          type="button"
+        <ConfirmAction
+          question="Take the PIN off your tile? Anyone at this device could open your profile again."
+          yes="Take it off"
           className={button}
-          disabled={removing}
-          onClick={() => {
-            if (!window.confirm("Take the PIN off your tile? Anyone at this device could open your profile again.")) return;
+          pending={removing}
+          onConfirm={() => {
             startRemove(async () => {
               const result = await clearMyPin();
               setRemoveError(result.error ?? null);
@@ -40,7 +41,7 @@ export function MyPin({ hasPin }: { hasPin: boolean }) {
           }}
         >
           Remove it
-        </button>
+        </ConfirmAction>
         {removeError && <p role="alert" className="w-full text-sm text-destructive">{removeError}</p>}
       </div>
     );

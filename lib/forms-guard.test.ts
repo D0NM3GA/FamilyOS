@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { destructiveActions, plainSubmits, unaskedUses } from "./forms-guard";
+import { browserPopups, destructiveActions, plainSubmits, unaskedUses } from "./forms-guard";
 
 /**
  * Phase 38: every form in the app follows the two rules in lib/forms-guard.ts, read from the
@@ -77,8 +77,15 @@ describe("reading the files (made-up examples)", () => {
     expect(unaskedUses("f", `<SmallActionButton action={removeThing.bind(null, id)} confirmText="Sure?" />`, names)).toEqual([]);
     expect(unaskedUses("f", `<RemoveAndMove action={removeThing.bind(null, id)} question="?" />`, names)).toEqual([]);
     expect(unaskedUses("f", `<ConfirmAction question="Remove?" yes="Remove" pending={p}\n  onConfirm={() => run(() => removeThing(id))}>Remove</ConfirmAction>`, names)).toEqual([]);
-    expect(unaskedUses("f", `onClick={() => { if (window.confirm("Remove?")) removeThing(id); }}`, names)).toEqual([]);
     expect(unaskedUses("f", `import { removeThing } from "./actions";\n<p yes="Yes, disconnect">x</p>`, names)).toEqual([]);
+  });
+});
+
+describe("browserPopups (made-up examples)", () => {
+  test("flags confirm() popups, not functions that happen to be named confirm", () => {
+    expect(browserPopups("f", `if (!window.confirm("Sure?")) return;`)).toEqual(["f:1"]);
+    expect(browserPopups("f", `a\nif (!confirm("Sure?")) e.preventDefault();`)).toEqual(["f:2"]);
+    expect(browserPopups("f", `function confirm(input) {}\nconfirm({ via: "zip" });\nconfirmIt("x");\nform.confirm("x");`)).toEqual([]);
   });
 });
 
@@ -87,6 +94,10 @@ describe("every form in the app", () => {
     expect(TSX.length).toBeGreaterThan(150);
     expect(TSX.filter(({ text }) => text.includes("<SubmitButton")).length).toBeGreaterThan(15);
     expect(DESTRUCTIVE.length).toBeGreaterThan(20);
+  });
+
+  test("no browser confirm() popups: questions ask in place", () => {
+    expect(TSX.flatMap(({ file, text }) => browserPopups(file, text))).toEqual([]);
   });
 
   test("no plain submit button in a server action's form", () => {

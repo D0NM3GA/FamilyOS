@@ -10,7 +10,8 @@ import { setMyBunsonVolume, setMyViewMode } from "./prefs-actions";
 import { captureError } from "@/lib/observability";
 import { useFamilyLook } from "@/components/family-look";
 import { useLook } from "@/components/look";
-import { btn } from "@/components/styles";
+import { btn, btnDanger } from "@/components/styles";
+import { ConfirmAction } from "@/components/submit";
 
 export type Prefs = { viewMode: "BIG" | "FULL"; bunsonVolume: "CHATTY" | "CHEERS" | "OFF" };
 
@@ -85,6 +86,7 @@ export function ProfileMenu({
   // (and the re-rendered page) back as the real prop.
   const [optimistic, setOptimistic] = useOptimistic(prefs);
   const [signOutFailed, setSignOutFailed] = useState(false);
+  const [signingOut, startSignOut] = useTransition();
 
   useEffect(() => {
     if (!open) return;
@@ -190,25 +192,29 @@ export function ProfileMenu({
             >
               Switch person
             </button>
-            <button
-              type="button"
-              onClick={async () => {
-                // A kid on the family tablet can reach this too; it signs the grown-up out.
-                if (!window.confirm(`Sign out of ${appName} on this device? You'll need to sign in again to get back in.`)) return;
-                setSignOutFailed(false);
-                try {
-                  await signOut();
-                  router.push("/sign-in");
-                } catch (err) {
-                  console.error("[profile-menu] sign-out failed", err);
-                  captureError(err);
-                  setSignOutFailed(true);
-                }
-              }}
+            {/* A kid on the family tablet can reach this too; it signs the grown-up out, so it asks. */}
+            <ConfirmAction
+              question={`Sign out of ${appName} on this device? You'll need to sign in again to get back in.`}
+              yes="Sign out"
+              pending={signingOut}
               className="block w-full px-4 py-2 text-left hover:bg-muted"
+              yesClassName={btnDanger}
+              onConfirm={() =>
+                startSignOut(async () => {
+                  setSignOutFailed(false);
+                  try {
+                    await signOut();
+                    router.push("/sign-in");
+                  } catch (err) {
+                    console.error("[profile-menu] sign-out failed", err);
+                    captureError(err);
+                    setSignOutFailed(true);
+                  }
+                })
+              }
             >
               Sign out
-            </button>
+            </ConfirmAction>
             {signOutFailed && (
               <p role="alert" className="px-4 pb-2 text-sm text-destructive">Couldn&apos;t sign out. Check your connection and try again.</p>
             )}

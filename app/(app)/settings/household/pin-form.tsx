@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { closeOnEscape, useInlineForm } from "@/components/inline-form";
 import type { PinFormState } from "./actions";
 
 type Action = (prevState: PinFormState, formData: FormData) => Promise<PinFormState>;
@@ -10,7 +11,7 @@ type Action = (prevState: PinFormState, formData: FormData) => Promise<PinFormSt
  * never the hash itself.
  */
 export function PinForm({ action, hasPin, kid }: { action: Action; hasPin: boolean; kid: boolean }) {
-  const [open, setOpen] = useState(false);
+  const { open, show, close, opener } = useInlineForm();
   const [state, formAction, pending] = useActionState<PinFormState, FormData>(action, {});
   // The answer from before it was last opened: a fresh, empty box doesn't say "PIN saved."
   const [shownBefore, setShownBefore] = useState<PinFormState | null>(null);
@@ -21,10 +22,11 @@ export function PinForm({ action, hasPin, kid }: { action: Action; hasPin: boole
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">{hasPin || state.success ? "Set" : "Not set"}</span>
         <button
+          ref={opener}
           type="button"
           onClick={() => {
             setShownBefore(state);
-            setOpen(true);
+            show();
           }}
           className="inline-flex min-h-11 items-center text-xs font-medium text-brand-text hover:underline sm:min-h-0"
         >
@@ -35,7 +37,7 @@ export function PinForm({ action, hasPin, kid }: { action: Action; hasPin: boole
   }
 
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
+    <form action={formAction} onKeyDown={closeOnEscape(close)} className="flex flex-wrap items-center gap-2">
       <input
         type="password"
         name="pin"
@@ -59,7 +61,7 @@ export function PinForm({ action, hasPin, kid }: { action: Action; hasPin: boole
       </button>
       <button
         type="button"
-        onClick={() => setOpen(false)}
+        onClick={close}
         className="inline-flex min-h-11 items-center text-xs text-muted-foreground hover:underline sm:min-h-0"
       >
         {fresh && state.success ? "Done" : "Cancel"}

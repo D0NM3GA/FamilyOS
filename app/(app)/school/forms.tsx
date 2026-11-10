@@ -2,6 +2,7 @@
 
 import { useKeptActionState } from "@/components/keep-typed";
 import { useEffect, useRef, useState } from "react";
+import { closeOnEscape, useInlineForm } from "@/components/inline-form";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
 import type { SchoolFormState } from "./actions";
 import { ASSIGNMENT_KINDS, ASSIGNMENT_KIND_LABEL, type AssignmentKindValue } from "@/lib/school/form";
@@ -150,18 +151,20 @@ export function TaskForm({
   onClose?: () => void;
 }) {
   const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
-  const [open, setOpen] = useState(Boolean(onClose));
+  const { open, show, close: closeAdd, opener } = useInlineForm(Boolean(onClose));
+  // An edit in a row closes through the row, which puts focus back on its ⋯.
+  const close = onClose ?? closeAdd;
   useOnSaved(state, onClose);
   const d = defaults;
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={btn}>
+      <button ref={opener} type="button" onClick={show} className={btn}>
         + Form or to-do
       </button>
     );
   }
   return (
-    <form ref={keptForm} action={formAction} className="space-y-3 rounded-xl bg-muted p-3">
+    <form ref={keptForm} action={formAction} onKeyDown={closeOnEscape(close)} className="space-y-3 rounded-xl bg-muted p-3">
       <Labeled label="What">
         <input name="title" required defaultValue={d?.title} placeholder="Field trip permission slip" className={box} />
       </Labeled>
@@ -208,7 +211,7 @@ export function TaskForm({
         <button type="submit" disabled={pending} className={btnPrimary}>
           {onClose ? (pending ? "Saving…" : "Save") : pending ? "Adding…" : "Add"}
         </button>
-        <button type="button" onClick={() => (onClose ? onClose() : setOpen(false))} className={btn}>
+        <button type="button" onClick={close} className={btn}>
           {onClose ? "Cancel" : "Done"}
         </button>
       </div>
@@ -243,17 +246,17 @@ export function AssignmentForm({
   submitLabel?: string;
 }) {
   const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
-  const [open, setOpen] = useState(startOpen);
+  const { open, show, close, opener } = useInlineForm(startOpen);
   const d = defaults ?? {};
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={btn}>
+      <button ref={opener} type="button" onClick={show} className={btn}>
         + Homework or test
       </button>
     );
   }
   return (
-    <form ref={keptForm} action={formAction} className="space-y-3 rounded-xl bg-muted p-3">
+    <form ref={keptForm} action={formAction} onKeyDown={startOpen ? undefined : closeOnEscape(close)} className="space-y-3 rounded-xl bg-muted p-3">
       <div className="grid grid-cols-2 gap-3">
         <Labeled label="Class">
           <input name="className" required defaultValue={d.className} placeholder="Math" className={box} />
@@ -304,7 +307,7 @@ export function AssignmentForm({
           {pending ? "Saving…" : submitLabel}
         </button>
         {!startOpen && (
-          <button type="button" onClick={() => setOpen(false)} className={btn}>
+          <button type="button" onClick={close} className={btn}>
             Done
           </button>
         )}
@@ -321,7 +324,7 @@ export function AssignmentDetailsForm({ action, defaults, onClose }: { action: A
   const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
   useOnSaved(state, onClose);
   return (
-    <form ref={keptForm} action={formAction} className="basis-full space-y-3 rounded-xl bg-muted p-3">
+    <form ref={keptForm} action={formAction} onKeyDown={closeOnEscape(onClose)} className="basis-full space-y-3 rounded-xl bg-muted p-3">
       <div className="grid grid-cols-2 gap-3">
         <Labeled label="Class">
           <input name="className" required defaultValue={defaults.className} className={box} />
@@ -355,7 +358,7 @@ export function GradeForm({ action, defaults, onClose }: { action: Action; defau
   const [state, formAction, pending, keptForm] = useKeptActionState<SchoolFormState>(action, {});
   useOnSaved(state, onClose);
   return (
-    <form ref={keptForm} action={formAction} className="basis-full space-y-3 rounded-xl bg-muted p-3">
+    <form ref={keptForm} action={formAction} onKeyDown={closeOnEscape(onClose)} className="basis-full space-y-3 rounded-xl bg-muted p-3">
       <div className="grid max-w-xs grid-cols-2 gap-3">
         <Labeled label="Score">
           <input name="score" inputMode="decimal" defaultValue={defaults.score} autoFocus className={box} />

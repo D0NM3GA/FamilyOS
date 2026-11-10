@@ -79,11 +79,14 @@ function ConfirmPanel({
   return (
     // basis-full: in a flex row the question takes its own line instead of squeezing the row.
     // text-left: a question in a right-aligned cell (Settings → Household) still reads normally.
-    // Escape cancels, like closing a dialog.
+    // Escape cancels, like closing a dialog: the question only, not the sheet or panel it's in.
     <span
       className="flex max-w-sm basis-full flex-col gap-2 rounded-xl bg-tomato/10 p-2 text-left"
       onKeyDown={(e) => {
-        if (e.key === "Escape" && !pending) cancel();
+        if (e.key !== "Escape" || pending) return;
+        e.preventDefault();
+        e.stopPropagation();
+        cancel();
       }}
     >
       <span id={questionId} className="text-sm font-semibold">
@@ -110,7 +113,17 @@ export function ConfirmSubmit({ children, question, yes, className = btnDanger, 
   const { pending } = useFormStatus();
   if (!asking) {
     return (
-      <button ref={trigger} type="button" aria-label={ariaLabel} className={className} onClick={ask}>
+      <button
+        ref={trigger}
+        type="button"
+        aria-label={ariaLabel}
+        className={className}
+        onClick={(e) => {
+          // A form that isn't filled in yet says what's missing, instead of asking about it first.
+          if (e.currentTarget.form?.reportValidity() === false) return;
+          ask();
+        }}
+      >
         {children}
       </button>
     );

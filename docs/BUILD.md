@@ -2440,3 +2440,19 @@ stickers and shelves, school work and feeds, alerts, the look, passkeys, invites
 their parts, first-time setup, and the shared list editors. Left as they were, on purpose: the PIN
 boxes (a wrong PIN should clear), forms with nothing to type (Take a dose, Refresh, Sync), the
 receipt upload, and pet care hours, which never refuses.
+
+### After Phase 70: a polish sweep (fourth batch)
+
+- **No more browser pop-ups.** The last dozen `window.confirm` questions (delete a person, a
+  contact-log entry or an important date, sign out, take off my PIN, stop alerts on a phone, undo a
+  car service, delete a fill-up or repair, merge or remove a pantry item) ask in place with
+  `ConfirmAction` / `ConfirmSubmit`, like everything else. `lib/forms-guard.test.ts` no longer
+  counts `confirm()` as asking and fails on any new one. The unused `ConfirmButton` is gone.
+- **Escape on a question cancels only the question,** not the item sheet, panel or form around it.
+- **Forms that open in place give focus back.** Cancel, Escape or a save used to drop focus to the
+  top of the page, because the button that had it went away. `useInlineForm` and `useRowEdit`
+  (`components/inline-form.ts`) hand it back to the button that opened the form, and
+  `closeOnEscape` closes the form on Escape: the car forms (service, fill-up, repair, odometer),
+  passkey rename, member PINs, relationships, important dates, the contact log, School's adds and
+  row edits, and a reward order's note.
+- The fill-up's "Logged ✓" is in a live region that's always there, so it's read out.
