@@ -113,7 +113,17 @@ export function ConfirmSubmit({ children, question, yes, className = btnDanger, 
   const { pending } = useFormStatus();
   if (!asking) {
     return (
-      <button ref={trigger} type="button" aria-label={ariaLabel} className={className} onClick={ask}>
+      <button
+        ref={trigger}
+        type="button"
+        aria-label={ariaLabel}
+        className={className}
+        onClick={(e) => {
+          // A form that isn't filled in yet says what's missing, instead of asking about it first.
+          if (e.currentTarget.form?.reportValidity() === false) return;
+          ask();
+        }}
+      >
         {children}
       </button>
     );

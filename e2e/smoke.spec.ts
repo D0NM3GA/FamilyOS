@@ -963,14 +963,10 @@ test("the searchable picker: a zone by its city, Escape closes only the list, re
   await page.getByRole("link", { name: /^Oat drink carton/ }).first().click();
   await expect(page).toHaveURL(/item=/);
   const same = page.getByRole("combobox", { name: "Same as…" });
-  let asked = false;
-  page.once("dialog", (d) => {
-    asked = true;
-    void d.accept();
-  });
+  // Nothing picked yet: it says so instead of asking.
   await page.getByRole("button", { name: "Merge into this" }).click();
   await expect.poll(() => same.evaluate((el: HTMLInputElement) => el.validationMessage)).toContain("Pick the duplicate");
-  expect(asked).toBe(false);
+  await expect(page.getByRole("button", { name: "Merge them" })).toHaveCount(0);
   await same.fill("oat");
   await expect(page.getByRole("option", { name: "Oat drink", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
@@ -979,8 +975,10 @@ test("the searchable picker: a zone by its city, Escape closes only the list, re
   await same.fill("oat drink");
   await page.getByRole("option", { name: "Oat drink", exact: true }).click();
   await expect(page.locator('input[name="mergeId"]')).not.toHaveValue("");
+  // Picked: it asks in place, naming the duplicate, and only "Merge them" merges.
   await page.getByRole("button", { name: "Merge into this" }).click();
-  await expect.poll(() => asked).toBe(true);
+  await expect(page.getByText("Fold “Oat drink” into “Oat drink carton”?")).toBeVisible();
+  await page.getByRole("button", { name: "Merge them" }).click();
   // The picked duplicate folds into the open item: "Oat drink" goes, "Oat drink carton" stays.
   // Wait for that on this page (the merge reopens the kept item's sheet over a fresh list):
   // leaving any sooner would cut the merge off.
