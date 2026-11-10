@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { btn, btnPrimary, field } from "@/components/styles";
 import { ConfirmAction } from "@/components/submit";
 import type { Choices } from "@/lib/finance/statement-columns";
@@ -42,6 +42,22 @@ export function StatementImport({
   // Bumped after an import, so the file field starts empty for the next statement.
   const [fileKey, setFileKey] = useState(0);
   const ids = { file: useId(), account: useId(), name: useId() };
+  // Each step takes away the button that was tapped (Check it, Cancel, Import), so focus would fall
+  // to the top of the page: it goes to the next thing to do instead, once that step has rendered.
+  const fileInput = useRef<HTMLInputElement>(null);
+  const checkButton = useRef<HTMLButtonElement>(null);
+  const importButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const focusNext = useRef<"file" | "check" | "import" | null>(null);
+  useEffect(() => {
+    const next = focusNext.current;
+    if (!next || pending) return;
+    focusNext.current = null;
+    if (next === "file") fileInput.current?.focus();
+    else if (next === "check") checkButton.current?.focus();
+    // Nothing new to import: Cancel is the way on.
+    else (importButton.current?.disabled ? cancelButton.current : importButton.current)?.focus();
+  });
 
   const form = (choices?: Choices) => {
     const fd = new FormData();
@@ -55,7 +71,10 @@ export function StatementImport({
     setDraft(choices ?? null);
     start(async () => {
       setMessage({});
-      setResult(await check(form(choices)));
+      const checked = await check(form(choices));
+      // A first check moves on to Import; changing a guess in the table leaves focus where it is.
+      if (!choices) focusNext.current = checked.kind === "error" ? "file" : "import";
+      setResult(checked);
       setDraft(null);
     });
   };
@@ -64,6 +83,7 @@ export function StatementImport({
       const outcome = await importFile(form(result?.kind === "csv" ? result.choices : undefined));
       setMessage(outcome);
       if (outcome.ok) {
+        focusNext.current = "file";
         setResult(null);
         setFile(null);
         setFileKey((k) => k + 1);
@@ -77,6 +97,7 @@ export function StatementImport({
       </label>
       <input
         key={fileKey}
+        ref={fileInput}
         id={ids.file}
         type="file"
         accept=".ofx,.qfx,.csv,.txt,text/csv"
@@ -120,7 +141,7 @@ export function StatementImport({
         )}
       </div>
       {!result && (
-        <button type="button" className={`${btnPrimary} self-start`} disabled={!file || pending} onClick={() => runCheck()}>
+        <button ref={checkButton} type="button" className={`${btnPrimary} self-start`} disabled={!file || pending} onClick={() => runCheck()}>
           {pending ? "Reading…" : "Check it"}
         </button>
       )}
@@ -137,10 +158,19 @@ export function StatementImport({
         {result?.kind === "csv" && <CsvCheck result={result} choices={draft ?? result.choices} pending={pending} onChange={runCheck} />}
         {result && result.kind !== "error" && (
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={btnPrimary} disabled={pending || (result.kind === "csv" && result.willAdd === 0)} onClick={runImport}>
+            <button ref={importButton} type="button" className={btnPrimary} disabled={pending || (result.kind === "csv" && result.willAdd === 0)} onClick={runImport}>
               {pending ? "Importing…" : "Import"}
             </button>
-            <button type="button" className={btn} disabled={pending} onClick={() => setResult(null)}>
+            <button
+              ref={cancelButton}
+              type="button"
+              className={btn}
+              disabled={pending}
+              onClick={() => {
+                focusNext.current = "check";
+                setResult(null);
+              }}
+            >
               Cancel
             </button>
           </div>
