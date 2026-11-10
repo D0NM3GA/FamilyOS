@@ -2456,3 +2456,16 @@ receipt upload, and pet care hours, which never refuses.
   passkey rename, member PINs, relationships, important dates, the contact log, School's adds and
   row edits, and a reward order's note.
 - The fill-up's "Logged ✓" is in a live region that's always there, so it's read out.
+
+### After Phase 70: step-by-step flows give focus back too
+
+The three flows that swap one step for the next, taking the tapped button with them, now move
+focus to the next thing to do instead of the top of the page:
+
+- **Add a passkey:** back from the second step (made, failed or cancelled), focus lands on **Add a
+  passkey**, next to what happened. Escape cancels the second step.
+- **Statement import:** **Check it** moves on to **Import** (or **Cancel** when there's nothing
+  new), Cancel goes back to **Check it**, and a finished import goes back to the file box. Changing
+  a guess in the CSV table leaves focus where it is.
+- **Restore from a backup:** each step's opening line (the preview's "This will replace…", "Restore
+  complete.") or the file box again takes focus, and a refused file's reasons are an alert.

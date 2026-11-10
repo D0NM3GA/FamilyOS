@@ -1,7 +1,8 @@
 "use client";
 
 import { useKeptActionState } from "@/components/keep-typed";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { closeOnEscape } from "@/components/inline-form";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
@@ -20,6 +21,12 @@ export function AddPasskey() {
   const [making, startMaking] = useTransition();
   // The ticket last tried (or put aside), and how that went.
   const [finished, setFinished] = useState<{ ticket: string; error?: string; added?: boolean } | null>(null);
+  // Back from the second step (made, failed or cancelled): the button that had focus is gone, so
+  // focus goes to "Add a passkey" instead of the top of the page, next to what happened.
+  const addButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (finished) addButton.current?.focus();
+  }, [finished]);
 
   function makePasskey(ticket: string) {
     startMaking(async () => {
@@ -36,7 +43,7 @@ export function AddPasskey() {
   if (state.ticket && state.ticket !== finished?.ticket) {
     const ticket = state.ticket;
     return (
-      <div className="space-y-3">
+      <div className="space-y-3" onKeyDown={making ? undefined : closeOnEscape(() => setFinished({ ticket }))}>
         <p role="status" className="text-sm text-foreground">
           Now make it. Your device will ask for its PIN, fingerprint or face.
         </p>
@@ -61,7 +68,7 @@ export function AddPasskey() {
         <span className={`${fieldLabel} block`}>Name (optional)</span>
         <input name="name" maxLength={40} placeholder="Work laptop" className={`${field} mt-1 w-48`} />
       </label>
-      <button type="submit" disabled={pending} aria-busy={pending || undefined} className={btn}>
+      <button ref={addButton} type="submit" disabled={pending} aria-busy={pending || undefined} className={btn}>
         {pending ? "One moment…" : "Add a passkey"}
       </button>
       {lastTry?.added && (
