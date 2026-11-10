@@ -43,10 +43,11 @@ async function staleContactFact(householdId: string, excludeId: string): Promise
  * the right shape for an actual board but wasteful to run a second time, on every single
  * page load, just to know a number.
  */
-async function overdueTaskCount(householdId: string, domain: "CHORE" | "MED"): Promise<number> {
+async function overdueTaskCount(householdId: string, domain: "CHORE" | "MED", onlyFor?: string): Promise<number> {
   return prisma.taskInstance.count({
     where: {
       definition: { householdId, domain },
+      ...(onlyFor ? { assignedToId: onlyFor } : {}),
       status: "PENDING",
       // The same window the boards show as overdue.
       dueDate: { gte: overdueSince(), lt: atMidnight(new Date()) },
@@ -94,20 +95,23 @@ export async function viewerChoreProgress(viewerId: string): Promise<ChoreProgre
  */
 export async function getBunsonFacts(
   householdId: string,
-  viewer: { id: string; firstName: string },
+  viewer: { id: string; firstName: string; role?: string | null },
   /** Phase 36: the family's turned-off apps. He doesn't bring them up (or look them up). */
   disabledApps: readonly string[],
 ): Promise<string[]> {
   const viewerId = viewer.id;
   const on = (app: string) => isAppOn(disabledApps, app);
+  // A kid's Meds shows only their own medicines, and School's forms are the grown-ups' to sort,
+  // so he doesn't count other people's doses or the household's forms to them either.
+  const kid = viewer.role === "KID";
   try {
     const [upcoming, staleFact, choreOverdue, medOverdue, vehicleBoards, schoolFormsDue, mine] = await Promise.all([
       upcomingImportantDates(householdId, UPCOMING_DATE_WINDOW_DAYS),
       staleContactFact(householdId, viewerId),
       on("chores") ? overdueTaskCount(householdId, "CHORE") : 0,
-      on("meds") ? overdueTaskCount(householdId, "MED") : 0,
+      on("meds") ? overdueTaskCount(householdId, "MED", kid ? viewerId : undefined) : 0,
       on("cars") ? getVehiclesWithStatus(householdId) : [],
-      on("school")
+      on("school") && !kid
         ? prisma.schoolTask.count({
             where: { householdId, status: "OPEN", dueDate: { lt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } },
           })
