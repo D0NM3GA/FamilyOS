@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentAuthSecret } from "./active-profile";
+import { currentAuthSecret } from "./auth-secret";
 
 describe("currentAuthSecret (Phase 67c)", () => {
   it("is the newest of BETTER_AUTH_SECRETS while rotating, else BETTER_AUTH_SECRET", () => {

@@ -3,6 +3,7 @@ import { APIError } from "better-auth/api";
 import { OIDC_PROVIDER_ID } from "@/lib/oidc-config";
 import { isSetUp } from "@/lib/setup";
 import { readInvite } from "@/lib/invites";
+import { currentAuthSecret } from "@/lib/auth-secret";
 
 /**
  * Phase 40.3: who may make a new sign-in through the OIDC provider. The provider refuses unknown
@@ -24,7 +25,8 @@ export const INVITE_START_COOKIE = "invite_start";
 export const INVITE_START_SECONDS = 15 * 60;
 
 function key(): Buffer {
-  const secret = process.env.BETTER_AUTH_SECRET;
+  // The newest secret, like the active-profile cookie, so a rotated-out one can't sign it.
+  const secret = currentAuthSecret();
   if (!secret) throw new Error("BETTER_AUTH_SECRET is not set; the invite cookie can't be signed.");
   return createHmac("sha256", secret).update("familyos-invite-start-v1").digest();
 }

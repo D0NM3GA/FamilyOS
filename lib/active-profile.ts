@@ -12,23 +12,15 @@ import { oidcPreflightFailed } from "@/lib/oidc-preflight";
 import { isSetUp } from "@/lib/setup";
 import { decodeIdTokenClaims, ENTRA, mapEntraRoleClaim } from "@/lib/entra-claims";
 import { recordSignInEvent } from "@/lib/sign-in-events";
+import { currentAuthSecret } from "@/lib/auth-secret";
 
 const COOKIE_NAME = "active_profile";
 
 /**
- * The cookie's own key, derived from BETTER_AUTH_SECRET (not the secret itself, so the two
+ * The cookie's own key, derived from the newest auth secret (not the secret itself, so the two
  * uses never share a key). Fails closed: with no secret the cookie would be signed with an
- * empty key and anyone could forge one for any profile. Phase 67c: while Better Auth's secret is
- * being rotated (BETTER_AUTH_SECRETS, newest first, with BETTER_AUTH_SECRET left at the old value
- * for tokens stored before), the newest one keys it, so a leaked old secret doesn't.
+ * empty key and anyone could forge one for any profile.
  */
-export function currentAuthSecret(env: Record<string, string | undefined> = process.env): string | undefined {
-  const first = env.BETTER_AUTH_SECRETS?.split(",")[0]?.trim();
-  const colon = first ? first.indexOf(":") : -1;
-  const newest = first && colon > 0 ? first.slice(colon + 1).trim() : "";
-  return newest || env.BETTER_AUTH_SECRET;
-}
-
 function cookieKey(): Buffer {
   const secret = currentAuthSecret();
   if (!secret) throw new Error("BETTER_AUTH_SECRET is not set; the active-profile cookie can't be signed.");
