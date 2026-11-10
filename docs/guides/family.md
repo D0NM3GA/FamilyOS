@@ -129,6 +129,10 @@ Settings → Starting views.
 - The theme switch at the top cycles through matching your device, light and dark.
 - **On a keyboard,** the first Tab shows **Skip to content**, which jumps past the top bar and the
   rail.
+- **Things that can't be taken back ask first, right where you tapped** (deleting someone, signing
+  out, removing a pantry item): the button turns into the question with a yes and **Cancel**.
+  **Escape** cancels a question, or closes a small form that opened in place (Log service,
+  Rename), and puts you back on the button you started from.
 
 Kids see only the apps meant for them. Money, Cars, the Garage, Data and Settings are for
 grown-ups.
