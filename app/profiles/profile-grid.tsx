@@ -21,8 +21,8 @@ type SelfTile = {
   hasPhoto: boolean;
   color: { bg: string; fg: string };
   action: (formData: FormData) => void | Promise<void>;
-  /** Their own tile asks for their PIN (switching back from someone else, or a while after signing in). */
-  locked: boolean;
+  /** What their own tile asks before it opens (own-tile.ts): a PIN, or a fresh sign-in when they have no PIN. */
+  asks: "nothing" | "pin" | "signIn";
 };
 
 // Phase 19: these tiles are stickers, the one place a tilt belongs — kept small (±2°)
@@ -73,9 +73,10 @@ function PickerTile({
   );
 }
 
-export function ProfileGrid({ self, people }: { self: SelfTile; people: Tile[] }) {
+export function ProfileGrid({ self, people, signInAgain }: { self: SelfTile; people: Tile[]; signInAgain?: React.ReactNode }) {
   const [active, setActive] = useState<Tile | null>(null);
   const [unlocking, setUnlocking] = useState(false);
+  const [provingItsYou, setProvingItsYou] = useState(false);
   const selfAvatar = (
     <Avatar personId={self.id} hasPhoto={self.hasPhoto} initial={self.label} size={120} color={self.color} shapeClass={STICKER_SHAPE} />
   );
@@ -83,8 +84,10 @@ export function ProfileGrid({ self, people }: { self: SelfTile; people: Tile[] }
   return (
     <>
       <div className="flex flex-wrap justify-center gap-10">
-        {self.locked ? (
+        {self.asks === "pin" ? (
           <PickerTile index={0} label={`${self.label} (you)`} note="🔒 PIN" onClick={() => setUnlocking(true)} avatar={selfAvatar} />
+        ) : self.asks === "signIn" ? (
+          <PickerTile index={0} label={`${self.label} (you)`} note="🔒 Sign in again" onClick={() => setProvingItsYou(true)} avatar={selfAvatar} />
         ) : (
           <form action={self.action}>
             <PickerTile index={0} label={`${self.label} (you)`} submit avatar={selfAvatar} />
@@ -114,6 +117,15 @@ export function ProfileGrid({ self, people }: { self: SelfTile; people: Tile[] }
 
       {active?.opensWith === "pin" && <PinDialog personId={active.id} label={active.label} onClose={() => setActive(null)} />}
       {unlocking && <PinDialog personId={self.id} label={self.label} onClose={() => setUnlocking(false)} />}
+      {provingItsYou && (
+        <NoteDialog title={`Is this ${self.label}?`} onClose={() => setProvingItsYou(false)}>
+          <p className="mb-3">
+            Someone else was using the app, and your tile has no PIN, so sign in again to open it. A PIN (Settings → Lock my
+            tile) makes this a few digits instead.
+          </p>
+          {signInAgain}
+        </NoteDialog>
+      )}
       {(active?.opensWith === "microsoft" || active?.opensWith === "own") && (
         <NoteDialog
           title={active.opensWith === "microsoft" ? `${active.label} signs in with Microsoft` : `${active.label} signs in on their own`}

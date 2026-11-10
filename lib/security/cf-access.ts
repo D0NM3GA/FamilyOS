@@ -8,13 +8,23 @@ import { createPublicKey, verify, type JsonWebKey, type KeyObject } from "node:c
  * issuer, and the time, with a minute's leeway. On when CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD
  * are both set; it fails closed (the owner's call): no valid token, no entry (42.7's break-glass
  * entrance is the way in during an outage).
+ *
+ * In production, leaving them empty is refused too, unless CF_ACCESS_DISABLED=1 says so on
+ * purpose: a lost settings file would otherwise put the app on the internet with only its own
+ * sign-in in front, and a server not yet set up would hand Admin to whoever opened /setup first.
  */
 export type AccessConfig = { issuer: string; aud: string; certsUrl: string };
 
 export function accessConfigFrom(env: Record<string, string | undefined>): AccessConfig | null {
   const team = env.CF_ACCESS_TEAM_DOMAIN?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
   const aud = env.CF_ACCESS_AUD?.trim();
-  if (!team || !aud) return null;
+  if (!team || !aud) {
+    const production = env.NODE_ENV === "production" && env.NEXT_PHASE !== "phase-production-build";
+    if (production && env.CF_ACCESS_DISABLED !== "1") {
+      throw new Error("CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD aren't both set. Set them, or CF_ACCESS_DISABLED=1 to run without Cloudflare Access on purpose.");
+    }
+    return null;
+  }
   // The team's own subdomain of cloudflareaccess.com, never anywhere else to fetch keys from.
   if (!/^[a-z0-9-]+\.cloudflareaccess\.com$/i.test(team)) throw new Error("CF_ACCESS_TEAM_DOMAIN must be <team>.cloudflareaccess.com.");
   return { issuer: `https://${team}`, aud, certsUrl: `https://${team}/cdn-cgi/access/certs` };

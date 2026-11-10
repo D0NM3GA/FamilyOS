@@ -70,8 +70,18 @@ function functions(text: string, exported: boolean): Map<string, string> {
   return out;
 }
 
+/**
+ * Settings pages that work on a switchable app's data, outside its own folder: they check it's on
+ * too. (Settings that only choose how an app looks, like Calendar on Home, don't.)
+ */
+const SETTINGS_FOR_APP: Record<string, string> = {
+  "app/(app)/settings/outlook-calendars/actions.ts": "calendar",
+};
+
 /** The switchable app whose folder this file is in, if any (Garage's folder is under Cars). */
 function appOf(file: string): string | null {
+  const mapped = SETTINGS_FOR_APP[path.relative(ROOT, file).split(path.sep).join("/")];
+  if (mapped) return mapped;
   const rel = path.relative(path.join(ROOT, "app", "(app)"), file);
   if (rel.startsWith("..")) return null;
   const folder = rel.split(path.sep)[0];
@@ -114,6 +124,10 @@ describe("server actions check who's asking, and that their app is on", () => {
 
   test("actions are written as `export async function`, which this test reads", () => {
     for (const file of files) expect(fs.readFileSync(file, "utf8"), path.relative(ROOT, file)).not.toMatch(/export const \w+\s*=\s*async/);
+  });
+
+  test("the settings map names real files", () => {
+    for (const file of Object.keys(SETTINGS_FOR_APP)) expect(fs.existsSync(path.join(ROOT, file)), file).toBe(true);
   });
 
   test("the allowlist names real actions", () => {

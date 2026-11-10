@@ -136,3 +136,8 @@ export function graphWithToken(token: string): Graph {
 
 /** The Graph path of a request, safe for error text (see graphPathForErrors). */
 export { graphPathForErrors };
+
+/** Graph builds its web links itself, but they're still outside data headed for an href. */
+export function safeWebLink(link: string | undefined): string | null {
+  return link && link.startsWith("https://") ? link : null;
+}

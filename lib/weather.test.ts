@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseForecastPeriods } from "./weather";
+import { isWeatherServiceUrl, parseForecastPeriods } from "./weather";
 
 // Trimmed from a real, live api.weather.gov response captured during Phase 11's scope and
 // implementation review — 14 periods (7 days, day/night split), a startTime carrying the
@@ -128,5 +128,16 @@ describe("getDailyForecast", () => {
     await getDailyForecast(41.8781, -87.6298); // should short-circuit, not call fetch again
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isWeatherServiceUrl (security review, 2026-11-10)", () => {
+  it("follows only the weather service's own https links", () => {
+    expect(isWeatherServiceUrl("https://api.weather.gov/gridpoints/OKX/33,35/forecast")).toBe(true);
+    expect(isWeatherServiceUrl("http://api.weather.gov/gridpoints/OKX/33,35/forecast")).toBe(false);
+    expect(isWeatherServiceUrl("https://api.weather.gov.example/forecast")).toBe(false);
+    expect(isWeatherServiceUrl("https://169.254.169.254/latest/meta-data")).toBe(false);
+    expect(isWeatherServiceUrl("https://api.weather.gov:8443/forecast")).toBe(false);
+    expect(isWeatherServiceUrl("not a url")).toBe(false);
   });
 });

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/authz";
+import { assertAppOn } from "@/lib/app-guard";
 import { prisma } from "@/lib/prisma";
 import { listMailboxCalendars } from "@/lib/graph/app-calendar";
 import { householdMailboxes } from "@/lib/outlook-copy/mailbox";
@@ -37,6 +38,7 @@ function done(code: string): never {
 
 export async function copyPersonCalendar(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "calendar");
   const personId = idOf(formData, "personId");
   const mailbox = (await householdMailboxes(admin.householdId)).get(personId);
   if (!mailbox) redirect(`${PAGE}?error=noMailbox`);
@@ -52,6 +54,7 @@ export async function copyPersonCalendar(formData: FormData): Promise<void> {
 
 export async function stopPersonCalendar(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "calendar");
   const personId = idOf(formData, "personId");
   await prisma.outlookCalendar.deleteMany({ where: { householdId: admin.householdId, kind: "PERSON", personId } });
   done("stopped");
@@ -59,6 +62,7 @@ export async function stopPersonCalendar(formData: FormData): Promise<void> {
 
 export async function chooseFamilyCalendar(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "calendar");
   const personId = idOf(formData, "personId");
   const graphCalendarId = String(formData.get("calendarId") ?? "").slice(0, 512);
   const mailbox = (await householdMailboxes(admin.householdId)).get(personId);
@@ -94,6 +98,7 @@ export async function chooseFamilyCalendar(formData: FormData): Promise<void> {
 
 export async function stopFamilyCalendar(): Promise<void> {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "calendar");
   await prisma.outlookCalendar.deleteMany({ where: { householdId: admin.householdId, kind: "FAMILY" } });
   done("stopped");
 }
@@ -101,6 +106,7 @@ export async function stopFamilyCalendar(): Promise<void> {
 /** Copies every calendar now (Check access), whatever its age, except one Outlook asked to wait on. */
 export async function copyAllNow(): Promise<void> {
   const admin = await requireAdmin();
+  await assertAppOn(admin.householdId, "calendar");
   const now = new Date();
   const calendars = await prisma.outlookCalendar.findMany({ where: { householdId: admin.householdId, active: true }, select: { id: true, retryAfterUntil: true } });
   const waiting = calendars.filter((c) => c.retryAfterUntil && c.retryAfterUntil > now);

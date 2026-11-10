@@ -6,7 +6,7 @@ import { Bunson } from "@/components/bunson";
 // gated to dev only instead (see below). Kept deliberately past Bunson's
 // original 4 build phases as ongoing tooling for any future tweak to him.
 export default function BunsonPreviewPage() {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (process.env.NODE_ENV !== "development") notFound();
 
   return (
     <div className="min-h-screen bg-muted p-8">

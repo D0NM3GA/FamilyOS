@@ -8,7 +8,7 @@ vi.mock("@/lib/active-profile", () => ({
   isSessionOwner: async () => state.sessionOwner,
 }));
 
-import { authorizeRestore, MAX_RESTORE_BYTES } from "./restore-request";
+import { authorizeRestore, MAX_RESTORE_BYTES, readBodyCapped } from "./restore-request";
 
 const good = {
   "sec-fetch-site": "same-origin",
@@ -76,5 +76,33 @@ describe("authorizeRestore", () => {
   ])("refuses %s", async (_label, arrange) => {
     arrange();
     expect(await status(good)).toBe(403);
+  });
+});
+
+describe("reading the body (security review, 2026-11-10)", () => {
+  // A stream with no Content-Length, like a chunked upload.
+  const streamed = (parts: string[]) =>
+    new Request("https://family.example/api/backup/restore", {
+      method: "POST",
+      body: new ReadableStream({
+        start(c) {
+          for (const p of parts) c.enqueue(new TextEncoder().encode(p));
+          c.close();
+        },
+      }),
+      // @ts-expect-error Node needs this for a stream body; the DOM type doesn't know it.
+      duplex: "half",
+    });
+
+  test("returns the text when it fits", async () => {
+    expect(await readBodyCapped(streamed(["{\"a\":", "1}"]), 100)).toBe("{\"a\":1}");
+  });
+
+  test("stops once it passes the cap, without reading the rest", async () => {
+    expect(await readBodyCapped(streamed(["x".repeat(60), "y".repeat(60)]), 100)).toBeNull();
+  });
+
+  test("counts bytes, not characters", async () => {
+    expect(await readBodyCapped(streamed(["é".repeat(51)]), 100)).toBeNull();
   });
 });

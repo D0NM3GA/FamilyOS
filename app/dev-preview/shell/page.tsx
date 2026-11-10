@@ -28,7 +28,7 @@ export default async function ShellPreviewPage({
 }: {
   searchParams: Promise<{ kid?: string; view?: string; bunson?: string }>;
 }) {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (process.env.NODE_ENV !== "development") notFound();
   const params = await searchParams;
   const kid = params.kid === "1";
   const big = params.view === "big";

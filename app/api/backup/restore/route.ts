@@ -6,7 +6,7 @@ import { deliverNotifications } from "@/lib/alerts/dispatch";
 import { holdMoneySyncs, previewMoney, restoreMoney, sealMoney } from "@/lib/finance/backup";
 import { parseBackupFile } from "@/lib/backup/plan";
 import { applyRestore, previewRestore } from "@/lib/backup/restore";
-import { authorizeRestore, MAX_RESTORE_BYTES, restoreJson as json } from "@/lib/backup/restore-request";
+import { authorizeRestore, MAX_RESTORE_BYTES, readBodyCapped, restoreJson as json } from "@/lib/backup/restore-request";
 import { captureError, setSentryUser } from "@/lib/observability";
 
 /**
@@ -29,8 +29,8 @@ export async function POST(request: Request) {
   const { viewer } = auth;
   setSentryUser(viewer.id);
 
-  const text = await request.text();
-  if (text.length > MAX_RESTORE_BYTES) return json({ errors: ["That file is too large to be a household backup."] }, 413);
+  const text = await readBodyCapped(request, MAX_RESTORE_BYTES);
+  if (text === null) return json({ errors: ["That file is too large to be a household backup."] }, 413);
 
   const url = new URL(request.url);
   const mode = url.searchParams.get("mode");

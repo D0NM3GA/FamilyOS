@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireActiveProfile } from "@/lib/active-profile";
-import { isAdult } from "@/lib/authz";
+import { isAdmin, isAdult } from "@/lib/authz";
 import { getPersonWithDetails, isDeletableContact } from "@/lib/people";
 import { isMembershipLocked } from "@/lib/household-members";
 import { prisma } from "@/lib/prisma";
@@ -49,6 +49,7 @@ export default async function EditPersonPage({
             isHouseholdMember: person.isHouseholdMember,
             role: person.role,
             membershipLocked: isMembershipLocked({ ...person, jarCount }),
+            adminOnly: !isAdmin(profile),
             onMicrosoft: (await signInKind(person)) === "microsoft",
             contactCadenceDays: person.contactCadenceDays,
             // Stored color only: null leaves every swatch unpicked, which keeps the

@@ -6,7 +6,7 @@ import type { PreparedReceipt } from "@/lib/groceries/receipts";
 // Phase 24 harness: the receipt review screen with a sample read, for screenshots without
 // a Document Intelligence resource. Dev only, render-only (Save needs a signed-in adult).
 export default function ReceiptPreviewPage() {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (process.env.NODE_ENV !== "development") notFound();
   const pantry = [
     { id: "dog", name: "Dog food", brand: "Purina" },
     { id: "ban", name: "Bananas", brand: null },

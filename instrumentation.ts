@@ -23,6 +23,7 @@ export async function register() {
     const { accessConfigFrom } = await import("./lib/security/cf-access");
     try {
       if (accessConfigFrom(process.env)) log.info("access.on", { note: "Only requests through Cloudflare Access are let in." });
+      else if (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build") log.warn("access.off", { note: "CF_ACCESS_DISABLED=1: requests reach the app without Cloudflare Access, with only its own sign-in in front." });
     } catch (err) {
       log.error("access.misconfigured", { problem: err instanceof Error ? err.message : String(err), effect: "Every request but the health check gets a 503 until it's fixed." });
     }

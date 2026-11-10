@@ -39,6 +39,7 @@ printf 'unused' > "$work/secrets/cf_dns_token"
 mkdir -p "$work/break-glass"
 cat > "$work/familyos.env" <<ENV
 BETTER_AUTH_URL=http://localhost:3100
+CF_ACCESS_DISABLED=1
 MIGRATE_DATABASE_URL=postgresql://familyos:${password}@db:5432/familyos?schema=public
 DATABASE_URL=postgresql://familyos_app:${password}app@db:5432/familyos?schema=public
 BETTER_AUTH_SECRET=$(key)

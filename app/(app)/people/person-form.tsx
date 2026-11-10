@@ -26,6 +26,8 @@ type Defaults = {
    * actions.ts keeps both as they are, so the form shows them fixed.
    */
   membershipLocked?: boolean;
+  /** The viewer isn't an Admin, so membership and role are shown but not changeable (actions.ts). */
+  adminOnly?: boolean;
   /** Their role comes from Entra (a Microsoft sign-in), which the fixed role line says. */
   onMicrosoft?: boolean;
   contactCadenceDays?: number | null;
@@ -45,6 +47,8 @@ export function PersonForm({
 }) {
   const [state, formAction, pending, formRef] = useKeptActionState<PersonFormState>(action, {});
   const [isMember, setIsMember] = useState(defaults?.isHouseholdMember ?? false);
+  const fixed = defaults?.membershipLocked || defaults?.adminOnly;
+  const roleLabel = defaults?.role === "ADMIN" ? "Admin" : defaults?.role === "KID" ? "Kid" : "Adult";
 
   return (
     <form ref={formRef} action={formAction} className="space-y-4">
@@ -61,21 +65,27 @@ export function PersonForm({
           type="checkbox"
           name="isHouseholdMember"
           defaultChecked={isMember}
-          disabled={defaults?.membershipLocked}
+          disabled={fixed}
+          aria-describedby={defaults?.adminOnly ? "member-admin-only" : undefined}
           onChange={(e) => setIsMember(e.target.checked)}
           className="h-4 w-4 rounded border-input"
         />
         Lives in our household
       </label>
+      {defaults?.adminOnly && (
+        <p id="member-admin-only" className="-mt-2 text-xs text-muted-foreground">
+          Only an Admin can change who lives in the household, or their role.
+        </p>
+      )}
       {/* A disabled box isn't sent; this sends what it shows (the action keeps it anyway). */}
-      {defaults?.membershipLocked && isMember && <input type="hidden" name="isHouseholdMember" value="on" />}
+      {fixed && isMember && <input type="hidden" name="isHouseholdMember" value="on" />}
 
-      {isMember && defaults?.membershipLocked ? (
+      {isMember && fixed ? (
         <div>
           <p className={fieldLabel}>Role</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {defaults.role === "ADMIN" ? "Admin" : "Adult"}
-            {defaults.onMicrosoft ? " — set via Microsoft sign-in, not editable here." : " — not editable here."}
+            {roleLabel}
+            {defaults?.onMicrosoft && defaults.membershipLocked ? " — set via Microsoft sign-in, not editable here." : " — not editable here."}
           </p>
         </div>
       ) : (

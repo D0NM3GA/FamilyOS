@@ -1,5 +1,5 @@
 import { atMidnight, addDays } from "@/lib/tasks/schedule";
-import { getGraphToken, graphFetchJson, graphRequest, GraphAuthError } from "./client";
+import { getGraphToken, graphFetchJson, graphRequest, GraphAuthError, safeWebLink } from "./client";
 
 export type CalendarEvent = {
   id: string;
@@ -108,11 +108,6 @@ export async function listMyCalendars(): Promise<{ ok: true; calendars: MyCalend
     if (err instanceof GraphAuthError) return { ok: false, error: err.message };
     return { ok: false, error: "Couldn't load your calendars from Outlook right now." };
   }
-}
-
-/** Graph builds this link itself, but it's still outside data headed for an href. */
-function safeWebLink(link: string | undefined): string | null {
-  return link && link.startsWith("https://") ? link : null;
 }
 
 /** The most events one range asks Outlook for: a busy family week, with room to spare. */

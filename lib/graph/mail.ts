@@ -1,4 +1,4 @@
-import { graphFetchJson, GraphAuthError } from "./client";
+import { graphFetchJson, GraphAuthError, safeWebLink } from "./client";
 
 export type MailMessage = {
   id: string;
@@ -9,7 +9,8 @@ export type MailMessage = {
   receivedAt: Date;
   preview: string;
   isRead: boolean;
-  webLink: string;
+  /** Outlook on the web's link to it; null unless it's https (it goes into an href). */
+  webLink: string | null;
 };
 
 type GraphRecipient = { emailAddress?: { name?: string; address?: string } };
@@ -23,7 +24,7 @@ type GraphMessage = {
   receivedDateTime: string;
   bodyPreview: string;
   isRead: boolean;
-  webLink: string;
+  webLink?: string;
 };
 
 export type RecentMailResult =
@@ -49,7 +50,7 @@ function mapReceived(m: GraphMessage): MailMessage {
     receivedAt: new Date(m.receivedDateTime),
     preview: m.bodyPreview,
     isRead: m.isRead,
-    webLink: m.webLink,
+    webLink: safeWebLink(m.webLink),
   };
 }
 
@@ -63,7 +64,7 @@ function mapSent(m: GraphMessage, email: string): MailMessage {
     receivedAt: new Date(m.receivedDateTime),
     preview: m.bodyPreview,
     isRead: m.isRead,
-    webLink: m.webLink,
+    webLink: safeWebLink(m.webLink),
   };
 }
 
