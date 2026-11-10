@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isDeletableContact } from "@/lib/people";
 import { requireActiveProfile } from "@/lib/active-profile";
-import { isAdult, requireAdult } from "@/lib/authz";
+import { isAdmin, requireAdult } from "@/lib/authz";
 import { PersonColor } from "@/app/generated/prisma/enums";
 import { isMembershipLocked } from "@/lib/household-members";
 
@@ -75,9 +75,9 @@ export async function createPerson(
   const result = parsePersonForm(formData);
   if ("error" in result) return { error: result.error };
 
-  // Only adults may add a household member (with a role attached) — a kid profile can
-  // still add a plain external contact, just not toggle household-membership/role.
-  const data = isAdult(authPerson)
+  // Only an Admin may add a household member (with a role attached), as in Settings → Household:
+  // anyone else can still add a plain contact, just not toggle household-membership/role.
+  const data = isAdmin(authPerson)
     ? result.data
     : { ...result.data, isHouseholdMember: false, role: null, color: null };
 
@@ -109,13 +109,14 @@ export async function updatePerson(
   // lib/active-profile.ts's Entra claim sync may change it, so a form submit that tried to
   // change it (e.g. demoting a linked ADULT to KID) would just be silently flipped back on
   // their next sign-in. Preserves existing values rather than erroring, so the rest of the
-  // form (name/contact info) still saves normally. This whole function is adult-only
-  // (requireAdult() above), so no separate isAdult() branch is needed here.
+  // form (name/contact info) still saves normally.
   // Phase 38: the same for a restored Admin or jar member who hasn't signed in yet
   // (isMembershipLocked), so this form can't do what Settings → Household refuses to.
+  // And for everyone when the editor isn't an Admin: who lives here, and as adult or kid, is
+  // member management (a kid made an adult opens every adults-only app), as in Settings.
   const jarCount = existing.authUserId === null ? await prisma.moneyJarMember.count({ where: { personId } }) : 0;
   const data =
-    isMembershipLocked({ ...existing, jarCount })
+    !isAdmin(authPerson) || isMembershipLocked({ ...existing, jarCount })
       ? {
           ...result.data,
           isHouseholdMember: existing.isHouseholdMember,
