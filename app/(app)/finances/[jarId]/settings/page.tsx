@@ -500,7 +500,7 @@ export default async function JarSettingsPage({
         <p className="text-sm text-muted-foreground">Removes its accounts, transactions and connections for everyone in it.</p>
         <ActionForm action={deleteJar.bind(null, jar.id)} className="mt-2 flex flex-wrap gap-2">
           <input name="confirm" required placeholder={`Type "${jar.name}"`} aria-label="Type the jar's name to confirm" className={`${field} min-w-0 flex-1`} />
-          <Submit className="inline-flex min-h-11 items-center justify-center rounded-xl bg-tomato px-4 font-bold text-white disabled:opacity-50 sm:min-h-9">Delete</Submit>
+          <Submit className="inline-flex min-h-11 items-center justify-center rounded-xl bg-tomato px-4 font-bold text-ink disabled:opacity-50 sm:min-h-9">Delete</Submit>
         </ActionForm>
       </section>
     </div>
