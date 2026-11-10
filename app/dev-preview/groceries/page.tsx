@@ -15,7 +15,7 @@ const rows: ListRowItem[] = [
 ];
 
 export default async function GroceriesPreviewPage({ searchParams }: { searchParams: Promise<{ sheet?: string }> }) {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (process.env.NODE_ENV !== "development") notFound();
   const sheet = (await searchParams).sheet === "1";
   return (
     <div className="graph-paper min-h-screen space-y-6 bg-muted p-4 sm:p-6">

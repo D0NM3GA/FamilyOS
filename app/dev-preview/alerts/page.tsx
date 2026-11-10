@@ -5,7 +5,7 @@ import { getVapid } from "@/lib/alerts/vapid";
 // Phase 21.6 harness: the "This phone" card's states without signing in. Dev only. Turning
 // push on here calls the real actions, which need a signed-in admin — render-only.
 export default async function AlertsPreviewPage() {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (process.env.NODE_ENV !== "development") notFound();
   const configured = (await getVapid())?.publicKey ?? null;
   return (
     <div className="space-y-6 bg-muted p-6">

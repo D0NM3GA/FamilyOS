@@ -20,7 +20,7 @@ const row = (id: string, name: string, store: string, sectionOrder: number, emoj
 });
 
 export default function ShopPreviewPage() {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (process.env.NODE_ENV !== "development") notFound();
   const rows = [
     row("1", "Dog food", "Costco", 10, "🐾", { size: "31.1 lb bag", amount: "1 bag", forName: "Ivy" }),
     row("2", "Paper towels", "Costco", 8, "🧽", { size: "12-roll pack", amount: "2 packs" }),

@@ -6,7 +6,7 @@ import { OrdersPanel } from "@/app/(app)/points/orders-panel";
 // for screenshots without signing in. Dev only, like the other dev-preview pages. Buying
 // here calls the real action, which needs a signed-in profile — render-only.
 export default async function StorePreviewPage({ searchParams }: { searchParams: Promise<{ adult?: string }> }) {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (process.env.NODE_ENV !== "development") notFound();
   const adult = (await searchParams).adult === "1";
   const now = new Date("2026-10-03T17:00:00Z").getTime();
   return (
