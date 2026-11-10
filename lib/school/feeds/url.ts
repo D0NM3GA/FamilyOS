@@ -46,9 +46,11 @@ for (const [net, prefix] of [
   blocked.addSubnet(net, prefix, "ipv4");
 }
 for (const [net, prefix] of [
-  ["::", 128],
-  ["::1", 128],
+  // The unspecified address, loopback and the old IPv4-compatible form (::7f00:1).
+  ["::", 96],
   ["64:ff9b::", 96],
+  ["64:ff9b:1::", 48],
+  ["2001::", 32], // Teredo, which wraps an IPv4 address
   ["2002::", 16],
   ["fc00::", 7],
   ["fe80::", 10],
@@ -60,8 +62,8 @@ for (const [net, prefix] of [
 
 /**
  * True for any address the app must never fetch from: loopback, private, link-local,
- * carrier-grade NAT, multicast, reserved, and IPv6 forms that reach those (mapped v4,
- * NAT64, 6to4). A school feed lives on the public internet; anything else is someone
+ * carrier-grade NAT, multicast, reserved, and IPv6 forms that reach those (mapped v4, in
+ * either spelling, which BlockList maps itself; IPv4-compatible, NAT64, Teredo, 6to4). A school feed lives on the public internet; anything else is someone
  * pointing the server at itself or the LAN.
  */
 export function isBlockedAddress(address: string): boolean {
