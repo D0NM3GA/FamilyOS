@@ -528,7 +528,7 @@ function RecentEmailsCard({ result }: { result: RecentMailResult | null }) {
           {result.messages.map((m) => (
             <li key={m.id}>
               <a
-                href={m.webLink}
+                href={m.webLink ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="-m-1.5 block rounded-md p-1.5 hover:bg-muted"
