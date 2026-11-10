@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { allHouseholdMembers } from "@/lib/people";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAdult, isAdult } from "@/lib/authz";
 import { atMidnight } from "@/lib/tasks/schedule";
@@ -77,6 +78,7 @@ export async function createTaskDefinition(
   await assertAppOn(profile.householdId, "chores");
   const result = parseTaskForm(formData);
   if ("error" in result) return { error: result.error };
+  if (!(await allHouseholdMembers(result.assigneeIds, profile.householdId))) return { error: "Pick people from the household." };
 
   await prisma.taskDefinition.create({
     data: {
@@ -100,6 +102,7 @@ export async function updateTaskDefinition(
   await assertAppOn(profile.householdId, "chores");
   const result = parseTaskForm(formData);
   if ("error" in result) return { error: result.error };
+  if (!(await allHouseholdMembers(result.assigneeIds, profile.householdId))) return { error: "Pick people from the household." };
 
   const existing = await prisma.taskDefinition.findFirst({
     where: { id: definitionId, householdId: profile.householdId, domain: "CHORE" },

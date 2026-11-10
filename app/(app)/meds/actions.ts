@@ -4,6 +4,7 @@ import { assertAppOn } from "@/lib/app-guard";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { allHouseholdMembers } from "@/lib/people";
 import { requireActiveProfile } from "@/lib/active-profile";
 import { requireAdult, assertOwnRecord } from "@/lib/authz";
 import { atMidnight } from "@/lib/tasks/schedule";
@@ -124,6 +125,7 @@ export async function createTaskDefinition(
   const result = parseMedForm(formData);
   if ("error" in result) return { error: result.error };
 
+  if (!(await allHouseholdMembers(result.assigneeIds, profile.householdId))) return { error: "Pick people from the household." };
   await Promise.all([
     assertPersonInHousehold(result.medFields.prescriberId, profile.householdId),
     assertPersonInHousehold(result.medFields.pharmacyId, profile.householdId),
@@ -160,6 +162,7 @@ export async function updateTaskDefinition(
   });
   if (!existing) return { error: "Medication not found." };
 
+  if (!(await allHouseholdMembers(result.assigneeIds, profile.householdId))) return { error: "Pick people from the household." };
   await Promise.all([
     assertPersonInHousehold(result.medFields.prescriberId, profile.householdId),
     assertPersonInHousehold(result.medFields.pharmacyId, profile.householdId),

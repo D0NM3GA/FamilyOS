@@ -439,3 +439,14 @@ export function turnsAge(d: { type: string; year: number | null }, next: Date): 
   const age = next.getFullYear() - d.year;
   return age > 0 ? `turns ${age}` : null;
 }
+
+/**
+ * Whether every id is someone who lives in this household: what a chore or medicine may be
+ * assigned to. The form's picker only lists them, but its ids come back from the browser.
+ */
+export async function allHouseholdMembers(ids: string[], householdId: string): Promise<boolean> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return true;
+  const found = await prisma.person.count({ where: { id: { in: unique }, householdId, isHouseholdMember: true } });
+  return found === unique.length;
+}
