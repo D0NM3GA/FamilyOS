@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { closeOnEscape, useInlineForm } from "@/components/inline-form";
 import { useKeptActionState } from "@/components/keep-typed";
 import type { VehicleFormState } from "@/app/(app)/vehicles/actions";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
@@ -12,19 +13,20 @@ type LogRepairAction = (prevState: VehicleFormState, formData: FormData) => Prom
  * cost, counted in the car's costs. Remounts each time it opens, so an old error never lingers.
  */
 export function RepairForm({ logRepair, todayInputValue, currentMileage }: { logRepair: LogRepairAction; todayInputValue: string; currentMileage: number }) {
-  const [open, setOpen] = useState(false);
+  const { open, show, close, opener } = useInlineForm();
   const [instance, setInstance] = useState(0);
   const [saved, setSaved] = useState<string | null>(null);
   if (!open) {
     return (
       <div className="flex flex-wrap items-center gap-3">
         <button
+          ref={opener}
           type="button"
           className={btn}
           onClick={() => {
             setInstance((n) => n + 1);
             setSaved(null);
-            setOpen(true);
+            show();
           }}
         >
           + Log a repair
@@ -43,9 +45,9 @@ export function RepairForm({ logRepair, todayInputValue, currentMileage }: { log
       logRepair={logRepair}
       todayInputValue={todayInputValue}
       currentMileage={currentMileage}
-      onCancel={() => setOpen(false)}
+      onCancel={close}
       onSaved={(notice) => {
-        setOpen(false);
+        close();
         setSaved(notice ?? "Repair logged ✓");
       }}
     />
@@ -81,7 +83,7 @@ function Fields({
   }, [pending, state.error]);
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-wrap items-end gap-2 rounded-xl bg-muted/50 p-3">
+    <form ref={formRef} action={formAction} onKeyDown={closeOnEscape(onCancel)} className="flex flex-wrap items-end gap-2 rounded-xl bg-muted/50 p-3">
       <div className="min-w-[12rem] flex-1">
         <label htmlFor={`${id}-title`} className={`block ${fieldLabel}`}>
           What was fixed

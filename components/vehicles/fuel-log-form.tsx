@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { closeOnEscape, useInlineForm } from "@/components/inline-form";
 import { useKeptActionState } from "@/components/keep-typed";
 import type { VehicleFormState } from "@/app/(app)/vehicles/actions";
 import { btn, btnPrimary, field, fieldLabel } from "@/components/styles";
@@ -28,7 +29,7 @@ export function FuelLogForm({
   /** Phase 63b: a Money charge sent to Cars: opens the form with its cost and day filled in. */
   prefill?: { cost: string; date: string };
 }) {
-  const [open, setOpen] = useState(Boolean(prefill));
+  const { open, show, close, opener } = useInlineForm(Boolean(prefill));
   const [formInstance, setFormInstance] = useState(0);
   const [justSaved, setJustSaved] = useState(false);
   // Set when the save succeeded but the odometer wasn't moved (logFuel's jump cap) — stays
@@ -45,18 +46,20 @@ export function FuelLogForm({
     return (
       <div className="flex flex-wrap items-center gap-2">
         <button
+          ref={opener}
           type="button"
           onClick={() => {
             setFormInstance((n) => n + 1);
             setNotice(null);
-            setOpen(true);
+            show();
           }}
           className={btnPrimary}
         >
           ⛽ Log fill-up
         </button>
-        {justSaved && !notice && <span className="text-xs font-bold text-emerald-600">Logged ✓</span>}
-        {notice && <span className="text-xs font-medium text-amber-700 dark:text-amber-300">{notice}</span>}
+        <span role="status" className={`text-xs ${notice ? "font-medium text-amber-700 dark:text-amber-300" : "font-bold text-emerald-600"}`}>
+          {notice ?? (justSaved ? "Logged ✓" : "")}
+        </span>
       </div>
     );
   }
@@ -69,9 +72,9 @@ export function FuelLogForm({
       currentMileage={currentMileage}
       showCost={showCost}
       prefill={prefill}
-      onCancel={() => setOpen(false)}
+      onCancel={close}
       onSuccess={(n) => {
-        setOpen(false);
+        close();
         setJustSaved(true);
         setNotice(n ?? null);
       }}
@@ -116,7 +119,7 @@ function FuelLogFormInner({
   const label = `block ${fieldLabel}`;
 
   return (
-    <form ref={formRef} action={formAction} className="ui-card flex w-full flex-wrap items-end gap-2 rounded-xl bg-card p-3 ring-1 ring-border">
+    <form ref={formRef} action={formAction} onKeyDown={closeOnEscape(onCancel)} className="ui-card flex w-full flex-wrap items-end gap-2 rounded-xl bg-card p-3 ring-1 ring-border">
       <div>
         <label htmlFor={`${id}-date`} className={label}>
           Date

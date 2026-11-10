@@ -1,10 +1,12 @@
 "use client";
 
 import { useKeptActionState } from "@/components/keep-typed";
+import { closeOnEscape, useInlineForm } from "@/components/inline-form";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { Undo2 } from "lucide-react";
 import type { VehicleFormState } from "@/app/(app)/vehicles/actions";
 import { btn, btnPrimary, field, fieldLabel, iconBtn } from "@/components/styles";
+import { ConfirmAction } from "@/components/submit";
 
 export type MaintenanceItem = {
   id: string;
@@ -60,7 +62,7 @@ export function MaintenanceItemCard({
   /** Phase 63b: a Money charge sent to Cars: the service form opens with its cost and day. */
   prefill?: { cost: string; date: string };
 }) {
-  const [formOpen, setFormOpen] = useState(false);
+  const { open: formOpen, show, close, opener } = useInlineForm();
   // Bumped every time the form re-opens and used as the form's key, so each open gets a
   // fresh LogServiceForm instance (fresh useActionState) instead of carrying a stale error
   // over from a previous attempt this same card session.
@@ -77,7 +79,7 @@ export function MaintenanceItemCard({
 
   function openForm() {
     setFormInstance((n) => n + 1);
-    setFormOpen(true);
+    show();
   }
 
   const style = STATUS_STYLE[item.status];
@@ -118,31 +120,31 @@ export function MaintenanceItemCard({
         {viewerIsAdult && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button
+              ref={opener}
               type="button"
               aria-expanded={formOpen}
-              onClick={() => (formOpen ? setFormOpen(false) : openForm())}
+              onClick={() => (formOpen ? close() : openForm())}
               className={item.status === "OK" ? btn : btnPrimary}
             >
               {item.paperwork ? "Renewed" : "Log service"}
               <span className="sr-only"> {item.title}</span>
             </button>
             {item.hasHistory && (
-              <button
-                type="button"
-                title={item.paperwork ? "Undo the last renewal (its due day moves back)" : "Undo last logged service (does not revert the vehicle's odometer if it was bumped)"}
-                aria-label={item.paperwork ? `Undo the last ${item.title} renewal` : `Undo last ${item.title} service`}
-                disabled={undoPending}
-                onClick={() => {
-                  const question = item.paperwork
+              <ConfirmAction
+                question={
+                  item.paperwork
                     ? `Undo the last ${item.title} renewal? Its due day moves back.`
-                    : `Undo the last ${item.title} service? Supplies it used go back on the shelf; the odometer stays as it is.`;
-                  if (!window.confirm(question)) return;
-                  startUndoTransition(() => undoLast());
-                }}
+                    : `Undo the last ${item.title} service? Supplies it used go back on the shelf; the odometer stays as it is.`
+                }
+                yes="Undo it"
+                aria-label={item.paperwork ? `Undo the last ${item.title} renewal` : `Undo last ${item.title} service`}
+                pending={undoPending}
+                onConfirm={() => startUndoTransition(() => undoLast())}
                 className={`${iconBtn} ring-1 ring-border disabled:opacity-50`}
+                yesClassName={btnPrimary}
               >
                 <Undo2 size={16} />
-              </button>
+              </ConfirmAction>
             )}
           </div>
         )}
@@ -158,9 +160,9 @@ export function MaintenanceItemCard({
           usesSupplies={item.supplies.length > 0}
           paperwork={item.paperwork}
           goodUntil={item.goodUntil}
-          onCancel={() => setFormOpen(false)}
+          onCancel={close}
           onSuccess={(notice) => {
-            setFormOpen(false);
+            close();
             setJustLogged(notice ?? "Logged ✓");
           }}
         />
@@ -216,7 +218,7 @@ function LogServiceForm({
   }, [pending, state.error]);
 
   return (
-    <form ref={keptForm} action={formAction} className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3">
+    <form ref={keptForm} action={formAction} onKeyDown={closeOnEscape(onCancel)} className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3">
       <div>
         <label htmlFor={`${id}-date`} className={`block ${fieldLabel}`}>
           Date

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useEffect, useState } from "react";
+import { closeOnEscape, useInlineForm } from "@/components/inline-form";
 import { useKeptActionState } from "@/components/keep-typed";
 import { btn, btnPrimary, field, sectionTitle } from "@/components/styles";
 import { addRelationship, removeRelationship, type FormState } from "./actions";
@@ -36,7 +37,7 @@ export function RelationshipsCard({
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, pending] = useKeptActionState<FormState>(addRelationship.bind(null, personId), {}, formRef);
-  const [open, setOpen] = useState(false);
+  const { open, show, close, opener } = useInlineForm();
   const [type, setType] = useState("SPOUSE");
   const wasPending = useRef(false);
 
@@ -44,17 +45,17 @@ export function RelationshipsCard({
     if (wasPending.current && !pending && !state.error) {
       formRef.current?.reset();
       setType("SPOUSE");
-      setOpen(false);
+      close();
     }
     wasPending.current = pending;
-  }, [pending, state.error]);
+  }, [pending, state.error, close]);
 
   return (
     <div className="min-w-0 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
       <div className="flex items-center justify-between gap-2">
         <h2 className={sectionTitle}>Relationships</h2>
         {canEdit && !open && pickablePeople.length > 0 && (
-          <button onClick={() => setOpen(true)} className={btn}>
+          <button ref={opener} type="button" onClick={show} className={btn}>
             + Add
           </button>
         )}
@@ -102,6 +103,7 @@ export function RelationshipsCard({
         <form
           ref={formRef}
           action={formAction}
+          onKeyDown={closeOnEscape(close)}
           className="mt-3 w-full min-w-0 space-y-2 rounded-md bg-muted p-3"
         >
           <select
@@ -152,7 +154,7 @@ export function RelationshipsCard({
             </button>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={close}
               className={btn}
             >
               Cancel

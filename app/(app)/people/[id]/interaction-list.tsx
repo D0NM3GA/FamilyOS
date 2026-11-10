@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useKeptActionState } from "@/components/keep-typed";
+import { closeOnEscape, useRowEdit } from "@/components/inline-form";
 import { Home as HomeIcon, Mail, MessageSquare, Phone, StickyNote } from "lucide-react";
 import { btn, btnDanger, btnPrimary, field } from "@/components/styles";
+import { ConfirmAction } from "@/components/submit";
 import { deleteInteraction, updateInteraction, type FormState } from "./actions";
 
 export const INTERACTION_TYPES = [
@@ -42,14 +44,14 @@ export function InteractionList({
   today: string;
   canHide: boolean;
 }) {
-  const [editing, setEditing] = useState<string | null>(null);
+  const { editing, edit, stop, editButton } = useRowEdit();
   return (
     <ul className="space-y-3">
       {interactions.map((log) => {
         if (editing === log.id) {
           return (
             <li key={log.id}>
-              <EditInteraction personId={personId} log={log} today={today} canHide={canHide} onDone={() => setEditing(null)} />
+              <EditInteraction personId={personId} log={log} today={today} canHide={canHide} onDone={stop} />
             </li>
           );
         }
@@ -69,8 +71,9 @@ export function InteractionList({
             </div>
             {log.canEdit && (
               <button
+                ref={editButton(log.id)}
                 type="button"
-                onClick={() => setEditing(log.id)}
+                onClick={() => edit(log.id)}
                 aria-label={`Edit this ${log.type.toLowerCase()}`}
                 className="min-h-11 shrink-0 self-start rounded-lg px-2 text-xs font-bold text-muted-foreground underline hover:text-foreground sm:min-h-0"
               >
@@ -105,7 +108,7 @@ function EditInteraction({
   }, [state.saved, onDone]);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-2 rounded-md bg-muted p-3">
+    <form ref={formRef} action={formAction} onKeyDown={closeOnEscape(onDone)} className="space-y-2 rounded-md bg-muted p-3">
       <div className="flex flex-wrap gap-2">
         <select name="type" aria-label="Kind of contact" defaultValue={log.type} className={field}>
           {INTERACTION_TYPES.map((t) => (
@@ -131,11 +134,11 @@ function EditInteraction({
         <button type="button" onClick={onDone} className={btn}>
           Cancel
         </button>
-        <button
-          type="button"
-          disabled={deleting}
-          onClick={() => {
-            if (!window.confirm("Delete this from the log?")) return;
+        <ConfirmAction
+          question="Delete this from the log?"
+          yes="Delete it"
+          pending={deleting}
+          onConfirm={() => {
             setDeleteError(null);
             startDelete(async () => {
               try {
@@ -147,8 +150,8 @@ function EditInteraction({
           }}
           className={`${btnDanger} ml-auto`}
         >
-          {deleting ? "Deleting…" : "Delete"}
-        </button>
+          Delete
+        </ConfirmAction>
       </div>
     </form>
   );

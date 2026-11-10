@@ -3,6 +3,8 @@
 import { useKeptActionState } from "@/components/keep-typed";
 import { useEffect, useState, useTransition } from "react";
 import { btn, btnDanger, btnPrimary, field, sectionTitle } from "@/components/styles";
+import { ConfirmAction } from "@/components/submit";
+import { closeOnEscape, useInlineForm, useRowEdit } from "@/components/inline-form";
 import { addImportantDate, deleteImportantDate, updateImportantDate, type FormState } from "./actions";
 
 export type DateRow = {
@@ -23,15 +25,15 @@ const TYPE_LABEL = { BIRTHDAY: "Birthday", ANNIVERSARY: "Anniversary", OTHER: "O
  * or remove one (a kid shouldn't be able to delete Grandma's birthday).
  */
 export function ImportantDates({ personId, dates, canEdit }: { personId: string; dates: DateRow[]; canEdit: boolean }) {
-  const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
+  const { open: adding, show: startAdding, close: stopAdding, opener: addButton } = useInlineForm();
+  const { editing, edit, stop, editButton } = useRowEdit();
 
   return (
     <div className="min-w-0 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className={sectionTitle}>Important dates</h2>
         {!adding && (
-          <button type="button" onClick={() => setAdding(true)} className={btn}>
+          <button ref={addButton} type="button" onClick={startAdding} className={btn}>
             + Add date
           </button>
         )}
@@ -39,7 +41,7 @@ export function ImportantDates({ personId, dates, canEdit }: { personId: string;
       {adding && (
         <DateForm
           action={addImportantDate.bind(null, personId)}
-          onDone={() => setAdding(false)}
+          onDone={stopAdding}
           submitLabel="Add"
         />
       )}
@@ -52,11 +54,10 @@ export function ImportantDates({ personId, dates, canEdit }: { personId: string;
                 <DateForm
                   action={updateImportantDate.bind(null, personId, d.id)}
                   defaults={d}
-                  onDone={() => setEditing(null)}
+                  onDone={stop}
                   submitLabel="Save"
-                  onDelete={async () => {
-                    if (window.confirm(`Remove ${d.label || TYPE_LABEL[d.type].toLowerCase()}?`)) await deleteImportantDate(personId, d.id);
-                  }}
+                  deleteQuestion={`Remove ${d.label || TYPE_LABEL[d.type].toLowerCase()}?`}
+                  onDelete={() => deleteImportantDate(personId, d.id)}
                 />
               </li>
             ) : (
@@ -70,7 +71,8 @@ export function ImportantDates({ personId, dates, canEdit }: { personId: string;
                   {canEdit && (
                     <button
                       type="button"
-                      onClick={() => setEditing(d.id)}
+                      ref={editButton(d.id)}
+                      onClick={() => edit(d.id)}
                       aria-label={`Edit ${d.label || TYPE_LABEL[d.type].toLowerCase()}`}
                       className="min-h-11 rounded-lg px-2 text-xs font-bold underline hover:text-foreground sm:min-h-0"
                     >
@@ -92,12 +94,14 @@ function DateForm({
   defaults,
   onDone,
   onDelete,
+  deleteQuestion,
   submitLabel,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   defaults?: DateRow;
   onDone: () => void;
   onDelete?: () => Promise<void>;
+  deleteQuestion?: string;
   submitLabel: string;
 }) {
   const [state, formAction, pending, keptForm] = useKeptActionState<FormState>(action, {});
@@ -110,7 +114,7 @@ function DateForm({
   }, [state.saved, onDone]);
 
   return (
-    <form ref={keptForm} action={formAction} className="mt-2 w-full min-w-0 space-y-2 rounded-md bg-muted p-3">
+    <form ref={keptForm} action={formAction} onKeyDown={closeOnEscape(onDone)} className="mt-2 w-full min-w-0 space-y-2 rounded-md bg-muted p-3">
       <select name="type" aria-label="Kind of date" defaultValue={typed.type ?? defaults?.type ?? "BIRTHDAY"} className={`${field} w-full min-w-0`}>
         {Object.entries(TYPE_LABEL).map(([value, label]) => (
           <option key={value} value={value}>
@@ -142,10 +146,11 @@ function DateForm({
           Cancel
         </button>
         {onDelete && (
-          <button
-            type="button"
-            disabled={removing}
-            onClick={() => {
+          <ConfirmAction
+            question={deleteQuestion ?? "Remove this date?"}
+            yes="Remove it"
+            pending={removing}
+            onConfirm={() => {
               setRemoveError(null);
               startRemove(async () => {
                 try {
@@ -157,8 +162,8 @@ function DateForm({
             }}
             className={`${btnDanger} ml-auto`}
           >
-            {removing ? "Removing…" : "Remove"}
-          </button>
+            Remove
+          </ConfirmAction>
         )}
       </div>
     </form>
