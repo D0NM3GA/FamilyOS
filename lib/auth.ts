@@ -1,3 +1,4 @@
+import { productionAppUrlProblem } from "@/lib/security/app-url";
 import { accessConfigFrom } from "@/lib/security/cf-access";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -48,6 +49,10 @@ export async function oidcSignIn(): Promise<{ name: string } | null> {
 // ever works on the URL the app is served at: BETTER_AUTH_URL, set explicitly, never taken from
 // a request. Changing the address later orphans every passkey made before.
 const appURL = new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000");
+// Better Auth marks its cookies Secure from this address, so a plain-http one in production would
+// send them in the clear: refused at start, except on this machine (the browser tests).
+const appUrlProblem = productionAppUrlProblem(process.env);
+if (appUrlProblem) throw new Error(appUrlProblem);
 
 // Phase 40.1c: the reverse proxy's address (or subnet), comma-separated, so Better Auth reads the
 // client's real address from X-Forwarded-For, walking past the proxy, for its rate limits. Unset,
