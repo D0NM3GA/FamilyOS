@@ -1195,8 +1195,12 @@ There are two kinds of backup:
   section (people, chores, points, meds, groceries, vehicles) to open in Excel or share.
   Admins can download a **whole-household backup** (`.json`) with everything that lives
   only in this app. It never includes PINs, sign-in links, photos (those come from
-  Microsoft 365) or stored integration secrets. Store it like the `.env` file: it holds
-  meds, contacts, notes and the household location.
+  Microsoft 365) or stored integration secrets. It holds meds, contacts, notes and the household
+  location, so it's **locked with a passphrase** the admin types on download
+  (`lib/backup/locked.ts`: PBKDF2-SHA-256, 600,000 rounds, then AES-256-GCM). The passphrase is
+  never stored, so keep it in the password manager. A restore opens the file in the browser, so
+  the passphrase never reaches the server, and locks the automatic before-restore copy with it.
+  Older, unlocked backups still restore.
 - **Money jars in it are sealed** (Phase 28): every jar is inside, encrypted on the server
   with `INTEGRATION_ENCRYPTION_KEY`. The admin holding the file can't read them; only a
   FamilyOS server with the same key can. **Keep that key with your backups** (a password

@@ -525,15 +525,20 @@ LUKS inside the VM) and the NAS share on an encrypted volume. Check with `lsblk 
 **Settings → Data & backups** (`/data`). Any grown-up can download a spreadsheet (CSV) of a
 section. Admins can download a **whole-household backup** (`.json`): everything that lives only in
 the app, without PINs, sign-in links, photos or stored connection secrets. It holds meds,
-contacts, notes and the household's location in plain text (only the money jars are encrypted),
-so store it like the settings file: in the password manager or an encrypted drive, never a shared
-folder or an email. It also carries
+contacts, notes and the household's location, so it's **locked with a passphrase** you type when
+you download it (at least 12 characters, twice; a few words works well). The passphrase isn't kept
+anywhere, by the app or the server: **save it in the password manager before you download**, because
+without it nobody can open the file. Keep the file somewhere private anyway. It also carries
 the history of chores, homework and school forms (who marked what done, gave it to whom, changed
 a due date or a grade). A note's text never goes into that history, only that it changed.
 
 - **Money jars ride in it sealed**, encrypted with `INTEGRATION_ENCRYPTION_KEY`: the admin holding
   the file can't read them; only a server with the same key can put them back. **Keep that key in
   the password manager, not next to the file.**
+- **Restoring a locked backup** asks for its passphrase. It opens in your browser; the passphrase
+  isn't sent to the server. The copy of the household from just before the restore, which
+  downloads automatically, is locked with the same passphrase. Backups from before they were locked
+  still restore: the page asks you to choose a passphrase for that copy.
 - Backups and restores need you to be **using the app as yourself** (your own sign-in, not a
   switched profile), signed in within the last 15 minutes (the page offers **Sign in again**).
 - A backup made by a newer version of the app (say, one with as-needed medicines) won't restore
