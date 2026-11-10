@@ -3,6 +3,7 @@ import { backupSignInState, isSessionOwner } from "@/lib/active-profile";
 import { requireAppOn } from "@/lib/app-guard";
 import { isAdmin } from "@/lib/authz";
 import { backupHistory } from "@/lib/backup/audit";
+import { BackupDownloadForm } from "./backup-download-form";
 import { SignInAgain } from "@/components/sign-in-again";
 import { getHouseholdSettings } from "@/lib/household-settings";
 import { getDisabledApps } from "@/lib/app-switches";
@@ -82,8 +83,9 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
         <section id="backups" className="mt-8 scroll-mt-6 rounded-lg bg-card p-4 shadow-sm ring-1 ring-border">
           <h2 className="text-sm font-semibold text-foreground">Whole-household backup</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            One file with everything below, in a format this app can restore from. It contains
-            meds, contacts, notes and your home location, so store it somewhere private — not a shared folder.
+            One file with everything below, in a format this app can restore from. It holds meds, contacts, notes and
+            your home location, so it&apos;s locked with a passphrase you choose: keep the file somewhere private anyway, and
+            the passphrase somewhere else.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Everyone&apos;s money jars are in it too, <strong>sealed</strong>: you can&apos;t open them, only this server can, using a key kept with the server (the admin guide has more). The other admins and everyone in a
@@ -92,6 +94,11 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
           {stepup === "blocked" && (
             <p role="alert" className="mt-2 text-sm font-medium text-destructive">
               Your browser didn&apos;t confirm this came from here, so no backup was made. Update the browser or try another one.
+            </p>
+          )}
+          {stepup === "passphrase" && (
+            <p role="alert" className="mt-2 text-sm font-medium text-destructive">
+              No backup was made: the passphrase was too short, or the two didn&apos;t match. Try again.
             </p>
           )}
           {stepup === "own" && (
@@ -109,17 +116,10 @@ export default async function DataPage({ searchParams }: { searchParams: Promise
               {again}
             </div>
           ) : (
-            <form method="post" action="/api/backup/download" className="mt-3">
-              <button
-                type="submit"
-                className="ui-btn ui-btn-primary inline-flex min-h-11 items-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-on-brand transition hover:scale-105 hover:-translate-y-0.5 hover:bg-brand-hover active:scale-95 sm:min-h-9"
-              >
-                Download backup (.json)
-              </button>
-            </form>
+            <BackupDownloadForm />
           )}
           <p className="mt-3 text-xs text-muted-foreground">
-            This is different from the server&apos;s full backup (see the admin guide), which also covers sign-ins and security data. This file is readable, portable, and only about your household.
+            This is different from the server&apos;s full backup (see the admin guide), which also covers sign-ins and security data. This file is portable, and only about your household.
           </p>
 
           <h3 className="mt-5 text-sm font-semibold text-foreground">Restore from a backup</h3>
