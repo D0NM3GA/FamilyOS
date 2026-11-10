@@ -687,3 +687,10 @@ describe("the collection book (Phase 54)", () => {
     expect(checkUniques(b)).toEqual(["petDiscoveries (person, species, stage, form): 1 duplicate(s)"]);
   });
 });
+
+describe("a locked backup reaching the server", () => {
+  test("gets a plain answer, not schema problems", () => {
+    const locked = JSON.stringify({ format: "familyos-locked-backup", version: 1, data: "…" });
+    expect(parseBackupFile(locked)).toEqual({ ok: false, errors: ["This backup is locked. Enter its passphrase to open it."] });
+  });
+});

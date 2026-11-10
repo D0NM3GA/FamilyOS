@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { RewardWord } from "@/components/family-look";
+import { field } from "@/components/styles";
+import { isLockedBackup, lockBackup, passphraseProblem, PASSPHRASE_MAX, PASSPHRASE_MIN, unlockBackup } from "@/lib/backup/locked";
 
 type Preview = {
   deletes: Record<string, number>;
@@ -26,9 +28,11 @@ type MoneyCounts = { jars: number; jarsSkipped: number; membersKept: number; mem
 type Step =
   | { kind: "idle" }
   | { kind: "working"; label: string }
-  | { kind: "preview"; text: string; preview: Preview; fileHash: string }
+  | { kind: "locked"; lockedText: string; error?: string }
+  // `passphrase`: the one that opened a locked file, which locks the before-restore copy too.
+  | { kind: "preview"; text: string; preview: Preview; fileHash: string; passphrase: string | null }
   | { kind: "errors"; errors: string[] }
-  | { kind: "done"; previousBackup: unknown; moneyRestored: MoneyCounts | null };
+  | { kind: "done"; previousBackup: unknown; moneyRestored: MoneyCounts | null; passphrase: string };
 
 // A dropped connection or an unreadable reply after apply means we can't know whether the
 // restore committed, so the message must not claim "nothing changed".
@@ -48,13 +52,17 @@ async function post(text: string, query: string): Promise<{ ok: boolean; body: R
   }
 }
 
-/** Saves the automatic pre-restore snapshot the server returns. */
-function saveSnapshot(previousBackup: unknown) {
-  const blob = new Blob([JSON.stringify(previousBackup, null, 2)], { type: "application/json" });
+/**
+ * Saves the automatic pre-restore snapshot the server returns, locked like any household backup
+ * (lib/backup/locked.ts), here in the browser.
+ */
+async function saveSnapshot(previousBackup: unknown, passphrase: string) {
+  const locked = await lockBackup(JSON.stringify(previousBackup, null, 2), passphrase);
+  const blob = new Blob([locked], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
-  a.download = `familyos-backup-before-restore-${stamp}.json`;
+  a.download = `familyos-backup-before-restore-${stamp}-locked.json`;
   // Attached, and revoked later: Firefox and Safari can drop a download whose URL is
   // revoked in the same tick, and this file is the only copy.
   document.body.append(a);
@@ -73,6 +81,12 @@ export function RestoreForm() {
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const [confirm, setConfirm] = useState("");
   const [withMoney, setWithMoney] = useState(false);
+  // A plain (older) file brings no passphrase, so the before-restore copy needs one chosen here.
+  const [copyPass, setCopyPass] = useState("");
+  const [copyPassAgain, setCopyPassAgain] = useState("");
+  const [unlockWith, setUnlockWith] = useState("");
+  // Set before the first await, so a second Enter can't start a second unlock.
+  const [busy, setBusy] = useState(false);
   // Each step replaces the last one whole, taking the focused control with it: focus moves to the
   // start of the new step (what it says, or the file box again) instead of the top of the page.
   // Not on first load: only once someone has started.
@@ -88,11 +102,44 @@ export function RestoreForm() {
     started.current = true;
     setStep({ kind: "working", label: "Checking the file…" });
     const text = await file.text();
+    let json: unknown = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      // The server says what's wrong with it.
+    }
+    if (isLockedBackup(json)) {
+      setUnlockWith("");
+      return setStep({ kind: "locked", lockedText: text });
+    }
+    await checkPlain(text, null);
+  }
+
+  async function checkPlain(text: string, passphrase: string | null) {
     const { ok, body } = await post(text, "mode=preview");
     if (!ok) return setStep({ kind: "errors", errors: body.errors ?? ["That didn't work."] });
     setConfirm("");
     setWithMoney(false);
-    setStep({ kind: "preview", text, preview: body.preview as Preview, fileHash: body.fileHash as string });
+    setCopyPass("");
+    setCopyPassAgain("");
+    setStep({ kind: "preview", text, preview: body.preview as Preview, fileHash: body.fileHash as string, passphrase });
+  }
+
+  async function onUnlock() {
+    if (step.kind !== "locked" || busy) return;
+    setBusy(true);
+    const { lockedText } = step;
+    const passphrase = unlockWith;
+    setStep({ kind: "working", label: "Opening the file…" });
+    const opened = await unlockBackup(lockedText, passphrase);
+    setUnlockWith("");
+    if (!opened.ok) {
+      setBusy(false);
+      return setStep({ kind: "locked", lockedText, error: opened.error });
+    }
+    setStep({ kind: "working", label: "Checking the file…" });
+    await checkPlain(opened.text, passphrase);
+    setBusy(false);
   }
 
   async function onApply() {
@@ -103,8 +150,9 @@ export function RestoreForm() {
     const { ok, body } = await post(step.text, query.toString());
     if (!ok) return setStep({ kind: "errors", errors: body.errors ?? [UNKNOWN] });
     if (!body.previousBackup) return setStep({ kind: "errors", errors: [UNKNOWN] });
-    saveSnapshot(body.previousBackup);
-    setStep({ kind: "done", previousBackup: body.previousBackup, moneyRestored: (body.moneyRestored as MoneyCounts | null) ?? null });
+    const passphrase = step.passphrase ?? copyPass;
+    setStep({ kind: "done", previousBackup: body.previousBackup, moneyRestored: (body.moneyRestored as MoneyCounts | null) ?? null, passphrase });
+    await saveSnapshot(body.previousBackup, passphrase).catch(() => {});
     // Drops the client router cache, so no page shows data from before the restore.
     router.refresh();
   }
@@ -112,7 +160,7 @@ export function RestoreForm() {
   if (step.kind === "working") return <p className="mt-3 text-sm text-muted-foreground">{step.label}</p>;
 
   if (step.kind === "done") {
-    const previousBackup = step.previousBackup;
+    const { previousBackup, passphrase } = step;
     return (
       <div className="mt-3 space-y-2 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/30">
         <p ref={(el) => void (lead.current = el)} tabIndex={-1} className="font-medium outline-none">
@@ -125,9 +173,9 @@ export function RestoreForm() {
           </p>
         )}
         <p>
-          A copy of the household from just before the restore should have downloaded. It&apos;s the only copy, so keep it
-          until you&apos;re sure everything looks right.{" "}
-          <button type="button" onClick={() => saveSnapshot(previousBackup)} className="font-medium underline">
+          A copy of the household from just before the restore should have downloaded, locked with the same
+          passphrase. It&apos;s the only copy, so keep it until you&apos;re sure everything looks right.{" "}
+          <button type="button" onClick={() => void saveSnapshot(previousBackup, passphrase)} className="font-medium underline">
             Download it again
           </button>
         </p>
@@ -144,7 +192,8 @@ export function RestoreForm() {
 
   if (step.kind === "preview") {
     const p = step.preview;
-    const canApply = confirm === "REPLACE";
+    const copyReady = step.passphrase !== null || (passphraseProblem(copyPass) === null && copyPass === copyPassAgain);
+    const canApply = confirm === "REPLACE" && copyReady;
     return (
       <div className="mt-3 space-y-3 text-sm">
         <p ref={(el) => void (lead.current = el)} tabIndex={-1} className="font-medium text-foreground outline-none">
@@ -215,6 +264,39 @@ export function RestoreForm() {
         {/* Phase 49: a backup from another zone has its days moved, not shifted. */}
         {p.timeZoneNote && <p className="text-xs text-muted-foreground">{p.timeZoneNote}</p>}
         {p.giftNote && <p className="text-xs text-muted-foreground">{p.giftNote}</p>}
+        {step.passphrase === null && (
+          <div className="space-y-2 rounded-md bg-muted/50 p-2">
+            <p className="text-xs text-muted-foreground">
+              This file isn&apos;t locked (it&apos;s from before backups were). Choose a passphrase for the copy of today&apos;s household
+              that downloads first: at least {PASSPHRASE_MIN} characters, and save it somewhere safe.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={copyPass}
+                maxLength={PASSPHRASE_MAX}
+                onChange={(e) => setCopyPass(e.target.value)}
+                aria-label="Passphrase for the copy of today's household"
+                placeholder="Passphrase"
+                className={`${field} w-56`}
+              />
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={copyPassAgain}
+                maxLength={PASSPHRASE_MAX}
+                onChange={(e) => setCopyPassAgain(e.target.value)}
+                aria-label="The same passphrase again"
+                placeholder="The same again"
+                className={`${field} w-56`}
+              />
+            </div>
+            {copyPassAgain.length > 0 && copyPass !== copyPassAgain && (
+              <p className="text-xs font-medium text-destructive">The two passphrases don&apos;t match.</p>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={confirm}
@@ -240,6 +322,55 @@ export function RestoreForm() {
           </button>
         </div>
       </div>
+    );
+  }
+
+  if (step.kind === "locked") {
+    return (
+      <form
+        className="mt-3 space-y-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void onUnlock();
+        }}
+      >
+        <label className="block text-sm">
+          <span className="font-medium text-foreground">This backup is locked. Its passphrase:</span>
+          <input
+            ref={(el) => void (lead.current = el)}
+            type="password"
+            autoComplete="current-password"
+            required
+            value={unlockWith}
+            maxLength={PASSPHRASE_MAX}
+            onChange={(e) => setUnlockWith(e.target.value)}
+            aria-describedby={step.error ? "unlock-error" : undefined}
+            className={`${field} mt-1 block w-full max-w-xs`}
+          />
+        </label>
+        <p className="text-xs text-muted-foreground">It opens here, in this browser: the passphrase isn&apos;t sent anywhere.</p>
+        {step.error && (
+          <p id="unlock-error" role="alert" className="text-xs font-medium text-destructive">
+            {step.error}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="submit"
+            disabled={busy}
+            className="ui-btn ui-btn-primary inline-flex min-h-11 items-center rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-on-brand hover:bg-brand-hover sm:min-h-9"
+          >
+            Open it
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep({ kind: "idle" })}
+            className="inline-flex min-h-11 items-center px-1 text-sm text-muted-foreground hover:underline sm:min-h-9"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
     );
   }
 
