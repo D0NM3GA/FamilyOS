@@ -8,6 +8,7 @@ import { cleanMascotName } from "@/lib/family-look";
 import { checkRewardWords } from "@/lib/reward-words";
 import { isThemeColorId } from "@/lib/theme-colors";
 import { backupSchema, type Backup } from "./schema";
+import { isLockedBackup } from "./locked";
 import { productNameKey } from "@/lib/product-name";
 import { readCareHours, readPetState } from "@/lib/pet/stored";
 import { DEFAULT_CARE_HOURS, type CareHours } from "@/lib/pet/care-hours";
@@ -34,6 +35,9 @@ export function parseBackupFile(text: string): { ok: true; backup: Backup } | Re
   } catch {
     return { ok: false, errors: ["The file isn't valid JSON. Is it a backup downloaded from this app?"] };
   }
+  // The browser unlocks a locked file before sending it (lib/backup/locked.ts); one that
+  // arrives still locked gets a plain answer, not a list of schema problems.
+  if (isLockedBackup(json)) return { ok: false, errors: ["This backup is locked. Enter its passphrase to open it."] };
   const parsed = backupSchema.safeParse(json);
   if (!parsed.success) {
     // Path + code only: zod 4's messages for this schema don't embed input, but a future

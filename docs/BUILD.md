@@ -2511,3 +2511,25 @@ seal to the household id would stop a backup restoring onto a new server, which 
 it. `npm audit` lists six moderate advisories in build and dev tooling only (Sentry's bundler
 plugin, Prisma's local dev server); `@sentry/nextjs` 11.11.0 clears most of them once it's past
 the 7-day install cooldown (11.10.0 doesn't).
+
+### After Phase 70: the household backup is locked with a passphrase
+
+The whole-household backup used to be plain JSON apart from its sealed money jars, so meds, contacts,
+notes and the home location sat readable wherever an admin saved it. That was the security review's
+one open item. It's now locked with a passphrase the admin types on /data (twice, at least 12
+characters, with a box to tick saying it's saved). The passphrase is never stored.
+
+- **One format, Web Crypto only** (`lib/backup/locked.ts`), so the server locks the download and
+  the browser opens a restore with the same code. Web Crypto has no scrypt or Argon2, so the key
+  comes from PBKDF2-SHA-256 at 600,000 rounds (OWASP's figure), then AES-256-GCM. A fresh salt
+  and IV go into each file. The header (format, version, rounds, salt) is the cipher's additional
+  data, and a file asking for fewer than 300,000 or more than 5,000,000 rounds is refused, so a
+  changed header can't weaken a file or keep a browser busy.
+- **A restore opens the file in the browser**, so the passphrase never reaches the server. The
+  route's guards, hash check and 20 MB cap see the plain backup as before. A locked file that
+  reaches the server anyway gets a plain "enter its passphrase" answer.
+- **The automatic before-restore copy is locked too**, with the passphrase that opened the file.
+  An older, unlocked file still restores, and the preview then asks for a passphrase for that copy
+  before **Replace household data** lights up.
+- **Left as it is:** Money → **Keep a copy** stays readable, since it's the member's own copy of
+  their jars, made to read.
