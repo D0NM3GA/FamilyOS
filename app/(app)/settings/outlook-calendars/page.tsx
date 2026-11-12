@@ -197,7 +197,8 @@ export default async function OutlookCalendarsPage({ searchParams }: { searchPar
                     <Status row={row} />
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      {mailbox ? (mailbox.from === "microsoft" ? "By their Microsoft sign-in." : "By the email on their People page.") : "No email yet: add one on their People page."}
+                      {/* The address itself, so the admin sees whose mailbox they're about to read: any grown-up can edit a People email (2026-11-11 review). */}
+                      {mailbox ? (mailbox.from === "microsoft" ? "By their Microsoft sign-in." : `Reads ${mailbox.mailbox}, the email on their People page.`) : "No email yet: add one on their People page."}
                     </p>
                   )}
                 </div>
