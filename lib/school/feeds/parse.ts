@@ -13,6 +13,9 @@ import ICAL from "ical.js";
  *   in that zone. Truly floating times use the household's zone.
  * - All-day events are stored as UTC midnight of their date, end exclusive.
  * - One malformed series is skipped, never the whole feed.
+ * - A whole feed gets a step budget too, and a rule repeating more than daily (every hour,
+ *   minute or second) is skipped: a school calendar has none, and a 2 MB feed of them could
+ *   keep the server busy for minutes (2026-11-11 review).
  */
 
 export type FeedEvent = {
@@ -25,7 +28,16 @@ export type FeedEvent = {
   allDay: boolean;
 };
 
-export type ExpandOptions = { from: Date; to: Date; fallbackZone: string; maxEvents?: number; maxSteps?: number };
+export type ExpandOptions = { from: Date; to: Date; fallbackZone: string; maxEvents?: number; maxSteps?: number; maxTotalSteps?: number };
+
+const SUB_DAILY = new Set(["SECONDLY", "MINUTELY", "HOURLY"]);
+/** Whether a series repeats more often than daily (see the notes above). */
+function repeatsSubDaily(c: Component): boolean {
+  return c.getAllProperties("rrule").some((p) => {
+    const freq = (p.getFirstValue() as { freq?: unknown } | null)?.freq;
+    return typeof freq === "string" && SUB_DAILY.has(freq.toUpperCase());
+  });
+}
 
 type Component = InstanceType<typeof ICAL.Component>;
 type Time = InstanceType<typeof ICAL.Time>;
@@ -72,6 +84,8 @@ const text = (c: Component, name: string): string | null => {
 export function expandFeed(ics: string, opts: ExpandOptions): { events: FeedEvent[]; truncated: boolean } {
   const maxEvents = opts.maxEvents ?? 5000;
   const maxSteps = opts.maxSteps ?? 20_000;
+  const maxTotalSteps = opts.maxTotalSteps ?? 200_000;
+  let totalSteps = 0;
   const from = opts.from.getTime();
   const to = opts.to.getTime();
   const out = new Map<string, FeedEvent>();
@@ -142,6 +156,10 @@ export function expandFeed(ics: string, opts: ExpandOptions): { events: FeedEven
     for (const [uid, master] of masters) {
       try {
         if (isCancelled(master)) continue;
+        if (repeatsSubDaily(master)) {
+          truncated = true;
+          continue;
+        }
         const event = new ICAL.Event(master, { exceptions: exceptions.get(uid) ?? [] });
         if (!event.isRecurring()) {
           add(uid, master, event.startDate, event.endDate);
@@ -151,7 +169,7 @@ export function expandFeed(ics: string, opts: ExpandOptions): { events: FeedEven
         const iterator = event.iterator();
         let steps = 0;
         for (let next = iterator.next(); next; next = iterator.next()) {
-          if (++steps > maxSteps) {
+          if (++steps > maxSteps || ++totalSteps > maxTotalSteps) {
             truncated = true;
             break;
           }

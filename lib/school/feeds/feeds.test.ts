@@ -130,6 +130,24 @@ describe("expandFeed", () => {
     expect(events.map((e) => e.startsAt.toISOString().slice(0, 10))).toEqual(["2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03"].filter((d) => d >= "2026-09-01"));
   });
 
+  it("skips a rule that repeats every hour, minute or second, keeping the rest", () => {
+    const { events, truncated } = expandFeed(
+      cal(
+        "BEGIN:VEVENT\r\nUID:spam\r\nDTSTART:20260902T000000Z\r\nRRULE:FREQ=MINUTELY\r\nSUMMARY:Spam\r\nEND:VEVENT\r\n" +
+          "BEGIN:VEVENT\r\nUID:ok\r\nDTSTART;VALUE=DATE:20261005\r\nSUMMARY:Picture day\r\nEND:VEVENT\r\n",
+      ),
+      WINDOW,
+    );
+    expect(truncated).toBe(true);
+    expect(events.map((e) => e.title)).toEqual(["Picture day"]);
+  });
+
+  it("stops at a whole-feed step budget, however many series there are", () => {
+    const series = Array.from({ length: 30 }, (_, i) => `BEGIN:VEVENT\r\nUID:s${i}\r\nDTSTART;VALUE=DATE:20150101\r\nRRULE:FREQ=DAILY\r\nSUMMARY:S${i}\r\nEND:VEVENT\r\n`).join("");
+    const { truncated } = expandFeed(cal(series), { ...WINDOW, maxTotalSteps: 10_000 });
+    expect(truncated).toBe(true);
+  });
+
   it("keeps every day of an event whose days share one UID, and all-day events with DTEND = DTSTART", () => {
     const day = (d: string) => `BEGIN:VEVENT\r\nUID:camp\r\nDTSTART;VALUE=DATE:${d}\r\nDTEND;VALUE=DATE:${d}\r\nSUMMARY:Camp\r\nEND:VEVENT\r\n`;
     const { events } = expandFeed(cal(day("20261005") + day("20261006") + day("20261007")), WINDOW);
