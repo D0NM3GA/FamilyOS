@@ -11,7 +11,7 @@ export const relationshipInputSchema = z
   .object({
     otherPersonId: z.string().trim().min(1, "Choose a person"),
     type: z.enum(["SPOUSE", "PARENT", "CHILD", "SIBLING", "OTHER"]),
-    label: z.string().trim().optional(),
+    label: z.string().trim().max(100, "That label is too long").optional(),
   })
   .refine((data) => data.type !== "OTHER" || Boolean(data.label), {
     message: "Label is required for \"Other\"",
@@ -254,6 +254,7 @@ export function pickStaleContacts<T extends StaleCandidate>(
 
 const staleCandidates = cache((householdId: string) =>
   prisma.person.findMany({
+    include: { interactions: { where: { adultsOnly: false }, orderBy: { occurredAt: "desc" }, take: 1, select: { occurredAt: true } } },
     where: {
       householdId,
       // A med's prescriber/pharmacy (see prisma/schema.prisma's Medication model) is a
@@ -271,9 +272,15 @@ const staleCandidates = cache((householdId: string) =>
   }),
 );
 
-/** People overdue for a check-in, most-overdue first — see pickStaleContacts for the rule. */
-export async function staleContacts(householdId: string, opts: { excludeId?: string; limit?: number } = {}) {
-  return pickStaleContacts(await staleCandidates(householdId), new Date(), opts);
+/**
+ * People overdue for a check-in, most-overdue first — see pickStaleContacts for the rule. A
+ * kid's list goes by the calls they can see (after the 2026-11-11 review): otherwise someone
+ * dropping off it would give a grown-ups-only call away, as on the person's page.
+ */
+export async function staleContacts(householdId: string, opts: { excludeId?: string; limit?: number; viewerIsAdult: boolean }) {
+  const rows = await staleCandidates(householdId);
+  const people = rows.map(({ interactions, ...p }) => (!opts.viewerIsAdult ? { ...p, lastContactedAt: interactions[0]?.occurredAt ?? null } : p));
+  return pickStaleContacts(people, new Date(), opts);
 }
 
 /** `type` describes what `to` is TO `from` — e.g. `{from: Alex, to: Kid, type: PARENT}` reads
