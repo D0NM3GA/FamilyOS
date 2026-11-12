@@ -2533,3 +2533,37 @@ characters, with a box to tick saying it's saved). The passphrase is never store
   before **Replace household data** lights up.
 - **Left as it is:** Money → **Keep a copy** stays readable, since it's the member's own copy of
   their jars, made to read.
+
+### After Phase 70: fixes from a second security review
+
+A second read-only pass (what kids can see, ways to game the rules, outside services and
+background work) found nothing critical or high. Fixed:
+
+- **A kid ticks a chore from the day before it's due, not further ahead** (lib/tasks/permissions.ts
+  `canDoChoreYet`, checked in the chore core and used to hide Done on the boards). Upcoming offered
+  Done for two weeks out, so a kid could claim and spend a fortnight's stickers at once. Grown-ups
+  can still tick any day's.
+- **A school calendar feed can't keep the server busy**: the step cap was per series only, so a
+  2 MB feed of many long rules could run for minutes. A whole feed now has a step budget too, and
+  a rule repeating hourly or faster is skipped (a school calendar has none).
+- **Home's activity feed matches what a kid sees elsewhere**: their own doses only, their own
+  homework, and no school forms.
+- **As-needed doses pay stickers up to the medicine's daily maximum**, or once a day without one,
+  so a medicine with points and no limits can't be tapped for stickers.
+- **"Haven't talked in a while" and Bunson's line go by the calls a kid can see**, as the person's
+  page already did, so a grown-ups-only call can't be read from someone dropping off the list.
+- **Leaving a money jar clears its alerts from your bell**, and deleting a jar clears them for
+  everyone (their titles name the jar's bills).
+- **Length limits** on people, dates, chores, medicines, cars and the household name, and points
+  capped at 1,000: a kid could store megabytes of notes on a contact, and huge points failed with
+  a server error.
+- **Two races closed**: two jar members answering the same "same charge?" question, and two quick
+  taps asking to swap one chore.
+- **Teams cards keep bare web addresses from turning into links** (jar and category names are the
+  family's own words).
+- **Receipt reading is limited to 30 an hour per household** (each read is billed).
+- **Settings → Outlook calendars shows the address it will read** for someone without a Microsoft
+  sign-in, since any grown-up can edit a People email.
+
+Left for the owner: whether reminders should hide medicine names (lock screens, Teams, email),
+and whether to clear sign-in history after a year.

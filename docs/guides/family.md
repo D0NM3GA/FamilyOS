@@ -236,7 +236,8 @@ The chores board shows what's **due today**, what's **late**, and what's coming 
 - Tick a chore off when it's done (**Done** on the board and Home, **Done!** in Big
   buttons). Made a mistake? Tap the undo arrow, or **Undo** on the bar at the bottom when the chore
   has left the list (Overdue, Upcoming, Home): it stays about ten seconds. The bar shows up for
-  **Missed** and **Move to tomorrow** too. Kids tick their own chores and Anyone chores.
+  **Missed** and **Move to tomorrow** too. Kids tick their own chores and Anyone chores, from the
+  day before they're due (tomorrow's can be done tonight); grown-ups can tick any day's.
 - **Anyone: grab it!** chores are for whoever gets there first; kids can grab them too.
 - What's after today is folded under **Next 14 days**. Tap it to look ahead. Change a chore's days or
   people and those 14 days follow at once (a chore you moved by hand keeps its day).
@@ -360,7 +361,8 @@ options**; people already used as a prescriber or pharmacy come first in those l
 hours. It shows under **As needed** on Meds and in Home's Today card (a kid sees their own) with
 **Take a dose**, when it was last taken and when the next is allowed; too soon, it says from when.
 It counts down in doses ("6 doses left") and asks for a refill with a few left. **Undo the last
-dose** takes back a slip.
+dose** takes back a slip. One with stickers pays them for as many doses a day as it allows, or once
+a day when it has no daily maximum.
 
 **History.** A medicine's **History** (on Manage, and under an as-needed one) lists every dose of
 the last 90 days, taken (and by whom), skipped or not marked; **Print** makes a page for a doctor

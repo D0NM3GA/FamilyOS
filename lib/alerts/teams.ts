@@ -12,9 +12,14 @@ export const STORE_CARD: TeamsCard = { heading: "⭐ Store", linkText: "Open the
  * A title is built from names people typed (categories, jars, card memos), and the card
  * renders Markdown, so "[Open](https://...)" in a name would post a disguised link in the
  * family chat. A zero-width space between "]" and "(" keeps the text and drops the link.
+ * Teams also turns a bare web address into a link, so one goes into "://" and after "www"
+ * (2026-11-11 review): the text reads the same and nothing in it can be tapped.
  */
 export function plainCardText(text: string): string {
-  return text.replace(/\]\s*\(/g, "]\u200B(");
+  return text
+    .replace(/\]\s*\(/g, "]\u200B(")
+    .replace(/:\/\//g, ":\u200B//")
+    .replace(/\bwww\./gi, (m) => `${m.slice(0, 3)}\u200B.`);
 }
 
 /** The message activity Bot Connector posts: one Adaptive Card, its link as text (no buttons to answer). */

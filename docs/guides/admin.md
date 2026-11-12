@@ -214,7 +214,8 @@ without anyone's Microsoft sign-in, refreshing each once it's 15 minutes old. It
 mail-enabled security group of the family's mailboxes; the PowerShell is in README "Outlook
 calendars". Then on the page: pick whose mailbox holds the family calendar and which calendar it
 is, and **Copy their calendar** for each person (grown-ups on Microsoft are read by their sign-in,
-kids by the email on their People page, e.g. `ivy@example.com`). **Check access and copy now**
+kids by the email on their People page, e.g. `ivy@example.com`, which the row shows before you
+copy). **Check access and copy now**
 tries every calendar and each says how it went. Grown-ups see every copied calendar, kids the
 family's and their own; anything marked Private shows as "Busy". Someone taken off in Entra loses
 their copy on the next background run.

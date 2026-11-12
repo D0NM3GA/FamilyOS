@@ -12,9 +12,15 @@ const INTERACTION_PHRASE: Record<string, string> = {
   NOTE: "a note",
 };
 
-async function choreAndMedCompletions(householdId: string, take: number): Promise<ActivityEntry[]> {
+/** What a kid may see: everyone's chores, but only their own doses (as on Meds, after the 2026-11-11 review). */
+async function choreAndMedCompletions(householdId: string, take: number, kidId: string | null): Promise<ActivityEntry[]> {
   const instances = await prisma.taskInstance.findMany({
-    where: { definition: { householdId }, status: "DONE", completedAt: { not: null } },
+    where: {
+      definition: { householdId },
+      status: "DONE",
+      completedAt: { not: null },
+      ...(kidId ? { OR: [{ definition: { domain: { not: "MED" } } }, { assignedToId: kidId }, { completedById: kidId }] } : {}),
+    },
     orderBy: { completedAt: "desc" },
     take,
     select: {
@@ -130,21 +136,26 @@ async function purchases(householdId: string, take: number): Promise<ActivityEnt
   }));
 }
 
-/** School (Phase 18): finished homework and forms. Never a grade: activity is household-wide. */
-async function schoolCompletions(householdId: string, take: number): Promise<ActivityEntry[]> {
+/**
+ * School (Phase 18): finished homework and forms. Never a grade. A kid sees only their own
+ * homework and no forms, as on School (the forms are the grown-ups' to sort).
+ */
+async function schoolCompletions(householdId: string, take: number, kidId: string | null): Promise<ActivityEntry[]> {
   const [assignments, tasks] = await Promise.all([
     prisma.schoolAssignment.findMany({
-      where: { status: "DONE", doneAt: { not: null }, profile: { person: { householdId } } },
+      where: { status: "DONE", doneAt: { not: null }, profile: { person: { householdId, ...(kidId ? { id: kidId } : {}) } } },
       orderBy: { doneAt: "desc" },
       take,
       select: { id: true, doneAt: true, className: true, profile: { select: { personId: true, person: { select: { firstName: true } } } } },
     }),
-    prisma.schoolTask.findMany({
-      where: { householdId, status: "DONE", doneAt: { not: null } },
-      orderBy: { doneAt: "desc" },
-      take,
-      select: { id: true, doneAt: true, title: true },
-    }),
+    kidId
+      ? []
+      : prisma.schoolTask.findMany({
+          where: { householdId, status: "DONE", doneAt: { not: null } },
+          orderBy: { doneAt: "desc" },
+          take,
+          select: { id: true, doneAt: true, title: true },
+        }),
   ]);
   return [
     ...assignments.map((a) => ({
@@ -171,16 +182,17 @@ async function schoolCompletions(householdId: string, take: number): Promise<Act
 export async function getHouseholdActivity(
   householdId: string,
   limit = 20,
-  opts: { viewerIsAdult: boolean; disabledApps?: readonly string[] } = { viewerIsAdult: false },
+  opts: { viewerId: string; viewerIsAdult: boolean; disabledApps?: readonly string[] },
 ): Promise<ActivityEntry[]> {
   const disabled = opts.disabledApps ?? [];
+  const kidId = opts.viewerIsAdult ? null : opts.viewerId;
   const sources = await Promise.all([
-    choreAndMedCompletions(householdId, limit),
+    choreAndMedCompletions(householdId, limit, kidId),
     interactions(householdId, limit, opts.viewerIsAdult),
     vehicleServiceEntries(householdId, limit),
     vehicleFuelEntries(householdId, limit),
     purchases(householdId, limit),
-    schoolCompletions(householdId, limit),
+    schoolCompletions(householdId, limit, kidId),
   ]);
 
   return sources

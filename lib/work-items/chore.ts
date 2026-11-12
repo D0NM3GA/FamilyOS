@@ -1,5 +1,5 @@
 import { isAdult } from "@/lib/roles";
-import { canDoChore, canSkipChore, canUndoChore } from "@/lib/tasks/permissions";
+import { canDoChore, canDoChoreYet, canSkipChore, canUndoChore } from "@/lib/tasks/permissions";
 import { addDays, atMidnight } from "@/lib/tasks/schedule";
 import { dueLook, type PillLook, type StatusOption, type Viewer, type WorkItem } from "./types";
 
@@ -41,7 +41,7 @@ export function choreItem(
   };
 
   const pending: StatusOption<ChoreStatusValue>[] = [];
-  if (canDoChore(who, { assignedToId: i.assignedTo?.id ?? null }, true)) pending.push({ value: "DONE", label: "Done" });
+  if (canDoChore(who, { assignedToId: i.assignedTo?.id ?? null }, true) && canDoChoreYet(who, i.dueDate, opts.now)) pending.push({ value: "DONE", label: "Done" });
   if (opts.skippable && canSkipChore(who)) pending.push({ value: "SKIPPED", label: overdue ? "Missed" : "Skip" });
 
   // Done from here means done by the viewer, so they may undo it.

@@ -59,7 +59,7 @@ export async function removeHouseholdMember(personId: string) {
 export type HouseholdSettingsFormState = { error?: string; success?: boolean };
 
 const householdSettingsSchema = z.object({
-  name: z.string().trim().min(1, "Household name is required"),
+  name: z.string().trim().min(1, "Household name is required").max(100, "That name is too long"),
   timezone: z
     .string()
     .trim()

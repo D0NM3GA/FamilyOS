@@ -11,6 +11,7 @@ import { getBoardInstances, getPointsTally } from "@/lib/tasks/queries";
 import { getDailyForecast, type ForecastPeriod } from "@/lib/weather";
 import { weatherFlagFor } from "@/lib/chores/weather-flag";
 import { TaskInstanceCard } from "@/components/tasks/task-instance-card";
+import { canDoChoreYet } from "@/lib/tasks/permissions";
 import { toCardInstance } from "@/lib/tasks/card";
 import { choreItem } from "@/lib/work-items/chore";
 import { moveChoices, takenDays } from "@/lib/tasks/move";
@@ -240,6 +241,7 @@ export default async function ChoresPage({
               viewerId={profile.id}
               viewerIsAdult={viewerIsAdult}
               claimable
+              notYet={!canDoChoreYet({ adult: viewerIsAdult }, i.dueDate, today)}
               onComplete={completeInstance}
               onUndo={uncompleteInstance}
               onReassign={viewerIsAdult ? reassignInstance : undefined}

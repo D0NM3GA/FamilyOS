@@ -4,6 +4,8 @@
  * caller says whether the viewer is a grown-up.
  */
 
+import { addDays, atMidnight } from "./schedule";
+
 type Viewer = { id: string; adult: boolean };
 
 /**
@@ -12,6 +14,15 @@ type Viewer = { id: string; adult: boolean };
  */
 export function canDoChore(viewer: Viewer, i: { assignedToId: string | null }, claimable: boolean): boolean {
   return viewer.adult || i.assignedToId === viewer.id || (claimable && i.assignedToId === null);
+}
+
+/**
+ * How early a chore can be ticked (after the 2026-11-11 review): a grown-up any time, a kid from
+ * the day before it's due, so tomorrow's can be done tonight but two weeks of stickers can't be
+ * claimed (and spent) at once. On the household's clock, like the boards.
+ */
+export function canDoChoreYet(viewer: { adult: boolean }, dueDate: Date, now: Date = new Date()): boolean {
+  return viewer.adult || dueDate < addDays(atMidnight(now), 2);
 }
 
 /** A grown-up may undo anyone's; a kid only what they did themselves. */

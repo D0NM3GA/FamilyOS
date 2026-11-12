@@ -22,10 +22,10 @@ import { bulkSchema } from "@/lib/work-items/bulk-schema";
 export type TaskFormState = { error?: string };
 
 const taskFormSchema = z.object({
-  title: z.string().trim().min(1, "Title is required"),
-  notes: z.string().trim().optional(),
+  title: z.string().trim().min(1, "Title is required").max(200, "That title is too long"),
+  notes: z.string().trim().max(2000, "Notes can be up to 2,000 characters").optional(),
   frequencyType: z.enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY", "INTERVAL_DAYS", "DAYS_OF_WEEK"]),
-  interval: z.coerce.number().int().min(1).optional(),
+  interval: z.coerce.number().int().min(1).max(365, "At most every 365").optional(),
   daysOfWeek: z.array(z.coerce.number().int().min(0).max(6)),
   startDate: z
     .string()
@@ -34,7 +34,7 @@ const taskFormSchema = z.object({
       const [y, m, d] = v.split("-").map(Number);
       return new Date(y, m - 1, d);
     }),
-  points: z.coerce.number().int().min(0),
+  points: z.coerce.number().int().min(0).max(1000, "At most 1,000 points"),
   assignmentStrategy: z.enum(["FIXED", "ROUND_ROBIN", "LEAST_ASSIGNED"]),
   assigneeIds: z.array(z.string()).min(1, "Pick at least one person"),
   weatherSensitive: z.boolean(),

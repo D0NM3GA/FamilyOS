@@ -13,7 +13,7 @@ export const BULK_MAX = 30;
  */
 export const BULK_TIMEOUT_MS = 15_000;
 
-export type Reason = "not found" | "not allowed" | "already done" | "changed" | "can't move";
+export type Reason = "not found" | "not allowed" | "already done" | "changed" | "can't move" | "not yet";
 
 export type BulkResult = { done: number; skipped: number; reasons: Partial<Record<Reason, number>>; milestone?: number | null };
 
@@ -38,6 +38,7 @@ const REASON_WORDS: Record<Reason, string> = {
   "already done": "already that way",
   changed: "changed meanwhile",
   "can't move": "can't move there (a daily chore, or that day's taken)",
+  "not yet": "not due yet",
 };
 
 /** "Done 4, skipped 1 (already that way)". */

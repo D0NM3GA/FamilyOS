@@ -32,8 +32,8 @@ function plural(count: number, noun: string) {
  * definitions of "stale" that could drift. Home's own "Haven't talked in a while" card
  * calls the same function.
  */
-async function staleContactFact(householdId: string, excludeId: string): Promise<string | null> {
-  const [contact] = await staleContacts(householdId, { excludeId, limit: 1 });
+async function staleContactFact(householdId: string, excludeId: string, viewerIsAdult: boolean): Promise<string | null> {
+  const [contact] = await staleContacts(householdId, { excludeId, limit: 1, viewerIsAdult });
   return contact ? `Haven't heard from ${contact.firstName} in a while — maybe say hi?` : null;
 }
 
@@ -107,7 +107,7 @@ export async function getBunsonFacts(
   try {
     const [upcoming, staleFact, choreOverdue, medOverdue, vehicleBoards, schoolFormsDue, mine] = await Promise.all([
       upcomingImportantDates(householdId, UPCOMING_DATE_WINDOW_DAYS),
-      staleContactFact(householdId, viewerId),
+      staleContactFact(householdId, viewerId, !kid),
       on("chores") ? overdueTaskCount(householdId, "CHORE") : 0,
       on("meds") ? overdueTaskCount(householdId, "MED", kid ? viewerId : undefined) : 0,
       on("cars") ? getVehiclesWithStatus(householdId) : [],

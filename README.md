@@ -908,7 +908,7 @@ price.
 Privacy: the phone shrinks the photo (which also drops its location data) before sending it.
 FamilyOS never stores the photo; it deletes the service's copy of the result straight after
 reading (Microsoft otherwise keeps input and result for 24 hours). Only the prices you save
-are kept.
+are kept. A household can read up to 30 receipts an hour (each read is billed by Azure).
 
 ### Set it up (once, by an admin)
 

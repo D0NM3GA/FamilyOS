@@ -16,11 +16,11 @@ export type PersonFormState = { error?: string };
 // lib/active-profile.ts, never through this form (see prisma/schema.prisma's PersonRole
 // doc comment and docs/BUILD.md Phase 4.5).
 const personSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required"),
-  lastName: z.string().trim().optional(),
-  email: z.string().trim().email("Not a valid email").optional().or(z.literal("")),
-  phone: z.string().trim().optional(),
-  notes: z.string().trim().optional(),
+  firstName: z.string().trim().min(1, "First name is required").max(100, "That name is too long"),
+  lastName: z.string().trim().max(100, "That name is too long").optional(),
+  email: z.string().trim().max(254, "That email is too long").email("Not a valid email").optional().or(z.literal("")),
+  phone: z.string().trim().max(40, "That phone number is too long").optional(),
+  notes: z.string().trim().max(5000, "Notes can be up to 5,000 characters").optional(),
   notesAdultsOnly: z.boolean(),
   isHouseholdMember: z.boolean(),
   role: z.enum(["ADULT", "KID"]).optional(),

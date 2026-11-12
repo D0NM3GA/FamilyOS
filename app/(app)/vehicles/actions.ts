@@ -43,9 +43,9 @@ const MAX_FUEL_ODOMETER_JUMP = 2_000;
 const INACTIVE_VEHICLE_ERROR = "This vehicle is inactive — reactivate it from Manage to log anything new.";
 
 const vehicleSchema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
-  make: z.string().trim().optional(),
-  model: z.string().trim().optional(),
+  name: z.string().trim().min(1, "Name is required").max(100, "That name is too long"),
+  make: z.string().trim().max(60).optional(),
+  model: z.string().trim().max(60).optional(),
   // Next year's models are on sale already. Checked when saved, not when the server started.
   year: z.coerce.number().int().min(1900).refine((y) => y <= new Date().getFullYear() + 1, "That year hasn't come yet").optional(),
   currentMileage: z.coerce.number().int().min(0, "Mileage can't be negative").max(MAX_MILEAGE, "Enter a valid mileage"),
@@ -200,10 +200,10 @@ export async function updateOdometer(
 
 const itemSchema = z
   .object({
-    title: z.string().trim().min(1, "Title is required"),
-    notes: z.string().trim().optional(),
-    intervalMiles: z.coerce.number().int().min(1).optional(),
-    intervalMonths: z.coerce.number().int().min(1).optional(),
+    title: z.string().trim().min(1, "Title is required").max(200, "That title is too long"),
+    notes: z.string().trim().max(2000, "Notes can be up to 2,000 characters").optional(),
+    intervalMiles: z.coerce.number().int().min(1).max(1_000_000).optional(),
+    intervalMonths: z.coerce.number().int().min(1).max(240).optional(),
   })
   .refine((data) => data.intervalMiles != null || data.intervalMonths != null, {
     message: "Set a mileage interval, a time interval, or both",
@@ -367,7 +367,7 @@ export async function setMaintenanceItemActive(itemId: string, active: boolean) 
 const logSchema = z.object({
   doneAt: z.string().optional(),
   mileage: z.coerce.number().int().min(0).max(MAX_MILEAGE, "Enter a valid mileage").optional(),
-  notes: z.string().trim().optional(),
+  notes: z.string().trim().max(2000, "Notes can be up to 2,000 characters").optional(),
 });
 
 /**
@@ -589,7 +589,7 @@ const fuelSchema = z.object({
     .number("Enter how many gallons")
     .positive("Gallons must be more than 0")
     .max(500, "That's more gallons than any tank holds"),
-  notes: z.string().trim().optional(),
+  notes: z.string().trim().max(2000, "Notes can be up to 2,000 characters").optional(),
 });
 
 /**

@@ -123,7 +123,10 @@ describe.skipIf(!RUN)("money jars (database)", { timeout: 60_000 }, () => {
     expect((await prisma.finTransaction.findFirstOrThrow({ where: { accountId: account.id, externalId: "ofx:1" } })).state).toBe("DUPLICATE");
 
     const issue = await prisma.reconcileIssue.findFirstOrThrow({ where: { jarId: ids.jar, kind: "POSSIBLE_DUPLICATE" } });
-    expect(await resolveIssue(ids.jar, issue.id, "DIFFERENT")).toBe(true);
+    // Two members answering at once: only one answer counts.
+    const answers = await Promise.all([resolveIssue(ids.jar, issue.id, "DIFFERENT"), resolveIssue(ids.jar, issue.id, "SAME")]);
+    expect(answers.filter(Boolean)).toHaveLength(1);
+    expect((await prisma.reconcileIssue.findUniqueOrThrow({ where: { id: issue.id } })).resolution).toBe(answers[0] ? "DIFFERENT" : "SAME");
     // Asked once: re-importing doesn't ask again.
     await importRows(ids.jar, account.id, rows);
     expect(await prisma.reconcileIssue.count({ where: { jarId: ids.jar, kind: "POSSIBLE_DUPLICATE", resolvedAt: null } })).toBe(0);

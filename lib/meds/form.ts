@@ -14,10 +14,10 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
  */
 export const medFormSchema = z
   .object({
-  title: z.string().trim().min(1, "Title is required"),
-  notes: z.string().trim().optional(),
+  title: z.string().trim().min(1, "Title is required").max(200, "That title is too long"),
+  notes: z.string().trim().max(2000, "Notes can be up to 2,000 characters").optional(),
   frequencyType: z.enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY", "INTERVAL_DAYS", "DAYS_OF_WEEK", "AS_NEEDED"]),
-  interval: z.coerce.number().int().min(1).optional(),
+  interval: z.coerce.number().int().min(1).max(365, "At most every 365").optional(),
   daysOfWeek: z.array(z.coerce.number().int().min(0).max(6)),
   startDate: z
     .string()
@@ -26,7 +26,7 @@ export const medFormSchema = z
       const [y, m, d] = v.split("-").map(Number);
       return new Date(y, m - 1, d);
     }),
-  points: z.coerce.number().int().min(0),
+  points: z.coerce.number().int().min(0).max(1000, "At most 1,000 points"),
   // At least one, except for an as-needed medicine (refined below), which has none.
   timesOfDay: z.array(z.string().regex(TIME_RE, "Times must be HH:MM")),
   assigneeIds: z.array(z.string()).length(1, "Pick who this is for"),

@@ -44,6 +44,16 @@ export function nextAllowed(
   return from ? { ok: false, from, reason } : { ok: true };
 }
 
+/**
+ * Whether one more as-needed dose earns its stickers (after the 2026-11-11 review): as many a day
+ * as the medicine allows, or one a day when it has no daily maximum, so a medicine with points
+ * and no limits can't be tapped over and over for stickers. The dose itself is still logged.
+ */
+export function asNeededPays(takenAt: Date[], rules: AsNeededRules, now: Date): boolean {
+  const inDay = takenAt.filter((d) => d.getTime() > now.getTime() - DAY && d.getTime() <= now.getTime()).length;
+  return inDay < (rules.maxPerDay ?? 1);
+}
+
 /** "3:40 PM", or "Tue 3:40 PM" when it isn't today. Server time is the household's (lib/household-zone). */
 export function whenWords(at: Date, now: Date): string {
   const time = formatTimeOfDay(at);

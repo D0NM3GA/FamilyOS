@@ -192,12 +192,12 @@ export default async function HomePage() {
   const dinnerLoad = on("groceries") ? safe("Groceries", getTodaysDinner(profile.householdId), null) : Promise.resolve(null);
   const [upcomingDates, stale, choreBoard, medBoard, vehicleBoards, activity, schoolDue, schoolFeed, openOrders, , todayAgenda, members] = await Promise.all([
     safe("Dates", upcomingImportantDates(profile.householdId, 30), []),
-    safe("People", staleContacts(profile.householdId, { excludeId: profile.id, limit: 5 }), []),
+    safe("People", staleContacts(profile.householdId, { excludeId: profile.id, limit: 5, viewerIsAdult: isAdult(profile) }), []),
     on("chores") ? safe("Chores", getBoardInstances(profile.householdId, { horizonDays: 0, domain: "CHORE" }), emptyBoard(today)) : emptyBoard(today),
     // Phase 66a: a kid's Today card has only their own doses, as on Meds and Big Home.
     on("meds") ? safe("Meds", getBoardInstances(profile.householdId, { horizonDays: 0, domain: "MED", personId: isAdult(profile) ? undefined : profile.id }), emptyBoard(today)) : emptyBoard(today),
     on("cars") ? safe("Cars", getVehiclesWithStatus(profile.householdId), []) : [],
-    safe("Activity", getHouseholdActivity(profile.householdId, 8, { viewerIsAdult: isAdult(profile), disabledApps: disabled }), []),
+    safe("Activity", getHouseholdActivity(profile.householdId, 8, { viewerId: profile.id, viewerIsAdult: isAdult(profile), disabledApps: disabled }), []),
     on("school") ? safe("School", getSchoolDueSoon(profile, 7), []) : [],
     on("school") ? safe("School", getUpcomingSchoolEvents(profile, { days: 7, timeZone: homeZone }), []).then((events) => ({ events, zone: homeZone })) : { events: [], zone: homeZone },
     // Phase 20: grown-ups see the Sticker Store's open orders at the top of Home.
