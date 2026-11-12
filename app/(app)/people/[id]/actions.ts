@@ -164,7 +164,7 @@ export async function syncFromMicrosoft(personId: string): Promise<SyncState> {
 
 const importantDateSchema = z.object({
   type: z.enum(["BIRTHDAY", "ANNIVERSARY", "OTHER"]),
-  label: z.string().trim().optional(),
+  label: z.string().trim().max(100, "That label is too long").optional(),
   month: z.coerce.number().int().min(1).max(12),
   day: z.coerce.number().int().min(1).max(31),
   year: z.coerce.number().int().min(1900).max(2200).optional(),
