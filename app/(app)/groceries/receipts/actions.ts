@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireAdult } from "@/lib/authz";
 import { DocumentError, analyzeDocument } from "@/lib/documents/client";
 import { parseReceipt } from "@/lib/documents/receipt";
+import { takeRead } from "@/lib/documents/read-budget";
 import { captureError } from "@/lib/observability";
 import { prepareReceipt, saveReceiptPrices, type PreparedReceipt } from "@/lib/groceries/receipts";
 
@@ -36,6 +37,7 @@ export async function readReceipt(_prev: ReadState, formData: FormData): Promise
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!sniffImage(bytes)) return { status: "error", message: "That isn't a photo the receipt reader can read (JPEG or PNG)." };
+  if (!takeRead(profile.householdId)) return { status: "error", message: "That's a lot of receipts for one hour. Try again a little later." };
 
   try {
     const result = await analyzeDocument({ model: "prebuilt-receipt", bytes });
