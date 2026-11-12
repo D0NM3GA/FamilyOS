@@ -59,20 +59,24 @@ export async function askSwap(viewer: SwapViewer, input: { instanceId: string; t
   if (input.giveBackId && (!giveBack || !stillAsAsked(giveBack, to.id, giveBack.dueDate, today))) {
     return { ok: false, error: `Pick one of ${to.firstName}'s chores that's still to do, or none.` };
   }
-  const open = await prisma.choreSwap.count({ where: { instanceId: instance.id, status: "PENDING" } });
-  if (open > 0) return { ok: false, error: "You've already asked about that chore." };
-  await prisma.choreSwap.create({
-    data: {
-      householdId: viewer.householdId,
-      instanceId: instance.id,
-      dueDate: instance.dueDate,
-      fromId: viewer.id,
-      toId: to.id,
-      giveBackId: giveBack?.id ?? null,
-      giveBackDueDate: giveBack?.dueDate ?? null,
-    },
+  // The chore's row is locked while checking, so two quick taps can't both ask (2026-11-11 review).
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "task_instance" WHERE id = ${instance.id} FOR UPDATE`;
+    const open = await tx.choreSwap.count({ where: { instanceId: instance.id, status: "PENDING" } });
+    if (open > 0) return { ok: false, error: "You've already asked about that chore." } as const;
+    await tx.choreSwap.create({
+      data: {
+        householdId: viewer.householdId,
+        instanceId: instance.id,
+        dueDate: instance.dueDate,
+        fromId: viewer.id,
+        toId: to.id,
+        giveBackId: giveBack?.id ?? null,
+        giveBackDueDate: giveBack?.dueDate ?? null,
+      },
+    });
+    return { ok: true } as const;
   });
-  return { ok: true };
 }
 
 /** The asked kid accepts or declines. Accepting moves both chores, or says it lapsed. */

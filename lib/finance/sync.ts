@@ -501,7 +501,10 @@ export async function carryCategory(db: Tx, fromId: string, toId: string) {
 export async function resolveIssue(jarId: string, issueId: string, answer: "SAME" | "DIFFERENT" | "DISMISSED"): Promise<boolean> {
   const issue = await prisma.reconcileIssue.findFirst({ where: { id: issueId, jarId, resolvedAt: null } });
   if (!issue) return false;
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
+    // Claimed first, so two members answering at once can't both act on it (2026-11-11 review).
+    const { count } = await tx.reconcileIssue.updateMany({ where: { id: issue.id, resolvedAt: null }, data: { resolvedAt: new Date(), resolution: answer } });
+    if (count === 0) return false;
     if (answer === "SAME" && issue.kind === "POSSIBLE_DUPLICATE" && issue.txnId && issue.otherTxnId) {
       // txnId is the statement row, otherTxnId the bank feed's (the master).
       await tx.finTransaction.updateMany({ where: { id: issue.txnId, jarId, state: "ACTIVE" }, data: { state: "DUPLICATE", duplicateOfId: issue.otherTxnId } });
@@ -513,9 +516,8 @@ export async function resolveIssue(jarId: string, issueId: string, answer: "SAME
       });
     }
     if (answer === "DIFFERENT" && issue.txnId && issue.otherTxnId) await uncopyGift(tx, jarId, issue.txnId, issue.otherTxnId);
-    await tx.reconcileIssue.update({ where: { id: issue.id }, data: { resolvedAt: new Date(), resolution: answer } });
+    return true;
   });
-  return true;
 }
 
 /**
