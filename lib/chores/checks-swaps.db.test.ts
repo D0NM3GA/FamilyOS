@@ -68,15 +68,26 @@ describe.skipIf(!RUN)("chore checks and swaps (database)", { timeout: 60_000 }, 
     const a = await instance(ids.checked, ids.ivy, 2);
     expect((await prisma.$transaction((tx) => completeChore(tx, grownUp(), a.id))).waiting).toBeUndefined();
     expect(await ledger(a.id)).toBe(1);
-    const b = await instance(ids.plain, ids.ivy, 2);
+    // A kid's chore from yesterday (overdue) is theirs to tick.
+    const b = await instance(ids.plain, ids.ivy, -2);
     await prisma.$transaction((tx) => completeChore(tx, kid(ids.ivy), b.id));
     expect(await ledger(b.id)).toBe(1);
+  });
+
+  test("a kid can tick a chore from the day before it's due, never further ahead; a grown-up any time", async () => {
+    const { completeChore } = await import("@/lib/tasks/chore-cores");
+    const tomorrow = await instance(ids.plain, ids.ivy, 1);
+    const later = await instance(ids.plain, ids.ivy, 13);
+    expect((await prisma.$transaction((tx) => completeChore(tx, kid(ids.ivy), tomorrow.id))).ok).toBe(true);
+    expect(await prisma.$transaction((tx) => completeChore(tx, kid(ids.ivy), later.id))).toEqual({ ok: false, reason: "not yet" });
+    expect(await ledger(later.id)).toBe(0);
+    expect((await prisma.$transaction((tx) => completeChore(tx, grownUp(), later.id))).ok).toBe(true);
   });
 
   test("a waiting chore: bulk and a grown-up's skip refuse it; the check survives the flag going off; meds never wait", async () => {
     const { completeChore, checkChore, skipChore, uncompleteChore } = await import("@/lib/tasks/chore-cores");
     const { waitingForCheck } = await import("./checks");
-    const a = await instance(ids.checked, ids.ivy, 11);
+    const a = await instance(ids.checked, ids.ivy, -3);
     await prisma.$transaction((tx) => completeChore(tx, kid(ids.ivy), a.id));
     expect((await prisma.$transaction((tx) => skipChore(tx, grownUp(), a.id))).ok).toBe(false);
     expect((await prisma.$transaction((tx) => completeChore(tx, grownUp(), a.id))).ok).toBe(false);

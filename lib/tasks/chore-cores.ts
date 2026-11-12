@@ -1,7 +1,7 @@
 import type { Prisma } from "@/app/generated/prisma/client";
 import { recordEvent } from "@/lib/work-items/events";
 import { milestoneCrossed } from "./milestones";
-import { canDoChore, canSkipChore, canUndoChore } from "./permissions";
+import { canDoChore, canDoChoreYet, canSkipChore, canUndoChore } from "./permissions";
 import { skipInstance as skipTask, unskipInstance as unskipTask } from "./skip";
 
 /**
@@ -12,7 +12,7 @@ import { skipInstance as skipTask, unskipInstance as unskipTask } from "./skip";
 
 type Tx = Prisma.TransactionClient;
 export type ChoreViewer = { id: string; householdId: string; adult: boolean };
-export type CoreResult = { ok: true } | { ok: false; reason: "not found" | "not allowed" | "already done" | "changed" };
+export type CoreResult = { ok: true } | { ok: false; reason: "not found" | "not allowed" | "already done" | "changed" | "not yet" };
 
 const find = (tx: Tx, viewer: ChoreViewer, instanceId: string) =>
   tx.taskInstance.findFirst({
@@ -29,6 +29,7 @@ export async function completeChore(tx: Tx, viewer: ChoreViewer, instanceId: str
   if (!instance) return { ok: false, reason: "not found" };
   if (instance.status !== "PENDING") return { ok: false, reason: "already done" };
   if (!canDoChore(viewer, instance, true)) return { ok: false, reason: "not allowed" };
+  if (!canDoChoreYet(viewer, instance.dueDate)) return { ok: false, reason: "not yet" };
   // Phase 70c: a kid's tick on a chore a grown-up checks waits for the OK: done, but no completedAt
   // and no stickers yet (everything that pays or counts keys on completedAt).
   if (instance.definition.needsCheck && !viewer.adult) {
