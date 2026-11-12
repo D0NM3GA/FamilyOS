@@ -22,7 +22,14 @@ describe("plainCardText", () => {
     const out = plainCardText("Over budget: [Open](https://evil.example) ] (x)");
     expect(out).not.toMatch(/\]\s*\(/);
     expect(out).toContain("[Open]");
-    expect(out).toContain("https://evil.example");
+    expect(out.replaceAll("\u200B", "")).toContain("https://evil.example");
+  });
+
+  it("keeps bare web addresses from turning into links (2026-11-11 review)", () => {
+    const out = plainCardText("Jar https://evil.example and WWW.evil.example");
+    expect(out).not.toContain("://");
+    expect(out).not.toMatch(/www\./i);
+    expect(out.replaceAll("\u200B", "")).toBe("Jar https://evil.example and WWW.evil.example");
   });
 
   it("leaves ordinary titles alone and is used for the card title", () => {
