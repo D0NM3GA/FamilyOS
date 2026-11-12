@@ -102,6 +102,8 @@ export async function removeMember(jarId: string, personId: string): Promise<For
       // Phase 29: their order emails stop coming into a jar they're no longer in (the orders
       // already read stay: they're the jar's).
       await tx.mailOrderScan.updateMany({ where: { personId, jarId: jar.id }, data: { jarId: null, enabled: false } });
+      // The jar's alerts leave their bell too: the titles name its bills (2026-11-11 review).
+      await tx.notification.deleteMany({ where: { recipientId: personId, ...jarAlertsWhere(jar.id) } });
       const gone = await tx.person.findUnique({ where: { id: personId }, select: { firstName: true } });
       return { name: (gone?.firstName ?? "someone").slice(0, 60) };
     },
@@ -118,8 +120,16 @@ export async function removeMember(jarId: string, personId: string): Promise<For
 export async function deleteJar(jarId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const { jar } = await requireJar(jarId);
   if (String(formData.get("confirm") ?? "").trim() !== jar.name) return { error: `Type "${jar.name}" to delete this jar.` };
-  await prisma.moneyJar.delete({ where: { id: jar.id } });
+  await prisma.$transaction([
+    prisma.notification.deleteMany({ where: { householdId: jar.householdId, ...jarAlertsWhere(jar.id) } }),
+    prisma.moneyJar.delete({ where: { id: jar.id } }),
+  ]);
   redirect("/finances");
+}
+
+/** A jar's bell alerts, by where they link (lib/finance/alerts.ts): a notification has no jar column. */
+function jarAlertsWhere(jarId: string) {
+  return { OR: [{ href: `/finances/${jarId}` }, { href: { startsWith: `/finances/${jarId}/` } }, { href: { startsWith: `/finances/${jarId}?` } }] };
 }
 
 export async function connectSimpleFin(jarId: string, _prev: FormState, formData: FormData): Promise<FormState> {
