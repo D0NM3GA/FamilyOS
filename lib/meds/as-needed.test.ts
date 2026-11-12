@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { dosesLeft, nextAllowed, notYetWords } from "./as-needed";
+import { asNeededPays, dosesLeft, nextAllowed, notYetWords } from "./as-needed";
 import { firstOccurrenceOnOrAfter } from "@/lib/tasks/schedule";
 import { describeRecurrence } from "@/lib/tasks/format";
 import { medFormSchema } from "./form";
@@ -52,5 +52,21 @@ describe("as-needed medicines (Phase 65a)", () => {
     expect(medFormSchema.safeParse({ ...form, frequencyType: "DAILY" }).success).toBe(false);
     expect(medFormSchema.safeParse({ ...form, maxPerDay: "0" }).success).toBe(false);
     expect(medFormSchema.safeParse({ ...form, minGapHours: "0.25" }).success).toBe(false);
+  });
+});
+
+describe("as-needed stickers (2026-11-11 review)", () => {
+  const now = new Date(2026, 10, 11, 12);
+  const hoursAgo = (h: number) => new Date(now.getTime() - h * 3_600_000);
+  test("no daily maximum: one paid dose a day", () => {
+    const rules = { minGapHours: null, maxPerDay: null };
+    expect(asNeededPays([], rules, now)).toBe(true);
+    expect(asNeededPays([hoursAgo(1)], rules, now)).toBe(false);
+    expect(asNeededPays([hoursAgo(25)], rules, now)).toBe(true);
+  });
+  test("a daily maximum pays up to it", () => {
+    const rules = { minGapHours: 4, maxPerDay: 3 };
+    expect(asNeededPays([hoursAgo(5), hoursAgo(10)], rules, now)).toBe(true);
+    expect(asNeededPays([hoursAgo(5), hoursAgo(10), hoursAgo(15)], rules, now)).toBe(false);
   });
 });

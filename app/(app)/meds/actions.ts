@@ -12,7 +12,7 @@ import { doseConsumption } from "@/lib/meds/quantity";
 import { addToStock, takeStock } from "@/lib/meds/stock";
 import { isMedLow } from "@/lib/reminders/supply";
 import { canTakeYet } from "@/lib/meds/dose-window";
-import { nextAllowed, notYetWords, whenWords } from "@/lib/meds/as-needed";
+import { asNeededPays, nextAllowed, notYetWords, whenWords } from "@/lib/meds/as-needed";
 import { searchRxTerms } from "@/lib/meds/rxterms";
 import { courseEnd, medFormSchema } from "@/lib/meds/form";
 import { requestItemByName } from "@/lib/shopping-list";
@@ -415,14 +415,17 @@ export async function takeAsNeeded(definitionId: string): Promise<DoseState> {
       where: { definitionId: definition.id, status: "DONE", completedAt: { gt: new Date(now.getTime() - 24 * 3_600_000 - Math.max(0, (rules.minGapHours ?? 0) - 24) * 3_600_000) } },
       select: { completedAt: true },
     });
-    const next = nextAllowed(recent.map((r) => r.completedAt!), rules, now);
+    const takenAt = recent.map((r) => r.completedAt!);
+    const next = nextAllowed(takenAt, rules, now);
     if (!next.ok) return { error: notYetWords(next, rules, now) };
     const fresh = medication ? await tx.medication.findUnique({ where: { id: medication.id } }) : null;
     const consumed = doseConsumption(fresh?.quantityOnHand ?? null, fresh?.doseAmount ?? null);
     const dose = await tx.taskInstance.create({
       data: { definitionId: definition.id, dueDate: now, assignedToId: forId, status: "DONE", completedAt: now, completedById: profile.id },
     });
-    await tx.pointsLedger.create({ data: { personId: forId ?? profile.id, delta: definition.points, reason: definition.title, instanceId: dose.id } });
+    if (definition.points && asNeededPays(takenAt, rules, now)) {
+      await tx.pointsLedger.create({ data: { personId: forId ?? profile.id, delta: definition.points, reason: definition.title, instanceId: dose.id } });
+    }
     let needsRefill = false;
     if (consumed != null && medication) {
       const stock = await takeStock(tx, medication.id, consumed);
